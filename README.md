@@ -84,6 +84,8 @@ npm start
 
 Then open <http://localhost:8080>.
 
+`npm start` listens on loopback only by default; use `HOST=0.0.0.0 npm start` to expose it on the LAN.
+
 This repository is generated from Condui's private development repository. Generated Community
 snapshots contain only the source and assets required by the local edition.
 

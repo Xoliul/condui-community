@@ -8,6 +8,11 @@ const require = createRequire(import.meta.url)
 const communityRoot = fileURLToPath(new URL('.', import.meta.url))
 const distRoot = normalize(join(communityRoot, '..', 'dist'))
 const port = Number.parseInt(process.env.PORT ?? '8080', 10)
+const host = process.env.HOST ?? '127.0.0.1'
+if (!host) {
+  console.error('HOST must not be empty (use 127.0.0.1, localhost, 0.0.0.0, or an explicit IP).')
+  process.exit(1)
+}
 
 const conversionHandlers = new Map([
   ['/api/convert-pdf', '../netlify/functions-offline/convert-pdf.cjs'],
@@ -135,6 +140,6 @@ const server = createServer(async (request, response) => {
   serveFile(response, join(distRoot, 'index.html'))
 })
 
-server.listen(port, '0.0.0.0', () => {
-  console.log(`Condui Community listening on http://0.0.0.0:${port}`)
+server.listen(port, host, () => {
+  console.log(`Condui Community listening on http://${host}:${port}`)
 })
