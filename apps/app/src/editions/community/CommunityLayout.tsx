@@ -52,6 +52,7 @@ import {
   renderBrotherLbxPreviewSvg,
 } from '@/lib/export/brotherLbxExport'
 import { logger } from '@/lib/logger'
+import { buildTimestampedExportFilename } from '@/lib/export/exportFilename'
 
 export default function CommunityLayout({ demoMode = false }: { demoMode?: boolean }) {
   const { t } = useTranslation()
@@ -122,7 +123,10 @@ export default function CommunityLayout({ demoMode = false }: { demoMode?: boole
     setMenuOpen(false)
     await saveCurrentProject()
     const blob = await exportCommunityProject(useProjectStore.getState().currentProject!)
-    downloadCommunityBlob(blob, `${project.project.name || 'project'}.zip`)
+    downloadCommunityBlob(
+      blob,
+      buildTimestampedExportFilename(project.project.name, 'zip'),
+    )
   }
 
   const openSettings = () => {

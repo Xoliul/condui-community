@@ -36,8 +36,14 @@ function FloorSelectionDialog({
   onCancel,
 }: FloorSelectionDialogProps) {
   const { t } = useTranslation()
-  const { currentProject, addFloor, updateFloor, deleteFloor, reorderFloors, togglePlanFloorOverlayFloor } =
-    useProjectStore()
+  const currentProject = useProjectStore((s: ProjectState) => s.currentProject)
+  const addFloor = useProjectStore((s: ProjectState) => s.addFloor)
+  const updateFloor = useProjectStore((s: ProjectState) => s.updateFloor)
+  const deleteFloor = useProjectStore((s: ProjectState) => s.deleteFloor)
+  const reorderFloors = useProjectStore((s: ProjectState) => s.reorderFloors)
+  const togglePlanFloorOverlayFloor = useProjectStore(
+    (s: ProjectState) => s.togglePlanFloorOverlayFloor
+  )
   const overlayByBase = useProjectStore((s: ProjectState) => s.planFloorOverlayVisibleByBaseFloorId)
   const openDialog = useDialogStore((s: ReturnType<typeof useDialogStore.getState>) => s.openDialog)
   const floors = currentProject ? readLegacyCompatibilityFloors(currentProject) : []

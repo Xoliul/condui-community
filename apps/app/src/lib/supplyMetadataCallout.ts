@@ -132,14 +132,14 @@ export function getSupplyMetadataCalloutClusters(
 export function getSupplyMetadataCalloutPlacementKind({
   symbol,
   peerCount,
-  stackVertically = false,
+  stackVertically,
 }: {
   symbol?: string
   peerCount: number
   stackVertically?: boolean
 }): SupplyMetadataCalloutPlacementKind {
-  if (stackVertically) return 'top'
-  return symbol === 'inverter' && peerCount > 1 ? 'upper-left' : 'top'
+  if (symbol === 'inverter' && peerCount > 1 && !stackVertically) return 'upper-left'
+  return 'top'
 }
 
 const CALLOUT_WIRE_CLEARANCE = 6
@@ -420,39 +420,57 @@ export function getSupplyMetadataCalloutGroupPlacements({
   })
 
   if (stackVertically && basePlacements.length > 1) {
-    const ordered = [...basePlacements]
-    const stackWidth = Math.max(...ordered.map((entry) => entry.item.width))
-    const stackLeft = preferRightNudges
-      ? Math.max(...ordered.map((entry) => entry.item.symbolPosition.x)) + 30
-      : Math.min(...ordered.map((entry) => entry.item.symbolPosition.x)) - 30 - stackWidth
-    const stackGap = CALLOUT_COLLISION_GAP
-    const totalHeight =
-      ordered.reduce((total, entry) => total + entry.item.height, 0) +
-      stackGap * (ordered.length - 1)
-    const preferredBottom =
-      (stackBelowY ?? Math.min(...ordered.map((entry) => entry.rect.bottom + totalHeight))) -
-      CALLOUT_COLLISION_GAP
-    let nextTop = preferredBottom - totalHeight
-
-    ordered.forEach((entry) => {
-      entry.relativePlacement = {
-        x: stackLeft - entry.item.symbolPosition.x,
-        y: nextTop - entry.item.symbolPosition.y,
+    // Keep every card on the same side of the bus with a shared left edge.
+    const ordered = [...basePlacements].sort(
+      (left, right) =>
+        right.item.symbolPosition.y - left.item.symbolPosition.y ||
+        left.item.symbolPosition.x - right.item.symbolPosition.x ||
+        left.item.id.localeCompare(right.item.id)
+    )
+    if (ordered.length === 1) {
+      const [entry] = ordered
+      if (entry) {
+        placed.set(entry.item.id, {
+          ...entry.item,
+          x: entry.relativePlacement.x,
+          y: entry.relativePlacement.y,
+          rect: entry.rect,
+        })
       }
-      entry.rect = getCalloutRect(
-        entry.item.symbolPosition,
-        entry.relativePlacement,
-        entry.item.width,
-        entry.item.height
-      )
-      nextTop += entry.item.height + stackGap
-      placed.set(entry.item.id, {
-        ...entry.item,
-        x: entry.relativePlacement.x,
-        y: entry.relativePlacement.y,
-        rect: entry.rect,
+    } else if (ordered.length > 1) {
+      const stackWidth = Math.max(...ordered.map((entry) => entry.item.width))
+      const stackLeft = preferRightNudges
+        ? Math.max(...ordered.map((entry) => entry.item.symbolPosition.x)) + 30
+        : Math.min(...ordered.map((entry) => entry.item.symbolPosition.x)) - 30 - stackWidth
+      const stackGap = CALLOUT_COLLISION_GAP
+      const totalHeight =
+        ordered.reduce((total, entry) => total + entry.item.height, 0) +
+        stackGap * (ordered.length - 1)
+      const preferredBottom =
+        (stackBelowY ?? Math.min(...ordered.map((entry) => entry.rect.bottom + totalHeight))) -
+        CALLOUT_COLLISION_GAP
+      let nextTop = preferredBottom - totalHeight
+
+      ordered.forEach((entry) => {
+        entry.relativePlacement = {
+          x: stackLeft - entry.item.symbolPosition.x,
+          y: nextTop - entry.item.symbolPosition.y,
+        }
+        entry.rect = getCalloutRect(
+          entry.item.symbolPosition,
+          entry.relativePlacement,
+          entry.item.width,
+          entry.item.height
+        )
+        nextTop += entry.item.height + stackGap
+        placed.set(entry.item.id, {
+          ...entry.item,
+          x: entry.relativePlacement.x,
+          y: entry.relativePlacement.y,
+          rect: entry.rect,
+        })
       })
-    })
+    }
   } else {
     groups.forEach((group) => {
       const ordered = [...group].sort((left, right) => left.rect.left - right.rect.left)

@@ -3,7 +3,7 @@
  * Rotating switches and SPDs can be placed like protection devices but do not
  * satisfy generic circuit-protection requirements in validation or hardware tallies.
  */
-import type { ProtectionType, SymbolKey, TrunkDevice } from '@/types/schema'
+import type { ProtectionDevice, ProtectionType, SymbolKey, TrunkDevice } from '@/types/schema'
 
 export const ROTATING_SWITCH_SYMBOL_ID = 'rotating_switch' as const
 
@@ -55,6 +55,31 @@ export function protectionTypeToSymbolKey(pt: ProtectionType): SymbolKey | undef
 /** True when the protection type participates in AREI validation as a protective device. */
 export function isFunctionalProtectionType(type: ProtectionType | undefined): boolean {
   return type != null && type !== 'ROTATING_SWITCH' && type !== 'SPD'
+}
+
+/** Protection types that can limit fault current through an overcurrent trip. */
+export function isOvercurrentProtectionType(type: ProtectionType | undefined): boolean {
+  return type === 'MCB' || type === 'RCBO' || type === 'FUSE'
+}
+
+/**
+ * Whether a protection is only an intermediate carrier for downstream protections.
+ *
+ * An RCD's ampere marking is a continuous-current rating, not an overcurrent trip
+ * threshold. An RCBO can be an intermediate carrier too when it feeds a subpanel or
+ * a container circuit; its rating may narrow the effective upstream limit, but a
+ * higher rating must not widen that limit.
+ */
+export function isIntermediateProtectionDevice(
+  protection: Pick<ProtectionDevice, 'type' | 'subPanelId' | 'circuits'>,
+): boolean {
+  if (protection.type === 'RCD') return true
+  if (protection.type !== 'RCBO') return false
+  if (protection.subPanelId) return true
+  return (protection.circuits ?? []).some(
+    (circuit) =>
+      (circuit.subCircuitIds?.length ?? 0) > 0 && (circuit.endpoints?.length ?? 0) === 0,
+  )
 }
 
 /** True for protection symbols that are add-ons on an existing circuit trunk. */

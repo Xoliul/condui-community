@@ -82,15 +82,20 @@ function ScaleRulerCanvas({
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- only on mount when initialReference is used by parent
 
-  // Handle mouse events on the stage – accept any click (image or empty) and convert to canvas coords
+  // Handle placement from the canvas DOM in capture phase. Plan elements may cancel Konva's
+  // bubbling mousedown event, but scale adjustment must still receive the second point click.
   useEffect(() => {
     const stage = groupRef.current?.getStage()
     if (!stage) return
 
-    const handleMouseDown = (_e: Konva.KonvaEventObject<MouseEvent>) => {
-      if (!isScaleRulerPlacementButton(_e.evt.button)) return
+    const handleMouseDown = (event: MouseEvent) => {
+      if (!isScaleRulerPlacementButton(event.button)) return
+      stage.setPointersPositions(event)
       const canvasPoint = pointerToCanvas(stage)
       if (!canvasPoint) return
+
+      const hitShape = stage.getIntersection(stage.getPointerPosition() ?? canvasPoint)
+      if (startPoint && endPoint && isNodeInsideGroup(hitShape, groupRef.current)) return
 
       if (!startPoint) {
         setStartPoint(canvasPoint)
@@ -100,13 +105,17 @@ function ScaleRulerCanvas({
         setEndPoint(canvasPoint)
         setCurrentPoint(null)
         onPointsReady?.(startPoint, canvasPoint, meters)
-      } else if (!isNodeInsideGroup(_e.target, groupRef.current)) {
+      } else {
         // Clicking away from an existing ruler starts a replacement. This also
         // recovers legacy references whose handles were saved outside the plan.
         setStartPoint(canvasPoint)
         setEndPoint(null)
         setCurrentPoint(canvasPoint)
       }
+
+      // Prevent BaseCanvas and plan elements from treating this placement as a
+      // pan, selection, or another plan interaction.
+      event.stopPropagation()
     }
 
     const handleMouseMove = (_e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -116,11 +125,12 @@ function ScaleRulerCanvas({
       setCurrentPoint(canvasPoint)
     }
 
-    stage.on('mousedown', handleMouseDown)
+    const content = stage.getContent()
+    content.addEventListener('mousedown', handleMouseDown, true)
     stage.on('mousemove', handleMouseMove)
 
     return () => {
-      stage.off('mousedown', handleMouseDown)
+      content.removeEventListener('mousedown', handleMouseDown, true)
       stage.off('mousemove', handleMouseMove)
     }
   }, [startPoint, endPoint, onPointsReady, meters])

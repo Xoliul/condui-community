@@ -834,6 +834,11 @@ function checkEendraadOrphans(context: CheckContext, _params?: Record<string, un
           busSectionCount: opts.busSectionCount,
           defaultValue: `Panel "{{panelName}}" has {{busSectionCount}} bus sections but no connected backup supply. Merge it back onto one grid feed.`,
         }),
+      supplyAssemblyHandoffTargetMissing: (opts) =>
+        i18n.t('validation.orphanDetection.supplyAssemblyHandoffTargetMissing', {
+          missingCircuitId: opts.missingCircuitId,
+          defaultValue: `Supply handoff references missing circuit {{missingCircuitId}}.`,
+        }),
     }
   )
 }

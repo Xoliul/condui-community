@@ -948,6 +948,9 @@
     "panelAndPlan": "Tableau + Plan"
   },
   "structure": {
+    "traceHidden": "{{count}} étapes masquées",
+    "traceBranches": "{{count}} branches conductrices",
+    "traceCycle": "Cycle détecté",
     "noStructure": "Aucune structure électrique",
     "noFilterResults": "Aucun résultat pour les filtres actuels",
     "buildFailed": "La structure n’a pas pu être construite",
@@ -987,6 +990,10 @@
     "sourceType": "Type de source",
     "sourceId": "ID source",
     "projectedReadOnly": "Élément de vue projeté · lecture seule",
+    "wire": "Fil",
+    "busbar": "Barre",
+    "busbarBars": "{{count}} barres",
+    "wireConductors": "{{count}} conducteurs",
     "resetView": "Réinitialiser la vue structurelle",
     "filtersActive": "filtres actifs",
     "alternativePaths_one": "{{count}} chemin alternatif",
@@ -1710,6 +1717,7 @@
       "supplyTrunkMisplacedInMainGrid": "L'élément d'alimentation « {{label}} » est placé sur la grille principale (ligne {{row}}, colonne {{col}}) mais doit être uniquement dans la bande d'alimentation — le canevas et le schéma unifilaire sont incohérents.",
       "supplyTrunkVisualPlacementMissing": "L'élément d'alimentation « {{label}} » existe dans la topologie d'alimentation mais n'a aucun emplacement accessible sur le canevas du tableau.",
       "splitBusWithoutBackupSupply": "Le tableau « {{panelName}} » possède {{busSectionCount}} sections de jeu de barres, mais aucune alimentation de secours raccordée. Regroupez-les sur une seule alimentation réseau.",
+      "supplyAssemblyHandoffTargetMissing": "Le raccordement d'alimentation référence le circuit manquant {{missingCircuitId}}.",
       "branchMultiplierEndpointsSplit": "Circuit {{circuitCode}} : la dérivation « {{branchLabel}} » contient {{absorbCount}} symbole(s) multiplicateur(s) en trop comme points séparés ; fusionnez en un seul point avec plusieurs placements. Utilisez Réparer dans l’inspecteur d’orphelins."
     },
     "primitives": {
@@ -2198,6 +2206,7 @@
     "csvDetails": "Détails"
   },
   "wires": {
+    "multipleConnections": "Segment partagé. Sélectionnez une connexion individuelle pour modifier son fil.",
     "title": "Propriétés du fil",
     "phase": "Phase",
     "phaseAll": "Toutes les phases",

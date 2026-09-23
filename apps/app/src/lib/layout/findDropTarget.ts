@@ -624,6 +624,20 @@ function findExplicitDropHintTargetInPanel(
   return best.current?.target ?? null
 }
 
+function findPanelFeedStubSlotInPanel(
+  panelNode: LayoutNode,
+  position: Point,
+  ctx: WalkContext
+): { node: LayoutNode; target: DropTarget } | null {
+  const bus = panelNode.children.find((node) => node.type === 'busBar')
+  const slot = bus?.children.find((node) =>
+    node.id.startsWith('supply-wire-feed-stub-') &&
+    node.hitZone?.type === 'supplyWire' &&
+    isPointInCore(node, position)
+  )
+  return slot ? { node: slot, target: buildDropTarget(slot, ctx, position) } : null
+}
+
 // ─── Main entry point ────────────────────────────────────────────────────────
 
 /**
@@ -643,6 +657,8 @@ export function findDropTarget(
   const ctx: WalkContext = { panelId: panelNode.domainId, diagramId: panelNode.diagramId }
   const explicitDropHint = findExplicitDropHintTargetInPanel(panelNode, position, ctx)
   if (explicitDropHint) return explicitDropHint
+  const feedStubSlot = findPanelFeedStubSlotInPanel(panelNode, position, ctx)
+  if (feedStubSlot) return feedStubSlot.target
   const directChangeoverSlot = findDirectConverterChangeoverSlotInPanel(
     panelNode,
     position,
@@ -765,6 +781,17 @@ export function findDropTargetWithDebug(
   }
 
   const ctx: WalkContext = { panelId: panelNode.domainId, diagramId: panelNode.diagramId }
+  const feedStubSlot = findPanelFeedStubSlotInPanel(panelNode, position, ctx)
+  if (feedStubSlot) {
+    debugPath.push({
+      nodeId: feedStubSlot.node.id,
+      nodeType: feedStubSlot.node.type,
+      hitZoneType: 'supplyWire',
+      inBounds: true,
+      matched: true,
+    })
+    return { target: feedStubSlot.target, debug: { panelId: panelNode.domainId, path: debugPath } }
+  }
   if (options?.preferSecondaryBusForNestedProtection) {
     const pendingSecondaryBus = findPendingSecondaryBusDropInPanel(panelNode, position, ctx)
     if (pendingSecondaryBus) {
@@ -1673,6 +1700,7 @@ function buildDropTarget(node: LayoutNode, ctx: WalkContext, position?: Point): 
   ) {
     target.supplyFeedScope = node.hitZone?.supplyFeedScope
     target.supplyPanelInput = node.hitZone?.supplyPanelInput
+    target.busSectionId = node.hitZone?.busSectionId
     target.supplyConverterDcBranch = node.hitZone?.supplyConverterDcBranch
     target.supplyConverterDcConnectionIndex = node.hitZone?.supplyConverterDcConnectionIndex
     target.supplyDcBusId = node.hitZone?.supplyDcBusId
@@ -1681,9 +1709,10 @@ function buildDropTarget(node: LayoutNode, ctx: WalkContext, position?: Point): 
     target.changeoverGridPlacement = node.hitZone?.changeoverGridPlacement
     target.supplyConverterChangeoverSlot = node.hitZone?.supplyConverterChangeoverSlot
     if (node.type === 'trunkDevice' && typeof node.hitZone?.supplyInsertIndex === 'number') {
-      target.supplyDeviceInsertIndex = isVerticalSupplyDevice(
+      const isVerticalStub = node.id.includes('--feed-stub-') || isVerticalSupplyDevice(
         node.domainRef as import('@/types/schema').TrunkDevice
       )
+      target.supplyDeviceInsertIndex = isVerticalStub
         ? position.y < node.bounds.y
           ? node.hitZone.supplyInsertIndex + 1
           : node.hitZone.supplyInsertIndex

@@ -948,6 +948,9 @@
     "panelAndPlan": "Distribution board + Plan"
   },
   "structure": {
+    "traceHidden": "{{count}} hidden steps",
+    "traceBranches": "{{count}} conductive branches",
+    "traceCycle": "Cycle detected",
     "noStructure": "No electrical structure",
     "noFilterResults": "No results for current filters",
     "buildFailed": "Structure could not be built",
@@ -987,6 +990,10 @@
     "sourceType": "Source type",
     "sourceId": "Source ID",
     "projectedReadOnly": "Projected view item · read-only",
+    "wire": "Wire",
+    "busbar": "Busbar",
+    "busbarBars": "{{count}} bars",
+    "wireConductors": "{{count}} conductors",
     "resetView": "Reset Structural view",
     "filtersActive": "filters active",
     "alternativePaths_one": "{{count}} alternative path",
@@ -1719,6 +1726,7 @@
       "supplyTrunkMisplacedInMainGrid": "Supply device \"{{label}}\" is placed on the main panel grid (row {{row}}, column {{col}}) but must live in the supply strip only — panel canvas and one-line supply chain disagree.",
       "supplyTrunkVisualPlacementMissing": "Supply device \"{{label}}\" exists in the supply topology but has no reachable panel-canvas placement.",
       "splitBusWithoutBackupSupply": "Panel \"{{panelName}}\" has {{busSectionCount}} bus sections but no connected backup supply. Merge it back onto one grid feed.",
+      "supplyAssemblyHandoffTargetMissing": "Supply handoff references missing circuit {{missingCircuitId}}.",
       "branchMultiplierEndpointsSplit": "Circuit {{circuitCode}}: branch \"{{branchLabel}}\" lists {{absorbCount}} extra multiplier symbol(s) (e.g. lights) as separate endpoints; they should be one endpoint with multiple plan placements. Use Repair in the Orphan Inspector."
     },
     "primitives": {
@@ -2216,6 +2224,7 @@
     "csvDetails": "Details"
   },
   "wires": {
+    "multipleConnections": "Shared segment. Select an individual connection to edit its wire.",
     "title": "Wire Properties",
     "phase": "Phase",
     "phaseAll": "All phases",

@@ -1,3 +1,4 @@
+import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import { calculateBottomUpLayout, type BottomUpLayoutResult } from './bottomUpLayout'
 import {
   buildLayoutTree,
@@ -293,8 +294,7 @@ export function getCachedEendraadWireSegments(
   const electrical = project.disciplines?.electrical
   const installation = getProjectElectricalInstallation(project)
   if (!installation) return []
-  const auxiliaryEnclosures = electrical?.auxiliaryEnclosures
-  const auxiliaryEnclosuresCacheKey = auxiliaryEnclosures ?? electrical ?? installation
+  const auxiliaryEnclosuresCacheKey = electrical ?? installation
   const enclosureCache = getOrCreateWeakMap(wireCache, layoutTree, () => new WeakMap())
   const cached = enclosureCache.get(auxiliaryEnclosuresCacheKey)
   if (cached) return cached
@@ -305,7 +305,8 @@ export function getCachedEendraadWireSegments(
     getProjectElectricalPanels(project),
     installation,
     selectProjectSupplyAssemblies(project),
-    (deviceId) => resolveSupplyDeviceMounting(project, deviceId)
+    (deviceId) => resolveSupplyDeviceMounting(project, deviceId),
+    selectProjectWireRuns(project)
   )
   const previousByTopology = new Map<string, WireSegment[]>()
   const projectKey = projectCacheKey(project)

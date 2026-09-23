@@ -1,3 +1,4 @@
+import { CanonicalWireProperties } from './editors/CanonicalWireProperties'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
@@ -418,7 +419,14 @@ export default function PropertiesPanel({
         ) : null}
         {(selection.type === 'structuralNode' || selection.type === 'structuralConnection') &&
         selection.structuralMetadata ? (
-          <StructuralReadOnlyProperties metadata={selection.structuralMetadata} />
+          selection.wireAnchor && selection.structuralMetadata.wire?.cable ? (
+            <CanonicalWireProperties
+              anchor={selection.wireAnchor}
+              cable={selection.structuralMetadata.wire.cable}
+              domain={selection.structuralMetadata.wire.domain}
+              defaults={{ defaultWireLabelVisible: !selection.wireAnchor.includes(':into:open-end:') }}
+            />
+          ) : <StructuralReadOnlyProperties metadata={selection.structuralMetadata} />
         ) : null}
       </>
     )

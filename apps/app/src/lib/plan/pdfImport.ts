@@ -102,11 +102,31 @@ export function mapPreviewCropToPageCrop(
   }
 }
 
+/** Convert a crop stored in PDF page coordinates into pixels of a rendered image. */
+export function mapPageCropToImageCrop(
+  crop: PdfImportCropBox,
+  pageSize: { width: number; height: number },
+  imageSize: { width: number; height: number },
+): PdfImportCropBox {
+  const scaleX = imageSize.width / pageSize.width
+  const scaleY = imageSize.height / pageSize.height
+  return {
+    x: crop.x * scaleX,
+    y: crop.y * scaleY,
+    width: crop.width * scaleX,
+    height: crop.height * scaleY,
+  }
+}
+
 const DEFAULT_PREVIEW_SCALE = 0.2
 const DEFAULT_RASTER_SCALE = 2
 const DEFAULT_MAX_PAGES = 20
 const MAX_VECTOR_SVG_LENGTH = 12_000_000
 const FORCE_FONT_FAMILY = import.meta.env?.VITE_PDF_CONVERT_FORCE_FONT_FAMILY || 'Arial, sans-serif'
+
+// Keep PDF imports consistent between local and hosted builds. The optional
+// server/vector path is local-only until it moves to a dedicated lightweight service.
+const ENABLE_PDF_VECTOR_CONVERSION = false
 
 interface PdfViewportLike {
   width: number
@@ -130,7 +150,11 @@ interface PdfPageProxyLike {
   commonObjs: unknown
   objs: unknown
   getViewport(options: { scale: number }): PdfViewportLike
-  render(options: { canvasContext: CanvasRenderingContext2D; viewport: PdfViewportLike }): PdfRenderTaskLike
+  render(options: {
+    canvasContext: CanvasRenderingContext2D
+    viewport: PdfViewportLike
+    background?: string
+  }): PdfRenderTaskLike
   getOperatorList(options: {
     intent: 'display'
     renderInteractiveForms: boolean
@@ -193,7 +217,8 @@ async function renderPageToDataUrl(page: PdfPageProxyLike, scale: number): Promi
   canvas.height = Math.ceil(viewport.height)
   const context = canvas.getContext('2d')
   if (!context) throw new Error('Failed to create canvas context')
-  await page.render({ canvasContext: context, viewport }).promise
+  context.clearRect(0, 0, canvas.width, canvas.height)
+  await page.render({ canvasContext: context, viewport, background: 'transparent' }).promise
   return canvas.toDataURL('image/png')
 }
 
@@ -411,37 +436,40 @@ export async function parsePdfFile(file: File, options: ParsePdfOptions = {}): P
     const height = viewport.height
     const previewDataUrl = await renderPageToDataUrl(page, previewScale)
     const rasterDataUrl = await renderPageToDataUrl(page, rasterScale)
-    let vectorResult = await convertPdfPageViaBackend(file, i - 1)
-    if (vectorResult.warning) {
-      logger.warn('[pdfImport] backend vector extraction warning', {
-        file: file.name,
-        pageIndex: i - 1,
-        warning: vectorResult.warning,
-        errorCode: vectorResult.errorCode,
-        retriable: vectorResult.retriable,
-      })
-    }
-    const shouldAttemptLocalFallback = !vectorResult.svg
-    if (shouldAttemptLocalFallback) {
-      // Always try local svg extraction when backend did not return vector output.
-      // This keeps vector import resilient when optional backend/native deps are missing.
-      const backendWarning = vectorResult.warning
-      const fallbackResult = await renderPageToSvg(page, width, height)
-      logger.info('[pdfImport] attempting local vector fallback', {
-        file: file.name,
-        pageIndex: i - 1,
-        backendErrorCode: vectorResult.errorCode,
-        backendWarning,
-        fallbackHasSvg: !!fallbackResult.svg,
-        fallbackWarning: fallbackResult.warning,
-      })
-      const fallbackWarnings = [
-        ...(backendWarning ? [backendWarning] : []),
-        ...(fallbackResult.warning ? [fallbackResult.warning] : []),
-      ]
-      vectorResult = {
-        ...fallbackResult,
-        warning: fallbackWarnings.length > 0 ? fallbackWarnings.join(' ') : undefined,
+    let vectorResult: Awaited<ReturnType<typeof convertPdfPageViaBackend>> = {}
+    if (ENABLE_PDF_VECTOR_CONVERSION) {
+      vectorResult = await convertPdfPageViaBackend(file, i - 1)
+      if (vectorResult.warning) {
+        logger.warn('[pdfImport] backend vector extraction warning', {
+          file: file.name,
+          pageIndex: i - 1,
+          warning: vectorResult.warning,
+          errorCode: vectorResult.errorCode,
+          retriable: vectorResult.retriable,
+        })
+      }
+      const shouldAttemptLocalFallback = !vectorResult.svg
+      if (shouldAttemptLocalFallback) {
+        // Always try local svg extraction when backend did not return vector output.
+        // This keeps vector import resilient when optional backend/native deps are missing.
+        const backendWarning = vectorResult.warning
+        const fallbackResult = await renderPageToSvg(page, width, height)
+        logger.info('[pdfImport] attempting local vector fallback', {
+          file: file.name,
+          pageIndex: i - 1,
+          backendErrorCode: vectorResult.errorCode,
+          backendWarning,
+          fallbackHasSvg: !!fallbackResult.svg,
+          fallbackWarning: fallbackResult.warning,
+        })
+        const fallbackWarnings = [
+          ...(backendWarning ? [backendWarning] : []),
+          ...(fallbackResult.warning ? [fallbackResult.warning] : []),
+        ]
+        vectorResult = {
+          ...fallbackResult,
+          warning: fallbackWarnings.length > 0 ? fallbackWarnings.join(' ') : undefined,
+        }
       }
     }
     const vectorSvg = vectorResult.svg
@@ -472,7 +500,7 @@ export async function parsePdfFile(file: File, options: ParsePdfOptions = {}): P
       })
       continue
     }
-    if (!vectorSvg) {
+    if (!vectorSvg && ENABLE_PDF_VECTOR_CONVERSION) {
       pageWarnings.push('Vector extraction not available for this page. Raster fallback will be used.')
     }
     pages.push({
@@ -498,14 +526,19 @@ export async function parsePdfFile(file: File, options: ParsePdfOptions = {}): P
   }
 }
 
-async function cropDataUrl(dataUrl: string, crop: PdfImportCropBox): Promise<string> {
+async function cropDataUrl(
+  dataUrl: string,
+  crop: PdfImportCropBox,
+  pageSize: { width: number; height: number },
+): Promise<string> {
   const img = new Image()
   await new Promise<void>((resolve, reject) => {
     img.onload = () => resolve()
     img.onerror = () => reject(new Error('Failed to load image for crop'))
     img.src = dataUrl
   })
-  const clamped = normalizeCropBox(crop, { width: img.width, height: img.height })
+  const imageCrop = mapPageCropToImageCrop(crop, pageSize, { width: img.width, height: img.height })
+  const clamped = normalizeCropBox(imageCrop, { width: img.width, height: img.height })
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(clamped.width)
   canvas.height = Math.round(clamped.height)
@@ -543,8 +576,12 @@ export async function normalizePdfPageAsset(
 ): Promise<NormalizedPdfPageAsset> {
   const pageRect = { width: page.width, height: page.height }
   const effectiveCrop = crop ? normalizeCropBox(crop, pageRect) : undefined
-  const previewDataUrl = effectiveCrop ? await cropDataUrl(page.previewDataUrl, effectiveCrop) : page.previewDataUrl
-  const rasterDataUrl = effectiveCrop ? await cropDataUrl(page.rasterDataUrl, effectiveCrop) : page.rasterDataUrl
+  const previewDataUrl = effectiveCrop
+    ? await cropDataUrl(page.previewDataUrl, effectiveCrop, pageRect)
+    : page.previewDataUrl
+  const rasterDataUrl = effectiveCrop
+    ? await cropDataUrl(page.rasterDataUrl, effectiveCrop, pageRect)
+    : page.rasterDataUrl
 
   if (page.vectorSvg) {
     const svgContent = effectiveCrop ? cropSvg(page.vectorSvg, effectiveCrop, pageRect) : page.vectorSvg

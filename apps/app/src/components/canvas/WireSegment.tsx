@@ -1,3 +1,4 @@
+import { selectProjectWireRuns, findWireRunForAnchor } from '@/lib/projectV2/wireRuns'
 import { logger } from '@/lib/logger'
 /**
  * Wire Segment Component
@@ -353,7 +354,14 @@ export const WireSegmentComponent = memo(function WireSegmentComponent({
 }: WireSegmentProps) {
   const { t } = useTranslation()
   const setSelection = useSetSelection()
-  const isWireSelected = useIsWireSelected(wireSegment.id)
+  const selectedAnchor = useUIStore(s => s.selection.wireAnchor ?? (s.selection.type === 'wire' ? s.selection.wireMetadata?.[0]?.wireAnchor : undefined))
+  const selectedRunMember = useProjectStore(s => {
+    if (!selectedAnchor || !s.currentProject) return false
+    const run = findWireRunForAnchor(selectProjectWireRuns(s.currentProject), selectedAnchor)
+    return Boolean(run && wireSegment.wireAnchors?.some(anchor => run.members.includes(anchor)))
+  })
+  const selectedById = useIsWireSelected(wireSegment.id)
+  const isWireSelected = selectedById || selectedRunMember || Boolean(selectedAnchor && wireSegment.wireAnchors?.includes(selectedAnchor))
   const selectedBusSection = useUIStore((state) => state.selection.busSectionMetadata)
   const canvasZoom = useEffectiveCanvasZoom(ZOOM_100, 'eendraad')
   const isExporting = useUIStore((s) => s.isExporting)
@@ -365,14 +373,14 @@ export const WireSegmentComponent = memo(function WireSegmentComponent({
   // Determine line properties based on wire type
   const isBusBar = wireSegment.type === 'mainBus'
   const selectsBusSection = wireSegmentSelectsBusSection(wireSegment)
-  const isSelected = selectsBusSection
+  const isSelected = isWireSelected || (selectsBusSection
     ? Boolean(
         isBusBar &&
         wireSegment.busSectionId &&
         selectedBusSection?.panelId === wireSegment.panelId &&
         selectedBusSection.busSectionId === wireSegment.busSectionId
       )
-    : isWireSelected
+    : false)
   const isThick = wireSegment.type === 'trunk' || isBusBar
   const lineWidth = isThick ? 6 : 2
   // Supply and circuit runs both stop exactly at their derived endpoints. Busbars retain
@@ -413,6 +421,8 @@ export const WireSegmentComponent = memo(function WireSegmentComponent({
   const wireMeta = useCallback(
     () => ({
       id: wireSegment.id,
+      wireAnchor: wireSegment.wireAnchor,
+      wireAnchors: wireSegment.wireAnchors,
       // Persist only segment kinds relevant for re-matching in properties.
       type: wireSegment.type === 'secondaryBus' ? 'mainBus' : wireSegment.type,
       domain: wireSegment.domain,
@@ -451,6 +461,8 @@ export const WireSegmentComponent = memo(function WireSegmentComponent({
     }),
     [
       wireSegment.id,
+      wireSegment.wireAnchor,
+      wireSegment.wireAnchors,
       wireSegment.type,
       wireSegment.domain,
       wireSegment.circuitId,
@@ -484,6 +496,7 @@ export const WireSegmentComponent = memo(function WireSegmentComponent({
         event.cancelBubble = true
         setSelection({
           type: 'busSection',
+          wireMetadata: [wireMeta()],
           ids: [wireSegment.busSectionId],
           busSectionMetadata: {
             panelId: wireSegment.panelId,
@@ -744,16 +757,17 @@ export const WireSegmentComponent = memo(function WireSegmentComponent({
     <Group name={`wire-${wireSegment.id}`}>
       {/* Main wire line */}
       <Line
+        name={`eendraad-schematic-conductor wireHit-${wireSegment.id}`}
         points={wireLinePoints}
         stroke={isSelected ? selectedColor : isPreviewSelected ? previewColor : lineColor}
         strokeWidth={isSelected || isPreviewSelected ? wireSelectionStroke : lineWidth}
         lineCap={lineCap}
         lineJoin="round"
-        onClick={isBusBar && !wireSegment.busSectionId ? undefined : handleClick}
-        onTap={isBusBar && !wireSegment.busSectionId ? undefined : handleClick}
-        onMouseEnter={isBusBar && !wireSegment.busSectionId ? undefined : handleMouseEnter}
-        onMouseLeave={isBusBar && !wireSegment.busSectionId ? undefined : handleMouseLeave}
-        listening={!isBusBar || Boolean(wireSegment.busSectionId)}
+        onClick={isBusBar && !wireSegment.busSectionId && !wireSegment.wireBusGroup ? undefined : handleClick}
+        onTap={isBusBar && !wireSegment.busSectionId && !wireSegment.wireBusGroup ? undefined : handleClick}
+        onMouseEnter={isBusBar && !wireSegment.busSectionId && !wireSegment.wireBusGroup ? undefined : handleMouseEnter}
+        onMouseLeave={isBusBar && !wireSegment.busSectionId && !wireSegment.wireBusGroup ? undefined : handleMouseLeave}
+        listening={!isBusBar || Boolean(wireSegment.busSectionId || wireSegment.wireBusGroup)}
       />
 
       {!isExporting && secondaryBusReferenceLabel && isHorizontal && (
@@ -1123,6 +1137,7 @@ export const WireSegments = memo(function WireSegments({
       {circuitWireJunctions.map(({ point, radius }) => (
         <Circle
           key={`wire-junction-${point.x}-${point.y}`}
+          name="eendraad-schematic-junction"
           x={point.x}
           y={point.y}
           radius={radius}

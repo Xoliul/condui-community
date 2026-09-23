@@ -200,7 +200,7 @@ type FloorPlacement = Placement & {
 export function usePlanKeyboard(activeFloorId: string | null, options?: PlanKeyboardOptions) {
   const { t } = useTranslation()
   const getEndpointById = useProjectStore((state) => state.getEndpointById)
-  const { openDialog } = useDialogStore()
+  const openDialog = useDialogStore((state) => state.openDialog)
   const onDeleteFloorPlanSelection = options?.onDeleteFloorPlanSelection
   const pointerOverPlanRef = options?.pointerOverPlanRef
   const suppressDigitFloorShortcuts = options?.suppressDigitFloorShortcuts

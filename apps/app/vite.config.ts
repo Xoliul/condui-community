@@ -5,8 +5,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { pwaManifest } from './pwa.config.mjs'
 
-const repoRoot = path.resolve(__dirname, '../..')
-const appRoot = __dirname
+const repoRoot = path.resolve(import.meta.dirname, '../..')
+const appRoot = import.meta.dirname
 
 export function normalizeCommunityModuleIds(
   moduleIds: Iterable<string>,

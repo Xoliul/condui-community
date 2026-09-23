@@ -1,3 +1,4 @@
+import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import { registerPrimitive } from './registry'
 import { logger } from '@/lib/logger'
 import type {
@@ -12,6 +13,10 @@ import type {
   WireSegment,
 } from './common'
 import { isHouseholdInstallation } from '@/lib/installationProfile'
+import {
+  isIntermediateProtectionDevice,
+  isOvercurrentProtectionType,
+} from '@/lib/protectionKind'
 import {
   DEFAULT_ELECTRICAL_DOMAIN,
   calculateBottomUpLayout,
@@ -29,8 +34,11 @@ import {
 } from './common'
 
 /**
- * Check cascading ratings: downstream circuit protections must not be rated
- * higher than their upstream protection.
+ * Check cascading ratings: downstream overcurrent protections must not be
+ * rated higher than the effective upstream overcurrent limit. Pure RCDs are
+ * transparent here because their rating is a continuous-current capacity, not
+ * an overcurrent trip threshold. Intermediate RCBOs can narrow the limit but
+ * must not widen it when their rating is higher than the existing limit.
  */
 function cascadeProtectionRatings(
   context: CheckContext,
@@ -45,12 +53,19 @@ function cascadeProtectionRatings(
 
     const offenders: Offender[] = []
 
-    const walkPanels = (panel: Panel, upstreamProtection?: ProtectionDevice) => {
+    const walkPanels = (panel: Panel, upstreamRatingA?: number) => {
       for (const protection of panel.protections) {
         const thisRating = protection.ratingA
-        const upstreamRating = upstreamProtection?.ratingA
+        const isOvercurrent = isOvercurrentProtectionType(protection.type)
+        const isIntermediate = isIntermediateProtectionDevice(protection)
 
-        if (thisRating != null && upstreamRating != null && thisRating > upstreamRating) {
+        if (
+          isOvercurrent &&
+          !isIntermediate &&
+          thisRating != null &&
+          upstreamRatingA != null &&
+          thisRating > upstreamRatingA
+        ) {
           offenders.push({
             kind: 'protection',
             id: protection.id,
@@ -62,14 +77,20 @@ function cascadeProtectionRatings(
         if (protection.subPanelId) {
           const subPanel = query.getPanelById(protection.subPanelId)
           if (subPanel) {
-            walkPanels(subPanel, protection)
+            const nextUpstreamRatingA =
+              isOvercurrent && thisRating != null
+                ? upstreamRatingA == null
+                  ? thisRating
+                  : Math.min(upstreamRatingA, thisRating)
+                : upstreamRatingA
+            walkPanels(subPanel, nextUpstreamRatingA)
           }
         }
       }
 
       // Also recurse into nested sub-panels that are structurally nested (for completeness)
       for (const subPanel of panel.subPanels) {
-        walkPanels(subPanel, upstreamProtection)
+        walkPanels(subPanel, upstreamRatingA)
       }
     }
 
@@ -96,20 +117,30 @@ function cascadeProtectionRatings(
     if (!circuit) return { passed: true }
 
     const upstream = query.getProtectionForCircuit(scope.id)
-    const upstreamRating = upstream?.ratingA
+    let effectiveUpstreamRatingA = upstream?.ratingA
 
     const offenders: Offender[] = []
 
-    if (upstreamRating != null && circuit.trunkDevices) {
+    if (circuit.trunkDevices) {
       for (const td of circuit.trunkDevices) {
-        if (td.type !== 'protection' || td.ratingA == null) continue
-        if (td.ratingA > upstreamRating) {
+        if (
+          td.type !== 'protection' ||
+          td.ratingA == null ||
+          !isOvercurrentProtectionType(td.protectionType)
+        ) {
+          continue
+        }
+        if (effectiveUpstreamRatingA != null && td.ratingA > effectiveUpstreamRatingA) {
           offenders.push({
             kind: 'protection',
             id: td.id,
             viewHint: 'eendraad',
           })
         }
+        effectiveUpstreamRatingA =
+          effectiveUpstreamRatingA == null
+            ? td.ratingA
+            : Math.min(effectiveUpstreamRatingA, td.ratingA)
       }
     }
 
@@ -224,7 +255,7 @@ function electricalDomainConsistency(
     if (!installation) throw new Error('Missing electrical installation')
     const layout = calculateBottomUpLayout(project, new Map())
     const tree = buildLayoutTree(layout)
-    segments = deriveWires(tree, projectPanels(project), installation)
+    segments = deriveWires(tree, projectPanels(project), installation, [], undefined, selectProjectWireRuns(project))
   } catch {
     return { passed: true } // Layout failed, skip domain check
   }

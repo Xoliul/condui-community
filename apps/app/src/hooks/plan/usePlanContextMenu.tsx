@@ -56,7 +56,7 @@ export function usePlanContextMenu(
   }
 ): (position: Point, elementId: string | null) => ContextMenuItem[] {
   const { t } = useTranslation()
-  const { openDialog } = useDialogStore()
+  const openDialog = useDialogStore((state) => state.openDialog)
   const getEndpointById = useProjectStore((state: ProjectState) => state.getEndpointById)
   const onAddElementClick = options?.onAddElementClick
   const openContextAssignCircuitPanel = options?.openContextAssignCircuitPanel

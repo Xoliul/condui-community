@@ -47,6 +47,10 @@ export function usePlanImageBitmap(
           if (themeMode === 'dark' && darkModeAware) {
             imageUrlToUse = await applyDarkModeInversion(planImageProcessedDataUrl)
           }
+        } else if (themeMode === 'dark' && darkModeAware && planImageDataUrl) {
+          // Transparent PDF rasters have no separate processed bitmap. Invert
+          // only their painted pixels; the pixel operation preserves alpha.
+          imageUrlToUse = await applyDarkModeInversion(planImageDataUrl)
         }
 
         const image = new window.Image()

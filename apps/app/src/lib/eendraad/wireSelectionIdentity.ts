@@ -8,6 +8,7 @@ export function resolveSupplyWireSegmentByMetadata(
   wireSegments: WireSegment[],
   metadata: WireSelectionMetadata
 ): WireSegment | null {
+  if (metadata.wireAnchor) return wireSegments.find(segment => segment.wireAnchor === metadata.wireAnchor) ?? null
   if (metadata.supplySectionKey) {
     const exactSection = wireSegments.find(
       (segment) =>
@@ -66,6 +67,7 @@ export function resolveCircuitWireSegmentByMetadata(
   wireSegments: WireSegment[],
   metadata: WireSelectionMetadata
 ): WireSegment | null {
+  if (metadata.wireAnchor) return wireSegments.find(segment => segment.wireAnchor === metadata.wireAnchor) ?? null
   if (!metadata.circuitId) return null
   const candidates = wireSegments.filter(
     (segment) => segment.circuitId === metadata.circuitId && segment.panelId === metadata.panelId
@@ -85,6 +87,7 @@ export function resolveCircuitWireSegmentByMetadata(
         endpointsMatch(segment)
     )
     if (exact) return exact
+    return null
   }
 
   if (metadata.type != null || metadata.domain != null) {

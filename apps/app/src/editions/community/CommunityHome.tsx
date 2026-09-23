@@ -30,6 +30,7 @@ import {
   exportCommunityProject,
   importCommunityProject,
 } from './communityProjectPackage'
+import { buildTimestampedExportFilename } from '@/lib/export/exportFilename'
 
 const communityPrimaryButtonClass =
   'rounded-md bg-sky-600 font-semibold text-white shadow-md transition-colors duration-200 hover:bg-sky-700 hover:shadow-lg'
@@ -39,11 +40,6 @@ const communitySecondaryButtonClass =
 
 const communitySecondaryIconButtonClass =
   `${communitySecondaryButtonClass} inline-flex items-center justify-center`
-
-function downloadFileName(projectName: string): string {
-  const normalized = projectName.trim().replace(/[\\/:*?"<>|]+/g, '-')
-  return `${normalized || 'project'}.zip`
-}
 
 function CommunityViewModeDropdown({
   viewMode,
@@ -201,7 +197,7 @@ export default function CommunityHome() {
     const document = await loadProject(project.id)
     if (!document) return
     const blob = await exportCommunityProject(document)
-    downloadCommunityBlob(blob, downloadFileName(project.name))
+    downloadCommunityBlob(blob, buildTimestampedExportFilename(project.name, 'zip'))
     await refresh()
   }
 

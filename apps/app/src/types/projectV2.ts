@@ -1,4 +1,5 @@
 import type {
+  CableSpec,
   Floor,
   Frame,
   ImportedPlanAsset,
@@ -14,7 +15,7 @@ import type {
 import type { ViewportLayout } from './ui'
 import type { AuxiliaryElectricalEnclosure, OffGridSupplyAssembly } from './supplyAssembly'
 
-export const PROJECT_V2_SCHEMA_VERSION = '2.1.0' as const
+export const PROJECT_V2_SCHEMA_VERSION = '2.2.0' as const
 
 export type ProjectV2SchemaVersion = typeof PROJECT_V2_SCHEMA_VERSION
 
@@ -395,6 +396,70 @@ export interface OneWireModelV2 {
   wireSegments?: WireSegment[]
 }
 
+/** Canonical function of a single conductor (core) in a {@link WireRun}. */
+export type WireConductorFunction = 'L1' | 'L2' | 'L3' | 'N' | 'PE'
+
+/**
+ * One conductor (core) of a wire run. Kept as a list rather than a scalar count so the endgame
+ * per-conductor model (colour, per-core section, later terminal identity) can grow without a
+ * reshape. The default set is derived from the branch phase shape (poles-aware); a manual edit
+ * sets {@link WireRun.conductorsOverridden}.
+ */
+export interface WireConductor {
+  function: WireConductorFunction
+  /** Optional per-core section override in mm²; falls back to {@link WireRun.cable}.sectionMm2. */
+  sectionMm2?: number
+}
+
+/**
+ * Canonical per-edge wire entity (Goal 19 / ADR-0002). A run holds the shared cable spec and
+ * conductor model; {@link WireRun.members} lists the relationship ids that share it, and length is
+ * stored per member edge. A run is edge-borne: it is referenced from electrical path relationships
+ * via `relationship.properties.wireRef` and is never projected as a graph node.
+ */
+export interface WireRun {
+  id: string
+  /**
+   * Stable canonical anchor keys of the edges sharing this run (the link/unlink primitive; length
+   * is per member). Anchors — not volatile relationship ids — so a run survives graph re-derivation;
+   * see `deriveWireAnchorKey` in `lib/projectV2/wireRuns`. `builder.ts` computes the same key per
+   * edge and stamps `relationship.properties.wireRef`. An edge whose anchor matches no run falls
+   * back to a default wire rather than orphaning.
+   */
+  members: string[]
+  /** Shared cable spec: kind / sectionMm2 / fireClass / hasPE. */
+  cable: CableSpec
+  /** Shared conductor model, default-derived from the branch phase shape, overridable. */
+  conductors: WireConductor[]
+  /** True when conductors were set manually and must survive a system/phase change unchanged. */
+  conductorsOverridden?: boolean
+  /**
+   * Physical medium of the run (Goal 19). `'busbar'` = a shared solid bar whose copper thickness is
+   * carried in {@link WireRun.cable}.sectionMm2 and whose bars-per-phase are its conductors;
+   * `'cable'` = individual conductors. Default `'cable'`. A bus is modelled as one shared busbar run
+   * whose members are its tap edges; forking a tap unlinks it into its own run and flips it to
+   * `'cable'`. Independent of whether the one-wire *draws* a bus rail.
+   */
+  medium?: 'cable' | 'busbar'
+  /** Conductor material, relevant mainly for busbars. Default copper. */
+  material?: 'copper' | 'aluminium'
+  /**
+   * For a busbar run, how each tap's length is accounted: `'from-feeder'` (star — measured back to
+   * the feed point) or `'chained'` (each tap ≈ its neighbour spacing). Affects only per-member
+   * `segmentLengths`, not topology; the difference is typically 30–50 cm.
+   */
+  busTapLengthMode?: 'from-feeder' | 'chained'
+  route?: 'wall' | 'ground' | 'air'
+  inTube?: boolean
+  /** Per-member-edge run length in metres, keyed by the same anchor keys as {@link WireRun.members}. */
+  segmentLengths?: Record<string, number>
+  labels?: {
+    hideWireLabel?: boolean
+    showFireClassLabel?: boolean
+    showWireLengthLabel?: boolean
+  }
+}
+
 export interface ElectricalModelV2 {
   installation: Installation
   panels: Panel[]
@@ -404,6 +469,13 @@ export interface ElectricalModelV2 {
   /** Optional so projects created before the supply workspace remain valid and unchanged. */
   supplyAssemblies?: OffGridSupplyAssembly[]
   auxiliaryEnclosures?: AuxiliaryElectricalEnclosure[]
+  /**
+   * Canonical per-edge wire runs (Goal 19 / ADR-0002). Optional during the transition: absent on
+   * projects written before `2.2.0`; the `2.2.0` migration seeds it best-effort from
+   * `Circuit.sectionWireOverrides`, `FeedTopology.wireSections`, and `SupplyConnection.wireProperties`
+   * (unmapped legacy data falls back to a default wire rather than blocking the migration).
+   */
+  wireRuns?: WireRun[]
 }
 
 export interface DisciplineModelsV2 {

@@ -1,3 +1,4 @@
+import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 /**
  * Build hardware tally from project: group devices by category and by properties
  * (protection, energy meters, energy conversion / solar / battery / AC–DC, sockets, switches, …).
@@ -87,7 +88,7 @@ function deriveProjectWireSegments(project: TallyProject): WireSegment[] {
     if (!installation) return []
     const layout = calculateBottomUpLayout(project, new Map())
     const tree = buildLayoutTree(layout)
-    return deriveWires(tree, panels, installation)
+    return deriveWires(tree, panels, installation, [], undefined, selectProjectWireRuns(project))
   } catch {
     return []
   }

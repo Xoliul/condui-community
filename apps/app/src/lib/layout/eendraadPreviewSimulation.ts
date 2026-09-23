@@ -1,3 +1,4 @@
+import { isSupplyBranchDevice } from '@/lib/supplyAssembly/electricalTopology'
 import type {
   Panel,
   Circuit,
@@ -51,7 +52,7 @@ import {
   createDefaultAcCircuitCable,
   DEFAULT_AC_CIRCUIT_WIRE_LABEL_FLAGS,
 } from '@/lib/wires/circuitWireDefaults'
-import { getSupplyFeedDevicesForPanel } from '@/lib/feedTopology'
+import { ensureRootFeedForBusSection, getSupplyFeedDevicesForPanel } from '@/lib/feedTopology'
 import {
   domoticaChildRefForEndpoint,
   domoticaChildRefForBranchInsert,
@@ -1455,7 +1456,8 @@ function simulateSupplyTrunkDevice(
             installation,
             projectPanels(project),
             target.panelId,
-            target.supplyFeedScope ?? 'shared'
+            target.supplyFeedScope ?? 'shared',
+            target.busSectionId,
           ),
         ]
       : installation.mainSupply.supplyTrunkDevices
@@ -1628,7 +1630,7 @@ function simulateSupplyTrunkDevice(
         : {}),
   }
 
-  if (target.supplyPanelInput) trunkDevice.supplyPanelInput = true
+  if (target.supplyPanelInput && !isSupplyBranchDevice(trunkDevice)) trunkDevice.supplyPanelInput = true
   if (insertIndex >= 0 && insertIndex <= supplyDevices.length) {
     supplyDevices.splice(insertIndex, 0, trunkDevice)
   } else {
@@ -1641,7 +1643,11 @@ function simulateSupplyTrunkDevice(
   if (mainTargetPanel?.isMain && target.panelId) {
     const topology = installation.feedTopology
     if (target.supplyFeedScope === 'root') {
-      const rootFeed = topology?.rootFeeds.find((feed) => feed.panelId === target.panelId)
+      const rootFeed = target.busSectionId
+        ? ensureRootFeedForBusSection(
+            installation, projectPanels(project), target.panelId, target.busSectionId
+          )
+        : topology?.rootFeeds.find((feed) => feed.panelId === target.panelId)
       if (rootFeed) rootFeed.trunkDevices = supplyDevices
     } else {
       // Shared feed topology is derived from mainSupply by ensureInstallationFeedTopology().

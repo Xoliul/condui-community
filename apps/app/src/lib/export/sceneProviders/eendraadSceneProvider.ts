@@ -10,7 +10,10 @@ import { ExportError } from '../types'
 import { findContentLayer, findCanvasContentGroup, calculateSceneBounds } from './helpers'
 import { collectAndRemoveSymbolImagesForExport } from '../symbolSvgInject'
 import { adjustSymbolImagesForExport } from './symbolImageExport'
-import { applyExportThemeToKonvaNodes } from '../konvaThemeExport'
+import {
+  applyExportThemeToKonvaNodes,
+  applyLightEendraadWireExportColors,
+} from '../konvaThemeExport'
 import { useCanvasRegistryStore } from '@/stores/canvasRegistryStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import type { FrameSlice } from '../slicing/eendraadSlicing'
@@ -206,6 +209,9 @@ export async function prepareEendraadScene(
   // Apply export theme to Konva nodes so the clone renders in target theme
   // without switching the UI; SVG then needs no theme post-processing.
   applyExportThemeToKonvaNodes(clonedGroup, sourceTheme, targetTheme)
+  if (targetTheme === 'light') {
+    applyLightEendraadWireExportColors(clonedGroup)
+  }
 
   tempStage.draw()
 

@@ -13,6 +13,7 @@ import { queryOneWireSegments } from '@/lib/projectV2/annotations'
 import { getProjectElectricalInstallation, getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { logger } from '@/lib/logger'
 import { cancelActiveValidationWorker } from '@/lib/validation/validationWorkerClient'
+import { getValidationJurisdiction } from '@/lib/validation/core/jurisdiction'
 
 type IdleDeadlineLike = { didTimeout: boolean; timeRemaining: () => number }
 type RequestIdleCallbackHandle = number
@@ -111,7 +112,10 @@ function ValidationStatusIcon() {
   const warningCount = useValidationStore((state: ValidationState) => state.getWarningCount())
   const toggleValidationWindow = useUIStore((state) => state.toggleValidationWindow)
   const validationDisabledOutsideBelgium =
-    currentProject != null && getProjectElectricalInstallation(currentProject)?.address.country !== 'BE'
+    currentProject != null &&
+    getValidationJurisdiction(
+      getProjectElectricalInstallation(currentProject)?.address.country
+    ) !== 'BE'
 
   // Signature generation walks the canonical electrical graph. Keep it out of the
   // input event that mutated that graph; validation itself is already idle-scheduled.

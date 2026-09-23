@@ -41,10 +41,9 @@ export function StructureIcon({ className = 'w-6 h-6' }: IconProps) {
       aria-hidden="true"
     >
       <circle cx="5" cy="12" r="2.2" />
-      <circle cx="12" cy="6" r="2.2" />
-      <circle cx="19" cy="12" r="2.2" />
-      <circle cx="12" cy="18" r="2.2" />
-      <path d="M7 11l3.2-3.3M13.8 7.7L17 11M17 13l-3.2 3.3M10.2 16.3L7 13" />
+      <circle cx="19" cy="7" r="2.2" />
+      <circle cx="19" cy="17" r="2.2" />
+      <path d="M7.1 11.3L16.9 7.7M7.1 12.7L16.9 16.3" />
     </svg>
   )
 }

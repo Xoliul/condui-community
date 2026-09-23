@@ -9,6 +9,8 @@ export interface CanvasSelectionPathItem {
   alternativeCount?: number
   disabled?: boolean
   title?: string
+  /** Non-interactive placeholder marking a clipped span of the path. */
+  ellipsis?: boolean
 }
 
 export function CanvasSelectionPath({
@@ -36,8 +38,7 @@ export function CanvasSelectionPath({
       <nav
         aria-label={ariaLabel}
         data-theme-mode={themeMode}
-        className="flex max-w-full items-center overflow-x-auto rounded bg-black/40 px-3 py-1.5 text-sm font-bold text-amber-400 shadow-sm backdrop-blur-sm dark:bg-gray-700/50"
-        style={{ scrollbarWidth: 'thin' }}
+        className="flex max-w-full items-center overflow-x-auto whitespace-nowrap rounded bg-black/40 px-3 py-1.5 text-sm font-bold text-amber-400 shadow-sm backdrop-blur-sm dark:bg-gray-700/50"
       >
         {items.map((item, index) => (
           <React.Fragment key={`${item.id}:${index}`}>
@@ -46,7 +47,11 @@ export function CanvasSelectionPath({
                 →
               </span>
             )}
-            {item.alternativeCount ? (
+            {item.ellipsis ? (
+              <span className="shrink-0 select-none px-0.5 text-amber-400/70" title={item.title}>
+                …
+              </span>
+            ) : item.alternativeCount ? (
               <span
                 className="shrink-0 rounded border border-amber-400/50 px-1.5 py-0.5"
                 title={item.title}

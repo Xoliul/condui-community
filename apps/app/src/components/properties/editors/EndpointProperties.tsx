@@ -106,7 +106,8 @@ export function EndpointProperties({
   onUpdate: (id: string, updates: Partial<Endpoint>) => void
 }) {
   const { t } = useTranslation()
-  const { openDialog, closeDialog } = useDialogStore()
+  const openDialog = useDialogStore((state) => state.openDialog)
+  const closeDialog = useDialogStore((state) => state.closeDialog)
   const eendraadAutomaticNaming = useProjectStore(
     (state: ProjectState) =>
       !!(state.currentProject

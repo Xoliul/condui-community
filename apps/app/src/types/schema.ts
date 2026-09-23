@@ -1517,6 +1517,12 @@ export interface FeedTopology {
 }
 
 export interface WireSegment {
+  /** Derived electrical connection identity; never a persisted WireRun id. */
+  wireAnchor?: string
+  /** All connections represented by shared stem geometry. */
+  wireAnchors?: string[]
+  /** Shared electrical bus represented by rail geometry. */
+  wireBusGroup?: string
   id: string
   type: 'trunk' | 'branch' | 'vertical' | 'mainBus' | 'secondaryBus'
   startPoint: Point2

@@ -588,7 +588,8 @@ const RenderNode = memo(function RenderNodeImpl({
       // Supply trunk devices can sit on the assembly rail or on upright converter/DC-bus risers.
       const isSupplyTrunkDevice = node.id?.startsWith('supplyTrunkDevice-')
       const isVerticalSupplyBranchDevice =
-        isSupplyTrunkDevice && isVerticalSupplyDevice(trunkDevice)
+        isSupplyTrunkDevice &&
+        (isVerticalSupplyDevice(trunkDevice) || node.id.includes('--feed-stub-'))
       const isSubPanelSupplyTrunkDevice = node.id?.startsWith('subpanelSupplyTrunkDevice-')
       const isGroundTrunkDevice = node.id?.startsWith('groundTrunkDevice-')
       // Ordinary DC-rail branch protections are serialized inside their branch rather

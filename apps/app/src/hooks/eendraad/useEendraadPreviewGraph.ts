@@ -1,3 +1,4 @@
+import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import { useMemo, useRef } from 'react'
 import { useProjectStore, type ProjectState } from '@/stores/projectStore'
 import { useUIStore, type UIState } from '@/stores/uiStore'
@@ -175,6 +176,7 @@ export function useEendraadPreviewGraph(
       getProjectElectricalInstallation(sim.project),
       selectProjectSupplyAssemblies(sim.project),
       (deviceId) => resolveSupplyDeviceMounting(sim.project, deviceId),
+          selectProjectWireRuns(sim.project),
     )
 
     // Build lookup maps for preview symbols

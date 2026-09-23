@@ -1,3 +1,4 @@
+import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 /**
  * Circuit cable cross-section resolution for validation (matches primitives logic).
  * Derived layout wires can differ from stored one-wire segments; validation uses derived when available.
@@ -174,7 +175,7 @@ export function getCircuitSegmentsForValidation(query: InstallationQueryAPI, cir
       const tree = buildLayoutTree(layout)
       const installation = getProjectElectricalInstallation(project)
       if (installation) {
-        derivedSegments = deriveWires(tree, getProjectElectricalPanels(project), installation).filter(
+        derivedSegments = deriveWires(tree, getProjectElectricalPanels(project), installation, [], undefined, selectProjectWireRuns(project)).filter(
           (segment) => segment.circuitId === circuitId
         )
       }

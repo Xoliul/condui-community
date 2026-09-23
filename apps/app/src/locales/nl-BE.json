@@ -954,6 +954,9 @@
     "panelAndPlan": "Bord + Plan"
   },
   "structure": {
+    "traceHidden": "{{count}} verborgen stappen",
+    "traceBranches": "{{count}} geleidende vertakkingen",
+    "traceCycle": "Cyclus gedetecteerd",
     "noStructure": "Geen elektrische structuur",
     "noFilterResults": "Geen resultaten voor de huidige filters",
     "buildFailed": "Structuur kon niet worden opgebouwd",
@@ -993,6 +996,10 @@
     "sourceType": "Brontype",
     "sourceId": "Bron-ID",
     "projectedReadOnly": "Geprojecteerd weergave-item · alleen-lezen",
+    "wire": "Draad",
+    "busbar": "Rail",
+    "busbarBars": "{{count}} rails",
+    "wireConductors": "{{count}} geleiders",
     "resetView": "Structuurweergave herstellen",
     "filtersActive": "filters actief",
     "alternativePaths_one": "{{count}} alternatief pad",
@@ -1722,6 +1729,7 @@
       "supplyTrunkMisplacedInMainGrid": "Voedingscomponent \"{{label}}\" staat op het hoofdraster (rij {{row}}, kolom {{col}}) maar hoort alleen in de voedingsstrook — paneelcanvas en eendraad voeding wijken af.",
       "supplyTrunkVisualPlacementMissing": "Voedingscomponent \"{{label}}\" bestaat in de voedingstopologie maar heeft geen bereikbare plaatsing op het paneelcanvas.",
       "splitBusWithoutBackupSupply": "Bord \"{{panelName}}\" heeft {{busSectionCount}} railsecties maar geen aangesloten backupvoeding. Voeg ze opnieuw samen op één netvoeding.",
+      "supplyAssemblyHandoffTargetMissing": "Voedingsaansluiting verwijst naar ontbrekende stroombaan {{missingCircuitId}}.",
       "branchMultiplierEndpointsSplit": "Stroombaan {{circuitCode}}: aftakking \"{{branchLabel}}\" heeft {{absorbCount}} extra vermenigvuldigingssymbool(len) als aparte eindpunten; horen één eindpunt met meerdere plaatsingen te zijn. Gebruik Repareren in de weesinspectie."
     },
     "primitives": {
@@ -2219,6 +2227,7 @@
     "csvDetails": "Details"
   },
   "wires": {
+    "multipleConnections": "Gedeeld lijnstuk. Selecteer een afzonderlijke verbinding om de draad te bewerken.",
     "title": "Draad eigenschappen",
     "phase": "Fase",
     "phaseAll": "Alle fasen",

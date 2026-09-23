@@ -25,6 +25,9 @@ import {
   isInspectionAgencyInfoBlockVisible,
 } from '@/lib/infoBlockLayout'
 import { ensureInstallationFeedTopology, getPanelFeedProjection } from '@/lib/feedTopology'
+import { getPrimaryPanelBusSectionId } from '@/lib/panel/panelBusSections'
+import { PANEL_BUS_FEED_GAP } from '@/lib/panel/panelBusFeedPreview'
+import { getSplitSupplyRailPaintBounds } from './busFeedMarkerGeometry'
 import {
   getGroundElementId,
   getPanelGroundTrunkDevices,
@@ -163,9 +166,6 @@ export const LAYOUT_CONSTANTS = {
   APPLIANCE_AFTER_SOCKET_GAP: 0,
   SUPPLY_RIGHT_FRAME_PADDING: 40,
   SUPPLY_LEFT_OFFSET: 30, // Offset from left edge of main bus for supply symbol
-  // Empty inline grid/backup rails need enough title clearance that their
-  // selectable padding does not compete with the panel heading.
-  INLINE_EMPTY_SPLIT_RAIL_DROP: 18,
   SUPPLY_MAX_OFFSET: 150, // Maximum distance from left edge of main bus
 
   // Element dimensions
@@ -805,6 +805,14 @@ export interface BottomUpPanelLayout {
    * detached supply frame so one-wire drops append into the panel-only chain.
    */
   panelLocalRootSupplyInsertBase?: number
+  /** Bus section receiving the panel-local root-feed devices. */
+  panelLocalRootBusSectionId?: string
+  /** Panel-side device chains on each split-bus feed stub, including empty sections. */
+  panelLocalFeedStubStacks?: Array<{
+    busSectionId: string
+    insertBase: number
+    devices: TrunkDevice[]
+  }>
   /** Visual direction of the supply chain. */
   supplyFlowDirection?: 'right-to-left' | 'left-to-right'
   /** Stable axis used to mirror supply geometry without mirroring symbol artwork or text. */
@@ -2182,6 +2190,30 @@ function calculateBottomUpPanelLayout(
   // Build circuit layouts
   const circuitLayouts: BottomUpCircuitLayout[] = []
   let currentX = LAYOUT_CONSTANTS.LEFT_MARGIN
+  const feedStubLabelReach = new Map<string, { left: number; right: number }>()
+  if (panel.isMain && options.frameRole !== 'supply' && hasExplicitPanelBusSections(panel)) {
+    for (const section of panel.busSections ?? []) {
+      const feed = installation?.feedTopology?.rootFeeds.find((candidate) =>
+        candidate.panelId === panel.id &&
+        (candidate.busSectionId ?? getPrimaryPanelBusSectionId(panel)) === section.id
+      )
+      const allDevices = feed?.trunkDevices ?? []
+      const devices = allDevices.slice(getPanelInputDeviceStartIndex(project, allDevices))
+      feedStubLabelReach.set(section.id, {
+        left: Math.max(45, ...devices.flatMap((device) =>
+          [device.label, device.notes]
+            .filter((line): line is string => !!line?.trim())
+            .map((line) => 25 + measureSymbolLabelTextWidth(line, 'Figtree', 8))
+        )),
+        right: Math.max(45, ...devices.flatMap((device) =>
+          getProtectionOneWireLabelLines(device).map((line) =>
+            25 + measureSymbolLabelTextWidth(line.text, 'Figtree', 10)
+          )
+        )),
+      })
+    }
+  }
+  let previousMainBusSectionId: string | undefined
 
   for (const circuit of panelCircuits) {
     const protection = findProtectionForCircuit(panel, circuit)
@@ -2274,6 +2306,18 @@ function calculateBottomUpPanelLayout(
 
     // Check for manual override
     const override = manualOverrides?.get(`circuit-${circuit.id}`)
+    if (circuit.supplySource?.kind !== 'converter-backup') {
+      const sectionId = protection?.busSectionId ?? circuit.busSectionId ??
+        getPrimaryPanelBusSectionId(panel)
+      if (!override && previousMainBusSectionId && sectionId !== previousMainBusSectionId) {
+        const previousReach = feedStubLabelReach.get(previousMainBusSectionId)
+        const nextReach = feedStubLabelReach.get(sectionId)
+        if (previousReach && nextReach) {
+          currentX += Math.max(0, previousReach.right + nextReach.left + 8 - 110)
+        }
+      }
+      previousMainBusSectionId = sectionId
+    }
     const x = override ? override.x : currentX
 
     circuitLayouts.push({
@@ -2587,21 +2631,44 @@ function calculateBottomUpPanelLayout(
     !isSubPanel && installation && options.includeSupplyTopology !== false
       ? getPanelFeedProjection(installation, rootPanels ?? [panel], panel)
       : null
-  const rootSupplyDevices = installation?.feedTopology?.rootFeeds.find(
-    (feed) => feed.panelId === panel.id
-  )?.trunkDevices ?? []
+  const rootSupplyFeed = installation?.feedTopology?.rootFeeds.find(
+    (feed) => feed.panelId === panel.id &&
+      (feed.busSectionId ?? getPrimaryPanelBusSectionId(panel)) ===
+        getPrimaryPanelBusSectionId(panel)
+  )
+  const rootSupplyDevices = rootSupplyFeed?.trunkDevices ?? []
   const panelInputStart = getPanelInputDeviceStartIndex(project, rootSupplyDevices)
+  const panelLocalFeedStubStacks = !isSubPanel && hasExplicitPanelBusSections(panel)
+    ? (panel.busSections ?? []).map((section) => {
+        const feed = installation?.feedTopology?.rootFeeds.find((candidate) =>
+          candidate.panelId === panel.id &&
+          (candidate.busSectionId ?? getPrimaryPanelBusSectionId(panel)) === section.id
+        )
+        const devices = feed?.trunkDevices ?? []
+        const insertBase = getPanelInputDeviceStartIndex(project, devices)
+        return {
+          busSectionId: section.id,
+          insertBase,
+          devices: devices.slice(insertBase).filter((device) =>
+            device.supplyPath == null || device.supplyPath === 'serial'
+          ),
+        }
+      })
+    : undefined
   const receivingInputDevices =
     !isSubPanel && options.includeSupplyTopology === false
       ? [
           ...new Map(
             selectProjectSupplyAssemblies(project)
               .flatMap((assembly) =>
-                assembly.loadHandoffs.flatMap((handoff) =>
-                  resolveAssemblyPanelInput(project, handoff.target)?.panelId === panel.id
+                assembly.loadHandoffs.flatMap((handoff) => {
+                  const input = resolveAssemblyPanelInput(project, handoff.target)
+                  return input?.panelId === panel.id &&
+                    (input.busSectionId ?? getPrimaryPanelBusSectionId(panel)) ===
+                      getPrimaryPanelBusSectionId(panel)
                     ? getAssemblyReceivingPanelInputDevices(project, assembly, handoff.target)
                     : []
-                )
+                })
               )
               .map((device) => [device.id, device])
           ).values(),
@@ -2925,7 +2992,7 @@ function calculateBottomUpPanelLayout(
 
       const backupOutputPositions = supplyDevicePositions.filter(
         ({ device }) => device.supplyPath === 'backup-output'
-      )
+      ).sort((a, b) => a.device.trunkPosition - b.device.trunkPosition || a.device.id.localeCompare(b.device.id))
       backupOutputPositions.forEach((position, index) => {
         position.x =
           elbowX +
@@ -3283,7 +3350,7 @@ function calculateBottomUpPanelLayout(
     !panelHasMainBusProtection(panel) &&
     inlineSupplyConverter != null
   const renderedMainBusY =
-    mainBusY + (usesInlineEmptySplitRails ? LAYOUT_CONSTANTS.INLINE_EMPTY_SPLIT_RAIL_DROP : 0)
+    mainBusY
   const usesSplitSupplyGround =
     (options.feedOutput === true || usesInlineEmptySplitRails) &&
     (panel.busSections?.length ?? 0) > 1
@@ -3586,6 +3653,44 @@ function calculateBottomUpPanelLayout(
   if (options.supplyEndpointKind === 'continuation') {
     maxY = Math.max(maxY, supplySourceY + 24)
   }
+  const feedStubDevices = panelLocalFeedStubStacks?.flatMap((stack) => stack.devices) ?? []
+  const longestFeedStubStack = Math.max(
+    0, ...(panelLocalFeedStubStacks ?? []).map((stack) => stack.devices.length)
+  )
+  const feedStubStackHeight = Math.max(
+    usesInlineEmptySplitRails ? LAYOUT_CONSTANTS.SUPPLY_VERTICAL_DROP + 38 : 64,
+    ...(panelLocalFeedStubStacks ?? []).map((stack) => {
+      if (stack.devices.length === 0) return 64
+      const extraLabelHeight = stack.devices.reduce((total, device) => {
+        const leftLines = [device.label, device.notes]
+          .filter((line): line is string => !!line?.trim())
+        const technicalLines = device.type === 'protection'
+          ? getProtectionOneWireLabelLines(device).map((line) => line.text)
+          : []
+        const visualLines = Math.max(
+          leftLines.reduce((count, line) => count + countSymbolLabelVisualLines(line), 0),
+          technicalLines.reduce((count, line) => count + countSymbolLabelVisualLines(line), 0)
+        )
+        return total + Math.max(0, visualLines - 2) * 24
+      }, 0)
+      return 44 + (stack.devices.length - 1) * 50 + 42 + 41 + 12 + extraLabelHeight
+    })
+  )
+  if (
+    (options.supplyEndpointKind === 'continuation' ||
+      ((options.supplyEndpointKind ?? 'mains') === 'mains' &&
+        (options.frameRole ?? 'panel') === 'panel' && panel.isMain)) &&
+    hasExplicitPanelBusSections(panel) &&
+    (usesInlineEmptySplitRails ||
+      (longestFeedStubStack > 0 && feedStubDevices.some((device) => device.type === 'protection')))
+  ) {
+    // Repeated panel-feed instances stand upright on their bus stubs. Reserve
+    // the last symbol, terminal marker and caption below the main bus.
+    maxY = Math.max(
+      maxY,
+      renderedMainBusY + feedStubStackHeight
+    )
+  }
 
   // Supply-chain protections on the horizontal trunk render `ProtectionOneWireLabels` below
   // the symbol (see TrunkDeviceSymbol). Layout previously stopped at symbol half-height only,
@@ -3711,18 +3816,24 @@ function calculateBottomUpPanelLayout(
     }
   }
 
-  // Main bus — account for supply wire extent in width
+  // Include the receiving chain even in detached panels: mirroring that chain
+  // places its bus connection beyond the compact bend used by empty rails.
+  const compactSupplyRailWidth = Math.max(groundX, supplyBendX) - mainBusX + 15
   const mainBusWidthWithSupply = Math.max(
     mainBusWidth,
     supplyRightExtent - mainBusX + LAYOUT_CONSTANTS.SUPPLY_RIGHT_FRAME_PADDING
   )
-  const compactSupplyRailWidth = Math.max(groundX, supplyBendX) - mainBusX + 15
   const renderedMainBusWidth =
     options.feedOutput ||
     usesInlineEmptySplitRails ||
     usesCompactPanelMainBus ||
     usesInlineSupplyOnlyCompactRail
-      ? compactSupplyRailWidth
+      ? Math.max(
+          compactSupplyRailWidth,
+          usesInlineEmptySplitRails
+            ? 2 * LAYOUT_CONSTANTS.MIN_MAIN_BUS_WIDTH
+            : 0
+        )
       : mainBusWidthWithSupply
   elements.push({
     id: `mainBus-${panel.id}`,
@@ -5600,7 +5711,11 @@ function calculateBottomUpPanelLayout(
               device.supplyPath === 'converter-grid' || device.supplyPath === 'converter-dc-top'
           )
           .map(({ y }) => y)
-        if (hasDirectConverter && supplySourceY !== converter.y) {
+        if (
+          (hasDirectConverter || converter.device.supplyPath === 'backup') &&
+          converter.device.converterGridInputConnected !== false &&
+          supplySourceY !== converter.y
+        ) {
           connectedYs.push(supplySourceY)
         }
         if (connectedYs.length > 0) {
@@ -5624,7 +5739,11 @@ function calculateBottomUpPanelLayout(
         supplySourceY + LAYOUT_CONSTANTS.SYMBOL_SIZE / 2 + 18
       )
     }
-  } else if (!isSubPanel && options.supplyEndpointKind === 'continuation') {
+  } else if (
+    !isSubPanel &&
+    options.supplyEndpointKind === 'continuation' &&
+    !hasExplicitPanelBusSections(panel)
+  ) {
     // Panel-only handoff frames still paint a short feed riser/rail (and optional
     // receiving-input devices / "Voeding" caption). Those primitives used to sit
     // outside the info-block obstacle set, so compact bottom-right placement
@@ -5704,16 +5823,33 @@ function calculateBottomUpPanelLayout(
   }
   const drawsPopulatedPanelFeedStubs =
     !options.feedOutput &&
-    options.supplyEndpointKind === 'continuation' &&
+    (options.supplyEndpointKind === 'continuation' || panel.isMain) &&
     panel.protections.some((protection) => (protection.circuits?.length ?? 0) > 0)
-  if (
-    usesInlineEmptySplitRails ||
-    drawsPopulatedPanelFeedStubs ||
-    (options.feedOutput && hasExplicitPanelBusSections(panel))
-  ) {
-    // The exact rendered stubs are produced later from bus runs. Reserve their
-    // shared marker band for collision placement, but debug the generated wires
-    // themselves so guessed section positions can never appear as ghost boxes.
+  if (options.feedOutput && hasExplicitPanelBusSections(panel)) {
+    const sections = [...(panel.busSections ?? [])].sort((left, right) =>
+      left.role === right.role ? 0 : left.role === 'backup' ? 1 : -1
+    )
+    const sectionWidth = (renderedMainBusWidth - PANEL_BUS_FEED_GAP * (sections.length - 1)) /
+      sections.length
+    sections.forEach((section, index) => {
+      const startX = mainBusX + index * (sectionWidth + PANEL_BUS_FEED_GAP)
+      const bounds = getSplitSupplyRailPaintBounds(
+        startX, startX + sectionWidth,
+        renderedMainBusY + LAYOUT_CONSTANTS.BUS_THICKNESS / 2,
+        section.role === 'backup' ? 'backup' : 'grid',
+        true
+      )
+      layoutObstacles.push({
+        id: `${options.diagramId ?? panel.id}-${section.id}-rail-clearance`,
+        kind: 'supply-stub',
+        label: `${section.role === 'backup' ? 'backup' : 'grid'} rail clearance`,
+        ...bounds,
+        debugVisible: false,
+      })
+    })
+  } else if (usesInlineEmptySplitRails || drawsPopulatedPanelFeedStubs) {
+    // Reserve the whole painted stub stack before packing the info block. The
+    // exact per-run marker boxes are produced later from generated wires.
     layoutObstacles.push({
       id: `${options.diagramId ?? panel.id}-stub-clearance`,
       kind: 'supply-stub',
@@ -5721,8 +5857,8 @@ function calculateBottomUpPanelLayout(
       x: mainBusX - 30,
       y: renderedMainBusY - 8,
       width: renderedMainBusWidth + 60,
-      height: 64,
-      debugVisible: false,
+      height: feedStubStackHeight,
+      debugVisible: true,
     })
   }
   if (isSubPanel && parentMcbInfo) {
@@ -5972,6 +6108,8 @@ function calculateBottomUpPanelLayout(
     ownerPanelId: options.ownerPanelId ?? panel.id,
     supplyEndpointKind: options.supplyEndpointKind ?? 'mains',
     panelLocalRootSupplyInsertBase,
+    panelLocalRootBusSectionId: rootSupplyFeed?.busSectionId ?? getPrimaryPanelBusSectionId(panel),
+    panelLocalFeedStubStacks,
     compactInlineSupplyBus: usesInlineSupplyOnlyCompactRail || undefined,
     elements: offsetElements, // Elements already have frameOffset applied
     circuitNotes,
@@ -6402,6 +6540,22 @@ export function calculateBottomUpLayout(
 
   if (useMultiRootForestLayout) {
     applyPanelFrameDepthSpacing(panelLayouts, depthByPanelId, ROW_SPACING)
+
+    // Primary panels share one electrical row. Their local frame tops vary with
+    // circuit content, so align the bus anchor and carry each root's sub-panels
+    // with it instead of leaving empty roots lower than populated roots.
+    const referenceMainBusY = panelLayoutById.get(panels[0]?.id ?? '')?.mainBus.y
+    if (referenceMainBusY != null) {
+      const shiftSubtree = (panel: Panel, dy: number) => {
+        const layout = panelLayoutById.get(panel.id)
+        if (layout) applyShiftToPanelLayout(layout, 0, dy)
+        getOrderedChildren(panel).forEach((child) => shiftSubtree(child, dy))
+      }
+      panels.slice(1).forEach((panel) => {
+        const layout = panelLayoutById.get(panel.id)
+        if (layout) shiftSubtree(panel, referenceMainBusY - layout.mainBus.y)
+      })
+    }
   }
 
   panelLayouts.forEach((layout) => {

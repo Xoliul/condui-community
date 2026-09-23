@@ -1434,6 +1434,98 @@ const SPEED = 30
 const DASH_ANIMATION_FPS = 15
 const DASH_FRAME_MS = 1000 / DASH_ANIMATION_FPS
 
+/**
+ * Wires fade along each run: full opacity at the selected module, dropping to
+ * FADE_MIN_OPACITY at the far (peer) end. Feeding runs brighten toward the
+ * selected module; outgoing runs dim away from it — both anchor bright at the
+ * selection. Tweak this single constant to taste.
+ */
+const FADE_MIN_OPACITY = 0.25
+const WIRE_STROKE_RGB = '245, 158, 11' // #f59e0b
+const HOVER_WIRE_OPACITY = 0.5
+const HOVER_WIRE_FADE_MIN_OPACITY = 0.2
+const HOVER_WIRE_STROKE_RGB = '122, 92, 10' // #7a5c0a
+
+function wireRgba(opacity: number, strokeRgb = WIRE_STROKE_RGB): string {
+  return `rgba(${strokeRgb}, ${opacity})`
+}
+
+function fadeFieldKey(x: number, y: number): string {
+  return `${Math.round(x)}:${Math.round(y)}`
+}
+
+/**
+ * Precompute a per-vertex opacity field for a focused module's wires, keyed by
+ * rounded coordinate. Opacity is a linear function of distance *along the run*
+ * from the focused module's terminal, so the fade spans the whole run rather
+ * than resetting per segment. Built from un-merged wires (which still know
+ * their endpoint + ordering) so values survive collinear merging; where runs
+ * share a vertex the brightest value wins.
+ */
+function buildWireFadeField(
+  wires: RoutedWire[],
+  startOpacity = 1,
+  minOpacity = FADE_MIN_OPACITY
+): Map<string, number> {
+  const field = new Map<string, number>()
+  for (const wire of wires) {
+    const pts = wire.points
+    const n = Math.floor(pts.length / 2)
+    if (n < 2) continue
+    const cum = new Array<number>(n)
+    cum[0] = 0
+    let total = 0
+    for (let v = 1; v < n; v++) {
+      const dx = pts[v * 2]! - pts[(v - 1) * 2]!
+      const dy = pts[v * 2 + 1]! - pts[(v - 1) * 2 + 1]!
+      total += Math.hypot(dx, dy)
+      cum[v] = total
+    }
+    if (total <= 0.001) continue
+    // 'source' → selected module sits at the polyline start; 'target' → at the end.
+    const selectedAtStart = wire.selectedEndpoint !== 'target'
+    for (let v = 0; v < n; v++) {
+      const distFromSelected = selectedAtStart ? cum[v]! : total - cum[v]!
+      const fraction = distFromSelected / total // 0 at the selected module, 1 at the far end
+      const opacity = startOpacity - (startOpacity - minOpacity) * fraction
+      const key = fadeFieldKey(pts[v * 2]!, pts[v * 2 + 1]!)
+      const prev = field.get(key)
+      if (prev == null || opacity > prev) field.set(key, opacity)
+    }
+  }
+  return field
+}
+
+/**
+ * Konva stroke-gradient props for one straight rendered segment, fading between
+ * its two endpoints' field opacities. A single stroke color would clip to one
+ * opacity; the 2-stop gradient reproduces the run-long fade exactly (opacity is
+ * linear in distance, the segment is straight). Returns null when there is
+ * nothing to fade.
+ */
+function wireFadeGradient(
+  points: number[],
+  field: Map<string, number>,
+  strokeRgb = WIRE_STROKE_RGB
+): {
+  strokeLinearGradientStartPoint: { x: number; y: number }
+  strokeLinearGradientEndPoint: { x: number; y: number }
+  strokeLinearGradientColorStops: (number | string)[]
+} | null {
+  if (points.length < 4) return null
+  const x1 = points[0]!
+  const y1 = points[1]!
+  const x2 = points[points.length - 2]!
+  const y2 = points[points.length - 1]!
+  const o1 = field.get(fadeFieldKey(x1, y1)) ?? 1
+  const o2 = field.get(fadeFieldKey(x2, y2)) ?? 1
+  return {
+    strokeLinearGradientStartPoint: { x: x1, y: y1 },
+    strokeLinearGradientEndPoint: { x: x2, y: y2 },
+    strokeLinearGradientColorStops: [0, wireRgba(o1, strokeRgb), 1, wireRgba(o2, strokeRgb)],
+  }
+}
+
 const DEBUG_ROUTE_STROKES: Record<WireRouteKind, string> = {
   internal: '#22c55e', // WINT
   sharedSupplyToMainProtection: '#a855f7', // WSPM
@@ -2690,6 +2782,16 @@ export default function RelationWires({
     () => mergeAxisAlignedWireSegments(wireState.wires),
     [wireState.wires]
   )
+  const wireFadeField = useMemo(() => buildWireFadeField(wireState.wires), [wireState.wires])
+  const hoverWireFadeField = useMemo(
+    () =>
+      buildWireFadeField(
+        hoverWireState.wires,
+        HOVER_WIRE_OPACITY,
+        HOVER_WIRE_FADE_MIN_OPACITY
+      ),
+    [hoverWireState.wires]
+  )
   const renderedHoverWireSegments = useMemo(
     () => mergeAxisAlignedWireSegments(hoverWireState.wires),
     [hoverWireState.wires]
@@ -2930,30 +3032,44 @@ export default function RelationWires({
             />
           )
         })}
-      {renderedHoverWireSegments.map((wire, i) => (
-        <Line
-          key={`hover-${i}`}
-          points={wire.points}
-          stroke={debugMode ? DEBUG_ROUTE_STROKES[wire.kind] : '#7a5c0a'}
-          strokeWidth={ghost ? 1.5 : 1}
-          dash={animateDash ? [6, 4] : undefined}
-          lineCap="round"
-          lineJoin="round"
-          listening={false}
-        />
-      ))}
-      {renderedHoverWireSegments.flatMap((wire, wireIndex) =>
-        getShortVerticalStubPoints(wire.points).map((points, stubIndex) => (
+      {renderedHoverWireSegments.map((wire, i) => {
+        const fade = !debugMode
+          ? wireFadeGradient(wire.points, hoverWireFadeField, HOVER_WIRE_STROKE_RGB)
+          : null
+        return (
           <Line
-            key={`hover-stub-${wireIndex}-${stubIndex}`}
-            points={points}
+            key={`hover-${i}`}
+            points={wire.points}
             stroke={debugMode ? DEBUG_ROUTE_STROKES[wire.kind] : '#7a5c0a'}
-            strokeWidth={ghost ? 2 : 1.5}
+            {...fade}
+            strokeWidth={ghost ? 1.5 : 1}
+            opacity={fade ? 1 : HOVER_WIRE_OPACITY}
+            dash={animateDash ? [6, 4] : undefined}
             lineCap="round"
             lineJoin="round"
             listening={false}
           />
-        ))
+        )
+      })}
+      {renderedHoverWireSegments.flatMap((wire, wireIndex) =>
+        getShortVerticalStubPoints(wire.points).map((points, stubIndex) => {
+          const fade = !debugMode
+            ? wireFadeGradient(points, hoverWireFadeField, HOVER_WIRE_STROKE_RGB)
+            : null
+          return (
+            <Line
+              key={`hover-stub-${wireIndex}-${stubIndex}`}
+              points={points}
+              stroke={debugMode ? DEBUG_ROUTE_STROKES[wire.kind] : '#7a5c0a'}
+              {...fade}
+              strokeWidth={ghost ? 2 : 1.5}
+              opacity={fade ? 1 : HOVER_WIRE_OPACITY}
+              lineCap="round"
+              lineJoin="round"
+              listening={false}
+            />
+          )
+        })
       )}
       {hoverWireState.labels.map((label, i) =>
         (() => {
@@ -2978,35 +3094,43 @@ export default function RelationWires({
           )
         })()
       )}
-      {renderedWireSegments.map((wire, i) => (
-        <Line
-          key={i}
-          ref={(node) => {
-            lineRefs.current[i] = node
-          }}
-          points={wire.points}
-          stroke={debugMode ? DEBUG_ROUTE_STROKES[wire.kind] : strokeColor}
-          strokeWidth={ghost ? strokeWidth + 1 : strokeWidth}
-          opacity={ghost ? 0.28 : 1}
-          dash={animateDash ? [DASH[0], DASH[1]] : undefined}
-          lineCap="round"
-          lineJoin="round"
-          listening={false}
-        />
-      ))}
-      {renderedWireSegments.flatMap((wire, wireIndex) =>
-        getShortVerticalStubPoints(wire.points).map((points, stubIndex) => (
+      {renderedWireSegments.map((wire, i) => {
+        const fade = !ghost && !debugMode ? wireFadeGradient(wire.points, wireFadeField) : null
+        return (
           <Line
-            key={`stub-${wireIndex}-${stubIndex}`}
-            points={points}
+            key={i}
+            ref={(node) => {
+              lineRefs.current[i] = node
+            }}
+            points={wire.points}
             stroke={debugMode ? DEBUG_ROUTE_STROKES[wire.kind] : strokeColor}
+            {...fade}
             strokeWidth={ghost ? strokeWidth + 1 : strokeWidth}
-            opacity={ghost ? 0.5 : 1}
+            opacity={ghost ? 0.28 : 1}
+            dash={animateDash ? [DASH[0], DASH[1]] : undefined}
             lineCap="round"
             lineJoin="round"
             listening={false}
           />
-        ))
+        )
+      })}
+      {renderedWireSegments.flatMap((wire, wireIndex) =>
+        getShortVerticalStubPoints(wire.points).map((points, stubIndex) => {
+          const fade = !ghost && !debugMode ? wireFadeGradient(points, wireFadeField) : null
+          return (
+            <Line
+              key={`stub-${wireIndex}-${stubIndex}`}
+              points={points}
+              stroke={debugMode ? DEBUG_ROUTE_STROKES[wire.kind] : strokeColor}
+              {...fade}
+              strokeWidth={ghost ? strokeWidth + 1 : strokeWidth}
+              opacity={ghost ? 0.5 : 1}
+              lineCap="round"
+              lineJoin="round"
+              listening={false}
+            />
+          )
+        })
       )}
       {wireState.labels.map((label, i) =>
         (() => {

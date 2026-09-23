@@ -20,6 +20,8 @@ import type { ThemeColors } from '@/lib/theme/types'
 
 type ThemeMode = 'light' | 'dark'
 
+const LIGHT_PDF_SCHEMATIC_COLOR = '#000000'
+
 const PLAN_GRAPHIC_DARK_TO_LIGHT: Array<[string, string]> = [
   [PLAN_GRAPHIC_STROKE_DARK, PLAN_GRAPHIC_STROKE_LIGHT],
   [PLAN_GRAPHIC_LABEL_FILL_DARK, PLAN_GRAPHIC_LABEL_FILL_LIGHT],
@@ -138,6 +140,28 @@ function applyThemeToNode(node: Konva.Node, map: Map<string, string>): void {
   if (children?.length) {
     children.forEach((child: Konva.Node) => applyThemeToNode(child, map))
   }
+}
+
+/**
+ * Make schematic conductors black in light one-wire PDF exports.
+ *
+ * The nodes are explicitly marked by the one-wire renderer, so this does not
+ * affect symbol artwork, frames, labels, or the live editor canvas. The pass
+ * runs only on the already-cloned export scene.
+ */
+export function applyLightEendraadWireExportColors(rootNode: Konva.Node): void {
+  const applyColor = (node: Konva.Node): void => {
+    if (node.name() === 'eendraad-schematic-conductor') {
+      node.setAttr('stroke', LIGHT_PDF_SCHEMATIC_COLOR)
+    } else if (node.name() === 'eendraad-schematic-junction') {
+      node.setAttr('fill', LIGHT_PDF_SCHEMATIC_COLOR)
+    }
+
+    const children = (node as Konva.Container).getChildren?.()
+    children?.forEach((child: Konva.Node) => applyColor(child))
+  }
+
+  applyColor(rootNode)
 }
 
 /**

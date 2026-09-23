@@ -6,8 +6,9 @@ import type { Floor } from '@/types/schema'
 import { readLegacyCompatibilityFloors } from '@/lib/projectV2/buildingFloors'
 
 function ScaleIndicator() {
-  const { currentProject } = useProjectStore()
-  const { activeFloorId, planView } = useUIStore()
+  const currentProject = useProjectStore((state) => state.currentProject)
+  const activeFloorId = useUIStore((state) => state.activeFloorId)
+  const planView = useUIStore((state) => state.planView)
   const { scale } = useCanvasOverlayScale()
 
   const activeFloor = activeFloorId

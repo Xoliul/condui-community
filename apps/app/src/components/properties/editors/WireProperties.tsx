@@ -1,3 +1,6 @@
+import { findWireRunForAnchor, selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
+import { CanonicalWireProperties } from './CanonicalWireProperties'
+import { sharedTrunkAnchors } from '@/lib/wires/editWireRun'
 import { Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore, type UIState } from '@/stores/uiStore'
@@ -154,7 +157,25 @@ export function WirePropertiesWithLayout({
   wireSegmentId: string
   onUpdate: (id: string, updates: Partial<Circuit>) => void
 }) {
+  const { t } = useTranslation()
   const wireSegments = useEendraadWireSegments()
+  const project = useProjectStore(s => s.currentProject)
+  const selectedAnchor = useUIStore(s => s.selection.wireAnchor ?? s.selection.wireMetadata?.find(m => m.id === wireSegmentId)?.wireAnchor)
+  const segment = wireSegments.find(w => w.id === wireSegmentId) ??
+    wireSegments.find(w => selectedAnchor ? w.wireAnchor === selectedAnchor : false)
+  if (selectedAnchor && !segment) return null
+  if (segment?.wireBusGroup && segment.wireAnchors?.length) {
+    const runs = project ? selectProjectWireRuns(project) : []
+    const owners = new Set(segment.wireAnchors.map(anchor => findWireRunForAnchor(runs, anchor)?.id))
+    if (owners.size === 1) return <CanonicalWireProperties anchor={segment.wireAnchors[0]!} cable={segment.cable} domain={segment.domain} defaults={segment} sharedGeometry />
+  }
+  if (project && segment?.type === 'vertical' && segment.circuitId &&
+      !segment.toElementId && (segment.wireAnchors?.length ?? 0) > 1 &&
+      sharedTrunkAnchors(project, segment.wireAnchors![0]!, new Set(segment.wireAnchors))
+        .length === segment.wireAnchors!.length)
+    return <CanonicalWireProperties anchor={segment.wireAnchors![0]!} cable={segment.cable} domain={segment.domain} defaults={segment} sharedGeometry />
+  if ((segment?.wireAnchors?.length ?? 0) > 1) return <p className="text-sm text-gray-500">{t('wires.multipleConnections')}</p>
+  if (segment?.wireAnchor) return <CanonicalWireProperties anchor={segment.wireAnchor} cable={segment.cable} domain={segment.domain} defaults={segment} />
   return (
     <WireProperties wireSegmentId={wireSegmentId} wireSegments={wireSegments} onUpdate={onUpdate} />
   )

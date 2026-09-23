@@ -75,6 +75,41 @@ export function assemblyOwnsPanelInput(
   )
 }
 
+/** Branch lanes are upstream of the handoff, even in files with stale input flags. */
+export function isSupplyBranchDevice(device: TrunkDevice): boolean {
+  return device.symbol === 'source_changeover' ||
+    (device.supplyPath != null && device.supplyPath !== 'serial')
+}
+
+/** Older inline-diagram drops incorrectly marked supply branches as panel inputs. */
+export function healSupplyBranchPanelInputFlags(project: ProjectWithOptionalV2Electrical): boolean {
+  let changed = false
+  const installation = getProjectElectricalInstallation(project)
+  for (const feed of installation?.feedTopology?.rootFeeds ?? []) {
+    for (const device of feed.trunkDevices ?? []) {
+      if (device.supplyPanelInput && isSupplyBranchDevice(device)) {
+        delete device.supplyPanelInput
+        changed = true
+      }
+    }
+    const devices = feed.trunkDevices ?? []
+    const boundary = devices.findIndex((device) => device.supplyPanelInput)
+    if (boundary !== -1 && devices.slice(boundary).some(isSupplyBranchDevice)) {
+      // Historical drops interleaved upstream branches with the receiving chain.
+      // Clearing flags alone is insufficient: layout and insertion use a boundary.
+      const tail = devices.slice(boundary)
+      feed.trunkDevices = [
+        ...devices.slice(0, boundary),
+        ...tail.filter(isSupplyBranchDevice),
+        ...tail.filter((device) => !isSupplyBranchDevice(device)),
+      ]
+      feed.trunkDevices.forEach((device, index) => { device.trunkPosition = index })
+      changed = true
+    }
+  }
+  return changed
+}
+
 /** Resolve the electrical handoff independently of frame IDs and physical mounting.
  * Existing unmarked owner chains retain their legacy supply ownership; new panel
  * input devices explicitly delimit the downstream chain in root-feed storage.
@@ -83,7 +118,7 @@ export function getPanelInputDeviceStartIndex(
   project: ProjectWithOptionalV2Electrical,
   devices: readonly TrunkDevice[]
 ): number {
-  const explicit = devices.findIndex((device) => device.supplyPanelInput)
+  const explicit = devices.findIndex((device) => device.supplyPanelInput && !isSupplyBranchDevice(device))
   if (explicit !== -1) return explicit
   const owned = new Set(selectProjectSupplyAssemblies(project).flatMap((assembly) =>
     assembly.nodes.map(getSupplyNodePhysicalDeviceId)))
@@ -98,12 +133,60 @@ export function getAssemblyReceivingPanelInputDevices(
   assembly: OffGridSupplyAssembly,
   target: SupplyAttachmentRef
 ) {
-  if (target.kind !== 'panel-input' && target.kind !== 'root-feed') return []
+  if (target.kind !== 'panel-input' && target.kind !== 'panel-bus-input' && target.kind !== 'root-feed') return []
   const input = resolveAssemblyPanelInput(project, target)
   if (!input) return []
-  const feed = getProjectElectricalInstallation(project)?.feedTopology?.rootFeeds.find((feed) =>
-    target.kind === 'root-feed' ? feed.id === target.rootFeedId : feed.panelId === input.panelId)
+  let handoffPathRole: string | undefined
+  if (target.kind === 'panel-bus-input') {
+    const handoff = assembly.loadHandoffs.find((candidate) =>
+      candidate.target.kind === 'panel-bus-input' &&
+      candidate.target.panelId === target.panelId &&
+      candidate.target.busSectionId === target.busSectionId
+    )
+    handoffPathRole = assembly.connections.find((connection) =>
+      isDirectedAcConnection(assembly, connection) &&
+      connection.endpoints[1].nodeId === handoff?.handoffNodeId
+    )?.pathRole
+    if (!handoffPathRole) return []
+  }
+  const panel = getProjectElectricalPanels(project).find((candidate) => candidate.id === input.panelId)
+  const primarySectionId = panel ? getPrimaryPanelBusSectionId(panel) : undefined
+  const rootFeeds = getProjectElectricalInstallation(project)?.feedTopology?.rootFeeds ?? []
+  const sectionFeed = rootFeeds.find((candidate) =>
+    target.kind === 'root-feed'
+      ? candidate.id === target.rootFeedId
+      : candidate.panelId === input.panelId &&
+        (candidate.busSectionId ?? primarySectionId) === (input.busSectionId ?? primarySectionId))
+  const hasPanelInput = (feed: typeof sectionFeed) => feed?.trunkDevices?.some((device) =>
+    device.supplyPanelInput && !isSupplyBranchDevice(device)) ?? false
+  // A legacy single-feed project may keep the backup input protection on the
+  // grid feed. In that case the backup handoff owns it; a distinct grid input
+  // exists only once its own bus feed has a marked protection.
+  if (handoffPathRole === 'grid-only-bypass-ac' && assembly.loadHandoffs.some((candidate) => {
+    const candidateTarget = candidate.target
+    if (candidateTarget.kind !== 'panel-bus-input' || candidateTarget.panelId !== input.panelId) return false
+    const isLoadHandoff = assembly.connections.some((connection) =>
+      connection.domain === 'AC' && connection.pathRole === 'load-ac' &&
+      connection.endpoints[1].nodeId === candidate.handoffNodeId)
+    if (!isLoadHandoff) return false
+    const loadFeed = rootFeeds.find((feed) =>
+      feed.panelId === input.panelId && feed.busSectionId === candidateTarget.busSectionId)
+    return !hasPanelInput(loadFeed)
+  })) return []
+  const feed = handoffPathRole === 'load-ac' &&
+    !sectionFeed?.trunkDevices?.some((device) => device.supplyPanelInput && !isSupplyBranchDevice(device))
+    ? rootFeeds.find((candidate) =>
+        candidate.panelId === input.panelId &&
+        candidate.trunkDevices?.some((device) => device.supplyPanelInput && !isSupplyBranchDevice(device))
+      ) ?? sectionFeed
+    : sectionFeed
   const devices = feed?.trunkDevices ?? []
+  if (target.kind === 'panel-bus-input') {
+    if (!devices.some((device) => device.supplyPanelInput && !isSupplyBranchDevice(device))) return []
+    return devices.slice(getPanelInputDeviceStartIndex(project, devices)).filter((device) =>
+      !assembly.nodes.some((node) => getSupplyNodePhysicalDeviceId(node) === device.id)
+    )
+  }
   if (resolveAssemblyPanelInput(project, assembly.incomingAttachment)?.panelId === input.panelId)
     return devices.slice(getPanelInputDeviceStartIndex(project, devices))
   const assemblyDeviceIds = new Set(selectProjectSupplyAssemblies(project).flatMap((candidate) =>
@@ -314,20 +397,36 @@ export function buildSupplyElectricalTopology(project: ProjectWithOptionalV2Elec
   }
   const upstreamByPanel = new Map<string, string | undefined>()
   for (const feed of installation?.feedTopology?.rootFeeds ?? []) {
-    const receivingDevices = assemblies.flatMap((assembly) => assembly.loadHandoffs.flatMap((handoff) => {
+    const panel = panels.find((candidate) => candidate.id === feed.panelId)
+    const feedSectionId = feed.busSectionId ?? (panel ? getPrimaryPanelBusSectionId(panel) : undefined)
+    const receivingPaths = assemblies.flatMap((assembly) => assembly.loadHandoffs.flatMap((handoff) => {
       const input = resolveAssemblyPanelInput(project, handoff.target)
       return input?.panelId === feed.panelId
-        ? getAssemblyReceivingPanelInputDevices(project, assembly, handoff.target) : []
-    }))
-    if (receivingDevices.length) {
+        ? [{ assembly, handoff, devices: getAssemblyReceivingPanelInputDevices(project, assembly, handoff.target)
+            .filter((device) => (feed.trunkDevices ?? []).some((candidate) => candidate.id === device.id)) }]
+        : []
+    })).filter((path) => path.devices.length > 0)
+    const receivingDeviceIds = new Set(receivingPaths.flatMap((path) =>
+      path.devices.map((device) => device.id)
+    ))
+    if (receivingPaths.length) {
+      const receivingPath = receivingPaths[0]!
+      const changeoverBusInput = receivingPath.handoff.target.kind === 'panel-bus-input' &&
+        receivingPath.assembly.nodes.some((node) => node.kind === 'changeover-switch')
+      const receivingDevices = [...new Map(receivingPaths.flatMap((path) =>
+        path.devices.map((device) => [device.id, device] as const)
+      )).values()].sort((a, b) => a.trunkPosition - b.trunkPosition || a.id.localeCompare(b.id))
       let previous: string | undefined
-      for (const device of new Map(receivingDevices.map((device) => [device.id, device])).values()) {
+      for (const device of receivingDevices) {
         const current = deviceKey(device.id)
         handledDevices.add(device.id)
         link(previous, current)
         previous = current
       }
-      link(previous, busKey(feed.panelId, feed.busSectionId))
+      const busSectionId = changeoverBusInput && receivingPath.handoff.target.kind === 'panel-bus-input'
+        ? receivingPath.handoff.target.busSectionId
+        : feed.busSectionId
+      link(previous, busKey(feed.panelId, busSectionId))
     }
     const assemblyAssociated =
       (feed.trunkDevices ?? []).some((device) => assemblyDevices.has(device.id)) ||
@@ -342,7 +441,7 @@ export function buildSupplyElectricalTopology(project: ProjectWithOptionalV2Elec
       !(feed.trunkDevices ?? []).some((device) => device.symbol === 'source_changeover')
     let assemblySeen = false
     for (const device of feed.trunkDevices ?? []) {
-      if (receivingDevices.some((receiving) => receiving.id === device.id)) continue
+      if (receivingDeviceIds.has(device.id)) continue
       const key = deviceKey(device.id)
       if (assemblyAssociated) handledDevices.add(device.id)
       if (assemblyDevices.has(device.id)) {
@@ -354,8 +453,9 @@ export function buildSupplyElectricalTopology(project: ProjectWithOptionalV2Elec
       }
       if (!directConverterBranch || !assemblyDevices.has(device.id)) tail = key
     }
-    if (!assemblySeen) upstreamByPanel.set(feed.panelId, tail)
-    const panel = panels.find((panel) => panel.id === feed.panelId)
+    if (!assemblySeen && (!panel || feedSectionId === getPrimaryPanelBusSectionId(panel))) {
+      upstreamByPanel.set(feed.panelId, tail)
+    }
     if (panel && !assemblyOwnsPanelInput(project, panel, feed.busSectionId)) {
       link(fallbackBusTail, busKey(feed.panelId, feed.busSectionId))
     }
@@ -387,7 +487,8 @@ export function buildSupplyElectricalTopology(project: ProjectWithOptionalV2Elec
     for (const handoff of assembly.loadHandoffs) {
       const target = resolveAssemblyPanelInput(project, handoff.target)
       if (target) {
-        const receivingDevice = getAssemblyReceivingPanelInputDevices(project, assembly, handoff.target)[0]
+        const receivingDevices = getAssemblyReceivingPanelInputDevices(project, assembly, handoff.target)
+        const receivingDevice = receivingDevices[0]
         link(nodeKeys.get(handoff.handoffNodeId), receivingDevice
           ? deviceKey(receivingDevice.id) : busKey(target.panelId, target.busSectionId))
       }

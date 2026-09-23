@@ -4,12 +4,30 @@ import { findPanelById } from '@/lib/panel/panelTree'
 import {
   getProjectElectricalPanels,
   selectProjectAuxiliaryElectricalEnclosures,
+  selectProjectSupplyAssemblies,
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import type { Panel, TrunkDevice } from '@/types/schema'
 
 export function isInverterPanelDevice(device: TrunkDevice | undefined): boolean {
   return device?.symbol === 'inverter'
+}
+
+function isDcSupplyFuse(project: ProjectWithOptionalV2Electrical, deviceId: string): boolean {
+  return selectProjectSupplyAssemblies(project).some((assembly) => {
+    const fuseNode = assembly.nodes.find(
+      (node) =>
+        (node.deviceId ?? node.id) === deviceId &&
+        node.kind === 'protection' &&
+        node.symbol === 'fuse',
+    )
+    if (!fuseNode) return false
+    return assembly.connections.some(
+      (connection) =>
+        connection.domain === 'DC' &&
+        connection.endpoints.some((endpoint) => endpoint.nodeId === fuseNode.id),
+    )
+  })
 }
 
 /** Visibility belongs to the physical surface; slots specify positions, never visibility. */
@@ -41,7 +59,7 @@ export function isSupplyDeviceVisibleInPanel(
   const key = `trunkDevice:${deviceId}:supply`
   if (grid?.hiddenModuleKeys?.includes(key)) return false
   if (grid?.shownModuleKeys?.includes(key)) return true
-  return !isInverterPanelDevice(device)
+  return !isInverterPanelDevice(device) && !isDcSupplyFuse(project, deviceId)
 }
 
 /** Set the choice on the mounted surface, even when the menu uses its owning panel. */

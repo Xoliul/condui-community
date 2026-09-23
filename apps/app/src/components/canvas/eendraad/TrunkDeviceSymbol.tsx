@@ -1267,6 +1267,17 @@ export function TrunkDeviceSymbol({
   const wideConverterArtworkBottom = renderedSymbolSize.height / 2 - wideConverterArtworkInset
 
   const isHoveredAny = isHovered || isHoveredFromBreadcrumb
+  const handleSymbolMouseEnter = () => {
+    setIsHovered(true)
+    setHover({ type: 'trunkDevice', ids: [device.id] })
+  }
+  const handleSymbolMouseLeave = () => {
+    setIsHovered(false)
+    const { hover } = useUIStore.getState()
+    if (hover.type === 'trunkDevice' && hover.ids.length === 1 && hover.ids[0] === device.id) {
+      clearHover()
+    }
+  }
 
   if (device.type === 'dc_bus' || device.symbol === 'dc_bus') {
     const busWidth = Math.max(48, dcBusWidth ?? 48)
@@ -1303,8 +1314,8 @@ export function TrunkDeviceSymbol({
         draggable={canDragTrunk}
         onClick={handleClick}
         onTap={handleClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseEnter={handleSymbolMouseEnter}
+        onMouseLeave={handleSymbolMouseLeave}
         onDragStart={
           canDragTrunk && onDragStart
             ? (event) => {
@@ -1347,6 +1358,7 @@ export function TrunkDeviceSymbol({
           lineCap="round"
         />
         <Line
+          name="eendraad-schematic-conductor"
           points={[busStartX, 0, busEndX, 0]}
           stroke={busColor}
           strokeWidth={isSelected || isPreviewSelected ? busSelectionStroke : busLineWidth}
@@ -1404,8 +1416,8 @@ export function TrunkDeviceSymbol({
         draggable={canDragTrunk}
         onClick={handleClick}
         onTap={handleClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseEnter={handleSymbolMouseEnter}
+        onMouseLeave={handleSymbolMouseLeave}
         onDragStart={
           canDragTrunk && onDragStart
             ? (event) => {
@@ -1558,8 +1570,8 @@ export function TrunkDeviceSymbol({
       draggable={canDragTrunk}
       onClick={handleClick}
       onTap={handleClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleSymbolMouseEnter}
+      onMouseLeave={handleSymbolMouseLeave}
       onDragStart={
         canDragTrunk && onDragStart
           ? (e) => {
@@ -1807,8 +1819,12 @@ export function TrunkDeviceSymbol({
               converterResizeCountRef.current = null
               setConverterResizePreviewCount(null)
               if (nextCount !== circuitConverterConnectionCount) {
-                const previousAnchor = circuitConverterAnchor ?? position
-                if (resizeConverterWithViewportAnchor) {
+                // Supply-assembly converters grow leftward and reposition their
+                // bounds, so the viewport must re-anchor to keep them in view.
+                // Ordinary main-bus converters grow in place and need no pan —
+                // running the anchored path there flings the viewport off-screen.
+                if (isSupplyConverterResize && resizeConverterWithViewportAnchor) {
+                  const previousAnchor = circuitConverterAnchor ?? position
                   resizeConverterWithViewportAnchor(device.id, nextCount, previousAnchor)
                 } else {
                   resizeConverterDcConnections(device.id, nextCount)

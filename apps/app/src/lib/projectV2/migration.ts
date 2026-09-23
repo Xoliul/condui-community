@@ -34,13 +34,23 @@ import {
 import { emptyChronology } from '@/lib/chronology/chronology'
 import { sanitizeLegacyV2Project } from './sanitizeLegacyV2Project'
 import { normalizeLegacyPlanWiringAtBoundary } from './planWiring'
+import { seedWireRunsFromLegacy } from './wireRunSeed'
 
 type ProjectV2BeforeScopes = Omit<ProjectV2, 'schemaVersion' | 'collaboration'> & {
   schemaVersion: '2.0.0'
   collaboration?: never
 }
 
-export type LegacyProjectDocument = Project | ProjectV2 | ProjectV2BeforeScopes
+/** Scoped V2 document before the Goal 19 wire-run bump; upgraded to `2.2.0` by seeding wire runs. */
+type ProjectV2BeforeWireRuns = Omit<ProjectV2, 'schemaVersion'> & {
+  schemaVersion: '2.1.0'
+}
+
+export type LegacyProjectDocument =
+  | Project
+  | ProjectV2
+  | ProjectV2BeforeScopes
+  | ProjectV2BeforeWireRuns
 
 const SYSTEM_BUILDING = 'system_building'
 const SYSTEM_ELECTRICAL = 'system_electrical'
@@ -58,6 +68,10 @@ export function isProjectV2(value: unknown): value is ProjectV2 {
 
 function isProjectV2BeforeScopes(value: unknown): value is ProjectV2BeforeScopes {
   return isRecord(value) && value.schemaVersion === '2.0.0'
+}
+
+function isProjectV2BeforeWireRuns(value: unknown): value is ProjectV2BeforeWireRuns {
+  return isRecord(value) && value.schemaVersion === '2.1.0'
 }
 
 export function isProjectV1(value: unknown): value is Project {
@@ -658,8 +672,21 @@ function applyScopeContract(
     },
   ]
 
+  // Goal 19 / ADR-0002: finalize to the current canonical shape, seeding the WireRun collection
+  // best-effort when absent. Seed only when missing so an edited/persisted project is never
+  // overwritten on re-save. The scope contract and wire-run seed together make a current document.
+  const electrical = project.disciplines.electrical
+  const disciplines =
+    electrical && !Array.isArray(electrical.wireRuns)
+      ? {
+          ...project.disciplines,
+          electrical: { ...electrical, wireRuns: seedWireRunsFromLegacy(project) },
+        }
+      : project.disciplines
+
   return {
     ...project,
+    disciplines,
     schemaVersion: PROJECT_V2_SCHEMA_VERSION,
     collaboration: {
       version: 1,
@@ -748,21 +775,104 @@ export function migrateProjectV1ToV2(project: Project): ProjectV2 {
   })
 }
 
+/**
+ * One forward schema-version upgrade. Ordered oldest→newest in {@link SCHEMA_UPGRADE_STEPS}.
+ *
+ * This is deliberately separate from the boundary healers below: a step advances the persisted
+ * schema *version*, a healer normalizes legacy shapes *within* the current version. Adding a new
+ * schema version (e.g. `2.1.0 → 2.2.0`) means appending one entry here, not editing this file's
+ * control flow.
+ */
+interface SchemaUpgradeStep {
+  /** Source schema version this step accepts. Documentation for the ordered chain. */
+  from: string
+  /** Schema version produced by {@link SchemaUpgradeStep.apply}. */
+  to: string
+  /** Whether {@link document} is at this step's source version. */
+  matches: (document: unknown) => boolean
+  /** Upgrade the document one generation forward. */
+  apply: (document: LegacyProjectDocument) => ProjectV2
+}
+
+/**
+ * Ordered schema upgrades, oldest→newest. `applyScopeContract` finalizes any pre-scope document to
+ * the current canonical shape (scopes + wire-run seed + current version), so the V1 and pre-scope
+ * steps reach `2.2.0` directly. A `2.1.0` document already has scopes, so its step re-finalizes to
+ * seed wire runs and stamp `2.2.0`. Adding a future version means appending one entry here.
+ */
+const SCHEMA_UPGRADE_STEPS: SchemaUpgradeStep[] = [
+  {
+    from: '0.2.0',
+    to: PROJECT_V2_SCHEMA_VERSION,
+    matches: isProjectV1,
+    apply: (document) => migrateProjectV1ToV2(document as Project),
+  },
+  {
+    from: '2.0.0',
+    to: PROJECT_V2_SCHEMA_VERSION,
+    matches: isProjectV2BeforeScopes,
+    apply: (document) => {
+      const { schemaVersion: _schemaVersion, ...project } = document as ProjectV2BeforeScopes
+      return applyScopeContract(project)
+    },
+  },
+  {
+    from: '2.1.0',
+    to: PROJECT_V2_SCHEMA_VERSION,
+    matches: isProjectV2BeforeWireRuns,
+    apply: (document) => {
+      const { schemaVersion: _schemaVersion, collaboration, ...project } =
+        document as ProjectV2BeforeWireRuns
+      return applyScopeContract(project, collaboration?.contributions)
+    },
+  },
+]
+
+function upgradeDocumentToCurrentSchema(document: LegacyProjectDocument): ProjectV2 {
+  let current: LegacyProjectDocument = document
+  // Bounded by the number of steps (+1) so a mis-specified cyclic table cannot loop forever.
+  for (let guard = 0; guard <= SCHEMA_UPGRADE_STEPS.length; guard += 1) {
+    if (isProjectV2(current)) return current
+    const step = SCHEMA_UPGRADE_STEPS.find((candidate) => candidate.matches(current))
+    if (!step) break
+    current = step.apply(current)
+  }
+  if (isProjectV2(current)) return current
+  throw new Error('Unsupported project schema version.')
+}
+
+/**
+ * Idempotent, same-version normalizer that heals a legacy shape inside an already-current document.
+ * Distinct from a schema upgrade: healers never change the schema version.
+ */
+type BoundaryHealer = (project: ProjectV2) => void
+
+/** Same-version boundary healers, applied after the document is at the current schema version. */
+const BOUNDARY_HEALERS: BoundaryHealer[] = [normalizeLegacyPlanWiringAtBoundary]
+
+function applyBoundaryHealers(project: ProjectV2): void {
+  for (const heal of BOUNDARY_HEALERS) heal(project)
+}
+
+/**
+ * Whether an already-current document carries any legacy shape a healer would rewrite. Lets the
+ * common "already current, nothing legacy" path skip cloning, preserving the original fast path.
+ */
+function needsBoundaryHealing(project: ProjectV2): boolean {
+  return (project.disciplines.electrical?.planWiring?.routes.length ?? 0) > 0
+}
+
 export function normalizeStoredProjectToV2(document: LegacyProjectDocument): ProjectV2 {
   if (isProjectV2(document)) {
-    if ((document.disciplines.electrical?.planWiring?.routes.length ?? 0) === 0) return document
+    // Already at the current schema version: only clone + heal when a legacy shape is present.
+    if (!needsBoundaryHealing(document)) return document
     const normalized = cloneJsonProject(document)
-    normalizeLegacyPlanWiringAtBoundary(normalized)
+    applyBoundaryHealers(normalized)
     return normalized
   }
-  if (isProjectV2BeforeScopes(document)) {
-    const { schemaVersion: _schemaVersion, ...project } = document
-    const normalized = applyScopeContract(project)
-    normalizeLegacyPlanWiringAtBoundary(normalized)
-    return normalized
-  }
-  if (isProjectV1(document)) return migrateProjectV1ToV2(document)
-  throw new Error('Unsupported project schema version.')
+  const upgraded = upgradeDocumentToCurrentSchema(document)
+  applyBoundaryHealers(upgraded)
+  return upgraded
 }
 
 function cloneJsonProject(project: ProjectV2): ProjectV2 {

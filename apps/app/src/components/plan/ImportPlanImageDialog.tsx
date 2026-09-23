@@ -14,6 +14,7 @@ import {
   applyDarkModeInversion,
   invertSvgForDarkMode,
   grayscaleSvgColors,
+  processPdfRasterBackground,
   svgHasMeaningfulColor,
   svgContentToDataUrl,
   getVectorSvgThemePreviewUrl,
@@ -138,8 +139,12 @@ function ImportPlanImageDialog({
   initialFile = null,
 }: ImportPlanImageDialogProps) {
   const { t } = useTranslation()
-  const { currentProject, addFloor, updateFloor, getFloorById } = useProjectStore()
-  const { activeFloorId, setActiveFloor } = useUIStore()
+  const currentProject = useProjectStore((state) => state.currentProject)
+  const addFloor = useProjectStore((state) => state.addFloor)
+  const updateFloor = useProjectStore((state) => state.updateFloor)
+  const getFloorById = useProjectStore((state) => state.getFloorById)
+  const activeFloorId = useUIStore((state) => state.activeFloorId)
+  const setActiveFloor = useUIStore((state) => state.setActiveFloor)
   const theme = useSettingsStore((state) => state.theme)
 
   const [step, setStep] = useState<ImportStep>('upload')
@@ -242,6 +247,14 @@ function ImportPlanImageDialog({
     },
     [pdfPageRasterThemePreviewMap, pdfPageCroppedPreviewMap]
   )
+  const getPdfRasterThemePreviewUrl = useCallback(
+    async (dataUrl: string, darkMode: boolean): Promise<string> => {
+      const processed = await processPdfRasterBackground(dataUrl)
+      const source = processed.hasWhiteBackground ? processed.processedDataUrl : dataUrl
+      return darkMode ? applyDarkModeInversion(source) : source
+    },
+    []
+  )
   useEffect(() => {
     if ((!isPdfImport && !isCadMultiCropImport) || pdfPages.length === 0) {
       setPdfPageThemePreviewMap({})
@@ -254,7 +267,12 @@ function ImportPlanImageDialog({
         pdfPages.map(async (page) => {
           const cropped = pdfPageCroppedPreviewMap[page.pageIndex]
           if (cropped) {
-            return [page.pageIndex, await getRasterThemePreviewUrl(cropped, isDarkMode)] as const
+            return [
+              page.pageIndex,
+              isPdfImport
+                ? await getPdfRasterThemePreviewUrl(cropped, isDarkMode)
+                : await getRasterThemePreviewUrl(cropped, isDarkMode),
+            ] as const
           }
           if (page.vectorSvg && !svgHasUnresolvedEmbeddedImages(page.vectorSvg)) {
             return [
@@ -264,9 +282,11 @@ function ImportPlanImageDialog({
           }
           return [
             page.pageIndex,
-            isDarkMode
-              ? await getRasterThemePreviewUrl(page.previewDataUrl, isDarkMode)
-              : page.previewDataUrl,
+            isPdfImport
+              ? await getPdfRasterThemePreviewUrl(page.previewDataUrl, isDarkMode)
+              : isDarkMode
+                ? await getRasterThemePreviewUrl(page.previewDataUrl, isDarkMode)
+                : page.previewDataUrl,
           ] as const
         })
       )
@@ -274,7 +294,12 @@ function ImportPlanImageDialog({
         pdfPages.map(async (page) => {
           const raster = pdfPageCroppedPreviewMap[page.pageIndex] ?? page.rasterDataUrl
           if (!isDarkMode) return [page.pageIndex, raster] as const
-          return [page.pageIndex, await getRasterThemePreviewUrl(raster, isDarkMode)] as const
+          return [
+            page.pageIndex,
+            isPdfImport
+              ? await getPdfRasterThemePreviewUrl(raster, isDarkMode)
+              : await getRasterThemePreviewUrl(raster, isDarkMode),
+          ] as const
         })
       )
       if (!cancelled) {
@@ -285,7 +310,14 @@ function ImportPlanImageDialog({
     return () => {
       cancelled = true
     }
-  }, [isPdfImport, isCadMultiCropImport, pdfPages, pdfPageCroppedPreviewMap, isDarkMode])
+  }, [
+    isPdfImport,
+    isCadMultiCropImport,
+    pdfPages,
+    pdfPageCroppedPreviewMap,
+    isDarkMode,
+    getPdfRasterThemePreviewUrl,
+  ])
 
   const selectedCadHasMeaningfulColor = useMemo(() => {
     if (!isCadMultiCropImport) return true
@@ -921,6 +953,26 @@ function ImportPlanImageDialog({
                 darkModeAware: true,
               }
             }
+            if (asset.kind === 'pdf-raster') {
+              const sourceDataUrl = asset.dataUrl
+              if (!sourceDataUrl) {
+                return {
+                  ...asset,
+                  processedDataUrl: undefined,
+                  hasWhiteBackground: false,
+                  darkModeAware: false,
+                }
+              }
+              const processed = await processPdfRasterBackground(sourceDataUrl)
+              return {
+                ...asset,
+                processedDataUrl: processed.hasWhiteBackground
+                  ? processed.processedDataUrl
+                  : undefined,
+                hasWhiteBackground: processed.hasWhiteBackground,
+                darkModeAware: true,
+              }
+            }
             const sourceDataUrl = asset.dataUrl
             if (!sourceDataUrl) {
               return {
@@ -1442,6 +1494,13 @@ function ImportPlanImageDialog({
             const darkSvg = await invertSvgForDarkMode(processedSvg)
             darkUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(darkSvg)}`
           }
+        } else if (asset.kind === 'pdf-raster' && sourceUrl) {
+          const processed = await processPdfRasterBackground(sourceUrl)
+          processedUrl = processed.hasWhiteBackground ? processed.processedDataUrl : sourceUrl
+          darkUrl = pdfEnableDarkModeProcessing
+            ? await applyDarkModeInversion(processedUrl)
+            : processedUrl
+          hasWhiteBackground = processed.hasWhiteBackground
         } else if (sourceUrl) {
           const processed = await processPlanImage(sourceUrl, false)
           hasWhiteBackground = processed.hasWhiteBackground
@@ -1481,6 +1540,7 @@ function ImportPlanImageDialog({
     pdfPreviewPageIndex,
     isCadMultiCropImport,
     isSvgImport,
+    pdfEnableDarkModeProcessing,
   ])
 
   if (!isOpen) return null
@@ -1861,13 +1921,15 @@ function ImportPlanImageDialog({
                           />
                         </div>
                         <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                          <span>
-                            {getPdfPageStatus(page) === 'vector'
-                              ? t('planImport.vectorPreferred')
-                              : getPdfPageStatus(page) === 'mixed'
-                                ? t('common.mixed')
-                                : t('planImport.rasterFallback')}
-                          </span>
+                          {(!isPdfImport || page.vectorSvg) && (
+                            <span>
+                              {getPdfPageStatus(page) === 'vector'
+                                ? t('planImport.vectorPreferred')
+                                : getPdfPageStatus(page) === 'mixed'
+                                  ? t('common.mixed')
+                                  : t('planImport.rasterFallback')}
+                            </span>
+                          )}
                           {pdfPageCropMap[page.pageIndex] && (
                             <span>{t('planImport.croppedBadge')}</span>
                           )}

@@ -24,12 +24,19 @@ export function placeSupplyMetadataCards(
   // Spatial order, independent of serialization order, keeps leaders local.
   const ordered = [...items].sort(
     (a, b) =>
-      a.symbolPosition.y - b.symbolPosition.y ||
+      b.symbolPosition.y - a.symbolPosition.y ||
       a.symbolPosition.x - b.symbolPosition.x ||
       a.id.localeCompare(b.id)
   )
   for (const item of ordered) {
     const { x, y } = item.symbolPosition
+    const preferredLeft =
+      item.placement === 'upper-left'
+        ? x - item.width - 28
+        : item.placement === 'top-right'
+          ? x + 28
+          : x - item.width / 2
+    const preferredTop = y - item.height - 28
     const xs = new Set([x - item.width / 2, x - item.width - 28, x + 28])
     const ys = new Set([y - item.height - 28, y - item.height / 2, y + 28])
     for (const rect of occupied) {
@@ -39,7 +46,14 @@ export function placeSupplyMetadataCards(
       ys.add(rect.y + rect.height + gap)
     }
     let best:
-      { rect: OneWireLayoutRect; leader: Leader; crossings: number; score: number } | undefined
+      {
+        rect: OneWireLayoutRect
+        leader: Leader
+        preferenceDistance: number
+        crossings: number
+        score: number
+      }
+      | undefined
     for (const left of xs) {
       for (const top of ys) {
         const rect = { x: left, y: top, width: item.width, height: item.height }
@@ -77,12 +91,18 @@ export function placeSupplyMetadataCards(
           (leader[1] - leader[3]) ** 2 +
           0.15 * ((left + item.width / 2 - x) ** 2 + (top + item.height / 2 - y) ** 2) +
           (top >= y ? 1 : 0)
+        const preferenceDistance = item.placement
+          ? (left - preferredLeft) ** 2 + (top - preferredTop) ** 2
+          : 0
         if (
           !best ||
-          crossings < best.crossings ||
-          (crossings === best.crossings && score < best.score)
+          preferenceDistance < best.preferenceDistance ||
+          (preferenceDistance === best.preferenceDistance && crossings < best.crossings) ||
+          (preferenceDistance === best.preferenceDistance &&
+            crossings === best.crossings &&
+            score < best.score)
         ) {
-          best = { rect, leader, crossings, score }
+          best = { rect, leader, preferenceDistance, crossings, score }
         }
       }
     }

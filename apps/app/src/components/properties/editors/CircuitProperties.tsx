@@ -51,7 +51,7 @@ export function CircuitProperties({
   onUpdate: (id: string, updates: Partial<Circuit>) => void
 }) {
   const { t } = useTranslation()
-  const { openDialog } = useDialogStore()
+  const openDialog = useDialogStore((state) => state.openDialog)
   const currentProject = useProjectStore((state: ProjectState) => state.currentProject)
   const installation = useProjectStore((state: ProjectState) =>
     state.currentProject ? getProjectElectricalInstallation(state.currentProject) : undefined

@@ -55,10 +55,7 @@ import {
   resolvePanelSupplyLinkForPanel,
   resolvePanelSupplyLinkForProtection,
 } from '@/lib/eendraad/panelSupplyLink'
-import {
-  getAllSupplyTrunkDevices,
-  getPanelFeedProjection,
-} from '@/lib/feedTopology'
+import { getAllSupplyTrunkDevices, getPanelFeedProjection } from '@/lib/feedTopology'
 import { collectAllGroundTrunkDevices } from '@/lib/eendraad/panelGround'
 import { queryOneWireFrames, type AnnotationProject } from '@/lib/projectV2/annotations'
 import {
@@ -68,14 +65,19 @@ import {
 import {
   getProjectElectricalInstallation,
   getProjectElectricalPanels,
+  selectProjectSupplyAssemblies,
   selectProjectAuxiliaryElectricalEnclosures,
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import { collectCircuits, findPanelById, walkPanels } from '@/lib/panel/panelTree'
+import { isSupplyHandoffTargetPresent } from '@/lib/supplyAssembly/handoffTargetIntegrity'
 import { hasExplicitPanelBusSections } from '@/lib/panel/panelBusSections'
 import { panelHasBackupOutput } from '@/lib/panel/panelFeedOrganization'
 import { resolveSupplyDeviceMounting } from '@/lib/panel/auxiliarySupplyEnclosures'
-import { isInverterPanelDevice, isSupplyDeviceVisibleInPanel } from '@/lib/panel/supplyPanelVisibility'
+import {
+  isInverterPanelDevice,
+  isSupplyDeviceVisibleInPanel,
+} from '@/lib/panel/supplyPanelVisibility'
 import { trunkDeviceCanAppearInPanelGrid } from '@/lib/eendraad/projectElectricalDomain'
 
 type OrphanDetectionProject = ProjectWithOptionalV2Electrical &
@@ -187,6 +189,7 @@ type SupplyTrunkVisualPlacementMissingReason =
   | 'missingPanel'
   | 'missingAuxiliaryEnclosure'
   | 'wrongRootFeed'
+  | 'panelMountingSlotMismatch'
 
 function supplyTrunkModuleKey(deviceId: string): string {
   return panelGridModuleRefKey({ kind: 'trunkDevice', id: deviceId, scope: 'supply' })
@@ -213,13 +216,14 @@ function isSupplyTrunkDeviceManuallyHidden(
 function findSupplyTrunkVisualPlacementMissingReason(
   project: OrphanDetectionProject,
   device: TrunkDevice
-): SupplyTrunkVisualPlacementMissingReason | undefined {
+): { reason: SupplyTrunkVisualPlacementMissingReason; panelId?: string } | undefined {
   if (!trunkDeviceCanAppearInPanelGrid(device)) return undefined
-  if (isInverterPanelDevice(device) && !isSupplyDeviceVisibleInPanel(project, device.id)) return undefined
+  if (isInverterPanelDevice(device) && !isSupplyDeviceVisibleInPanel(project, device.id))
+    return undefined
   if (isSupplyTrunkDeviceManuallyHidden(project, device.id)) return undefined
 
   const mounting = resolveSupplyDeviceMounting(project, device.id)
-  if (!mounting) return 'wrongRootFeed'
+  if (!mounting) return { reason: 'wrongRootFeed' }
 
   if (mounting.kind === 'grid') return undefined
   if (mounting.kind === 'auxiliary') {
@@ -227,11 +231,26 @@ function findSupplyTrunkVisualPlacementMissingReason(
       (enclosure) => enclosure.id === mounting.enclosureId
     )
       ? undefined
-      : 'missingAuxiliaryEnclosure'
+      : { reason: 'missingAuxiliaryEnclosure' }
   }
 
   const targetPanel = findPanelById(getProjectElectricalPanels(project), mounting.panelId)
-  if (!targetPanel) return 'missingPanel'
+  if (!targetPanel) return { reason: 'missingPanel', panelId: mounting.panelId }
+
+  const moduleKey = panelGridModuleRefKey({
+    kind: 'trunkDevice',
+    id: device.id,
+    scope: 'supply',
+  })
+  const hasMainPanelSlot = targetPanel.gridView?.slots?.some(
+    (slot) => panelGridModuleRefKey(slot.module) === moduleKey
+  )
+  const hasSupplyPanelSlot = targetPanel.gridView?.supplyPanelSlots?.some(
+    (slot) => panelGridModuleRefKey(slot.module) === moduleKey
+  )
+  if (!hasMainPanelSlot && hasSupplyPanelSlot) {
+    return { reason: 'panelMountingSlotMismatch', panelId: targetPanel.id }
+  }
 
   // The panel selector includes mounted supply devices from every electrical feed.
   // Existing main and secondary enclosures can auto-place them without owning their input.
@@ -260,6 +279,11 @@ export interface DetectedOrphan {
         removePlacementIds: string[]
       }
     | {
+        kind: 'repairSharedPlanPlacementIds'
+        placementId: string
+        owners: Array<{ kind: 'endpoint' | 'trunkDevice'; id: string }>
+      }
+    | {
         kind: 'attachCircuitToProtection'
         panelId: string
         circuitId: string
@@ -280,6 +304,12 @@ export interface DetectedOrphan {
         kind: 'ejectSupplyTrunkToSupplyStrip'
         panelId: string
         moduleRef: PanelGridModuleRef
+      }
+    | {
+        /** Move a physically panel-mounted supply module out of stale supply-strip slots. */
+        kind: 'repairSupplyTrunkPanelMountingSlot'
+        panelId: string
+        deviceId: string
       }
     | {
         kind: 'repairDomoticaChildLink'
@@ -343,10 +373,7 @@ function buildCircuitMap(panel: Panel): Map<string, Circuit> {
  * deliberately start a trunk even though it does not count as functional protection for AREI
  * validation or hardware tallies.
  */
-function isUnprotectedDirectDcBusFeeder(
-  protection: ProtectionDevice,
-  circuit: Circuit,
-): boolean {
+function isUnprotectedDirectDcBusFeeder(protection: ProtectionDevice, circuit: Circuit): boolean {
   return (
     protection.type === 'OTHER' &&
     protection.directDcBusFeeder === true &&
@@ -536,12 +563,20 @@ export interface OrphanReport {
     trunkDeviceId: string
     label: string
     reason: SupplyTrunkVisualPlacementMissingReason
+    panelId?: string
   }>
   /** Main panel has several bus sections but no connected backup path capable of supplying one. */
   splitBusWithoutBackupSupply: Array<{
     panelId: string
     panelName: string
     busSectionCount: number
+  }>
+  /** Supply handoff references a circuit that no longer exists in its target panel. */
+  supplyAssemblyHandoffTargetMissing: Array<{
+    assemblyId: string
+    handoffId: string
+    handoffNodeId: string
+    missingCircuitId: string
   }>
 }
 
@@ -571,6 +606,7 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
     supplyTrunkMisplacedInMainGrid: [],
     supplyTrunkVisualPlacementMissing: [],
     splitBusWithoutBackupSupply: [],
+    supplyAssemblyHandoffTargetMissing: [],
   }
 
   const projectPanels = getProjectElectricalPanels(project)
@@ -639,6 +675,23 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
 
   const circuitMap = buildCircuitMap(currentPanel)
   const circuits = collectCircuits(currentPanel)
+  for (const assembly of selectProjectSupplyAssemblies(project)) {
+    for (const handoff of assembly.loadHandoffs) {
+      if (
+        handoff.target.kind !== 'circuit-input' ||
+        handoff.target.panelId !== currentPanel.id ||
+        isSupplyHandoffTargetPresent(handoff, projectPanels, projectInstallation)
+      ) {
+        continue
+      }
+      report.supplyAssemblyHandoffTargetMissing.push({
+        assemblyId: assembly.id,
+        handoffId: handoff.id,
+        handoffNodeId: handoff.handoffNodeId,
+        missingCircuitId: handoff.target.circuitId,
+      })
+    }
+  }
   const knownFloorIds = new Set(selectProjectBuildingFloorIds(project))
 
   const describePanelGridModule = (
@@ -657,8 +710,9 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
       }
       if (ref.scope === 'ground') {
         return (
-          collectAllGroundTrunkDevices(projectPanels, projectInstallation).find((d) => d.id === ref.id)
-            ?.label || ref.id
+          collectAllGroundTrunkDevices(projectPanels, projectInstallation).find(
+            (d) => d.id === ref.id
+          )?.label || ref.id
         )
       }
       const circuit = ref.circuitId ? findCircuitInProject(project, ref.circuitId) : null
@@ -721,10 +775,19 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
           (
             getPanelFeedProjection(projectInstallation, projectPanels, currentPanel)?.sharedFeed
               .trunkDevices ?? []
-          ).filter((device) => !isInverterPanelDevice(device) || isSupplyDeviceVisibleInPanel(project, device.id))
-          .filter((device) => device.panelMounting?.kind !== 'panel' || device.panelMounting.panelId !== currentPanel.id).map((device) =>
-            panelGridModuleRefKey({ kind: 'trunkDevice', id: device.id, scope: 'supply' })
           )
+            .filter(
+              (device) =>
+                !isInverterPanelDevice(device) || isSupplyDeviceVisibleInPanel(project, device.id)
+            )
+            .filter(
+              (device) =>
+                device.panelMounting?.kind !== 'panel' ||
+                device.panelMounting.panelId !== currentPanel.id
+            )
+            .map((device) =>
+              panelGridModuleRefKey({ kind: 'trunkDevice', id: device.id, scope: 'supply' })
+            )
         )
       : new Set<string>()
 
@@ -753,12 +816,12 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
     projectPanels.find((candidate) => candidate.isMain === true)?.id ?? projectPanels[0]?.id
   if (currentPanel.id === supplyPlacementReportPanelId) {
     for (const device of getAllSupplyTrunkDevices(project)) {
-      const reason = findSupplyTrunkVisualPlacementMissingReason(project, device)
-      if (!reason) continue
+      const placementIssue = findSupplyTrunkVisualPlacementMissingReason(project, device)
+      if (!placementIssue) continue
       report.supplyTrunkVisualPlacementMissing.push({
         trunkDeviceId: device.id,
         label: device.label || device.id,
-        reason,
+        ...placementIssue,
       })
     }
   }
@@ -829,8 +892,7 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
     const inBranchIds = new Set<string>()
 
     for (const parent of circuit.endpoints) {
-      if (parent.symbol !== 'domotica' || !parent.domoticaProps)
-        continue
+      if (parent.symbol !== 'domotica' || !parent.domoticaProps) continue
       const checkSlots = (ids: string[] | undefined, outputGroup: 'endpoint' | 'control') => {
         for (const [outputIndex, endpointId] of (ids ?? []).entries()) {
           if (!endpointId) continue
@@ -1059,19 +1121,19 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
   // Supply/ground trunk devices belong to main panels. Resolve supply devices through the
   // canonical feed projection so current V2 root-feed devices are included alongside legacy
   // mainSupply devices.
-    for (const td of currentPanel.groundTrunkDevices ?? []) {
+  for (const td of currentPanel.groundTrunkDevices ?? []) {
+    allTrunkDeviceIds.add(td.id)
+  }
+  if (currentPanel.isMain === true) {
+    for (const td of projectInstallation
+      ? (getPanelFeedProjection(projectInstallation, projectPanels, currentPanel)?.devices ?? [])
+      : []) {
       allTrunkDeviceIds.add(td.id)
     }
-    if (currentPanel.isMain === true) {
-      for (const td of projectInstallation
-        ? (getPanelFeedProjection(projectInstallation, projectPanels, currentPanel)?.devices ?? [])
-        : []) {
-        allTrunkDeviceIds.add(td.id)
-      }
-      for (const td of projectInstallation?.groundTrunkDevices ?? []) {
-        allTrunkDeviceIds.add(td.id)
-      }
+    for (const td of projectInstallation?.groundTrunkDevices ?? []) {
+      allTrunkDeviceIds.add(td.id)
     }
+  }
 
   for (const frame of frames) {
     for (const span of frame.trunkSpans ?? []) {
@@ -1336,15 +1398,20 @@ export function getDetectedOrphans(project: OrphanDetectionProject): DetectedOrp
       })
     }
     for (const item of report.planPlacementIdentityConflict) {
-      const trunkDeviceIds = [...new Set(
-        item.owners.filter((owner) => owner.kind === 'trunkDevice').map((owner) => owner.id)
-      )]
-      const endpointIds = [...new Set(
-        item.owners.filter((owner) => owner.kind === 'endpoint').map((owner) => owner.id)
-      )]
-      const focusSelection = trunkDeviceIds.length > 0
-        ? { type: 'trunkDevice' as const, ids: trunkDeviceIds }
-        : { type: 'endpoint' as const, ids: endpointIds }
+      const trunkDeviceIds = [
+        ...new Set(
+          item.owners.filter((owner) => owner.kind === 'trunkDevice').map((owner) => owner.id)
+        ),
+      ]
+      const endpointIds = [
+        ...new Set(
+          item.owners.filter((owner) => owner.kind === 'endpoint').map((owner) => owner.id)
+        ),
+      ]
+      const focusSelection =
+        trunkDeviceIds.length > 0
+          ? { type: 'trunkDevice' as const, ids: trunkDeviceIds }
+          : { type: 'endpoint' as const, ids: endpointIds }
       out.push({
         id: `plan-placement-conflict-${item.placementId}`,
         kind: 'circuit',
@@ -1352,6 +1419,11 @@ export function getDetectedOrphans(project: OrphanDetectionProject): DetectedOrp
         summary: `Situation-plan placement "${item.placementId}" is shared by ${item.owners.map((owner) => owner.label).join(', ')}`,
         panelId,
         focusSelection,
+        resolutionPayload: {
+          kind: 'repairSharedPlanPlacementIds',
+          placementId: item.placementId,
+          owners: item.owners.map(({ kind, id }) => ({ kind, id })),
+        },
       })
     }
     for (const item of report.domoticaChildLinkMismatch) {
@@ -1482,6 +1554,15 @@ export function getDetectedOrphans(project: OrphanDetectionProject): DetectedOrp
         summary: `Supply device "${item.label}" has no reachable panel-canvas placement`,
         panelId,
         focusSelection: { type: 'trunkDevice', ids: [item.trunkDeviceId] },
+        ...(item.reason === 'panelMountingSlotMismatch'
+          ? {
+              resolutionPayload: {
+                kind: 'repairSupplyTrunkPanelMountingSlot' as const,
+                panelId: item.panelId ?? panelId,
+                deviceId: item.trunkDeviceId,
+              },
+            }
+          : {}),
       })
     }
     for (const item of report.splitBusWithoutBackupSupply) {
@@ -1552,7 +1633,8 @@ export function logOrphanReport(project: OrphanDetectionProject): void {
       report.panelGridDuplicateModule.length +
       report.supplyTrunkMisplacedInMainGrid.length +
       report.supplyTrunkVisualPlacementMissing.length +
-      report.splitBusWithoutBackupSupply.length
+      report.splitBusWithoutBackupSupply.length +
+      report.supplyAssemblyHandoffTargetMissing.length
     if (count === 0) continue
 
     totalCount += count
@@ -1747,7 +1829,12 @@ export function logOrphanReport(project: OrphanDetectionProject): void {
       )
       logger.error(
         `${ORPHAN_LOG_PREFIX} Likely cause: a duplicate operation copied a trunk-device or endpoint placement without generating a new placement id. Delete and recreate the affected duplicated symbols, or assign each symbol a unique placement record.`,
-        { type: 'planPlacementIdentityConflict', placementId: item.placementId, owners: item.owners, panelId }
+        {
+          type: 'planPlacementIdentityConflict',
+          placementId: item.placementId,
+          owners: item.owners,
+          panelId,
+        }
       )
     }
 
@@ -1857,6 +1944,13 @@ export function logOrphanReport(project: OrphanDetectionProject): void {
         { type: 'splitBusWithoutBackupSupply', ...item }
       )
     }
+
+    for (const item of report.supplyAssemblyHandoffTargetMissing) {
+      logger.error(
+        `${ORPHAN_LOG_PREFIX} Supply handoff references missing circuit "${item.missingCircuitId}" (handoff ${item.handoffId}, assembly ${item.assemblyId}).`,
+        { type: 'supplyAssemblyHandoffTargetMissing', ...item, panelId }
+      )
+    }
   }
 
   if (totalCount > 0) {
@@ -1896,6 +1990,7 @@ export function orphanReportToIssues(
     supplyTrunkMisplacedInMainGrid: (opts: Record<string, string>) => string
     supplyTrunkVisualPlacementMissing: (opts: Record<string, string>) => string
     splitBusWithoutBackupSupply: (opts: Record<string, string>) => string
+    supplyAssemblyHandoffTargetMissing: (opts: Record<string, string>) => string
   }
 ): Issue[] {
   const issues: Issue[] = []
@@ -2036,6 +2131,24 @@ export function orphanReportToIssues(
       details: undefined,
       citations: [],
       tags: ['orphan', 'eendraad', 'frame'],
+    })
+  }
+
+  for (const item of report.supplyAssemblyHandoffTargetMissing) {
+    issues.push({
+      id: `${ruleId}:board:${panelId}:supply-handoff-target-missing:${item.handoffId}`,
+      ruleId,
+      severity: 'warning',
+      jurisdiction,
+      rulesetVersion,
+      scope: { type: 'board', id: panelId },
+      offenders: [{ kind: 'device', id: item.handoffNodeId, viewHint: 'eendraad' }],
+      message: msg.supplyAssemblyHandoffTargetMissing({
+        missingCircuitId: item.missingCircuitId,
+      }),
+      details: undefined,
+      citations: [],
+      tags: ['orphan', 'eendraad', 'supply'],
     })
   }
 

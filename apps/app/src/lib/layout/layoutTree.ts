@@ -25,6 +25,12 @@ import {
 } from '@/lib/eendraad/endpointNoteLabelCollision'
 import { getVisibleEndpointNoteText } from '@/lib/conversionLabels'
 import {
+  getProtectionOneWireAnchorLineIndex,
+  getProtectionOneWireLabelLines,
+} from '@/lib/protectionLabels'
+import { getSymbolLabelVerticalMetrics } from '@/lib/symbolLabelMetrics'
+import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
+import {
   DOMOTICA_BASE_HEIGHT,
   DOMOTICA_BOX_WIDTH,
   DOMOTICA_BRANCH_LEAD,
@@ -38,7 +44,7 @@ import {
   getProtectionBusSectionId,
   hasExplicitPanelBusSections,
 } from '@/lib/panel/panelBusSections'
-import { PANEL_BUS_FEED_GAP } from '@/lib/panel/panelBusFeedPreview'
+import { getLeftBiasedBusFeedStubX, PANEL_BUS_FEED_GAP } from '@/lib/panel/panelBusFeedPreview'
 import { getDirectConverterChangeoverInsertIndex } from '@/lib/supplyAssembly/directConverterBackupUpgrade'
 import { getSupplyConverterDcConnectionIndex } from '@/lib/supplyAssembly/converterDcConnections'
 import { getSymbolById, resolveSymbolPortsForWire } from '@/lib/symbols'
@@ -460,6 +466,9 @@ export function mirrorLayoutNodeHorizontally(
 }
 
 function isSupplyAssemblyLayoutNode(node: LayoutNode): boolean {
+  if (node.id.includes('--feed-stub-') || node.id.startsWith('supply-wire-feed-stub-')) {
+    return false
+  }
   return (
     node.type === 'supply' ||
     node.type === 'ground' ||
@@ -944,6 +953,71 @@ function buildPanelNodeForVisualDirection(panelLayout: BottomUpPanelLayout): Lay
   } finally {
     mirrorPanelLayout(panelLayout)
   }
+}
+
+type FeedStubPaintRect = { left: number; right: number; top: number; bottom: number }
+
+function getFeedStubDevicePaintRects(device: TrunkDevice, x: number, y: number): FeedStubPaintRect[] {
+  const symbolHalf = LAYOUT_CONSTANTS.SYMBOL_SIZE / 2
+  const rects: FeedStubPaintRect[] = [
+    { left: x - symbolHalf, right: x + symbolHalf, top: y - symbolHalf, bottom: y + symbolHalf },
+  ]
+  const leftLines = [device.label, device.notes].filter((value): value is string => !!value?.trim())
+  if (leftLines.length > 0) {
+    const metrics = getSymbolLabelVerticalMetrics(leftLines, 10)
+    const width = Math.max(...leftLines.map((line) => measureSymbolLabelTextWidth(line, 'Figtree', 8)))
+    rects.push({
+      left: x - symbolHalf - 5 - width - 4,
+      right: x - symbolHalf - 1,
+      top: y - metrics.totalHeight / 2 - 3,
+      bottom: y + metrics.totalHeight / 2 + 3,
+    })
+  }
+  if (device.type === 'protection') {
+    const lines = getProtectionOneWireLabelLines(device)
+    if (lines.length > 0) {
+      const metrics = getSymbolLabelVerticalMetrics(lines.map((line) => line.text), 12)
+      const top = -getProtectionOneWireAnchorLineIndex(lines) * 12 - 5
+      const width = Math.max(
+        ...lines.map((line) => measureSymbolLabelTextWidth(line.text, 'Figtree', 10))
+      )
+      rects.push({
+        left: x + symbolHalf + 1,
+        right: x + symbolHalf + 5 + width + 4,
+        top: y + top - 3,
+        bottom: y + top + metrics.totalHeight + 3,
+      })
+    }
+  }
+  return rects
+}
+
+function layoutFeedStubStack(
+  devicesFromBus: readonly TrunkDevice[],
+  x: number,
+  busY: number
+): { centers: number[]; endY: number } {
+  const centers: number[] = []
+  const rects: FeedStubPaintRect[] = []
+  for (const device of devicesFromBus) {
+    const relative = getFeedStubDevicePaintRects(device, x, 0)
+    const top = Math.min(...relative.map((rect) => rect.top))
+    const previous = centers.length - 1
+    const y = previous < 0
+      ? busY + Math.max(44, 25 - top)
+      : Math.max(
+          centers[previous]! + 50,
+          Math.max(...rects.map((rect) => rect.bottom)) - top + 6
+        )
+    centers.push(y)
+    rects.push(...relative.map((rect) => ({
+      ...rect, top: rect.top + y, bottom: rect.bottom + y,
+    })))
+  }
+  const lastY = centers.at(-1) ?? busY
+  const lastBottom = Math.max(lastY + 15, ...rects.map((rect) => rect.bottom))
+  const endY = centers.length === 0 ? busY + 24 : Math.max(lastY + 42, lastBottom + 18)
+  return { centers, endY }
 }
 
 function buildPanelNode(panelLayout: BottomUpPanelLayout): LayoutNode {
@@ -1437,10 +1511,134 @@ function buildPanelNode(panelLayout: BottomUpPanelLayout): LayoutNode {
     })
   }
 
+  // Each bus section has one panel-side device chain. A section can appear in
+  // several runs; those runs repeat views of the same persisted devices.
+  if (
+    (panelLayout.supplyEndpointKind === 'continuation' ||
+      (panelLayout.supplyEndpointKind === 'mains' &&
+        panelLayout.frameRole === 'panel' && panelLayout.panel.isMain)) &&
+    hasExplicitPanelBusSections(panelLayout.panel)
+  ) {
+    const bus = children.find((node) => node.type === 'busBar')
+    const allRuns = bus?.children
+      .filter(
+        (node) =>
+          node.type === 'wire' &&
+          node.hitZone?.busSectionId != null &&
+          node.id.startsWith('main-bus-segment-')
+      )
+      .sort((a, b) => a.bounds.x - b.bounds.x)
+      .reduce<Array<{ start: number; end: number; sectionId: string }>>((result, node) => {
+        const end = node.bounds.x + node.bounds.width
+        const previous = result.at(-1)
+        const sectionId = node.hitZone!.busSectionId!
+        if (previous && previous.sectionId === sectionId &&
+          Math.abs(previous.end - node.bounds.x) < 0.01) previous.end = end
+        else result.push({ start: node.bounds.x, end, sectionId })
+        return result
+      }, []) ?? []
+    const stacks = new Map(
+      (panelLayout.panelLocalFeedStubStacks ?? [])
+        .map((stack) => [stack.busSectionId, stack])
+    )
+    const runs = allRuns.filter((run) => stacks.has(run.sectionId))
+    if (runs.length > 0 && bus) {
+      const originalIds = new Set(runs.flatMap((run) =>
+        stacks.get(run.sectionId)!.devices.map((device) => `supplyTrunkDevice-${device.id}`)
+      ))
+      const originals = new Map(
+        children.filter((node) => originalIds.has(node.id)).map((node) => [node.id, node])
+      )
+      const busY = bus.bounds.y + bus.bounds.height / 2
+      const stackLayouts = runs.map((run) => {
+        const stack = stacks.get(run.sectionId)!
+        const x = getLeftBiasedBusFeedStubX(run.start, run.end)
+        const layout = layoutFeedStubStack(
+          [...stack.devices].reverse(),
+          x,
+          busY
+        )
+        return { x, stack, ...layout }
+      })
+      for (const runIndex of runs.keys()) {
+        const { x, centers, stack } = stackLayouts[runIndex]!
+        for (const [deviceIndex, device] of [...stack.devices].reverse().entries()) {
+          if (device.type !== 'protection' &&
+            runs.findIndex((run) => run.sectionId === stack.busSectionId) !== runIndex) continue
+          const original = originals.get(`supplyTrunkDevice-${device.id}`)
+          const source: LayoutNode = original ?? {
+            id: `supplyTrunkDevice-${device.id}`,
+            type: 'trunkDevice',
+            bounds: { x, y: centers[deviceIndex]!, width: LAYOUT_CONSTANTS.SYMBOL_SIZE,
+              height: LAYOUT_CONSTANTS.SYMBOL_SIZE },
+            domainId: device.id,
+            domainRef: device,
+            visual: { type: 'symbol', symbolId: device.symbol, label: device.label },
+            hitZone: {
+              type: 'supplyWire', padding: 10, supplyFeedScope: 'root',
+              supplyPanelId: panelLayout.panel.id,
+              supplyInsertIndex: stack.insertBase + stack.devices.length - 1 - deviceIndex,
+            },
+            children: [],
+          }
+          children.push({
+            ...source,
+            id: `${source.id}--feed-stub-${runIndex}`,
+            bounds: { ...source.bounds, x, y: centers[deviceIndex]! },
+            hitZone: source.hitZone
+              ? { ...source.hitZone, busSectionId: stack.busSectionId }
+              : { type: null, padding: 0, busSectionId: stack.busSectionId },
+            visual:
+              source.visual?.type === 'symbol'
+                ? { ...source.visual, rotationDeg: undefined }
+                : source.visual,
+          })
+        }
+      }
+      for (let index = children.length - 1; index >= 0; index--) {
+        if (originalIds.has(children[index]!.id)) children.splice(index, 1)
+      }
+      // The old horizontal continuation has no painted counterpart now. Keep
+      // only the upright, panel-local insertion zones beside each instance.
+      bus.children = bus.children.filter((node) => !node.id.startsWith('supply-wire-'))
+      for (const runIndex of runs.keys()) {
+        const { x, centers: deviceCenters, endY, stack } = stackLayouts[runIndex]!
+        const centers = [
+          busY,
+          ...deviceCenters,
+          endY,
+        ]
+        for (let gapIndex = 0; gapIndex < centers.length - 1; gapIndex++) {
+          const fromY = centers[gapIndex]! + (gapIndex === 0 ? 9 : 13)
+          const toY = centers[gapIndex + 1]! -
+            (gapIndex === centers.length - 2 ? 0 : 13)
+          if (toY <= fromY) continue
+          bus.children.push({
+            id: `supply-wire-feed-stub-${panelLayout.panel.id}-${runIndex}-${gapIndex}`,
+            type: 'wire',
+            bounds: { x: x - 10, y: fromY, width: 20, height: toY - fromY },
+            hitZone: {
+              type: 'supplyWire',
+              padding: 0,
+              supplyFeedScope: 'root',
+              supplyPanelInput: true,
+              supplyPanelId: panelLayout.panel.id,
+              busSectionId: stack.busSectionId,
+              supplyInsertIndex:
+                stack.insertBase + stack.devices.length - gapIndex,
+            },
+            children: [],
+          })
+        }
+      }
+    }
+  }
+
   const markPanelInput = (nodes: LayoutNode[]) => {
     for (const node of nodes) {
       if (node.hitZone?.type === 'supplyWire') {
-        node.hitZone.supplyPanelInput = panelLayout.supplyEndpointKind === 'continuation'
+        node.hitZone.supplyPanelInput = node.hitZone.supplyPanelInput ||
+          panelLayout.supplyEndpointKind === 'continuation'
       }
       markPanelInput(node.children)
     }
@@ -2197,6 +2395,26 @@ function buildMainBusNode(
       // Modular changeovers expose their own lane-aware AC hit zones above. The direct-converter
       // AC zones describe different sections and must not overlap those changeover targets.
       const backup = panelLayout.supplyConverterBackup
+      if (!converterGridInputConnected) {
+        children.unshift({
+          id: `supply-direct-converter-load-slot-${panelLayout.panel.id}`,
+          type: 'wire',
+          bounds: {
+            x: converter.x - pad,
+            y: panelLayout.supply.y - pad,
+            width: pad * 2,
+            height: pad * 2,
+          },
+          hitZone: {
+            type: 'supplyWire',
+            padding: 0,
+            supplyFeedScope: 'root',
+            supplyInsertIndex: converter.feedIndex + 1,
+            supplyPanelId: panelLayout.panel.id,
+          },
+          children: [],
+        })
+      }
       if (!changeoverBranches && backup && backup.x2 > backup.x1) {
         children.unshift({
           id: `supply-direct-converter-backup-slot-${panelLayout.panel.id}`,

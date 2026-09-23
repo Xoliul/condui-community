@@ -1,3 +1,4 @@
+import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import { registerPrimitive } from './registry'
 import type {
   CheckContext,
@@ -29,6 +30,10 @@ import {
   getConservativeAmpacityForSection,
 } from './common'
 import { isHouseholdInstallation } from '@/lib/installationProfile'
+import {
+  isIntermediateProtectionDevice,
+  isOvercurrentProtectionType,
+} from '@/lib/protectionKind'
 
 /**
  * Check if cable segments have cross-section
@@ -221,7 +226,11 @@ function minimumCrossSection(
       for (const p of panel.protections) {
         for (const c of p.circuits ?? []) {
           pushRequired(baselineRequiredForCircuit(c))
-          if (p.ratingA != null) {
+          if (
+            p.ratingA != null &&
+            isOvercurrentProtectionType(p.type) &&
+            !isIntermediateProtectionDevice(p)
+          ) {
             // If a downstream breaker needs a heavier conductor (e.g. 32A => 6mm²),
             // feeder must be at least that section as well.
             pushRequired(sectionForBreakerRating(p.ratingA))
@@ -451,6 +460,39 @@ function isInternalProtectionDistributionCircuit(circuit: Circuit): boolean {
   )
 }
 
+function isInternalProtectionLinkSegment(segment: WireSegment, circuit: Circuit): boolean {
+  return (
+    isInternalProtectionDistributionCircuit(circuit) &&
+    segment.fromElementType === 'protection' &&
+    segment.toElementType === 'protection'
+  )
+}
+
+function isNestedProtectionBusFeedSegment(
+  segment: WireSegment,
+  circuit: Circuit,
+  panel: Panel
+): boolean {
+  if (segment.fromElementType !== 'secondaryBus' || segment.toElementType !== 'protection') {
+    return false
+  }
+
+  const childProtection = panel.protections.find(
+    (protection) =>
+      protection.id === segment.toElementId &&
+      protection.circuits?.some((candidate) => candidate.id === circuit.id)
+  )
+  if (!childProtection) return false
+
+  return panel.protections.some((protection) =>
+    (protection.circuits ?? []).some(
+      (parentCircuit) =>
+        isInternalProtectionDistributionCircuit(parentCircuit) &&
+        parentCircuit.subCircuitIds?.includes(circuit.id) === true
+    )
+  )
+}
+
 /**
  * Warn when AC wiring on the installation side of the main bus uses conductors without PE.
  * Ground/PE is bonded at the main bus; circuits and the supply drop from the dashed separator
@@ -547,7 +589,7 @@ function postMainBusRequiresPeConductor(
     if (!installation) throw new Error('Missing electrical installation')
     const layout = calculateBottomUpLayout(project, new Map())
     const tree = buildLayoutTree(layout)
-    const allSegments = deriveWires(tree, projectPanels(project), installation)
+    const allSegments = deriveWires(tree, projectPanels(project), installation, [], undefined, selectProjectWireRuns(project))
     panelSegments = allSegments.filter((s) => s.panelId === scope.id)
   } catch {
     return issues.length > 0 ? issues : { passed: true }
@@ -564,7 +606,12 @@ function postMainBusRequiresPeConductor(
 
     const circuit = query.getCircuitById(seg.circuitId)
     if (!circuit) continue
-    if (isInternalProtectionDistributionCircuit(circuit)) continue
+    if (
+      isInternalProtectionDistributionCircuit(circuit) ||
+      isInternalProtectionLinkSegment(seg, circuit) ||
+      isNestedProtectionBusFeedSegment(seg, circuit, panel)
+    )
+      continue
     if (flaggedCircuits.has(seg.circuitId)) continue
     flaggedCircuits.add(seg.circuitId)
 

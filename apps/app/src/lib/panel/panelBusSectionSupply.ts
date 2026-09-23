@@ -17,6 +17,18 @@ export interface ResolvedPanelBusSectionSupply {
   inputs: PanelBusSectionSupplyInput[]
 }
 
+/** A root feed containing only panel-side devices carries an assembly handoff. */
+export function isPanelInputCarrierRootFeed(rootFeed: RootPanelFeedPath): boolean {
+  return (rootFeed.trunkDevices ?? []).every((device) => device.supplyPanelInput === true)
+}
+
+export function isChangeoverNormalHandoffRecord(
+  assembly: OffGridSupplyAssembly,
+  handoff: SupplyLoadHandoff
+): boolean {
+  return handoff.id === `${assembly.id}-normal-handoff-record`
+}
+
 /**
  * The switched root-feed graph mirrors its normal-bus feed twice: once as the
  * root-feed carrier for ordered one-wire devices and once as the generated
@@ -28,15 +40,15 @@ export function isGeneratedChangeoverNormalHandoff(
   assembly: OffGridSupplyAssembly,
   handoff: SupplyLoadHandoff,
   panel: Panel,
-  busSectionId: string,
+  busSectionId: string
 ): boolean {
   return (
-    handoff.id === `${assembly.id}-normal-handoff-record` &&
+    isChangeoverNormalHandoffRecord(assembly, handoff) &&
     handoff.target.kind === 'panel-bus-input' &&
     handoff.target.panelId === panel.id &&
     handoff.target.busSectionId === busSectionId &&
     panel.busSections?.some(
-      (section) => section.id === busSectionId && section.role === 'normal',
+      (section) => section.id === busSectionId && section.role === 'normal'
     ) === true &&
     assembly.nodes.some((node) => node.kind === 'changeover-switch')
   )
@@ -45,12 +57,10 @@ export function isGeneratedChangeoverNormalHandoff(
 function handoffTargetsSection(
   handoff: SupplyLoadHandoff,
   panel: Panel,
-  busSectionId: string,
+  busSectionId: string
 ): boolean {
   if (handoff.target.kind === 'panel-bus-input') {
-    return (
-      handoff.target.panelId === panel.id && handoff.target.busSectionId === busSectionId
-    )
+    return handoff.target.panelId === panel.id && handoff.target.busSectionId === busSectionId
   }
   return (
     handoff.target.kind === 'panel-input' &&
@@ -64,20 +74,29 @@ export function resolvePanelBusSectionSupply(
   installation: Installation | undefined,
   assemblies: readonly OffGridSupplyAssembly[],
   panel: Panel,
-  busSectionId: string = getPrimaryPanelBusSectionId(panel),
+  busSectionId: string = getPrimaryPanelBusSectionId(panel)
 ): ResolvedPanelBusSectionSupply {
   const inputs: PanelBusSectionSupplyInput[] = []
   const rootFeeds = (installation?.feedTopology?.rootFeeds ?? []).filter(
     (rootFeed) =>
       rootFeed.panelId === panel.id &&
-      (rootFeed.busSectionId ?? getPrimaryPanelBusSectionId(panel)) === busSectionId,
+      (rootFeed.busSectionId ?? getPrimaryPanelBusSectionId(panel)) === busSectionId
   )
   const hasGeneratedNormalHandoff = assemblies.some((assembly) =>
     assembly.loadHandoffs.some((handoff) =>
-      isGeneratedChangeoverNormalHandoff(assembly, handoff, panel, busSectionId),
-    ),
+      isGeneratedChangeoverNormalHandoff(assembly, handoff, panel, busSectionId)
+    )
   )
-  if (!(rootFeeds.length === 1 && hasGeneratedNormalHandoff)) {
+  const hasSectionHandoff = assemblies.some((assembly) =>
+    assembly.loadHandoffs.some(
+      (handoff) =>
+        !isChangeoverNormalHandoffRecord(assembly, handoff) &&
+        handoffTargetsSection(handoff, panel, busSectionId)
+    )
+  )
+  const hasPanelInputCarrier =
+    rootFeeds.length === 1 && hasSectionHandoff && isPanelInputCarrierRootFeed(rootFeeds[0]!)
+  if (!(rootFeeds.length === 1 && (hasGeneratedNormalHandoff || hasPanelInputCarrier))) {
     for (const rootFeed of rootFeeds) {
       inputs.push({ kind: 'root-feed', rootFeed })
     }

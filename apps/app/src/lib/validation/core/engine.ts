@@ -6,6 +6,7 @@ import type { Issue, RulePack, Scope, CheckContext, ValidationProject } from './
 import { DefaultQueryAPI } from './query-api'
 import { getApplicableRulesetDate } from './date-resolver'
 import { selectRulePack } from './ruleset-resolver'
+import { getValidationJurisdiction } from './jurisdiction'
 import { getPrimitive } from './primitives'
 import { logOrphanReport } from '@/lib/validation/orphanDetection'
 import {
@@ -327,7 +328,9 @@ export function validateProject(
   logOrphanReport(project)
 
   // Get jurisdiction from project
-  const jurisdiction = getProjectElectricalInstallation(project)?.address.country || 'BE'
+  const jurisdiction = getValidationJurisdiction(
+    getProjectElectricalInstallation(project)?.address.country
+  )
   if (jurisdiction !== 'BE') return allIssues
 
   // Get rule packs (for now, empty array - will be loaded from rules directory)

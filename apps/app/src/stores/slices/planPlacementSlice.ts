@@ -518,9 +518,14 @@ export const createPlanPlacementSlice: ProjectSliceCreator = (set, get) => ({
     if (!projectBefore) return
     const snapshotBefore = captureProjectForHistory(projectBefore)
     const { addEndpoint } = get()
+    // A plan drop can be re-entered before the previous state has been rendered. Never let a
+    // reused placement object or stale caller id become a second global placement identity.
+    const placementToAdd = findMutablePlacementOwner(projectBefore, placement.id)
+      ? { ...placement, id: generateId() }
+      : { ...placement }
     const endpointWithPlacement: Endpoint = {
       ...endpoint,
-      placements: [...(endpoint.placements ?? []), placement],
+      placements: [...(endpoint.placements ?? []), placementToAdd],
     }
 
     // Prevent split history entries (endpoint first, placement second).

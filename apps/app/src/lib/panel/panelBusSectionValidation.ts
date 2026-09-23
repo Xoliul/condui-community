@@ -2,7 +2,11 @@ import type { FeedTopology, Installation, Panel } from '@/types/schema'
 import type { OffGridSupplyAssembly, SupplyAttachmentRef } from '@/types/supplyAssembly'
 import { walkPanels } from './panelTree'
 import { getPrimaryPanelBusSectionId, hasExplicitPanelBusSections } from './panelBusSections'
-import { isGeneratedChangeoverNormalHandoff } from './panelBusSectionSupply'
+import {
+  isChangeoverNormalHandoffRecord,
+  isGeneratedChangeoverNormalHandoff,
+  isPanelInputCarrierRootFeed,
+} from './panelBusSectionSupply'
 
 export type PanelBusSectionValidationCode =
   | 'empty-bus-sections'
@@ -26,7 +30,7 @@ export interface PanelBusSectionValidationIssue {
 function issue(
   code: PanelBusSectionValidationCode,
   message: string,
-  entityId: string,
+  entityId: string
 ): PanelBusSectionValidationIssue {
   return { code, message, entityId }
 }
@@ -39,7 +43,7 @@ function validateAttachmentTarget(
   target: SupplyAttachmentRef,
   panelsById: ReadonlyMap<string, Panel>,
   issues: PanelBusSectionValidationIssue[],
-  entityId: string,
+  entityId: string
 ): string | undefined {
   if (target.kind !== 'panel-input' && target.kind !== 'panel-bus-input') return undefined
   const panel = panelsById.get(target.panelId)
@@ -48,15 +52,13 @@ function validateAttachmentTarget(
       issue(
         'dangling-handoff-panel',
         `Supply attachment ${entityId} references missing panel ${target.panelId}.`,
-        entityId,
-      ),
+        entityId
+      )
     )
     return undefined
   }
   const busSectionId =
-    target.kind === 'panel-bus-input'
-      ? target.busSectionId
-      : getPrimaryPanelBusSectionId(panel)
+    target.kind === 'panel-bus-input' ? target.busSectionId : getPrimaryPanelBusSectionId(panel)
   if (
     target.kind === 'panel-bus-input' &&
     (!hasExplicitPanelBusSections(panel) || !explicitSectionIds(panel).has(busSectionId))
@@ -65,8 +67,8 @@ function validateAttachmentTarget(
       issue(
         'dangling-handoff-bus-section',
         `Supply attachment ${entityId} references missing bus section ${busSectionId} on panel ${panel.id}.`,
-        entityId,
-      ),
+        entityId
+      )
     )
     return undefined
   }
@@ -76,7 +78,7 @@ function validateAttachmentTarget(
 export function validatePanelBusSectionTopology(
   panels: Panel[],
   installation: Installation | undefined,
-  assemblies: readonly OffGridSupplyAssembly[],
+  assemblies: readonly OffGridSupplyAssembly[]
 ): PanelBusSectionValidationIssue[] {
   const issues: PanelBusSectionValidationIssue[] = []
   const allPanels = [...walkPanels(panels)]
@@ -95,21 +97,24 @@ export function validatePanelBusSectionTopology(
         issue(
           'empty-bus-sections',
           `Panel ${panel.id} stores an empty bus-section list; omit it for the legacy main bus.`,
-          panel.id,
-        ),
+          panel.id
+        )
       )
       continue
     }
     if (!hasExplicitPanelBusSections(panel)) continue
 
     const ids = explicitSectionIds(panel)
-    if (ids.size !== panel.busSections!.length || panel.busSections!.some((section) => !section.id)) {
+    if (
+      ids.size !== panel.busSections!.length ||
+      panel.busSections!.some((section) => !section.id)
+    ) {
       issues.push(
         issue(
           'duplicate-bus-section-id',
           `Panel ${panel.id} contains blank or duplicate bus-section ids.`,
-          panel.id,
-        ),
+          panel.id
+        )
       )
     }
     if (!panel.primaryBusSectionId || !ids.has(panel.primaryBusSectionId)) {
@@ -117,8 +122,8 @@ export function validatePanelBusSectionTopology(
         issue(
           'invalid-primary-bus-section',
           `Panel ${panel.id} must reference one of its bus sections as primary.`,
-          panel.id,
-        ),
+          panel.id
+        )
       )
     }
     for (const section of panel.busSections!) {
@@ -132,8 +137,8 @@ export function validatePanelBusSectionTopology(
           issue(
             'invalid-bus-phase-order',
             `Bus section ${section.id} has an invalid phase order.`,
-            section.id,
-          ),
+            section.id
+          )
         )
       }
     }
@@ -143,8 +148,8 @@ export function validatePanelBusSectionTopology(
           issue(
             'dangling-device-bus-section',
             `Protection ${protection.id} references missing bus section ${protection.busSectionId}.`,
-            protection.id,
-          ),
+            protection.id
+          )
         )
       }
       for (const circuit of protection.circuits ?? []) {
@@ -156,8 +161,8 @@ export function validatePanelBusSectionTopology(
             issue(
               'nested-circuit-bus-section-mismatch',
               `Circuit ${circuit.id} must inherit bus section from protection ${protection.id}.`,
-              circuit.id,
-            ),
+              circuit.id
+            )
           )
         }
       }
@@ -168,8 +173,8 @@ export function validatePanelBusSectionTopology(
           issue(
             'dangling-device-bus-section',
             `Circuit ${circuit.id} references missing bus section ${circuit.busSectionId}.`,
-            circuit.id,
-          ),
+            circuit.id
+          )
         )
       }
     }
@@ -177,21 +182,33 @@ export function validatePanelBusSectionTopology(
 
   const topology: FeedTopology | undefined = installation?.feedTopology
   const generatedNormalHandoffKeys = new Set<string>()
+  const handoffKeys = new Set<string>()
   for (const assembly of assemblies) {
     for (const handoff of assembly.loadHandoffs) {
+      if (
+        !isChangeoverNormalHandoffRecord(assembly, handoff) &&
+        (handoff.target.kind === 'panel-input' || handoff.target.kind === 'panel-bus-input')
+      ) {
+        const panel = panelsById.get(handoff.target.panelId)
+        if (panel) {
+          handoffKeys.add(
+            JSON.stringify([
+              panel.id,
+              handoff.target.kind === 'panel-bus-input'
+                ? handoff.target.busSectionId
+                : getPrimaryPanelBusSectionId(panel),
+            ])
+          )
+        }
+      }
       if (handoff.target.kind !== 'panel-bus-input') continue
       const panel = panelsById.get(handoff.target.panelId)
       if (
         panel &&
-        isGeneratedChangeoverNormalHandoff(
-          assembly,
-          handoff,
-          panel,
-          handoff.target.busSectionId,
-        )
+        isGeneratedChangeoverNormalHandoff(assembly, handoff, panel, handoff.target.busSectionId)
       ) {
         generatedNormalHandoffKeys.add(
-          JSON.stringify([handoff.target.panelId, handoff.target.busSectionId]),
+          JSON.stringify([handoff.target.panelId, handoff.target.busSectionId])
         )
       }
     }
@@ -211,8 +228,8 @@ export function validatePanelBusSectionTopology(
         issue(
           'dangling-root-feed-panel',
           `Root feed ${feed.id} references missing panel ${feed.panelId}.`,
-          feed.id,
-        ),
+          feed.id
+        )
       )
       continue
     }
@@ -225,13 +242,19 @@ export function validatePanelBusSectionTopology(
         issue(
           'dangling-root-feed-bus-section',
           `Root feed ${feed.id} references missing bus section ${feed.busSectionId}.`,
-          feed.id,
-        ),
+          feed.id
+        )
       )
       continue
     }
     const key = JSON.stringify([panel.id, busSectionId])
-    if (!(rootFeedCounts.get(key) === 1 && generatedNormalHandoffKeys.has(key))) {
+    if (
+      !(
+        rootFeedCounts.get(key) === 1 &&
+        (generatedNormalHandoffKeys.has(key) ||
+          (handoffKeys.has(key) && isPanelInputCarrierRootFeed(feed)))
+      )
+    ) {
       addSupply(key, feed.id)
     }
   }
@@ -239,7 +262,10 @@ export function validatePanelBusSectionTopology(
   for (const assembly of assemblies) {
     validateAttachmentTarget(assembly.incomingAttachment, panelsById, issues, assembly.id)
     for (const handoff of assembly.loadHandoffs) {
-      addSupply(validateAttachmentTarget(handoff.target, panelsById, issues, handoff.id), handoff.id)
+      addSupply(
+        validateAttachmentTarget(handoff.target, panelsById, issues, handoff.id),
+        handoff.id
+      )
     }
   }
 
@@ -247,15 +273,15 @@ export function validatePanelBusSectionTopology(
     if (sources.length <= 1) continue
     const [panelId, busSectionId] = JSON.parse(key) as [string, string]
     const panel = panelsById.get(panelId!)
-    // A generated switched normal handoff is the graph projection of the one
-    // root-feed carrier and is excluded above. Any remaining duplicate is real.
+    // Root-feed carriers mirrored by assembly handoffs are excluded above.
+    // Any remaining duplicate is a separate incoming source.
     if (!panel || !hasExplicitPanelBusSections(panel)) continue
     issues.push(
       issue(
         'duplicate-bus-section-supply',
         `Bus section ${busSectionId} on panel ${panelId} has multiple incoming supplies: ${sources.join(', ')}.`,
-        busSectionId!,
-      ),
+        busSectionId!
+      )
     )
   }
 

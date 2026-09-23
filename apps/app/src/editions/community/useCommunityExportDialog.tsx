@@ -1,3 +1,4 @@
+import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ExportDialog } from './CommunityExportDialog'
@@ -13,6 +14,7 @@ import { deriveWires } from '@/lib/layout/deriveWires'
 import { resolveSupplyDeviceMounting } from '@/lib/panel/auxiliarySupplyEnclosures'
 import { getProjectElectricalInstallation, getProjectElectricalPanels, selectProjectSupplyAssemblies } from '@/lib/projectV2/electrical'
 import { queryOneWireSegments } from '@/lib/projectV2/annotations'
+import { buildTimestampedExportFilename } from '@/lib/export/exportFilename'
 
 export function useExportDialog() {
   const { t } = useTranslation()
@@ -45,6 +47,7 @@ export function useExportDialog() {
           getProjectElectricalInstallation(currentProject),
           selectProjectSupplyAssemblies(currentProject),
           (deviceId) => resolveSupplyDeviceMounting(currentProject, deviceId),
+          selectProjectWireRuns(currentProject),
         )
       }
       const context: ExportContext = {
@@ -60,7 +63,7 @@ export function useExportDialog() {
       const url = URL.createObjectURL(result.blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = `${currentProject.project.name || 'export'}.pdf`
+      anchor.download = buildTimestampedExportFilename(currentProject.project.name, 'pdf')
       document.body.appendChild(anchor)
       anchor.click()
       anchor.remove()

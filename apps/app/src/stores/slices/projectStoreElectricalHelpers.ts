@@ -10,7 +10,10 @@ import {
 } from '@/lib/eendraad/projectElectricalDomain'
 import { dedupeAllPanelsProtectionsInProject } from '@/lib/eendraad/mainBusOrder'
 import { ensureInstallationFeedTopology } from '@/lib/feedTopology'
-import { healSupplyTrunkMisplacedOnMainGrid } from '@/lib/panel/healSupplyTrunkGrid'
+import {
+  healPanelMountedSupplyTrunkSlots,
+  healSupplyTrunkMisplacedOnMainGrid,
+} from '@/lib/panel/healSupplyTrunkGrid'
 import { reconcileInvalidPanelFeedOrganizationsInProject } from '@/lib/panel/panelFeedOrganization'
 import { healEarthingSitplanPlacements } from '@/lib/plan/earthingSitplanPlacement'
 import { healEnergyConversionSitplanPlacements } from '@/lib/plan/energyConversionSitplanPlacement'
@@ -31,16 +34,22 @@ import { healSupplyTrunkProtectionBreakingCapacity } from '@/lib/protectionDefau
 import { recordSessionAction } from '@/lib/diagnostics/sessionActionLog'
 import {
   healSourceChangeoverFeedScope,
+  healMissingChangeoverBackupBranch,
   initializeDirectConverterPanelBranches,
+  repairCrossOutputSupplyConverterDcConnections,
   reconcileDirectConverterCommonLoadPath,
 } from '@/lib/supplyAssembly/editorIntegration'
 import { shortProjectIdLabel } from '@/utils/project'
 import { logger } from '@/lib/logger'
 import { summarizeConverterDcPersistence } from '@/lib/supplyAssembly/persistenceDiagnostics'
+import { migrateLegacyWireRunEdgeAnchors } from '@/lib/wires/migrateWireRunAnchors'
+import { materializeLegacyDcRailConnections } from '@/lib/wires/circuitWireIdentity'
 import {
   collectSupplyDeviceReferenceIssues,
   linkSupplyAssemblyDeviceReferences,
 } from '@/lib/supplyAssembly/deviceReferences'
+import { healSupplyBranchPanelInputFlags } from '@/lib/supplyAssembly/electricalTopology'
+import { repairDanglingSupplyAssemblyReferences } from '@/lib/supplyAssembly/repairDanglingReferences'
 import { type Project, type ProjectInput, type ProjectState } from './projectStoreTypes'
 import { findPanelById, findPanelByName } from '@/lib/panel/panelTree'
 
@@ -55,13 +64,17 @@ export function hydrateProjectForEditor(project: ProjectInput): {
   const healedSharedPlanScale = healSharedPlanScale(runtimeProject)
   const installation = selectProjectElectricalInstallation(runtimeProject)
   const panels = selectProjectElectricalPanels(runtimeProject)
+  const repairedDanglingSupplyHandoffs = repairDanglingSupplyAssemblyReferences(runtimeProject)
   if (installation) {
     ensureInstallationFeedTopology(installation, panels)
   }
+  const healedSupplyBranchPanelInputs = healSupplyBranchPanelInputFlags(runtimeProject)
   const healedSourceChangeoverFeedScope = healSourceChangeoverFeedScope(runtimeProject)
   const linkedSupplyAssemblyDeviceReferences = linkSupplyAssemblyDeviceReferences(runtimeProject)
+  const healedMissingBackupBranch = healMissingChangeoverBackupBranch(runtimeProject)
   const initializedDirectBranches = editProjectSupplyAssemblies(runtimeProject).reduce(
-    (changed, assembly) => initializeDirectConverterPanelBranches(runtimeProject, assembly) || changed,
+    (changed, assembly) =>
+      initializeDirectConverterPanelBranches(runtimeProject, assembly) || changed,
     false
   )
   const reconciledPanelFeedOrganizations =
@@ -75,6 +88,9 @@ export function hydrateProjectForEditor(project: ProjectInput): {
     (changed, panel) => reconcileDirectConverterCommonLoadPath(runtimeProject, panel.id) || changed,
     initializedDirectBranches
   )
+  const repairedCrossOutputDcConnections =
+    repairCrossOutputSupplyConverterDcConnections(runtimeProject)
+  const healedPanelMountedSupplySlots = healPanelMountedSupplyTrunkSlots(runtimeProject)
   const healedSupplyGrid = healSupplyTrunkMisplacedOnMainGrid(runtimeProject)
   const dedupedProtections = dedupeAllPanelsProtectionsInProject(runtimeProject)
   const removedPromotedIncomingProtections =
@@ -96,6 +112,8 @@ export function hydrateProjectForEditor(project: ProjectInput): {
   const healedJunctionBoxSitplan = healJunctionBoxSitplanPlacements(runtimeProject)
   const synchronizedPanelPlanVisibility = syncPanelAndSituationPlanDeviceVisibility(runtimeProject)
   const healedPlanWiring = healPlanWiring(runtimeProject)
+  const materializedDcRailConnections = materializeLegacyDcRailConnections(panels)
+  const migratedWireRunAnchors = migrateLegacyWireRunEdgeAnchors(runtimeProject)
   recordSessionAction(
     `Opened project in editor (${shortProjectIdLabel(runtimeProject.project.id)})`
   )
@@ -113,9 +131,14 @@ export function hydrateProjectForEditor(project: ProjectInput): {
     project: runtimeProject,
     isDirty:
       sanitizedLegacyV2Bloat ||
+      repairedDanglingSupplyHandoffs.repairedHandoffCount > 0 ||
       healedSourceChangeoverFeedScope ||
+      healedSupplyBranchPanelInputs ||
+      healedMissingBackupBranch ||
       linkedSupplyAssemblyDeviceReferences ||
       reconciledDirectSupplyOutputs ||
+      repairedCrossOutputDcConnections ||
+      healedPanelMountedSupplySlots ||
       reconciledPanelFeedOrganizations ||
       normalizedNominalVoltage ||
       healedSupplyProtectionBreakingCapacity ||
@@ -132,7 +155,9 @@ export function hydrateProjectForEditor(project: ProjectInput): {
       healedEnergyConversionSitplan ||
       healedJunctionBoxSitplan ||
       synchronizedPanelPlanVisibility ||
-      healedPlanWiring,
+      healedPlanWiring ||
+      materializedDcRailConnections ||
+      migratedWireRunAnchors,
   }
 }
 
@@ -153,6 +178,9 @@ export function prepareProjectForPersistence(project: Project): void {
     ensureInstallationFeedTopology(installation, selectProjectElectricalPanels(project))
   }
   linkSupplyAssemblyDeviceReferences(project)
+  materializeLegacyDcRailConnections(selectProjectElectricalPanels(project))
+  repairCrossOutputSupplyConverterDcConnections(project)
+  migrateLegacyWireRunEdgeAnchors(project)
   healPlanWiring(project)
 }
 

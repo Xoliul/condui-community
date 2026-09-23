@@ -182,7 +182,7 @@ export interface DropBehaviorCallbacks {
   addSupplyTrunkDevice: (
     device: TrunkDevice,
     insertIndex?: number,
-    target?: { panelId?: string; feedScope?: DropTarget['supplyFeedScope']; diagramId?: string; supplyPanelInput?: boolean }
+    target?: { panelId?: string; feedScope?: DropTarget['supplyFeedScope']; diagramId?: string; supplyPanelInput?: boolean; busSectionId?: string }
   ) => void
   updateSupplyTrunkDevice?: (deviceId: string, updates: Partial<TrunkDevice>) => void
   addGroundTrunkDevice: (device: TrunkDevice, insertIndex?: number, panelId?: string) => void
@@ -3377,6 +3377,7 @@ function addSupplyTrunkDevice(
     feedScope: target.supplyFeedScope,
     diagramId: target.diagramId,
     supplyPanelInput: target.supplyPanelInput,
+    busSectionId: target.busSectionId,
   })
   return trunkDevice
 }

@@ -596,7 +596,8 @@ function collectNamingTargets(panel: Panel, opts: AutomaticMainBusNamingOpts): {
    * (secondary-bus nesting without an intervening protection row).
    */
   function appendSubCircuitRows(subIds: string[] | undefined) {
-    for (const subId of subIds ?? []) {
+    const childIds = subIds ?? []
+    for (const subId of childIds) {
       const childProtection = findProtectionOwningCircuit(panel, subId)
       if (childProtection?.circuits?.length) {
         appendProtectionSubtree(childProtection)
@@ -816,7 +817,7 @@ export function automaticMainBusNamingWouldChangePanel(
   }, project)
   forEachCircuitOnPanel(panel, (c) => {
     const code = assignedCodes.get(c.id) ?? (c.code ?? '').trim()
-    if (endpointBranchLabelsWouldChange(c, code)) wouldChange = true
+    if (endpointBranchLabelsWouldChange(c, code, panel)) wouldChange = true
   })
   return wouldChange
 }

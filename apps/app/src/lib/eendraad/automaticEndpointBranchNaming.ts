@@ -13,16 +13,37 @@ export function forEachCircuitOnPanel(panel: Panel, fn: (circuit: Circuit) => vo
 }
 
 /**
- * Resolve the prefix used for sequential endpoint-branch labels.
+ * Resolve the prefix used for sequential endpoint-branch labels. A blank nested circuit inherits
+ * the nearest labeled parent circuit so series protections share the visible bus label.
  *
  * Nested circuits can legitimately have an empty circuit code while already
  * carrying a branch label such as `C1`. In that case, preserve that established
  * prefix so newly added sibling branches become `C2`, `C3`, and so on.
  */
-export function getEndpointBranchLabelPrefix(circuit: Circuit): string {
+function getInheritedCircuitLabelPrefix(
+  panel: Panel,
+  circuitId: string,
+  visited = new Set<string>(),
+): string {
+  if (visited.has(circuitId)) return ''
+  visited.add(circuitId)
+
+  const candidates: Circuit[] = []
+  forEachCircuitOnPanel(panel, (candidate) => candidates.push(candidate))
+  const parent = candidates.find((candidate) => candidate.subCircuitIds?.includes(circuitId))
+  if (!parent) return ''
+
+  const parentCode = (parent.code ?? '').trim()
+  return parentCode || getInheritedCircuitLabelPrefix(panel, parent.id, visited)
+}
+
+export function getEndpointBranchLabelPrefix(circuit: Circuit, panel?: Panel): string {
   if (circuit.code === 'PANEL') return ''
   const circuitCode = (circuit.code ?? '').trim()
   if (circuitCode) return circuitCode
+
+  const inheritedPrefix = panel ? getInheritedCircuitLabelPrefix(panel, circuit.id) : ''
+  if (inheritedPrefix) return inheritedPrefix
 
   for (const branch of circuit.branches ?? []) {
     const match = (branch.label ?? '').trim().match(/^(.+?)(\d+)$/)
@@ -37,9 +58,13 @@ export function getEndpointBranchLabelPrefix(circuit: Circuit): string {
  * True if branch labels or endpoint labels on those branches differ from `{code}{1..n}`
  * in `circuit.branches` array order.
  */
-export function endpointBranchLabelsWouldChange(circuit: Circuit, circuitCodeForBranches: string): boolean {
+export function endpointBranchLabelsWouldChange(
+  circuit: Circuit,
+  circuitCodeForBranches: string,
+  panel?: Panel,
+): boolean {
   if (circuit.code === 'PANEL') return false
-  const code = circuitCodeForBranches.trim()
+  const code = circuitCodeForBranches.trim() || getEndpointBranchLabelPrefix(circuit, panel)
   if (!code) return false
   const branches = circuit.branches
   if (!branches?.length) return false
@@ -72,14 +97,15 @@ export function getExpectedBranchLabel(
 }
 
 /**
- * Assign branch + endpoint labels `{circuitCode}1`…`{circuitCode}n` in stored branch order.
+ * Assign branch + endpoint labels `{prefix}1`…`{prefix}n` in stored branch order. A nested circuit
+ * with no own code inherits the nearest labeled parent when panel context is available.
  * Always run after branch topology changes (delete, reorder, merge). Not gated on
  * `installation.eendraadAutomaticNaming` — that setting controls main-bus letters and
  * manual protection labels, not sequential branch numbering.
  */
-export function syncSequentialEndpointBranchLabelsToCircuit(circuit: Circuit): void {
+export function syncSequentialEndpointBranchLabelsToCircuit(circuit: Circuit, panel?: Panel): void {
   if (circuit.supplySource?.kind === 'converter-backup') return
-  const code = getEndpointBranchLabelPrefix(circuit)
+  const code = getEndpointBranchLabelPrefix(circuit, panel)
   if (!code) return
   const branches = circuit.branches
   if (!branches?.length) return
@@ -95,13 +121,13 @@ export function syncSequentialEndpointBranchLabelsToCircuit(circuit: Circuit): v
   }
 }
 
-export function applyAutomaticEndpointBranchLabelsToCircuit(circuit: Circuit): void {
-  syncSequentialEndpointBranchLabelsToCircuit(circuit)
+export function applyAutomaticEndpointBranchLabelsToCircuit(circuit: Circuit, panel?: Panel): void {
+  syncSequentialEndpointBranchLabelsToCircuit(circuit, panel)
 }
 
 export function applyAutomaticEndpointBranchLabelsToPanel(panel: Panel): void {
   forEachCircuitOnPanel(panel, (circuit) => {
     if (circuit.supplySource?.kind === 'converter-backup') return
-    syncSequentialEndpointBranchLabelsToCircuit(circuit)
+    applyAutomaticEndpointBranchLabelsToCircuit(circuit, panel)
   })
 }

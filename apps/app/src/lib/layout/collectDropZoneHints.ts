@@ -45,6 +45,7 @@ import {
 
 export interface DropZoneHintMatch {
   panelId?: string
+  busSectionId?: string
   endpointId?: string
   supplyFeedScope?: 'shared' | 'root'
   supplyPanelInput?: boolean
@@ -663,6 +664,7 @@ function isSupplyWireSlotSegment(node: LayoutNode, panelNode: LayoutNode): boole
   if (node.type !== 'wire' || node.hitZone?.type !== 'supplyWire') return false
 
   const id = node.id ?? ''
+  if (id.startsWith('supply-wire-feed-stub-')) return true
   if (id.startsWith('supply-changeover-load-slot-')) return true
   // Every segment of the grid source run after a modular changeover remains an ordinary
   // serial supply insertion slot. This includes the span before an existing protection;
@@ -706,6 +708,7 @@ function buildHintMatch(
   ) {
     return {
       panelId: node.hitZone?.supplyPanelId ?? ctx.panelId,
+      busSectionId: node.hitZone?.busSectionId,
       supplyFeedScope: node.hitZone?.supplyFeedScope ?? 'shared',
       supplyPanelInput: node.hitZone?.supplyPanelInput,
       supplyDeviceInsertIndex: node.hitZone?.supplyInsertIndex,
@@ -815,7 +818,10 @@ function dedupeSupplyWireHints(hints: HintWithSpan[]): DropZoneHint[] {
     const scope = hint.match?.supplyFeedScope ?? 'shared'
     const index = hint.match?.supplyDeviceInsertIndex ?? 0
     const nestedConnection = hint.match?.converterDcConnection
-    const key = `${panelId}|${scope}|${index}|${hint.match?.supplyDcBusBranchId ?? ''}|${nestedConnection?.converterId ?? ''}|${nestedConnection?.connectionIndex ?? ''}`
+    const stubInstance = hint.nodeId.startsWith('supply-wire-feed-stub-')
+      ? hint.nodeId
+      : ''
+    const key = `${panelId}|${scope}|${index}|${hint.match?.supplyDcBusBranchId ?? ''}|${nestedConnection?.converterId ?? ''}|${nestedConnection?.connectionIndex ?? ''}|${stubInstance}`
     const existing = bestBySlot.get(key)
     if (!existing || hint.span > existing.span) {
       bestBySlot.set(key, hint)
@@ -1379,6 +1385,7 @@ export function isDropZoneHintActive(
     const hintScope = hint.match.supplyFeedScope ?? 'shared'
     return (
       dropTarget.panelId === hint.match.panelId &&
+      dropTarget.busSectionId === hint.match.busSectionId &&
       scope === hintScope &&
       dropTarget.supplyDeviceInsertIndex === hint.match.supplyDeviceInsertIndex
     )
@@ -1459,6 +1466,8 @@ function isHintCompatibleWithDropTarget(hint: DropZoneHint, dropTarget: DropTarg
   ) {
     return false
   }
+  if (match.busSectionId && dropTarget.busSectionId &&
+    match.busSectionId !== dropTarget.busSectionId) return false
   if (
     match.supplyFeedScope &&
     dropTarget.supplyFeedScope &&

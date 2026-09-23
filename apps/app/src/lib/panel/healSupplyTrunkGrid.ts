@@ -9,16 +9,14 @@ import {
   panelGridModuleRefKey,
   resolveModuleWidthCols,
 } from '@/components/canvas/panel/panelGridLayout'
+import { findFirstFreeMainOrOverflowSlot } from '@/components/canvas/panel/autoArrangeLayout'
 import { getAllSupplyTrunkDevices, getPanelFeedProjection } from '@/lib/feedTopology'
 import {
   getProjectElectricalInstallation,
   getProjectElectricalPanels,
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
-import {
-  DEFAULT_PANEL_GRID_COLUMNS,
-  DEFAULT_PANEL_GRID_ROWS,
-} from '@/lib/panel/panelGridDefaults'
+import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
 import {
   MIN_PANEL_GRID_MODULE_WIDTH,
   panelGridUnitsToModules,
@@ -35,18 +33,119 @@ function visitPanels(panels: Panel[], fn: (p: Panel) => void): void {
 function isSharedSupplyRef(
   panel: Panel,
   project: ProjectWithOptionalV2Electrical,
-  moduleRef: PanelGridModuleRef,
+  moduleRef: PanelGridModuleRef
 ): boolean {
   if (!panel.isMain || moduleRef.kind !== 'trunkDevice' || moduleRef.scope !== 'supply') {
     return false
   }
   const installation = getProjectElectricalInstallation(project)
   if (!installation) return false
-  const projection = getPanelFeedProjection(installation, getProjectElectricalPanels(project), panel)
+  const projection = getPanelFeedProjection(
+    installation,
+    getProjectElectricalPanels(project),
+    panel
+  )
   const key = panelGridModuleRefKey(moduleRef)
   return (projection?.sharedFeed.trunkDevices ?? []).some(
-    (device) => panelGridModuleRefKey({ kind: 'trunkDevice', id: device.id, scope: 'supply' }) === key,
+    (device) =>
+      panelGridModuleRefKey({ kind: 'trunkDevice', id: device.id, scope: 'supply' }) === key
   )
+}
+
+/**
+ * Move a physically panel-mounted supply device out of the shared-strip slots.
+ *
+ * `panelMounting` is the canonical physical surface. Older editor flows could leave the
+ * device's old shared-strip slot behind after setting that field. The panel selector correctly
+ * excludes that slot from the shared strip, so without this repair the device disappears.
+ */
+export function healPanelMountedSupplyTrunkSlotsForPanel(
+  panel: Panel,
+  project: ProjectWithOptionalV2Electrical,
+  onlyDeviceId?: string
+): boolean {
+  const supplySlots = panel.gridView?.supplyPanelSlots ?? []
+  if (supplySlots.length === 0) return false
+
+  const mountedDeviceIds = new Set(
+    getAllSupplyTrunkDevices(project)
+      .filter(
+        (device) =>
+          device.panelMounting?.kind === 'panel' && device.panelMounting.panelId === panel.id
+      )
+      .filter((device) => onlyDeviceId == null || device.id === onlyDeviceId)
+      .map((device) => device.id)
+  )
+  const staleSlots = supplySlots.filter(
+    (slot) => slot.module.kind === 'trunkDevice' && mountedDeviceIds.has(slot.module.id)
+  )
+  if (staleSlots.length === 0) return false
+
+  const grid = (panel.gridView ??= {
+    rows: DEFAULT_PANEL_GRID_ROWS,
+    columns: DEFAULT_PANEL_GRID_COLUMNS,
+    feedFromTop: false,
+    slots: [],
+  })
+  const mainSlots = grid.slots ?? (grid.slots = [])
+  const staleKeys = new Set(staleSlots.map((slot) => panelGridModuleRefKey(slot.module)))
+  const nextSupplySlots = supplySlots.filter(
+    (slot) => !staleKeys.has(panelGridModuleRefKey(slot.module))
+  )
+  const occupied = mainSlots.map((slot) => ({
+    row: slot.row,
+    col: slot.col,
+    width: Math.max(
+      MIN_PANEL_GRID_MODULE_WIDTH,
+      resolveModuleWidthCols(slot.module, project, slot)
+    ),
+  }))
+  const rows = Math.max(1, grid.rows ?? DEFAULT_PANEL_GRID_ROWS)
+  const cols = Math.max(1, grid.columns ?? DEFAULT_PANEL_GRID_COLUMNS)
+  let changed = nextSupplySlots.length !== supplySlots.length
+
+  for (const staleSlot of staleSlots) {
+    const moduleKey = panelGridModuleRefKey(staleSlot.module)
+    if (mainSlots.some((slot) => panelGridModuleRefKey(slot.module) === moduleKey)) continue
+
+    const width = Math.max(
+      MIN_PANEL_GRID_MODULE_WIDTH,
+      Math.min(cols, resolveModuleWidthCols(staleSlot.module, project, staleSlot))
+    )
+    const spot = findFirstFreeMainOrOverflowSlot(
+      occupied,
+      width,
+      rows,
+      cols,
+      grid.feedFromTop ?? false
+    )
+    mainSlots.push({
+      row: spot.row,
+      col: spot.col,
+      ...(staleSlot.moduleWidthManual === true && staleSlot.moduleWidth != null
+        ? { moduleWidth: staleSlot.moduleWidth, moduleWidthManual: true }
+        : {}),
+      module: staleSlot.module,
+    })
+    occupied.push({ row: spot.row, col: spot.col, width })
+    changed = true
+  }
+
+  if (changed) {
+    grid.supplyPanelSlots = nextSupplySlots.length > 0 ? nextSupplySlots : undefined
+  }
+  return changed
+}
+
+/** Run the panel-mounted supply-strip repair across the whole panel tree. */
+export function healPanelMountedSupplyTrunkSlots(
+  project: ProjectWithOptionalV2Electrical
+): boolean {
+  let changed = false
+  visitPanels(getProjectElectricalPanels(project), (panel) => {
+    if (healPanelMountedSupplyTrunkSlotsForPanel(panel, project)) changed = true
+  })
+  return changed
 }
 
 /**
@@ -56,9 +155,10 @@ function isSharedSupplyRef(
 export function ejectSupplyTrunkFromMainGridSlot(
   panel: Panel,
   project: ProjectWithOptionalV2Electrical,
-  moduleRef: PanelGridModuleRef,
+  moduleRef: PanelGridModuleRef
 ): boolean {
-  if (!panel.isMain || moduleRef.kind !== 'trunkDevice' || moduleRef.scope !== 'supply') return false
+  if (!panel.isMain || moduleRef.kind !== 'trunkDevice' || moduleRef.scope !== 'supply')
+    return false
   if (!isSharedSupplyRef(panel, project, moduleRef)) return false
   if (!panel.gridView) {
     panel.gridView = {
@@ -85,7 +185,7 @@ export function ejectSupplyTrunkFromMainGridSlot(
   const cols = getSupplyPanelColumns(panel)
   const width = Math.max(
     MIN_PANEL_GRID_MODULE_WIDTH,
-    Math.min(cols, resolveModuleWidthCols(moduleRef, project, removedSlot)),
+    Math.min(cols, resolveModuleWidthCols(moduleRef, project, removedSlot))
   )
   const colUnits = panelModulesToGridUnits(cols)
   const widthUnits = panelModulesToGridUnits(width)
@@ -96,7 +196,7 @@ export function ejectSupplyTrunkFromMainGridSlot(
         if (slot.row !== r) return false
         const slotWidth = Math.max(
           MIN_PANEL_GRID_MODULE_WIDTH,
-          Math.min(cols, resolveModuleWidthCols(slot.module, project, slot)),
+          Math.min(cols, resolveModuleWidthCols(slot.module, project, slot))
         )
         const slotColUnits = panelModulesToGridUnits(slot.col)
         const slotWidthUnits = panelModulesToGridUnits(slotWidth)
@@ -128,13 +228,16 @@ export function ejectSupplyTrunkFromMainGridSlot(
 /** Repair legacy shared-supply slots without relocating explicitly panel-mounted devices. */
 export function healSupplyTrunkMisplacedOnMainGridForPanel(
   panel: Panel,
-  project: ProjectWithOptionalV2Electrical,
+  project: ProjectWithOptionalV2Electrical
 ): boolean {
   if (!panel.isMain || !panel.gridView?.slots?.length) return false
   let changed = false
   const explicitlyMountedDevices = new Set(
     getAllSupplyTrunkDevices(project)
-      .filter((device) => device.panelMounting?.kind === 'panel' && device.panelMounting.panelId === panel.id)
+      .filter(
+        (device) =>
+          device.panelMounting?.kind === 'panel' && device.panelMounting.panelId === panel.id
+      )
       .map((device) => device.id)
   )
   const misplaced = panel.gridView.slots.filter(
@@ -142,7 +245,7 @@ export function healSupplyTrunkMisplacedOnMainGridForPanel(
       s.module.kind === 'trunkDevice' &&
       s.module.scope === 'supply' &&
       !explicitlyMountedDevices.has(s.module.id) &&
-      isSharedSupplyRef(panel, project, s.module),
+      isSharedSupplyRef(panel, project, s.module)
   )
   for (const slot of misplaced) {
     if (slot.module.kind !== 'trunkDevice' || slot.module.scope !== 'supply') continue
@@ -153,7 +256,9 @@ export function healSupplyTrunkMisplacedOnMainGridForPanel(
 }
 
 /** Run {@link healSupplyTrunkMisplacedOnMainGridForPanel} on every panel tree node. */
-export function healSupplyTrunkMisplacedOnMainGrid(project: ProjectWithOptionalV2Electrical): boolean {
+export function healSupplyTrunkMisplacedOnMainGrid(
+  project: ProjectWithOptionalV2Electrical
+): boolean {
   let changed = false
   visitPanels(getProjectElectricalPanels(project), (panel) => {
     if (healSupplyTrunkMisplacedOnMainGridForPanel(panel, project)) changed = true

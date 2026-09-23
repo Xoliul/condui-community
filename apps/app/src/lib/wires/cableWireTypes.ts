@@ -5,6 +5,9 @@ export type WireTypeOption = { value: CableSpec['kind']; label: string }
 /** Common cable sections available in the wire properties editors. */
 export const AC_CABLE_SECTION_OPTIONS = [1.5, 2.5, 4, 6, 10, 16, 25, 35, 50] as const
 
+/** Common insulated comb-busbar sections (manufacturer-specific current ratings). */
+export const COMB_BUSBAR_SECTION_OPTIONS = [10, 16] as const
+
 /** DC cable sections, including common battery-cable sizes. */
 export const DC_CABLE_SECTION_OPTIONS = [
   0.22,

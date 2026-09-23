@@ -32,6 +32,7 @@ import {
   isGeneratedCommonPanelHandoff,
   resolveAssemblyPanelInput,
 } from './electricalTopology'
+import { getSupplyConverterDcConnectionIndex } from './converterDcConnections'
 
 /** Pull extra trunk devices into the assembly graph for this reconcile pass only. */
 export type SupplyAssemblyReconcileOptions = {
@@ -1177,10 +1178,12 @@ export function reconcileDirectConverterDcDevices(
   ]
   const dcConnections: SupplyConnection[] = []
   for (const supplyPath of ['converter-dc', 'converter-dc-top'] as const) {
-    let previous: [string, string] = [converter.id, 'dc']
+    const previousByOutput = new Map<number, [string, string]>()
     const laneDevices = dcDevices.filter((device) => device.supplyPath === supplyPath)
     const serialDevices = laneDevices.filter((device) => !device.supplyDcBusId)
     serialDevices.forEach((device, index) => {
+      const output = getSupplyConverterDcConnectionIndex(device) ?? 0
+      const previous: [string, string] = previousByOutput.get(output) ?? [converter.id, 'dc']
       const pathRole =
         device.symbol === 'solar_panel'
           ? 'solar-dc'
@@ -1195,7 +1198,7 @@ export function reconcileDirectConverterDcDevices(
           pathRole
         )
       )
-      previous = [device.id, 'dc']
+      previousByOutput.set(output, [device.id, 'dc'])
     })
     for (const bus of serialDevices.filter((device) => device.type === 'dc_bus')) {
       const busBranchGroups = new Map<string, TrunkDevice[]>()
@@ -1281,6 +1284,36 @@ export function reconcileDirectConverterDcDevices(
   return JSON.stringify(assembly) !== previousAssembly
 }
 
+/** Repair older files that chained distinct converter DC outputs in the assembly graph. */
+export function repairCrossOutputSupplyConverterDcConnections(
+  project: ProjectWithOptionalV2Electrical
+): boolean {
+  const installation = getProjectElectricalInstallation(project)
+  if (!installation) return false
+  let changed = false
+  for (const feed of ensureInstallationFeedTopology(
+    installation, getProjectElectricalPanels(project)
+  ).rootFeeds) {
+    const converter = feed.trunkDevices?.find((device) =>
+      device.supplyPath === 'converter-branch' || device.supplyPath === 'backup')
+    if (!converter) continue
+    const outputByDeviceId = new Map((feed.trunkDevices ?? [])
+      .filter((device) => !device.supplyDcBusId &&
+        getSupplyConverterDcConnectionIndex(device) != null)
+      .map((device) => [device.id, getSupplyConverterDcConnectionIndex(device)!]))
+    if (new Set(outputByDeviceId.values()).size < 2) continue
+    const assembly = selectProjectSupplyAssemblies(project).find((candidate) =>
+      candidate.nodes.some((node) => node.id === converter.id && node.kind === 'inverter-unit'))
+    if (!assembly?.connections.some((connection) =>
+      connection.domain === 'DC' &&
+      connection.endpoints.every((endpoint) => outputByDeviceId.has(endpoint.nodeId)) &&
+      outputByDeviceId.get(connection.endpoints[0]!.nodeId) !==
+        outputByDeviceId.get(connection.endpoints[1]!.nodeId))) continue
+    changed = reconcileDirectConverterDcDevices(project, feed.panelId) || changed
+  }
+  return changed
+}
+
 /** Adds the selected converter to both sides of the source loop and enables backup use. */
 export function attachBackupConverterToAssembly(
   project: ProjectWithOptionalV2Electrical,
@@ -1361,7 +1394,10 @@ export function attachBackupConverterToAssembly(
   ]
   const backupConnections: SupplyConnection[] = []
   let previousBackupEndpoint: [string, string] = [converter.id, 'backup']
-  backupDevices.forEach((device, index) => {
+  const backupDevicesFromConverter = [...backupDevices]
+    .sort((a, b) => a.trunkPosition - b.trunkPosition || a.id.localeCompare(b.id))
+    .reverse()
+  backupDevicesFromConverter.forEach((device, index) => {
     backupConnections.push(
       connection(
         `${converter.id}-to-${changeover.id}-${index}-in`,
@@ -1444,6 +1480,32 @@ export function attachBackupConverterToAssembly(
     },
   ]
   return assembly
+}
+
+/** Restore a missing backup branch from unambiguous persisted root-feed devices.
+ * Leave complete/custom inverter graphs alone; their port wiring is authoritative.
+ */
+export function healMissingChangeoverBackupBranch(project: ProjectWithOptionalV2Electrical): boolean {
+  let changed = false
+  const installation = getProjectElectricalInstallation(project)
+  for (const feed of installation?.feedTopology?.rootFeeds ?? []) {
+    const devices = feed.trunkDevices ?? []
+    const switches = devices.filter((device) => device.symbol === 'source_changeover')
+    const converters = devices.filter((device) => device.supplyPath === 'backup' && device.type === 'conversion')
+    if (switches.length !== 1 || converters.length !== 1) continue
+    const changeover = switches[0]!
+    const converter = converters[0]!
+    const assembly = findAssemblyForChangeover(project, changeover.id)
+    if (!assembly || !assembly.nodes.some((node) => node.kind === 'utility-source') ||
+      assembly.nodes.some((node) => node.kind === 'inverter-unit') ||
+      selectProjectSupplyAssemblies(project).some((candidate) =>
+        candidate.nodes.some((node) => supplyNodeReferencesDevice(node, converter.id)))) continue
+    Object.assign(assembly, attachBackupConverterToAssembly(project, feed.panelId, changeover, converter))
+    reconcileSupplyAssemblyBranchProtections(project, feed.panelId)
+    reconcileDirectConverterDcDevices(project, feed.panelId)
+    changed = true
+  }
+  return changed
 }
 
 /** Converts an existing direct converter graph into the switched four-port topology. */
@@ -2132,6 +2194,7 @@ export function reconcileSupplyAssemblyBranchProtections(
     )
   )
   const gridDistributionId = `${assembly.id}-grid-distribution`
+  const inverterGridSplitId = `${assembly.id}-inverter-grid-distribution`
   const normalHandoffId = `${assembly.id}-normal-handoff-record`
   const normalHandoffNodeId = `${assembly.id}-normal-handoff`
   const panel = getProjectElectricalPanels(project).find((candidate) => candidate.id === panelId)
@@ -2165,7 +2228,7 @@ export function reconcileSupplyAssemblyBranchProtections(
       candidate.endpoints.some((endpoint) => multipliedUnitIds.has(endpoint.nodeId))
     )
   )
-  const fixedNodeIds = new Set([utility.id, converter.id, changeover.id, gridDistributionId])
+  const fixedNodeIds = new Set([utility.id, converter.id, changeover.id, gridDistributionId, inverterGridSplitId])
   // A role labels an electrical path, not ownership. Follow each generated
   // terminal backwards so private branches with the same role survive intact.
   let unsafeGeneratedPath = false
@@ -2208,6 +2271,7 @@ export function reconcileSupplyAssemblyBranchProtections(
   const oldLoadPath = primaryHandoff ? tracePath(primaryHandoff.handoffNodeId, 'in', 'load-ac') : []
   const rebuiltConnections = new Set([
     ...tracePath(gridDistributionId, 'in', 'grid-ac'),
+    ...tracePath(inverterGridSplitId, 'in', 'grid-ac'),
     ...tracePath(changeover.id, 'grid', 'grid-ac'),
     ...tracePath(converter.id, 'grid', 'inverter-grid-ac'),
     ...tracePath(changeover.id, 'backup', 'inverter-backup-ac'),
@@ -2345,6 +2409,19 @@ export function reconcileSupplyAssemblyBranchProtections(
       port('out', 'grid-distribution-ac', conductors, 'source', 'many'),
     ],
   }
+  // The inverter takes power at the first T junction. A normal/backup panel
+  // needs a second junction farther downstream to divide the grid-only bus
+  // from the changeover's grid input.
+  const hasSecondGridSplit = Boolean(normalSection && gridInputConnected)
+  const firstGridSplitId = hasSecondGridSplit ? inverterGridSplitId : gridDistributionId
+  const inverterGridSplit: SupplyNode = {
+    ...gridDistribution,
+    id: inverterGridSplitId,
+    ports: gridDistribution.ports.map((candidate) => ({
+      ...candidate,
+      conductors: [...candidate.conductors],
+    })),
+  }
   converterNode.ports
     .filter((candidate) => candidate.domain === 'AC')
     .forEach((candidate) => {
@@ -2357,12 +2434,14 @@ export function reconcileSupplyAssemblyBranchProtections(
     ...assembly.nodes.filter(
       (node) =>
         node.id !== gridDistributionId &&
+        node.id !== inverterGridSplitId &&
         node.id !== normalHandoffNodeId &&
         !obsoleteNodeIds.has(node.id) &&
         !branchDeviceIds.has(node.id)
     ),
     ...branchNodes,
     gridDistribution,
+    ...(hasSecondGridSplit ? [inverterGridSplit] : []),
   ]
   assembly.connections = retainedConnections
 
@@ -2393,16 +2472,26 @@ export function reconcileSupplyAssemblyBranchProtections(
   appendSerialPath(
     `${utility.id}-to-grid-distribution`,
     [utility.id, 'out'],
-    inlineGridDevices,
-    [gridDistributionId, 'in'],
+    [],
+    [firstGridSplitId, 'in'],
     'grid-ac',
     conductors
   )
+  if (hasSecondGridSplit) {
+    appendSerialPath(
+      `${inverterGridSplitId}-to-${gridDistributionId}`,
+      [inverterGridSplitId, 'out'],
+      inlineGridDevices,
+      [gridDistributionId, 'in'],
+      'grid-ac',
+      conductors
+    )
+  }
   // Without a separate normal bus, the lower grid lane continues to the switch.
   // With split buses, its inline devices belong only to the normal-bus bypass.
   const changeoverInputDevices = normalSection
     ? changeoverGridInputLegDevices
-    : [...changeoverGridInlineDevices, ...changeoverGridInputLegDevices]
+    : [...inlineGridDevices, ...changeoverGridInlineDevices, ...changeoverGridInputLegDevices]
   if (changeoverInputDevices.length > 0) {
     appendSerialPath(
       `${gridDistributionId}-to-${changeover.id}-grid`,
@@ -2426,7 +2515,7 @@ export function reconcileSupplyAssemblyBranchProtections(
   if (gridInputConnected) {
     appendSerialPath(
       `${utility.id}-to-${converter.id}`,
-      [utility.id, 'out'],
+      [firstGridSplitId, 'out'],
       inverterInputDevices,
       [converter.id, 'grid'],
       'inverter-grid-ac',
@@ -2436,7 +2525,9 @@ export function reconcileSupplyAssemblyBranchProtections(
   appendSerialPath(
     `${converter.id}-to-${changeover.id}`,
     [converter.id, 'backup'],
-    backupDevices,
+    [...backupDevices]
+      .sort((a, b) => a.trunkPosition - b.trunkPosition || a.id.localeCompare(b.id))
+      .reverse(),
     [changeover.id, 'backup'],
     'inverter-backup-ac',
     converterConductors

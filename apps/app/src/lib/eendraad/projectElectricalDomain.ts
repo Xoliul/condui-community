@@ -22,6 +22,7 @@ import {
 } from '@/lib/chronology/chronology'
 import {
   ensureInstallationFeedTopology,
+  ensureRootFeedForBusSection,
   getPanelSupplyTrunkDevices,
   type SupplyFeedScope,
 } from '@/lib/feedTopology'
@@ -189,7 +190,8 @@ export function applyAutomaticEendraadNamingAllPanelsInProject(
 function supplyFeedListForPanelAndScope(
   project: ElectricalDomainProject,
   panelId?: string,
-  scope: SupplyFeedScope = 'shared'
+  scope: SupplyFeedScope = 'shared',
+  busSectionId?: string,
 ): TrunkDevice[] {
   const installation = getProjectElectricalInstallation(project)
   if (!installation) return []
@@ -201,7 +203,9 @@ function supplyFeedListForPanelAndScope(
     return installation.mainSupply.supplyTrunkDevices
   }
   const topology = ensureInstallationFeedTopology(installation, panels)
-  const rootFeed = topology.rootFeeds.find((feed) => feed.panelId === panelId)
+  const rootFeed = busSectionId
+    ? ensureRootFeedForBusSection(installation, panels, panelId, busSectionId)
+    : topology.rootFeeds.find((feed) => feed.panelId === panelId)
   if (!rootFeed) return []
   if (!rootFeed.trunkDevices) rootFeed.trunkDevices = []
   return rootFeed.trunkDevices

@@ -448,9 +448,45 @@ export function getSupplyFeedDevicesForPanel(
       (feed) =>
         feed.panelId === panelId &&
         (!targetBusSectionId ||
-          (feed.busSectionId ?? targetBusSectionId) === targetBusSectionId),
+          (feed.busSectionId ?? (panel ? getPrimaryPanelBusSectionId(panel) : undefined)) ===
+            targetBusSectionId),
     )?.trunkDevices ?? []
   )
+}
+
+/** Create the section's local device carrier when its first panel-input device is dropped. */
+export function ensureRootFeedForBusSection(
+  installation: Installation,
+  panels: Panel[],
+  panelId: string,
+  busSectionId: string,
+): RootPanelFeedPath | null {
+  const panel = collectRootPanels(panels).find((candidate) => candidate.id === panelId)
+  if (!panel) return null
+  const topology = ensureInstallationFeedTopology(installation, panels)
+  const primarySectionId = getPrimaryPanelBusSectionId(panel)
+  const existing = topology.rootFeeds.find((feed) =>
+    feed.panelId === panelId &&
+    (feed.busSectionId ?? primarySectionId) === busSectionId
+  )
+  if (existing) return existing
+  if (!panel.busSections?.some((section) => section.id === busSectionId)) {
+    return topology.rootFeeds.find((feed) =>
+      feed.panelId === panelId &&
+      (feed.busSectionId ?? primarySectionId) === primarySectionId
+    ) ?? null
+  }
+  const feed: RootPanelFeedPath = {
+    id: `root-feed-${panelId}-${busSectionId}`,
+    kind: 'root_panel',
+    connectorId: topology.rootConnector.id,
+    panelId,
+    busSectionId,
+    trunkDevices: [],
+    segmentCables: [],
+  }
+  topology.rootFeeds.push(feed)
+  return feed
 }
 
 export function getPanelSupplyCable(

@@ -38,7 +38,8 @@ export function hasLegacyV2ProjectBloat(project: unknown): boolean {
   if (!project || typeof project !== 'object') return false
   const candidate = project as Partial<ProjectV2>
   const schemaVersion = (project as { schemaVersion?: unknown }).schemaVersion
-  if (schemaVersion !== '2.0.0' && schemaVersion !== '2.1.0') return false
+  if (schemaVersion !== '2.0.0' && schemaVersion !== '2.1.0' && schemaVersion !== '2.2.0')
+    return false
 
   const electrical = candidate.disciplines?.electrical as
     | ElectricalModelWithObsoleteSnapshot

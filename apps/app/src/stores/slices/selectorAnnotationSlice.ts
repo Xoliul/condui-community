@@ -1,3 +1,4 @@
+import { editWireRunAtAnchor } from '@/lib/wires/editWireRun'
 import { getProjectStoreApi } from './projectStoreHistory'
 import type { ProjectSliceCreator } from './projectStoreTypes'
 import { syncDerivedEndpointFlags } from '@/lib/eendraad/endpointInsertAfter'
@@ -27,14 +28,25 @@ import {
   getAllSupplyTrunkDevices,
   getPanelFeedProjection,
 } from '@/lib/feedTopology'
-import { ejectSupplyTrunkFromMainGridSlot } from '@/lib/panel/healSupplyTrunkGrid'
+import {
+  ejectSupplyTrunkFromMainGridSlot,
+  healPanelMountedSupplyTrunkSlotsForPanel,
+} from '@/lib/panel/healSupplyTrunkGrid'
 import { getSuppressedPanelGridModuleKeys } from '@/lib/panel/panelGridDuplicates'
-import { getSupplyDeviceMounting, resolveSupplyDeviceMounting } from '@/lib/panel/auxiliarySupplyEnclosures'
-import { getSupplyDeviceVisibilitySurface, isSupplyDeviceVisibleInPanel } from '@/lib/panel/supplyPanelVisibility'
+import {
+  resolveSupplyDeviceMounting,
+} from '@/lib/panel/auxiliarySupplyEnclosures'
+import {
+  getSupplyDeviceVisibilitySurface,
+  isSupplyDeviceVisibleInPanel,
+} from '@/lib/panel/supplyPanelVisibility'
 import { getTerminalStripId } from '@/lib/terminalStrip/labels'
 import { setPanelFeedOrganizationInProject } from '@/lib/panel/panelFeedOrganization'
 import { findPanelById } from '@/lib/panel/panelTree'
-import { collectAllGroundTrunkDevices, findGroundTrunkDeviceOwner } from '@/lib/eendraad/panelGround'
+import {
+  collectAllGroundTrunkDevices,
+  findGroundTrunkDeviceOwner,
+} from '@/lib/eendraad/panelGround'
 import {
   buildAutoSitplanPlacement,
   getViewportCenterPlanSpaceIfApplicable,
@@ -85,6 +97,7 @@ import type {
   PanelGridSlot,
   Placement,
   ProtectionDevice,
+  TrunkDevice,
   WireSegment,
 } from '@/types/schema'
 import { DEFAULT_ELECTRICAL_DOMAIN } from '@/types/schema'
@@ -319,7 +332,7 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
     const defaultKeys = new Set(defaultRefs.map(panelGridModuleRefKey))
     const mountedSupplyKeys = new Set<string>()
     for (const device of getAllSupplyTrunkDevices(currentProject)) {
-      const mounting = getSupplyDeviceMounting(currentProject, device.id)
+      const mounting = resolveSupplyDeviceMounting(currentProject, device.id)
       const ref: PanelGridModuleRef = { kind: 'trunkDevice', id: device.id, scope: 'supply' }
       const key = panelGridModuleRefKey(ref)
       if (mounting?.kind === 'panel' && mounting.panelId === panel.id) {
@@ -413,7 +426,10 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
         // - root-local supply devices always materialize in the main panel body
         if (panel.isMain && ref.kind === 'trunkDevice' && ref.scope === 'supply') {
           if (rootSupplyKeys.has(key)) return true
-          if (supplyKeys.has(key)) return false
+          // A stale shared-strip slot can survive a physical panel-mounting update. The
+          // mounting is authoritative, so keep the device on its panel surface even before
+          // the load-time healer has moved that slot into the panel body.
+          if (supplyKeys.has(key) && !mountedSupplyKeys.has(key)) return false
           return mainKeys.has(key) || mountedSupplyKeys.has(key)
         }
         return !supplyKeys.has(key)
@@ -549,8 +565,12 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
       )
         return false
       const key = panelGridModuleRefKey(m.ref)
-      if (m.ref.kind === 'trunkDevice' && m.ref.scope === 'supply' &&
-        !isSupplyDeviceVisibleInPanel(currentProject, m.ref.id)) return false
+      if (
+        m.ref.kind === 'trunkDevice' &&
+        m.ref.scope === 'supply' &&
+        !isSupplyDeviceVisibleInPanel(currentProject, m.ref.id)
+      )
+        return false
       if (hiddenKeys.has(key) && !panelGridModuleIsAlwaysVisibleInPanel(m.ref, panels)) return false
       if (
         !panelGridModuleIsVisibleByDefault(m.ref, panel, installation, panels) &&
@@ -572,9 +592,14 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
     const panel = findPanelById(selectProjectElectricalPanels(currentProject), panelId)
     if (!panel) {
       return getAllSupplyTrunkDevices(currentProject)
-        .filter((device) => getSupplyDeviceVisibilitySurface(currentProject, device.id)?.id === panelId &&
-          !isSupplyDeviceVisibleInPanel(currentProject, device.id))
-        .map((device): PanelGridModuleRef => ({ kind: 'trunkDevice', id: device.id, scope: 'supply' }))
+        .filter(
+          (device) =>
+            getSupplyDeviceVisibilitySurface(currentProject, device.id)?.id === panelId &&
+            !isSupplyDeviceVisibleInPanel(currentProject, device.id)
+        )
+        .map(
+          (device): PanelGridModuleRef => ({ kind: 'trunkDevice', id: device.id, scope: 'supply' })
+        )
     }
     const hiddenKeys = new Set(panel.gridView?.hiddenModuleKeys ?? [])
     const shownKeys = new Set(panel.gridView?.shownModuleKeys ?? [])
@@ -599,8 +624,10 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
     return defaultRefs.filter((ref) => {
       if (ref.kind === 'trunkDevice' && ref.scope === 'supply') {
         const surface = getSupplyDeviceVisibilitySurface(currentProject, ref.id)
-        return (surface?.id === panel.id || surface?.ownerPanelId === panel.id) &&
+        return (
+          (surface?.id === panel.id || surface?.ownerPanelId === panel.id) &&
           !isSupplyDeviceVisibleInPanel(currentProject, ref.id)
+        )
       }
       const key = panelGridModuleRefKey(ref)
       if (panelGridModuleIsAlwaysVisibleInPanel(ref, panels)) return false
@@ -729,7 +756,11 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
       deviceId
     )
     if (groundOwner) {
-      return { device: groundOwner.devices[groundOwner.index]!, circuit: null, isGroundDevice: true }
+      return {
+        device: groundOwner.devices[groundOwner.index]!,
+        circuit: null,
+        isGroundDevice: true,
+      }
     }
 
     // Check circuit trunk devices
@@ -911,6 +942,44 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
           return
         }
         state.isDirty = true
+      } else if (payload.kind === 'repairSharedPlanPlacementIds') {
+        const ownerKeys = new Set(payload.owners.map((owner) => `${owner.kind}:${owner.id}`))
+        let keptPlacement = false
+        let changed = false
+
+        const repairOwner = (kind: 'endpoint' | 'trunkDevice', owner: Endpoint | TrunkDevice) => {
+          if (!ownerKeys.has(`${kind}:${owner.id}`)) return
+          if (!owner.placements?.length) return
+          owner.placements = owner.placements.map((placement) => {
+            if (placement.id !== payload.placementId) return placement
+            if (!keptPlacement) {
+              keptPlacement = true
+              return placement
+            }
+            changed = true
+            return { ...placement, id: generateId() }
+          })
+        }
+
+        for (const panel of editProjectElectricalPanels(state.currentProject)) {
+          for (const endpoint of getAllEndpoints(panel)) repairOwner('endpoint', endpoint)
+          for (const circuit of getAllCircuits(panel)) {
+            for (const device of circuit.trunkDevices ?? []) repairOwner('trunkDevice', device)
+            for (const branch of circuit.branches ?? []) {
+              for (const device of branch.branchDevices ?? []) repairOwner('trunkDevice', device)
+            }
+          }
+        }
+        for (const device of getAllSupplyTrunkDevices(state.currentProject)) {
+          repairOwner('trunkDevice', device)
+        }
+        for (const device of collectAllGroundTrunkDevices(
+          editProjectElectricalPanels(state.currentProject),
+          selectProjectElectricalInstallation(state.currentProject)
+        )) {
+          repairOwner('trunkDevice', device)
+        }
+        if (changed) state.isDirty = true
       } else if (payload.kind === 'repairPanelGridDuplicateModules') {
         const targetPanel = findPanelById(
           editProjectElectricalPanels(state.currentProject),
@@ -949,6 +1018,21 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
         if (!targetPanel) return
         if (
           ejectSupplyTrunkFromMainGridSlot(targetPanel, state.currentProject, payload.moduleRef)
+        ) {
+          state.isDirty = true
+        }
+      } else if (payload.kind === 'repairSupplyTrunkPanelMountingSlot') {
+        const targetPanel = findPanelById(
+          editProjectElectricalPanels(state.currentProject),
+          payload.panelId
+        )
+        if (!targetPanel) return
+        if (
+          healPanelMountedSupplyTrunkSlotsForPanel(
+            targetPanel,
+            state.currentProject,
+            payload.deviceId
+          )
         ) {
           state.isDirty = true
         }
@@ -1178,6 +1262,13 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
         syncDerivedEndpointFlags(found.circuit)
         state.isDirty = true
       }
+    }),
+
+  updateWireRunAtAnchor: (anchor, cable, changes) =>
+    set((state) => {
+      if (!state.currentProject) return
+      editWireRunAtAnchor(state.currentProject, anchor, cable, changes)
+      state.isDirty = true
     }),
 
   // Wire segment actions

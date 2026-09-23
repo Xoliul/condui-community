@@ -6,6 +6,7 @@ import CustomDropdown from '@/components/common/CustomDropdown'
 import type { CableSpec, CircuitPhaseAssignment, Installation } from '@/types/schema'
 import {
   applyCableKindChange,
+  COMB_BUSBAR_SECTION_OPTIONS,
   getAcWireTypeOptions,
   getDcWireTypeOptions,
   getWireSectionOptions,
@@ -193,6 +194,9 @@ export function WireLengthField({
 }
 
 export function WireRouteAndCableForm({
+  showLength = true,
+  groundConductor = false,
+  busbar = false,
   state,
   onChange,
   isDC,
@@ -202,6 +206,9 @@ export function WireRouteAndCableForm({
   phaseLocked = false,
   t,
 }: {
+  busbar?: boolean
+  groundConductor?: boolean
+  showLength?: boolean
   state: WireRouteFormState
   onChange: (u: Partial<WireRouteFormState>) => void
   isDC: boolean
@@ -233,15 +240,24 @@ export function WireRouteAndCableForm({
     !!phaseSystem &&
     !!effectivePhaseAssignment &&
     !!getPhaseAssignmentLabel(effectivePhaseAssignment, phaseSystem)
-  const conductorOptions = getWireConductorOptions(isDC)
-  const selectedConductorValue = resolveConductorDropdownValue(state.cable, isDC)
+  const conductorOptions = busbar
+    ? [...new Set([1, 2, 3, 4, state.cable.conductors])]
+        .filter((count) => Number.isInteger(count) && count > 0)
+        .sort((a, b) => a - b)
+        .map((count) => ({ value: String(count), label: String(count), conductors: count, hasPE: false }))
+    : groundConductor ? [{ value: '1G', label: 'PE', conductors: 1, hasPE: true }] : getWireConductorOptions(isDC)
+  const selectedConductorValue = busbar
+    ? String(state.cable.conductors)
+    : resolveConductorDropdownValue(state.cable, isDC)
 
-  const wireTypes = isDC
+  const wireTypes = busbar ? [{ value: 'other', label: t('structure.busbar', 'Busbar') }] : isDC
     ? getDcWireTypeOptions(t('wires.other', 'Other'), {
         batteryCable: t('wires.batteryCable', 'Battery cable'),
       })
     : getAcWireTypeOptions(t('wires.other', 'Other'))
-  const thicknessOptions = getWireSectionOptions(isDC)
+  const thicknessOptions = busbar
+    ? [...new Set([...COMB_BUSBAR_SECTION_OPTIONS, state.cable.sectionMm2])].sort((a, b) => a - b)
+    : getWireSectionOptions(isDC)
   const fireClassOptions: Array<NonNullable<CableSpec['fireClass']>> = [
     'Aca',
     'B1ca',
@@ -294,6 +310,35 @@ export function WireRouteAndCableForm({
     !!state.cable.fireClass
 
   if (phaseOnly && phaseOptions.length === 0) return null
+
+  if (busbar) return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+        <div>{t('wires.type', 'Type')}</div>
+        <div>{t('wires.conductors', 'Geleiders')}</div>
+        <div>{t('wires.thickness', 'Dikte')}</div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="px-2 py-2 text-sm text-gray-900 dark:text-white">{t('structure.busbar', 'Busbar')}</div>
+        <CustomDropdown
+          value={selectedConductorValue}
+          onChange={(value) => onChange({ cable: {
+            ...state.cable, kind: 'other', customKind: 'busbar',
+            conductors: Number(value), hasPE: false,
+          } })}
+          options={conductorOptions.map(({ value, label }) => ({ value, label }))}
+        />
+        <CustomDropdown
+          value={String(state.cable.sectionMm2)}
+          onChange={(value) => onChange({ cable: {
+            ...state.cable, kind: 'other', customKind: 'busbar',
+            sectionMm2: Number(value), hasPE: false,
+          } })}
+          options={thicknessOptions.map((section) => ({ value: String(section), label: `${section} mm²` }))}
+        />
+      </div>
+    </div>
+  )
 
   return (
     <div className={phaseOnly ? 'space-y-4 [&>div:not(:first-child)]:hidden' : 'space-y-4'}>
@@ -538,7 +583,7 @@ export function WireRouteAndCableForm({
             className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
           />
         </div>
-        {state.cable.kind === 'other' && (
+        {!busbar && state.cable.kind === 'other' && (
           <DebouncedTextInput
             type="text"
             value={state.cable.customKind ?? ''}
@@ -603,12 +648,12 @@ export function WireRouteAndCableForm({
         />
       </div>
 
-      <WireLengthField
+      {showLength && <WireLengthField
         wireLengthM={state.wireLengthM}
         showWireLengthLabel={state.showWireLengthLabel}
         onChange={onChange}
         t={t}
-      />
+      />}
     </div>
   )
 }

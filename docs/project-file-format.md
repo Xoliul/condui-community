@@ -24,7 +24,7 @@ The current manifest has archive format version `1`, the format label `project-w
 
 ## `project.json`
 
-The current schema version is `2.1.0`.
+The current schema version is `2.2.0`.
 
 The root document contains these portable domains:
 
@@ -40,7 +40,7 @@ The root document contains these portable domains:
 | `relationships`          | Directed links between elements.                                                                                                               |
 | `views`                  | Floor-plan, one-wire, panel, and export view definitions.                                                                                      |
 | `assets`                 | Metadata and references for floor-plan and other project-owned files.                                                                          |
-| `disciplines.electrical` | Installation, panels, devices, plan wiring, one-wire annotations, and optional supply assemblies.                                              |
+| `disciplines.electrical` | Installation, panels, devices, plan wiring, one-wire annotations, optional supply assemblies, and optional canonical wire runs.                 |
 | `validation`             | Optional quarantined data retained for recovery and diagnostics.                                                                               |
 
 The optional `project.showInspectionAgencyInInfoBlock` boolean controls whether the
@@ -116,7 +116,18 @@ after the supply assembly's handoff and before that root panel's bus, independen
 of physical `panelMounting`. Assembly reconciliation must not absorb it into the
 upstream supply graph. Missing or false retains legacy ownership inference. These
 devices remain in the root feed's ordered `trunkDevices` array and render on the
-receiving panel, including installations with only one main panel.
+receiving panel, including installations with only one main panel. This marker applies
+only to the serial receiving chain. A source changeover or a device with an explicit
+non-serial `supplyPath` remains part of the supply branch; readers ignore and the
+editor clears contradictory input markers written by older inline-diagram drops.
+If explicit supply branches appear after a receiving-chain device in the saved
+root-feed list, the editor moves those branches before the receiving chain and
+renumbers trunk positions. Relative order within each chain and device references
+are preserved; serial panel-input devices retain their ownership.
+When an older changeover graph has no inverter node but its root feed contains
+exactly one changeover and one backup converter, the editor reconstructs the missing
+backup AC and DC branches from those devices. Existing inverter graphs and their
+custom wiring are preserved; ambiguous device lists are not inferred.
 
 The first main panel's `gridView.supplyPanelVisible: false` also dismisses the
 shared grid frame when it has no visible modules. This removes only the empty
@@ -318,8 +329,9 @@ converter retains the ordinary circuit trunk: its panel-side segment uses the in
 domain and the segment above the converter uses the outgoing domain, where endpoints
 remain ordinary branches. Widened converters use separate terminal lanes and persist
 `converterDcConnection.converterId` with a zero-based `connectionIndex` for their
-output endpoints. These references affect one-wire topology only and do not replace
-the endpoint's ordinary branch membership.
+output endpoints. These references identify the same output paths in the one-wire
+and derived electrical structure, and do not replace the endpoint's ordinary
+branch membership.
 
 A circuit trunk device with `type: "dc_bus"` and `symbol: "dc_bus"` represents a
 selectable DC distribution busbar. Optional `ratedCurrentA` and `ratedVoltageV` are
@@ -327,7 +339,13 @@ descriptive ratings. A bus placed on an ordinary converter output uses the same
 `converterDcConnection` reference as other serial DC devices. Its outgoing taps are
 ordinary branches in the converter's existing circuit: each owning `Branch` persists
 `dcBusId` and keeps its serial endpoint/device chain in `endpointIds`. The one-wire
-view renders those branches as vertical DC taps, but they do not create child circuits
+view also accepts an unlinked rail on an ordinary one-port converter trunk. The
+derived structure infers its output-zero relationship only when the circuit has
+exactly one converter, one rail referenced by a branch `dcBusId`, and no other
+owner of output zero. That inferred relationship may be absent from older stored
+projects; editor hydration and save write the unambiguous
+`converterDcConnection` onto the rail. The one-wire
+view renders the branches as vertical DC taps, but they do not create child circuits
 or protection records. Deleting the final endpoint removes the empty branch; deleting
 the bus removes all branches and endpoints that carry its id. An empty ordinary-panel
 bus is terminal at the normal first endpoint branch row and has no continuation above
@@ -398,6 +416,10 @@ supply assembly. That value counts upper DC exits; the established side DC exit 
 available in addition. A device on one of those independent DC lanes may persist a zero-based
 `supplyConverterDcConnectionIndex`. Missing values remain backward-compatible:
 `"converter-dc"` implies index 0 and `"converter-dc-top"` implies index 1.
+Devices with different `supplyConverterDcConnectionIndex` values occupy separate
+converter exits in the supply assembly graph. Older files that chained devices
+across those exits are repaired on opening; existing connection IDs and wire
+properties are retained while the upstream endpoint is corrected.
 
 A supply-side DC busbar uses the same `type` and `symbol` values. Domotica devices
 dropped on that bus persist `type: "domotica"` and `symbol: "domotica"`; their
@@ -471,6 +493,10 @@ incoming supplies to the same explicit section are invalid.
 For the generated normal-bus handoff of a switched root-feed assembly, the
 handoff and the root-feed record are two persisted projections of the same
 physical input and must not be counted as independent supplies.
+Likewise, a root-feed record whose devices are all marked `supplyPanelInput: true`
+can carry the panel-side device chain after an assembly handoff to that bus
+section. It does not create a second incoming source. Repeated busbar runs of
+that section display the same device chain without duplicating its devices.
 
 For a root feed with a modular changeover and inverter, the ordered trunk-device
 roles describe distinct physical branches rather than one flattened serial list.
@@ -533,6 +559,32 @@ Cable specifications may use the stable `kind` values `battery-cable` and `twinf
 for DC battery wiring; these are portable data values and are localized only when
 displayed in the editor or drawing labels.
 
+`disciplines.electrical.wireRuns` (schema `2.2.0`) is the canonical per-edge wire model
+(Goal 19 / ADR-0002). Each run holds a shared `cable`, a `conductors` list (per-phase
+function, optional per-core section), an optional `medium` (`cable` or `busbar`) with
+`material` and `busTapLengthMode` for busbars, route/tube flags, per-member `segmentLengths`
+in metres, and `members`: stable anchor keys (not relationship ids) of the edges sharing the
+run. The `2.2.0` migration seeds this collection best-effort from the legacy owners
+(`sectionWireOverrides`, feed `wireSections`, supply-connection `wireProperties`); unmapped
+legacy wire data falls back to defaults rather than blocking the migration, and the seed runs
+only when the collection is absent so edited runs are preserved on re-save. The legacy owners
+remain readable during the transition.
+
+New wire edits write only to `wireRuns`. Circuit anchors identify the downstream device
+or derived secondary rail and electrical domain. A secondary rail is derived from a
+circuit’s `subCircuitIds`; its feeder has its own circuit anchor, separate from the
+rail’s protection-input tap anchors. No additional persisted rail record is required.
+Protection inputs use a panel/protection anchor, earthing inputs a
+downstream device or panel anchor, and subpanel feeds a receiving device or bus anchor.
+Supply paths retain their stable feed-section or assembly-connection anchors. Anchor keys
+are opaque to external readers. Older node-pair anchors for shared supply-feed edges
+are rewritten to their canonical feed anchors on opening or saving, retaining run
+membership and per-segment lengths. Repeated drawing pieces share an anchor, and a busbar run
+may contain several tap anchors. Editing its specification changes all members; editing
+`segmentLengths[anchor]` changes only that connection. Empty or unknown legacy wire owners
+remain default inputs until a run is authored. Drawing-only `wireAnchor`, `wireAnchors`, and
+`wireBusGroup` metadata are recomputed and are not required portable project data.
+
 Some current documents also require the reserved compatibility containers `collaboration`, `comments`, and `chronology`. Local implementations must preserve unknown members in these containers and use the neutral values produced by `createEmptyProjectV2` or the official migration code rather than constructing them by hand. They must not infer local permissions or enable features from their contents.
 
 These containers are named only because removing or rewriting them can make loading or round trips lossy. Their internal service-side interpretation is outside the portable format.
@@ -558,9 +610,10 @@ CAD-derived floor plans use imported-plan asset kind `cad-vector` (distinct from
 
 The loader accepts:
 
-- `2.1.0`, the current native format;
-- `2.0.0`, upgraded by adding the current scope contract;
-- `0.2.0`, migrated through the legacy V1-to-V2 importer.
+- `2.2.0`, the current native format;
+- `2.1.0`, upgraded by seeding the canonical wire-run collection (see below);
+- `2.0.0`, upgraded by adding the current scope contract, then seeding wire runs;
+- `0.2.0`, migrated through the legacy V1-to-V2 importer, then seeding wire runs.
 
 Other schema versions are rejected. New writers must emit the current version and serialize through `projectToStoredProjectV2`. Historical top-level electrical, floor, wiring, annotation, and quarantine fields are accepted only as legacy import input: loaders normalize them once into the V2 containers, and neither the editor runtime nor `project.json` carries runtime compatibility aliases.
 

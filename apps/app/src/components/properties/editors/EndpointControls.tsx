@@ -343,7 +343,9 @@ export function DomoticaEndpointFields({
   onUpdate: (id: string, updates: Partial<Endpoint>) => void
   t: (key: string, defaultValue?: string) => string
 }) {
-  const { deleteEndpoints, getEndpointById, findCircuitForEndpoint } = useProjectStore()
+  const deleteEndpoints = useProjectStore((state) => state.deleteEndpoints)
+  const getEndpointById = useProjectStore((state) => state.getEndpointById)
+  const findCircuitForEndpoint = useProjectStore((state) => state.findCircuitForEndpoint)
   const dom = endpoint.domoticaProps || {}
   const endpointCount = Math.max(1, Math.min(20, Math.trunc(dom.endpointCount ?? 1)))
   const mainDeviceType = dom.mainDeviceType ?? 'none'

@@ -50,6 +50,7 @@ import { mutateBuildingFloorViews } from '@/lib/projectV2/buildingFloors'
 import {
   buildDirectConverterSupplyAssembly,
   buildChangeoverSupplyAssembly,
+  attachBackupConverterToAssembly,
   reconcileDirectConverterDcDevices,
   reconcileDirectConverterGridProtections,
   reconcileDirectConverterCommonLoadPath,
@@ -59,7 +60,8 @@ import {
   reconcileSupplyAssemblyAcConductorFlow,
   reconcileSupplyAssemblyBranchProtections,
 } from '@/lib/supplyAssembly/editorIntegration'
-import { getSupplyNodePhysicalDeviceId, getPanelInputDeviceStartIndex } from '@/lib/supplyAssembly/electricalTopology'
+import { getSupplyNodePhysicalDeviceId, getPanelInputDeviceStartIndex, isSupplyBranchDevice } from '@/lib/supplyAssembly/electricalTopology'
+import { isPanelSupplyFrameDetached } from '@/lib/layout/supplyFrameDetachment'
 import { summarizeConverterDcPersistence } from '@/lib/supplyAssembly/persistenceDiagnostics'
 import {
   getProjectElectricalInstallation,
@@ -1003,24 +1005,31 @@ export const createCircuitTrunkSlice: ProjectSliceCreator = (set, get) => ({
         // Hit zones carry electrical ownership explicitly. Retain diagram identity
         // as a fallback for older callers that do not yet provide that contract.
         const isContinuationDiagramDrop =
-          target?.supplyPanelInput ?? (!!target?.panelId &&
-          !!target.diagramId &&
-          target.diagramId === target.panelId)
+          !isSupplyBranchDevice(device) &&
+          (target?.supplyPanelInput ?? (!!target?.panelId &&
+            target.diagramId === target.panelId &&
+            isPanelSupplyFrameDetached(state.currentProject, target.panelId)))
         const feedScope = isContinuationDiagramDrop ? 'root' : scope
         const devices = getSupplyFeedListForTarget(
           state.currentProject,
           target?.panelId,
-          feedScope
+          feedScope,
+          target?.busSectionId
         )
         if (isContinuationDiagramDrop && target?.panelId) {
           const source = devices.find((item) => item.symbol === 'source_changeover') ??
             devices.find((item) => item.supplyPath === 'converter-branch')
           if (source && !assemblyOwnsSupplyDevice(state.currentProject, source.id)) {
+            const backupConverter = devices.find((item) =>
+              item.type === 'conversion' && item.supplyPath === 'backup')
             editProjectSupplyAssemblies(state.currentProject).push(
               source.symbol === 'source_changeover'
-                ? buildChangeoverSupplyAssembly(state.currentProject, target.panelId, source)
+                ? backupConverter
+                  ? attachBackupConverterToAssembly(state.currentProject, target.panelId, source, backupConverter)
+                  : buildChangeoverSupplyAssembly(state.currentProject, target.panelId, source)
                 : buildDirectConverterSupplyAssembly(state.currentProject, target.panelId, source)
             )
+            reconcileSupplyAssemblyBranchProtections(state.currentProject, target.panelId)
             reconcileDirectConverterDcDevices(state.currentProject, target.panelId)
           }
         }

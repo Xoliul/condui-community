@@ -414,6 +414,7 @@ export function setPanelFeedOrganizationInProject(
 
   if (organization === 'single') {
     if (panelRequiresSplitFeed(project, panelId)) return false
+    const hadSplitBus = hasExplicitPanelBusSections(panel) && panel.busSections!.length > 1
     const primaryId = getPrimaryPanelBusSectionId(panel)
     for (const protection of panel.protections) delete protection.busSectionId
     for (const circuit of panel.circuits) delete circuit.busSectionId
@@ -422,6 +423,17 @@ export function setPanelFeedOrganizationInProject(
     const topology = ensureInstallationFeedTopology(installation, panels)
     const panelFeeds = topology.rootFeeds.filter((feed) => feed.panelId === panelId)
     const keep = panelFeeds.find((feed) => feed.busSectionId === primaryId) ?? panelFeeds[0]
+    if (hadSplitBus) {
+      // Section-specific receiving chains are painted only on split-bus stubs.
+      // Dropping the split must not leave their devices hidden in the surviving feed.
+      for (const feed of panelFeeds) {
+        feed.trunkDevices = feed.trunkDevices?.filter((device) => !device.supplyPanelInput)
+        feed.trunkDevices?.forEach((device, index) => { device.trunkPosition = index })
+        feed.segmentCables = feed.segmentCables?.filter((segment) =>
+          segment.segmentIndex <= (feed.trunkDevices?.length ?? 0)
+        )
+      }
+    }
     if (keep) delete keep.busSectionId
     topology.rootFeeds = topology.rootFeeds.filter(
       (feed) => feed.panelId !== panelId || feed === keep

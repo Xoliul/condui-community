@@ -3,6 +3,7 @@ import {
   CIRCUIT_CONVERTER_MAX_CONNECTIONS,
   CIRCUIT_CONVERTER_MIN_CONNECTIONS,
   getCircuitConverterDcConnectionCount,
+  getCircuitConverterPrimaryBranch,
   supportsCircuitConverterDcConnections,
 } from '@/lib/layout/circuitConverterGeometry'
 import {
@@ -12,6 +13,8 @@ import {
 import { getSupplyConverterDcConnectionIndex } from '@/lib/supplyAssembly/converterDcConnections'
 import { useProjectStore } from '@/stores/projectStore'
 import type { Circuit, Endpoint, TrunkDevice } from '@/types/schema'
+import { generateId } from '@/utils'
+import { endpointSupportsMultiplier } from '@/utils/endpointMultipliers'
 
 export function clampConverterDcConnectionCount(count: number): number {
   return Math.max(
@@ -76,6 +79,87 @@ export function promoteDcBusConverterEndpoint(
           }
         : branch
     ),
+  }
+}
+
+/** PV/battery endpoints that render an "Nx" multiplier badge from their placement count. */
+function isMergeableMultiplierPanel(endpoint: Endpoint): boolean {
+  return (
+    endpointSupportsMultiplier(endpoint) &&
+    (endpoint.symbol === 'solar_panel' || endpoint.symbol === 'battery')
+  )
+}
+
+/**
+ * A widened ordinary-circuit converter adopts its first branch as DC output lane
+ * zero, laying that branch's panel endpoints out in series with horizontal
+ * links. When parallel branches exist those links misroute and break. Collapsing
+ * the first branch's compatible panel endpoints into a single endpoint that
+ * carries every placement (the "Nx" multiplier) removes the extra endpoints — and
+ * therefore the broken inter-endpoint wires — while preserving the physical unit
+ * count on the sitplan. Returns a new circuit, or null when nothing collapses.
+ */
+export function collapsePrimaryBranchIntoMultiplier(
+  circuit: Circuit,
+  converterId: string,
+  requestedCount: number
+): Circuit | null {
+  if (clampConverterDcConnectionCount(requestedCount) <= 1) return null
+  const device = (circuit.trunkDevices ?? []).find((candidate) => candidate.id === converterId)
+  if (!device || !supportsCircuitConverterDcConnections(device)) return null
+  // The persisted dcConnectionCount is only bumped at the end of the resize, so
+  // evaluate the primary-branch selection against the incoming count.
+  const deviceWithNewCount: TrunkDevice = {
+    ...device,
+    conversionProps: {
+      ...(device.conversionProps ?? {}),
+      dcConnectionCount: clampConverterDcConnectionCount(requestedCount),
+    },
+  }
+  const primaryBranch = getCircuitConverterPrimaryBranch(circuit, deviceWithNewCount)
+  if (!primaryBranch) return null
+
+  const endpointById = new Map(circuit.endpoints.map((endpoint) => [endpoint.id, endpoint]))
+  const branchEndpoints = primaryBranch.endpointIds
+    .map((endpointId) => endpointById.get(endpointId))
+    .filter((endpoint): endpoint is Endpoint => endpoint !== undefined)
+  const keeper = branchEndpoints.find(isMergeableMultiplierPanel)
+  if (!keeper) return null
+  const absorbIds = new Set(
+    branchEndpoints
+      .filter(
+        (endpoint) =>
+          endpoint.id !== keeper.id &&
+          isMergeableMultiplierPanel(endpoint) &&
+          endpoint.type === keeper.type &&
+          endpoint.symbol === keeper.symbol
+      )
+      .map((endpoint) => endpoint.id)
+  )
+  if (absorbIds.size === 0) return null
+
+  const usedPlacementIds = new Set(keeper.placements.map((placement) => placement.id))
+  const mergedPlacements = [...keeper.placements]
+  for (const endpoint of branchEndpoints) {
+    if (!absorbIds.has(endpoint.id)) continue
+    for (const placement of endpoint.placements) {
+      const placementId = usedPlacementIds.has(placement.id) ? generateId() : placement.id
+      usedPlacementIds.add(placementId)
+      mergedPlacements.push({ ...placement, id: placementId })
+    }
+  }
+
+  return {
+    ...circuit,
+    endpoints: circuit.endpoints
+      .filter((endpoint) => !absorbIds.has(endpoint.id))
+      .map((endpoint) =>
+        endpoint.id === keeper.id ? { ...endpoint, placements: mergedPlacements } : endpoint
+      ),
+    branches: (circuit.branches ?? []).map((branch) => ({
+      ...branch,
+      endpointIds: branch.endpointIds.filter((endpointId) => !absorbIds.has(endpointId)),
+    })),
   }
 }
 
@@ -292,17 +376,23 @@ export function resizeConverterDcConnections(deviceId: string, requestedCount: n
       const resizedCircuit = isNestedDcBusConverter
         ? resizeNestedOrdinaryConverterOwnership(found.circuit, deviceId, newCount)
         : moveOrdinaryConverterDcBusesToLastOutput(found.circuit, deviceId, previousCount, newCount)
-      if (resizedCircuit !== found.circuit) {
+      // Only the main-bus (non-nested) converter renders its first branch as an
+      // in-line lane-zero chain, so that is the only case that grows the broken
+      // horizontal wires when parallel branches are present.
+      const collapsedCircuit = isNestedDcBusConverter
+        ? resizedCircuit
+        : (collapsePrimaryBranchIntoMultiplier(resizedCircuit, deviceId, newCount) ?? resizedCircuit)
+      if (collapsedCircuit !== found.circuit) {
         store.updateCircuit(found.circuit.id, {
-          trunkDevices: resizedCircuit.trunkDevices,
-          endpoints: resizedCircuit.endpoints,
-          branches: resizedCircuit.branches,
+          trunkDevices: collapsedCircuit.trunkDevices,
+          endpoints: collapsedCircuit.endpoints,
+          branches: collapsedCircuit.branches,
         })
       }
-      const endpointIds = getOrdinaryConverterResizeEndpointIds(resizedCircuit, deviceId, newCount)
+      const endpointIds = getOrdinaryConverterResizeEndpointIds(collapsedCircuit, deviceId, newCount)
       if (endpointIds.length > 0) store.deleteEndpoints(endpointIds)
       const trunkDeviceIds = getOrdinaryConverterResizeTrunkDeviceIds(
-        resizedCircuit,
+        collapsedCircuit,
         deviceId,
         newCount
       )

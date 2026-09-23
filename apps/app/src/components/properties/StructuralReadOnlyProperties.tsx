@@ -30,6 +30,20 @@ export function StructuralReadOnlyProperties({
           </>
         )}
       </dl>
+      {metadata.wire ? (
+        <div className="rounded border border-gray-200 p-2 dark:border-gray-700">
+          <div className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {metadata.wire.medium === 'busbar' ? t('structure.busbar') : t('structure.wire')}
+          </div>
+          <div className="mt-1 font-semibold">{metadata.wire.label}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {metadata.wire.medium === 'busbar'
+              ? t('structure.busbarBars', { count: metadata.wire.conductorCount })
+              : t('structure.wireConductors', { count: metadata.wire.conductorCount })}
+            {typeof metadata.wire.lengthM === 'number' ? ` · ${metadata.wire.lengthM} m` : ''}
+          </div>
+        </div>
+      ) : null}
       {metadata.diagnosticCodes?.length ? (
         <div className="rounded border border-orange-300 bg-orange-50 p-2 text-xs text-orange-800 dark:border-orange-700 dark:bg-orange-950/30 dark:text-orange-300">
           {metadata.diagnosticCodes.join(' · ')}

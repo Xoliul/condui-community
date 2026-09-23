@@ -140,8 +140,12 @@ export default function SitplanVisibilityPanel({ readOnly = false }: { readOnly?
   const panelIsInLayout = useUIStore((s) =>
     s.viewportLayout.panels.some((p) => p.canvas === 'panel')
   )
-  const { getPlacementsByFloor, getEndpointById, currentProject, updatePlanWiringVisibility } =
-    useProjectStore()
+  const getPlacementsByFloor = useProjectStore((s: ProjectState) => s.getPlacementsByFloor)
+  const getEndpointById = useProjectStore((s: ProjectState) => s.getEndpointById)
+  const currentProject = useProjectStore((s: ProjectState) => s.currentProject)
+  const updatePlanWiringVisibility = useProjectStore(
+    (s: ProjectState) => s.updatePlanWiringVisibility
+  )
   const getFloorById = useProjectStore((s: ProjectState) => s.getFloorById)
   const updateFloor = useProjectStore((s: ProjectState) => s.updateFloor)
   const planWiring = useMemo(
@@ -161,13 +165,15 @@ export default function SitplanVisibilityPanel({ readOnly = false }: { readOnly?
   const colors = useThemeColors()
   const isDark = theme.mode === 'dark'
 
+  // The store getters are stable and read state at call time, so key these memos on the
+  // subscribed project to recompute after placement or floor edits.
   const placements = useMemo(() => {
-    if (!activeFloorId) return []
+    if (!activeFloorId || !currentProject) return []
     return getPlacementsByFloor(activeFloorId)
-  }, [activeFloorId, getPlacementsByFloor])
+  }, [activeFloorId, currentProject, getPlacementsByFloor])
   const activeFloor = useMemo(
-    () => (activeFloorId ? getFloorById(activeFloorId) : undefined),
-    [activeFloorId, getFloorById]
+    () => (activeFloorId && currentProject ? getFloorById(activeFloorId) : undefined),
+    [activeFloorId, currentProject, getFloorById]
   )
   const groundPlanOpacity = activeFloor?.planImageOpacity ?? planVisibility.groundPlansOpacity
   const symbolSizeCm =

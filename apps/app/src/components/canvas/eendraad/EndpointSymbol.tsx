@@ -402,6 +402,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
   const isDomoticaParent = endpoint.symbol === 'domotica'
 
   const isSocket = endpoint.type === 'socket'
+  const isModularSocket = isSocket && endpoint.socketProps?.modular === true
   const isSwitch = endpoint.type === 'switch'
   const socketProps = endpoint.socketProps
   const switchProps = endpoint.switchProps
@@ -813,23 +814,37 @@ export const EndpointSymbol = memo(function EndpointSymbol({
   // Selected by endpoint id (1‑wire, drag rect, …) or by sitplan placement id (multiplied symbols)
   const isHoveredAny = isHovered || isHoveredFromBreadcrumb
   const multiplier = endpointSupportsMultiplier(endpoint) ? getEndpointMultiplier(endpoint) : 1
-  const multiSocketLabelOffsetX = (mirrorHorizontally ? -1 : 1) * (socketExtraWidth / 2)
+  // Copies fan out from the endpoint anchor; center hit and selection bounds on their group.
+  const multiSocketGroupOffsetX = (mirrorHorizontally ? -1 : 1) * (socketExtraWidth / 2)
+  const multiSocketLabelOffsetX = multiSocketGroupOffsetX
   const bottomLabelMinimumLeftXForGroup =
     bottomLabelMinimumLeftX == null ? undefined : bottomLabelMinimumLeftX - multiSocketLabelOffsetX
   const bottomLabelMaximumRightXForGroup =
     bottomLabelMaximumRightX == null
       ? undefined
       : bottomLabelMaximumRightX - multiSocketLabelOffsetX
+  const modularSocketFrameWidth = SYMBOL_SIZE + socketExtraWidth + 4
+  const modularSocketFrameCenterX = multiSocketGroupOffsetX
+  const modularSocketFrameLeft = modularSocketFrameCenterX - modularSocketFrameWidth / 2
+  const modularSocketFrameTop = -SYMBOL_SIZE / 2 - 2
+  const modularSocketFrameBottom = SYMBOL_SIZE / 2 + 5
 
   const standardHitRect = useMemo(() => {
     const base = {
-      x: -ENDPOINT_OUTLINE_SIZE / 2,
+      x: multiSocketGroupOffsetX - (ENDPOINT_OUTLINE_SIZE + socketExtraWidth) / 2,
       y: -ENDPOINT_OUTLINE_SIZE / 2,
       width: ENDPOINT_OUTLINE_SIZE + totalExtraWidth,
       height: ENDPOINT_OUTLINE_SIZE,
     }
     return applyTouchHitPadding(base, canvasZoom, isSelected, touchPrimary)
-  }, [canvasZoom, isSelected, touchPrimary, totalExtraWidth])
+  }, [
+    canvasZoom,
+    isSelected,
+    multiSocketGroupOffsetX,
+    socketExtraWidth,
+    touchPrimary,
+    totalExtraWidth,
+  ])
   const isDcBusConverterResizeEnabled =
     circuitConverterAnchor != null &&
     (endpoint.symbol === 'dc_dc_converter' || endpoint.symbol === 'inverter')
@@ -1222,6 +1237,43 @@ export const EndpointSymbol = memo(function EndpointSymbol({
     >
       {/* Invisible hit area - matches outline size for hover detection, grows for multi-socket */}
       <Rect {...standardHitRect} fill={INTERACTIVE_HIT_FILL} listening={true} />
+
+      {isModularSocket && (
+        <Line
+          name="eendraad-modular-socket-frame"
+          points={[
+            modularSocketFrameLeft,
+            modularSocketFrameTop,
+            modularSocketFrameLeft + modularSocketFrameWidth,
+            modularSocketFrameTop,
+            modularSocketFrameLeft + modularSocketFrameWidth,
+            modularSocketFrameBottom,
+            modularSocketFrameLeft,
+            modularSocketFrameBottom,
+          ]}
+          closed
+          stroke={getSymbolColor(theme?.mode === 'dark')}
+          strokeWidth={0.75}
+          lineJoin="miter"
+          perfectDrawEnabled={false}
+          listening={false}
+        />
+      )}
+      {isModularSocket && (
+        <Line
+          name="eendraad-modular-socket-footer"
+          points={[
+            modularSocketFrameLeft + 0.75,
+            modularSocketFrameBottom - 3,
+            modularSocketFrameLeft + modularSocketFrameWidth - 0.75,
+            modularSocketFrameBottom - 3,
+          ]}
+          stroke={getSymbolColor(theme?.mode === 'dark')}
+          strokeWidth={0.65}
+          perfectDrawEnabled={false}
+          listening={false}
+        />
+      )}
 
       {/* Render socket symbols (1-4 copies offset to the right) */}
       {processedImage &&
@@ -1645,33 +1697,39 @@ export const EndpointSymbol = memo(function EndpointSymbol({
       )}
       {/* Preview highlight (during selection rectangle drag) — grows for multi-socket */}
       {isPreviewSelected && !isSelected && (
-        <Rect
-          {...getEndpointPreviewOutlineProps(
-            canvasZoom,
-            ENDPOINT_OUTLINE_SIZE + totalExtraWidth,
-            ENDPOINT_OUTLINE_SIZE
-          )}
-        />
+        <Group x={multiSocketGroupOffsetX} listening={false}>
+          <Rect
+            {...getEndpointPreviewOutlineProps(
+              canvasZoom,
+              ENDPOINT_OUTLINE_SIZE + totalExtraWidth,
+              ENDPOINT_OUTLINE_SIZE
+            )}
+          />
+        </Group>
       )}
       {/* Hover highlight (from breadcrumb or mouse) — grows for multi-socket */}
       {isHoveredAny && !isSelected && !isPreviewSelected && (
-        <Rect
-          {...getEndpointHoverOutlineProps(
-            canvasZoom,
-            ENDPOINT_OUTLINE_SIZE + totalExtraWidth,
-            ENDPOINT_OUTLINE_SIZE
-          )}
-        />
+        <Group x={multiSocketGroupOffsetX} listening={false}>
+          <Rect
+            {...getEndpointHoverOutlineProps(
+              canvasZoom,
+              ENDPOINT_OUTLINE_SIZE + totalExtraWidth,
+              ENDPOINT_OUTLINE_SIZE
+            )}
+          />
+        </Group>
       )}
       {/* Selection outline — grows for multi-socket */}
       {isSelected && (
-        <Rect
-          {...getEndpointSelectionOutlineProps(
-            canvasZoom,
-            ENDPOINT_OUTLINE_SIZE + totalExtraWidth,
-            ENDPOINT_OUTLINE_SIZE
-          )}
-        />
+        <Group x={multiSocketGroupOffsetX} listening={false}>
+          <Rect
+            {...getEndpointSelectionOutlineProps(
+              canvasZoom,
+              ENDPOINT_OUTLINE_SIZE + totalExtraWidth,
+              ENDPOINT_OUTLINE_SIZE
+            )}
+          />
+        </Group>
       )}
       {isSelected && isDcBusConverterResizeEnabled && (
         <>

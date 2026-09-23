@@ -7,7 +7,9 @@
 
 import {
   detectWhiteFromRgba,
+  detectWhitePageBackgroundFromRgba,
   invertRgbInPlace,
+  removeEdgeConnectedWhitePixelsInPlace,
   removeWhitePixelsInPlace,
 } from '@/lib/image/planImagePixelOps'
 import {
@@ -21,6 +23,60 @@ export interface PlanImageProcessingResult {
   processedDataUrl: string
   hasWhiteBackground: boolean
   originalDataUrl: string
+}
+
+/** Same as regular background processing, but only removes a PDF page-sized white rect. */
+export async function processPdfRasterBackground(
+  imageDataUrl: string,
+  threshold: number = 240,
+  tolerance: number = 20,
+): Promise<PlanImageProcessingResult> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })
+        if (!ctx) throw new Error('Failed to create canvas context')
+        ctx.drawImage(img, 0, 0)
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const hasWhiteBackground = detectWhitePageBackgroundFromRgba(
+          imageData.data,
+          canvas.width,
+          canvas.height,
+          threshold,
+          tolerance,
+        )
+        if (!hasWhiteBackground) {
+          resolve({
+            processedDataUrl: imageDataUrl,
+            hasWhiteBackground: false,
+            originalDataUrl: imageDataUrl,
+          })
+          return
+        }
+        removeEdgeConnectedWhitePixelsInPlace(
+          imageData.data,
+          canvas.width,
+          canvas.height,
+          threshold,
+          tolerance,
+        )
+        ctx.putImageData(imageData, 0, 0)
+        resolve({
+          processedDataUrl: canvas.toDataURL('image/png'),
+          hasWhiteBackground: true,
+          originalDataUrl: imageDataUrl,
+        })
+      } catch (error) {
+        reject(error)
+      }
+    }
+    img.onerror = () => reject(new Error('Failed to load image'))
+    img.src = imageDataUrl
+  })
 }
 
 export interface InlineSvgEmbeddedImagesResult {

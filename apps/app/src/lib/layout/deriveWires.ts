@@ -1,3 +1,6 @@
+import { deriveWireAnchorKey } from '@/lib/projectV2/wireRuns'
+import { stampWireSegmentAnchors, applyWireRunsToSegments } from '@/lib/wires/wireIdentity'
+import type { WireRun } from '@/types/projectV2'
 import { logger } from '@/lib/logger'
 /**
  * Derive wire segments from LayoutNode tree
@@ -395,7 +398,8 @@ export function deriveWires(
   panels: Panel[],
   installation?: Installation,
   supplyAssemblies: OffGridSupplyAssembly[] = [],
-  resolveSupplyDeviceEnclosure?: (deviceId: string) => ElectricalEnclosureRef | undefined
+  resolveSupplyDeviceEnclosure?: (deviceId: string) => ElectricalEnclosureRef | undefined,
+  wireRuns: readonly WireRun[] = []
 ): WireSegment[] {
   const segments: WireSegment[] = []
   if (installation) ensureInstallationFeedTopology(installation, panels)
@@ -434,6 +438,9 @@ export function deriveWires(
     }
     if (mirrorAxisX != null) {
       panelSegments.forEach((segment) => {
+        const isPanelFeedStub =
+          segment.id.startsWith('bus-feed-protection-wire-') ||
+          (segment.id.startsWith('bus-feed-stub-') && segment.isSupplyTrunk === true)
         const belongsToSupplyAssembly =
           segment.isSupplyTrunk === true ||
           segment.fromElementType === 'ground' ||
@@ -442,7 +449,7 @@ export function deriveWires(
           segment.supplyAssemblyId != null ||
           segment.supplyWireRole != null ||
           (segment.circuitId != null && converterBackupCircuitIds.has(segment.circuitId))
-        if (mirrorScope === 'panel' || belongsToSupplyAssembly) {
+        if (mirrorScope === 'panel' || (belongsToSupplyAssembly && !isPanelFeedStub)) {
           mirrorWireSegmentHorizontally(segment, mirrorAxisX)
         }
       })
@@ -456,6 +463,8 @@ export function deriveWires(
     segments.push(...panelSegments)
   }
 
+  stampWireSegmentAnchors(segments, panels, installation, supplyAssemblies)
+  applyWireRunsToSegments(segments, wireRuns)
   return segments
 }
 
@@ -558,6 +567,8 @@ function alignInlineSplitBusRailsToFeedRisers(
       (segment) =>
         segment.type === 'vertical' &&
         segment.isSupplyTrunk === true &&
+        !segment.id.startsWith('bus-feed-protection-wire-') &&
+        !segment.id.startsWith('bus-feed-stub-') &&
         segment.busSectionId === rail.busSectionId &&
         (segment.startPoint.y === busY || segment.endPoint.y === busY)
     )
@@ -710,7 +721,8 @@ function derivePanelWires(
     secondNodeId: string | undefined,
     pathRole?: SupplyConnectionPathRole
   ): SupplyConnection | undefined => {
-    if (!supplyAssembly || !firstNodeId || !secondNodeId) return undefined
+    if (!supplyAssembly || !firstNodeId || !secondNodeId || firstNodeId === secondNodeId)
+      return undefined
     const equivalentNodeIds = (nodeId: string): Set<string> => {
       const node = supplyAssembly.nodes.find((candidate) => candidate.id === nodeId)
       if (node?.kind !== 'inverter-unit' || !node.deviceId) return new Set([nodeId])
@@ -964,7 +976,10 @@ function derivePanelWires(
     return circuit?.supplySource?.kind !== 'converter-backup'
   })
   const usesInlineEmptySplitAssembly =
-    !isSupplyDiagram && hasExplicitPanelBusSections(panel) && !hasMainBusConnections
+    !isSupplyDiagram &&
+    panel.isMain === true &&
+    hasExplicitPanelBusSections(panel) &&
+    !hasMainBusConnections
   const detachedGridGroundY =
     (isSupplyDiagram || usesInlineEmptySplitAssembly) && hasExplicitPanelBusSections(panel)
       ? supplyNode?.bounds.y
@@ -1026,6 +1041,7 @@ function derivePanelWires(
           domain: DEFAULT_ELECTRICAL_DOMAIN,
           hideWireLabel: true,
           fromElementType: 'ground',
+          wireAnchor: deriveWireAnchorKey({ kind: 'ground-input', nodeRef: to.deviceId ? `device:${to.deviceId}` : `panel:${panel.id}` }),
         })
       }
     } else {
@@ -1042,6 +1058,7 @@ function derivePanelWires(
         domain: DEFAULT_ELECTRICAL_DOMAIN,
         hideWireLabel: true,
         fromElementType: 'ground',
+        wireAnchor: deriveWireAnchorKey({ kind: 'ground-input', nodeRef: `panel:${panel.id}` }),
       })
     }
   }
@@ -1179,22 +1196,17 @@ function derivePanelWires(
         cable: defaultCable,
         panelId: panel.id,
         busSectionId: section.id,
-        busFeedKind:
-          isSupplyDiagram || usesInlineEmptySplitAssembly
-            ? section.role === 'backup'
-              ? 'backup'
-              : 'grid'
-            : undefined,
-        showBusFeedMarker: isSupplyDiagram || usesInlineEmptySplitAssembly,
+        busFeedKind: isSupplyDiagram
+          ? section.role === 'backup'
+            ? 'backup'
+            : 'grid'
+          : undefined,
+        showBusFeedMarker: isSupplyDiagram,
         busFeedMarkerSide: isSupplyDiagram
           ? section.role === 'backup'
             ? 'below-right'
             : 'below-left'
-          : usesInlineEmptySplitAssembly
-            ? section.role === 'backup'
-              ? 'below-left'
-              : 'below-right'
-            : undefined,
+          : undefined,
         domain: DEFAULT_ELECTRICAL_DOMAIN,
         phaseAssignment:
           sectionPhaseState.assignment ??
@@ -1256,11 +1268,26 @@ function derivePanelWires(
     busRuns.find((run) =>
       panel.busSections?.some((section) => section.id === run.busSectionId && section.role === role)
     )
+  const panelFeedStubProtectionNodes = panelNode.children.filter(
+    (node) => node.type === 'trunkDevice' && node.id.includes('--feed-stub-')
+  )
+  const hasPanelFeedStubProtections = panelFeedStubProtectionNodes.length > 0
+  const panelFeedStubCable = installation
+    ? cableForSupplyWireRole(installation, panels, panel, 'downstream')
+    : defaultCable
+  const stubProtectionElementType = (node: LayoutNode | undefined) =>
+    (node?.domainRef as TrunkDevice | undefined)?.type === 'protection'
+      ? ('protection' as const)
+      : undefined
 
   const feedOutputWire = panelNode.children.find((child) =>
     child.id?.startsWith('feed-output-wire-')
   )
-  if (hasExplicitPanelBusSections(panel) && !isSupplyDiagram && !usesInlineEmptySplitAssembly) {
+  if (
+    hasExplicitPanelBusSections(panel) &&
+    !isSupplyDiagram &&
+    (hasMainBusConnections || usesInlineEmptySplitAssembly)
+  ) {
     for (const [index, run] of busRuns.entries()) {
       const section = panel.busSections?.find((candidate) => candidate.id === run.busSectionId)
       const stubX = getLeftBiasedBusFeedStubX(run.startPoint.x, run.endPoint.x)
@@ -1268,12 +1295,66 @@ function derivePanelWires(
         run.phaseAssignment,
         installation?.nominalVoltage.system
       )
+      const stubDevices = panelFeedStubProtectionNodes
+        .filter((node) =>
+          Math.abs(node.bounds.x - stubX) < 0.01 &&
+          node.hitZone?.busSectionId === run.busSectionId
+        )
+        .sort((left, right) => left.bounds.y - right.bounds.y)
+      const stubEndY = stubDevices.length > 0
+        ? Math.max(
+            stubDevices.at(-1)!.bounds.y + 42,
+            ...mainBusNode.children
+              .filter((node) =>
+                node.id.startsWith('supply-wire-feed-stub-') &&
+                Math.abs(node.bounds.x + node.bounds.width / 2 - stubX) < 0.01
+              )
+              .map((node) => node.bounds.y + node.bounds.height)
+          )
+        : mainBusY + LAYOUT_CONSTANTS.SUPPLY_VERTICAL_DROP
+      if (stubDevices.length > 0) {
+        const waypoints = [
+          { y: mainBusY, node: undefined as LayoutNode | undefined },
+          ...stubDevices.map((node) => ({ y: node.bounds.y, node })),
+          { y: stubEndY, node: undefined as LayoutNode | undefined },
+        ]
+        for (let step = 0; step < waypoints.length - 2; step++) {
+          const from = waypoints[step]!
+          const to = waypoints[step + 1]!
+          const start = { x: stubX, y: from.y }
+          const end = { x: stubX, y: to.y }
+          segments.push({
+            id: `bus-feed-protection-wire-${diagramKey}-${run.busSectionId}-${index}-${step}`,
+            type: 'vertical',
+            startPoint: from.node ? applyNodeWireInset(start, end, from.node) : start,
+            endPoint: to.node ? applyNodeWireInset(end, start, to.node) : end,
+            cable: panelFeedStubCable,
+            panelId: panel.id,
+            busSectionId: run.busSectionId,
+            domain: DEFAULT_ELECTRICAL_DOMAIN,
+            hideWireLabel: true,
+            isSupplyTrunk: true,
+            supplyWireRole: 'downstream',
+            supplyFeedScope: 'root',
+            fromElementType: from.node ? stubProtectionElementType(from.node) : 'mainBus',
+            fromElementId: from.node?.domainId,
+            toElementType: stubProtectionElementType(to.node),
+            toElementId: to.node?.domainId,
+          })
+        }
+      }
       segments.push({
         id: `bus-feed-stub-${diagramKey}-${run.busSectionId}-${index}`,
         type: 'vertical',
-        startPoint: { x: stubX, y: mainBusY },
-        endPoint: { x: stubX, y: mainBusY + 24 },
-        cable: defaultCable,
+        startPoint: stubDevices.length > 0
+          ? applyNodeWireInset(
+              { x: stubX, y: stubDevices.at(-1)!.bounds.y },
+              { x: stubX, y: stubEndY },
+              stubDevices.at(-1)!
+            )
+          : { x: stubX, y: mainBusY },
+        endPoint: { x: stubX, y: stubEndY },
+        cable: stubDevices.length > 0 ? panelFeedStubCable : defaultCable,
         panelId: panel.id,
         busSectionId: run.busSectionId,
         busFeedKind: section?.role === 'backup' ? 'backup' : 'grid',
@@ -1283,7 +1364,13 @@ function derivePanelWires(
         forcePhaseLabel: forceStubPhaseLabel,
         phaseLabelAnchor: forceStubPhaseLabel ? { x: stubX + 5, y: mainBusY + 4 } : undefined,
         hideWireLabel: true,
-        fromElementType: 'mainBus',
+        isSupplyTrunk: stubDevices.length > 0 ? true : undefined,
+        supplyWireRole: stubDevices.length > 0 ? 'downstream' : undefined,
+        supplyFeedScope: stubDevices.length > 0 ? 'root' : undefined,
+        fromElementType: stubDevices.length > 0
+          ? stubProtectionElementType(stubDevices.at(-1))
+          : 'mainBus',
+        fromElementId: stubDevices.at(-1)?.domainId,
       })
     }
   }
@@ -1392,13 +1479,14 @@ function derivePanelWires(
         fromElementId: from.deviceId ?? parentProtection?.id,
         toElementType: to.deviceId ? 'protection' : undefined,
         toElementId: to.deviceId,
+        wireAnchor: deriveWireAnchorKey({ kind: 'panel-input', panelId: panel.id, deviceId: to.deviceId }),
         isSubPanelSupply: true,
         feederProtectionId: parentProtection?.id,
       })
     }
   }
 
-  if (supplyNode) {
+  if (supplyNode && !hasPanelFeedStubProtections) {
     const fallbackCable = {
       kind: 'XVB' as const,
       conductors: 3,
@@ -2115,8 +2203,12 @@ function derivePanelWires(
     )?.id
     const changeoverGridSourceNodeId =
       supplyAssembly?.nodes.find(
-        (node) => node.kind === 'ac-distribution' && node.label === 'Grid split'
+        (node) => node.id === `${supplyAssembly.id}-grid-distribution`
       )?.id ?? utilityAssemblyNodeId
+    const inverterGridSplitNodeId =
+      supplyAssembly?.nodes.find(
+        (node) => node.id === `${supplyAssembly.id}-inverter-grid-distribution`
+      )?.id ?? changeoverGridSourceNodeId
     // Assemblies may fan out to multiple main panels. Select the handoff that
     // targets the panel currently being rendered; using the first handoff made
     // every additional main panel inherit the original panel's wire path.
@@ -2176,7 +2268,8 @@ function derivePanelWires(
         changeoverY - LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_LANE_OFFSET
       const lowerY = supplyNode.bounds.y
       const slotEndX =
-        backupConverterNode?.bounds.x ?? elbowX + LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_SLOT_LENGTH
+        backupConverterNode?.bounds.x ??
+        (backupOutputNodes.at(-1)?.bounds.x ?? elbowX) + LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_SLOT_LENGTH
 
       const pushChangeoverWire = (
         startPoint: { x: number; y: number },
@@ -2224,16 +2317,22 @@ function derivePanelWires(
         return connectedSegment
       }
 
-      const loadConnection = findAssemblyConnection(
-        sourceChangeoverNode.domainId,
+      const outputNodes = supplyTrunkDeviceNodes.filter((node) => {
+        const supplyPath = (node.domainRef as TrunkDevice | undefined)?.supplyPath
+        return node.bounds.x < changeoverX && (supplyPath == null || supplyPath === 'serial')
+      })
+      const outputPathNodeIds = [
         handoffAssemblyNodeId,
-        'load-ac'
-      )
+        ...outputNodes.map((node) => node.domainId),
+        sourceChangeoverNode.domainId,
+      ]
+      const outputConnection = (index: number) =>
+        findAssemblyConnection(outputPathNodeIds[index], outputPathNodeIds[index + 1], 'load-ac')
       const loadBusDropSegment = pushChangeoverWire(
         { x: bendX, y: mainBusY },
         { x: bendX, y: changeoverY },
         'downstream',
-        loadConnection,
+        outputConnection(0),
         backupBusRun?.busSectionId
           ? {
               busSectionId: backupBusRun.busSectionId,
@@ -2241,11 +2340,6 @@ function derivePanelWires(
             }
           : undefined
       )
-
-      const outputNodes = supplyTrunkDeviceNodes.filter((node) => {
-        const supplyPath = (node.domainRef as TrunkDevice | undefined)?.supplyPath
-        return node.bounds.x < changeoverX && (supplyPath == null || supplyPath === 'serial')
-      })
       const outputWaypoints = [
         { point: { x: bendX, y: changeoverY }, node: undefined as LayoutNode | undefined },
         ...outputNodes.map((node) => ({ point: { x: node.bounds.x, y: changeoverY }, node })),
@@ -2272,7 +2366,7 @@ function derivePanelWires(
           start,
           end,
           'downstream',
-          loadConnection,
+          outputConnection(index),
           undefined,
           outputSectionKey(index)
         )
@@ -2301,6 +2395,16 @@ function derivePanelWires(
           backupSectionEndpoints[index + 1]!
         )
       const firstBackupSectionKey = backupSectionKey(0)
+      const openBackupAnchor = (index: number) => {
+        const feed = installation?.feedTopology?.rootFeeds.find((candidate) => candidate.panelId === panel.id)
+        if (!feed) return undefined
+        const fromId = backupPathNodeIds[index]!
+        const toId = backupPathNodeIds[index + 1]
+        const runKey = toId
+          ? `supply:${panel.id}:serial:${[`device:${fromId}`, `device:${toId}`].sort().join('<>')}`
+          : `supply:${panel.id}:open-backup:device:${fromId}<>terminal:${sourceChangeoverNode.domainId}`
+        return deriveWireAnchorKey({ kind: 'feed-run', feedPathId: feed.id, runKey })
+      }
       const backupChangeoverInputSegment = pushChangeoverWire(
         { x: rightPortX, y: upperPortY },
         { x: elbowX, y: upperPortY },
@@ -2309,7 +2413,7 @@ function derivePanelWires(
         undefined,
         firstBackupSectionKey
       )
-      pushChangeoverWire(
+      const backupChangeoverElbowSegment = pushChangeoverWire(
         { x: elbowX, y: upperPortY },
         { x: elbowX, y: upperY },
         'upstream',
@@ -2317,6 +2421,11 @@ function derivePanelWires(
         undefined,
         firstBackupSectionKey
       )
+      if (!backupConverterNode) {
+        const anchor = openBackupAnchor(0)
+        if (backupChangeoverInputSegment) backupChangeoverInputSegment.wireAnchor = anchor
+        if (backupChangeoverElbowSegment) backupChangeoverElbowSegment.wireAnchor = anchor
+      }
       if (backupConverterNode) {
         const backupWaypoints = [
           { point: { x: elbowX, y: upperY }, node: undefined as LayoutNode | undefined },
@@ -2367,7 +2476,7 @@ function derivePanelWires(
           const inputLegNodeIds = [
             backupConverterNode.domainId,
             ...converterGridInputLegNodes.map((node) => node.domainId),
-            utilityAssemblyNodeId,
+            inverterGridSplitNodeId,
           ].filter((id): id is string => !!id)
           const inputLegSectionEndpoints = [
             `converter:${backupConverterNode.domainId ?? backupConverterNode.id}:grid`,
@@ -2407,7 +2516,8 @@ function derivePanelWires(
           const to = backupWaypoints[index + 1]!
           const start = from.node ? applyNodeWireInset(from.point, to.point, from.node) : from.point
           const end = to.node ? applyNodeWireInset(to.point, from.point, to.node) : to.point
-          pushChangeoverWire(start, end, 'upstream', undefined, undefined, backupSectionKey(index))
+          const segment = pushChangeoverWire(start, end, 'upstream', undefined, undefined, backupSectionKey(index))
+          if (segment) segment.wireAnchor = openBackupAnchor(index)
         }
       }
 
@@ -2429,7 +2539,7 @@ function derivePanelWires(
       const changeoverGridPathNodeIds = [
         sourceChangeoverNode.domainId,
         ...changeoverGridInputLegNodes.map((node) => node.domainId),
-        ...[...changeoverGridInlineNodes].reverse().map((node) => node.domainId),
+        ...(gridBusRun ? [] : [...changeoverGridInlineNodes].reverse().map((node) => node.domainId)),
         changeoverGridSourceNodeId,
       ].filter((id): id is string => !!id)
       const changeoverGridConnections = changeoverGridPathNodeIds
@@ -2485,7 +2595,7 @@ function derivePanelWires(
         const toId =
           index < changeoverGridInputLegNodes.length
             ? changeoverGridInputLegNodes[index]?.domainId
-            : (changeoverGridInlineNodes.at(-1)?.domainId ?? changeoverGridSourceNodeId)
+            : changeoverGridSourceNodeId
         const sectionIndex = changeoverGridSectionEndpoints.length - 2 - index
         pushChangeoverWire(
           start,
@@ -2519,14 +2629,16 @@ function derivePanelWires(
 
       if (gridBusRun?.busSectionId) {
         const gridBusX = getLeftBiasedBusFeedStubX(gridBusRun.startPoint.x, gridBusRun.endPoint.x)
+        const normalGridHandoffNodeId = supplyAssembly?.loadHandoffs.find((handoff) =>
+          handoff.target.kind === 'panel-bus-input' &&
+          handoff.target.busSectionId === gridBusRun.busSectionId
+        )?.handoffNodeId
         const gridBusConnection =
           findAssemblyConnection(
-            changeoverGridSourceNodeId,
-            changeoverGridInlineNodes[0]?.domainId ??
-              changeoverGridInputLegNodes.at(-1)?.domainId ??
-              sourceChangeoverNode.domainId,
-            'grid-ac'
-          ) ?? firstChangeoverGridConnection
+            changeoverGridInlineNodes.at(-1)?.domainId ?? changeoverGridSourceNodeId,
+            normalGridHandoffNodeId,
+            'grid-only-bypass-ac'
+          )
         pushChangeoverWire(
           { x: gridBusX, y: mainBusY },
           { x: gridBusX, y: lowerY },
@@ -2553,9 +2665,9 @@ function derivePanelWires(
           },
         ]
         const gridRailPathNodeIds = [
+          normalGridHandoffNodeId,
+          ...[...changeoverGridInlineNodes].reverse().map((node) => node.domainId),
           changeoverGridSourceNodeId,
-          ...changeoverGridInlineNodes.map((node) => node.domainId),
-          changeoverGridInputLegNodes.at(-1)?.domainId ?? sourceChangeoverNode.domainId,
         ].filter((id): id is string => !!id)
         for (let index = 0; index < gridRailWaypoints.length - 1; index++) {
           const from = gridRailWaypoints[index]!
@@ -2569,8 +2681,8 @@ function derivePanelWires(
             findAssemblyConnection(
               gridRailPathNodeIds[index],
               gridRailPathNodeIds[index + 1],
-              'grid-ac'
-            ) ?? firstChangeoverGridConnection,
+              'grid-only-bypass-ac'
+            ),
             undefined,
             changeoverGridSectionKey(index)
           )
@@ -2600,16 +2712,19 @@ function derivePanelWires(
         {
           point: { x: elbowX, y: lowerY },
           node: undefined as LayoutNode | undefined,
+          assemblyNodeId: changeoverGridSourceNodeId,
           sectionEndpointId: `changeover-grid-tap:${sourceChangeoverNode.domainId ?? sourceChangeoverNode.id}`,
         },
         ...converterGridNodes.map((node) => ({
           point: { x: node.bounds.x, y: lowerY },
           node,
+          assemblyNodeId: node.domainId,
           sectionEndpointId: `device:${node.domainId ?? node.id}`,
         })),
         ...gridNodes.map((node) => ({
           point: { x: node.bounds.x, y: lowerY },
           node,
+          assemblyNodeId: utilityAssemblyNodeId,
           sectionEndpointId: `device:${node.domainId ?? node.id}`,
         })),
         ...(backupConverterNode && converterGridInputConnected
@@ -2617,6 +2732,7 @@ function derivePanelWires(
               {
                 point: { x: getNodeConnectionAnchor(backupConverterNode).x, y: lowerY },
                 node: undefined as LayoutNode | undefined,
+                assemblyNodeId: inverterGridSplitNodeId,
                 sectionEndpointId: `converter-grid-tap:${backupConverterNode.domainId ?? backupConverterNode.id}`,
               },
             ]
@@ -2624,6 +2740,7 @@ function derivePanelWires(
         {
           point: supplyInset,
           node: undefined as LayoutNode | undefined,
+          assemblyNodeId: utilityAssemblyNodeId,
           sectionEndpointId: `utility:${utilityAssemblyNodeId ?? panel.id}`,
         },
       ].sort((a, b) => a.point.x - b.point.x)
@@ -2632,34 +2749,11 @@ function derivePanelWires(
         const to = gridWaypoints[index + 1]!
         const start = from.node ? applyNodeWireInset(from.point, to.point, from.node) : from.point
         const end = to.node ? applyNodeWireInset(to.point, from.point, to.node) : to.point
-        const midpointX = (start.x + end.x) / 2
-        const converterGridPathNodeIds = [
-          utilityAssemblyNodeId,
-          ...converterGridNodes.map((node) => node.domainId),
-          backupConverterNode?.domainId,
-        ].filter((id): id is string => !!id)
-        const converterGridPathXs = [
-          elbowX,
-          ...converterGridNodes.map((node) => node.bounds.x),
-          backupConverterNode?.bounds.x ?? supplyInset.x,
-        ]
-        const converterGridPathIndex = converterGridPathXs.findIndex(
-          (x, candidateIndex) =>
-            candidateIndex < converterGridPathXs.length - 1 &&
-            midpointX >= Math.min(x, converterGridPathXs[candidateIndex + 1]!) &&
-            midpointX <= Math.max(x, converterGridPathXs[candidateIndex + 1]!)
-        )
         pushChangeoverWire(
           start,
           end,
           'upstream',
-          converterGridPathIndex >= 0
-            ? findAssemblyConnection(
-                converterGridPathNodeIds[converterGridPathIndex],
-                converterGridPathNodeIds[converterGridPathIndex + 1],
-                'inverter-grid-ac'
-              )
-            : undefined,
+          findAssemblyConnection(from.assemblyNodeId, to.assemblyNodeId, 'grid-ac'),
           undefined,
           supplySectionKey('changeover-shared-grid', from.sectionEndpointId, to.sectionEndpointId)
         )
@@ -3216,6 +3310,7 @@ function derivePanelWires(
           applySupplyWireRoleToSegment(vertical, 'downstream', installation, panels, panel)
           applySupplyPhaseState(vertical, 'downstream')
         }
+        if (currentPanelHandoffConnection) applyAssemblyConnection(vertical, currentPanelHandoffConnection)
         segments.push(vertical)
 
         // Continuation frames hide the mains symbol (opacity 0) but still paint a short
@@ -3538,16 +3633,23 @@ function derivePanelWires(
       .filter((candidate): candidate is { device: TrunkDevice; x: number } => !!candidate)
       .sort((left, right) => right.x - left.x)
     for (const segment of segments) {
-      if (segment.supplyConnectionId) continue
+      const isChangeoverLoadSegment = segment.supplySectionKey?.includes(':changeover-load:')
+      if (segment.supplyConnectionId && !isChangeoverLoadSegment) continue
       if (
         !segment.supplySectionKey?.includes(':changeover-shared-grid:') &&
-        !segment.supplySectionKey?.includes(':direct-grid:')
+        !segment.supplySectionKey?.includes(':direct-grid:') &&
+        !segment.supplySectionKey?.includes(':changeover-load:')
       ) {
         continue
       }
       const sampleX = (segment.startPoint.x + segment.endPoint.x) / 2
       segment.phaseAssignment = serialProtectionPositions
-        .filter((candidate) => candidate.x > sampleX)
+        .filter((candidate) =>
+          isChangeoverLoadSegment
+            ? candidate.x < sampleX ||
+              segment.supplySectionKey?.includes(`device:${candidate.device.id}`) === true
+            : candidate.x > sampleX
+        )
         .reduce(
           (assignment, candidate) =>
             getDownstreamProtectionPhaseAssignment(
@@ -4036,6 +4138,22 @@ function deriveMcbWires(
   if (!circuit) return segments
   const isHorizontalConverterBackup = circuit.supplySource?.kind === 'converter-backup'
   const circuitBaseDomain = circuit.dcBusSource ? ('DC' as const) : DEFAULT_ELECTRICAL_DOMAIN
+  const emptyProtectionOutput = Boolean(
+    protection && circuit.endpoints.length === 0 &&
+    (circuit.trunkDevices?.length ?? 0) === 0 &&
+    !circuit.branches?.some((branch) =>
+      branch.endpointIds.length > 0 || (branch.branchDevices?.length ?? 0) > 0
+    ) &&
+    (circuit.subCircuitIds?.length ?? 0) === 0
+  )
+  const emptyOutputAnchor = emptyProtectionOutput
+    ? deriveWireAnchorKey({
+        kind: 'circuit-section',
+        circuitId: circuit.id,
+        nodeRef: `open-end:protection:${encodeURIComponent(protection!.id)}`,
+        domain: circuitBaseDomain,
+      })
+    : undefined
 
   const protectionConnectionSectionRef: CircuitSectionRef = {
     fromElementType: parentSecondaryBus ? 'secondaryBus' : 'mainBus',
@@ -4403,7 +4521,10 @@ function deriveMcbWires(
         // This vertical is directly above the protection; by default its label
         // is shown (hideWireLabel undefined/false). When the user explicitly
         // hides labels on the circuit, we respect that here too.
-        hideWireLabel: noTrunkWireProps.hideWireLabel,
+        hideWireLabel: emptyProtectionOutput
+          ? (noTrunkWireProps.hideWireLabel ?? true)
+          : noTrunkWireProps.hideWireLabel,
+        ...(emptyOutputAnchor ? { wireAnchor: emptyOutputAnchor } : {}),
       })
     } else if (trunkEndpointNodes.length > 0) {
       // No trunk devices, no branches, has direct endpoint (panel symbol):
@@ -4574,6 +4695,39 @@ function deriveMcbWires(
     }
   }
 
+  if (
+    emptyProtectionOutput && protection &&
+    branchNodes.length === 0 &&
+    trunkDeviceNodes.length === 0 &&
+    directEndpointNodes.length === 0 &&
+    parentWireEndNodes.length === 0 &&
+    (circuit.subCircuitIds?.length ?? 0) === 0
+  ) {
+    const endPoint = { x: mcbX, y: mcbY - LAYOUT_CONSTANTS.BRANCH_START_OFFSET / 2 }
+    const wireProps = getCircuitWirePropertiesForDomain(circuit, circuitBaseDomain, {
+      fromElementType: 'protection',
+      fromElementId: protection.id,
+      domain: circuitBaseDomain,
+    })
+    segments.push({
+      id: generateId(),
+      type: 'vertical',
+      startPoint: applyNodeWireInset({ x: mcbX, y: mcbY }, endPoint, mcbNode),
+      endPoint,
+      cable: wireProps.cable,
+      panelId: panel.id,
+      circuitId: circuit.id,
+      domain: circuitBaseDomain,
+      fromElementType: 'protection',
+      fromElementId: protection.id,
+      inTube: wireProps.inTube,
+      wireRoute: wireProps.wireRoute,
+      inWall: wireProps.inWall,
+      hideWireLabel: wireProps.hideWireLabel ?? true,
+      wireAnchor: emptyOutputAnchor,
+    })
+  }
+
   // Process nested circuits (sub-circuits)
   const nestedMcbNodes = mcbNode.children.filter((c) => c.type === 'mcb')
   if (nestedMcbNodes.length > 0) {
@@ -4607,7 +4761,7 @@ function deriveMcbWires(
           mcbNode
         ),
         endPoint: { x: mcbX, y: secondaryBusY },
-        cable: panelBusCable,
+        cable: parentToBusWireProps.cable,
         panelId: panel.id,
         domain: nestedCircuitDomain,
         fromElementType: 'protection',

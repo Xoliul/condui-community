@@ -1,3 +1,4 @@
+import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import { getInstallationPhases } from '@/lib/wires/phaseAssignment'
 import {
   getProjectElectricalInstallation,
@@ -23,6 +24,8 @@ import {
 } from './common'
 import { getMaxProtectionRatingForSection } from '@/lib/validation/circuitCableSection'
 import { isHouseholdInstallation } from '@/lib/installationProfile'
+import { findPanelById } from '@/lib/panel/panelTree'
+import { isSupplyHandoffTargetPresent } from '@/lib/supplyAssembly/handoffTargetIntegrity'
 import { registerPrimitive } from './registry'
 
 const SUPPLY_PATH_RULE_ID = 'be.areibook1.2025.supply-mode-paths'
@@ -52,6 +55,24 @@ function findAssembly(context: CheckContext): OffGridSupplyAssembly | undefined 
   return selectProjectSupplyAssemblies(context.project).find(
     (assembly) => assembly.id === context.scope.id
   )
+}
+
+/** Ignore graph paths whose persisted handoff target no longer exists in the project. */
+function assemblyWithResolvedHandoffTargets(
+  assembly: OffGridSupplyAssembly,
+  context: CheckContext
+): OffGridSupplyAssembly {
+  const panels = projectPanels(context.project)
+  const installation = getProjectElectricalInstallation(context.project)
+  const loadHandoffs = assembly.loadHandoffs.filter((handoff) => {
+    if (handoff.target.kind !== 'circuit-input') return true
+    // Missing target panels are not covered by the per-panel orphan warning yet.
+    if (!findPanelById(panels, handoff.target.panelId)) return true
+    return isSupplyHandoffTargetPresent(handoff, panels, installation)
+  })
+  return loadHandoffs.length === assembly.loadHandoffs.length
+    ? assembly
+    : { ...assembly, loadHandoffs }
 }
 
 function isLivePhase(value: string): value is LiveAcPhase {
@@ -123,9 +144,10 @@ function hasCompliantRootFeedBackupRcd(
 }
 
 function supplyModePaths(context: CheckContext): Issue[] {
-  const assembly = findAssembly(context)
+  const storedAssembly = findAssembly(context)
   const installation = getProjectElectricalInstallation(context.project)
-  if (!assembly || !installation) return []
+  if (!storedAssembly || !installation) return []
+  const assembly = assemblyWithResolvedHandoffTargets(storedAssembly, context)
   if (
     assembly.presetIntent === 'grid_connected_storage_branch' &&
     !assembly.nodes.some(
@@ -201,9 +223,10 @@ function supplyModePaths(context: CheckContext): Issue[] {
  * output needs its own main-grade residual-current protection.
  */
 function backupSupplyRcdCompliance(context: CheckContext): Issue[] {
-  const assembly = findAssembly(context)
+  const storedAssembly = findAssembly(context)
   const installation = getProjectElectricalInstallation(context.project)
-  if (!assembly || !installation || !isHouseholdInstallation(installation)) return []
+  if (!storedAssembly || !installation || !isHouseholdInstallation(installation)) return []
+  const assembly = assemblyWithResolvedHandoffTargets(storedAssembly, context)
   if (installation.address.country && installation.address.country !== 'BE') return []
   if (validateOffGridSupplyAssembly(assembly).status === 'invalid') return []
 
@@ -306,7 +329,7 @@ function supplyConductorProtectionCoordination(context: CheckContext): Issue[] {
       derivedSupplySegments = deriveWires(
         tree,
         projectPanels(context.project),
-        installation
+        installation, [], undefined, selectProjectWireRuns(context.project)
       ).filter((segment) => !panelId || segment.panelId === panelId)
       for (const segment of derivedSupplySegments) {
         if (!segment.supplySectionKey || !explicitSectionKeys.has(segment.supplySectionKey)) continue

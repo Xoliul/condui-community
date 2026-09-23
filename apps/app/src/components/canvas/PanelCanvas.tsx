@@ -349,13 +349,13 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
   }, [effectivePanelCanvasMode])
 
   const panel = useMemo(
-    () =>
-      (effectivePanelCanvasMode.kind === 'panel' && effectivePanelCanvasMode.panelId != null
-        ? getPanelById(effectivePanelCanvasMode.panelId)
-        : effectiveActivePanelId != null
-          ? getPanelById(effectiveActivePanelId)
-          : null) ?? null,
-    [effectiveActivePanelId, effectivePanelCanvasMode, getPanelById]
+    () => {
+      const selectedId = effectivePanelCanvasMode.kind === 'panel'
+        ? effectivePanelCanvasMode.panelId
+        : effectiveActivePanelId
+      return panelList.find((candidate) => candidate.id === selectedId)?.panel ?? null
+    },
+    [effectiveActivePanelId, effectivePanelCanvasMode, panelList]
   )
   
   const selectedPanelForLayout = useMemo(() => {
@@ -393,13 +393,13 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
 
   const modules = useMemo(
     () =>
-      panel
+      panel && currentProject
         ? getPanelGridModules(panel.id).filter(
             (m: ReturnType<typeof getPanelGridModules>[number]) =>
               !(m.ref.kind === 'trunkDevice' && m.ref.scope === 'ground')
           )
         : [],
-    [panel, getPanelGridModules]
+    [currentProject, panel, getPanelGridModules]
   )
   type ModuleItem = {
     ref: PanelGridModuleRef

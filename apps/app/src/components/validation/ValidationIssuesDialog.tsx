@@ -24,6 +24,7 @@ import {
   resolveLiveWireSegmentsForMinimumCrossSectionFocus,
 } from '@/lib/validation/circuitCableSection'
 import { DefaultQueryAPI } from '@/lib/validation/core/query-api'
+import { getValidationJurisdiction } from '@/lib/validation/core/jurisdiction'
 import { queryOneWireSegments } from '@/lib/projectV2/annotations'
 import { getValidationAreiUrl } from '@/lib/validation/areiLinks'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -168,7 +169,10 @@ function ValidationIssuesDialog({
   const eendraadWireSegments = useEendraadWireSegments()
   const storedWireSegments = currentProject ? queryOneWireSegments(currentProject) : []
   const validationDisabledOutsideBelgium =
-    currentProject != null && getProjectElectricalInstallation(currentProject)?.address.country !== 'BE'
+    currentProject != null &&
+    getValidationJurisdiction(
+      getProjectElectricalInstallation(currentProject)?.address.country
+    ) !== 'BE'
   const displayKind = validationDisabledOutsideBelgium
     ? 'warning'
     : getValidationDisplayKind({

@@ -17,7 +17,8 @@ export interface BusFeedMarkerBounds {
 const FEED_MARKER_LABEL_HALF_WIDTH = 30
 const FEED_MARKER_RAIL_OFFSET_Y = 16
 const FEED_MARKER_LABEL_WIRE_CLEARANCE = 3
-const FEED_MARKER_LONG_LABEL_WIDTH = 120
+// Fits the longest shipped caption ("Secours/Réseau") at the rendered 7 px font.
+const FEED_MARKER_LONG_LABEL_WIDTH = 70
 /** Caption baseline relative to the feed symbol centre. */
 export const BUS_FEED_MARKER_LABEL_Y = 10
 const BUS_FEED_MARKER_LABEL_BOTTOM = BUS_FEED_MARKER_LABEL_Y + 9
@@ -115,4 +116,29 @@ export function getBusFeedMarkerPaintBounds(wireSegment: WireSegment): BusFeedMa
   }
 
   return { x: left, y: top, width: right - left, height: bottom - top }
+}
+
+/** Bounds for an empty split rail before it becomes a generated wire segment. */
+export function getSplitSupplyRailPaintBounds(
+  startX: number,
+  endX: number,
+  y: number,
+  kind: 'grid' | 'backup',
+  mirrored = false
+): BusFeedMarkerBounds {
+  // Text remains readable after the supply frame is mirrored. Measure its
+  // final side, then reflect the bounds back into packing coordinates.
+  const bounds = getBusFeedMarkerPaintBounds({
+    type: 'mainBus',
+    startPoint: { x: mirrored ? -startX : startX, y },
+    endPoint: { x: mirrored ? -endX : endX, y },
+    showBusFeedMarker: true,
+    busFeedKind: kind,
+    busFeedMarkerSide: kind === 'backup'
+      ? mirrored ? 'below-left' : 'below-right'
+      : mirrored ? 'below-right' : 'below-left',
+  } as WireSegment)
+  return mirrored
+    ? { ...bounds, x: -bounds.x - bounds.width }
+    : bounds
 }

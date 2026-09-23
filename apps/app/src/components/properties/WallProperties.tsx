@@ -19,7 +19,8 @@ export function WallProperties({
   onDrawingThicknessCommit,
 }: WallPropertiesProps) {
   const { t } = useTranslation()
-  const { updateWall, deleteWall } = useProjectStore()
+  const updateWall = useProjectStore((state) => state.updateWall)
+  const deleteWall = useProjectStore((state) => state.deleteWall)
   const theme = useSettingsStore((state) => state.theme)
   const setTheme = useSettingsStore((state) => state.setTheme)
 

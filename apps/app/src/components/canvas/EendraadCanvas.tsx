@@ -846,6 +846,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
     if (selection.type !== 'wire' || selection.ids.length === 0 || !selection.wireMetadata?.length)
       return
     const resolveByMetadata = (metadata: NonNullable<typeof selection.wireMetadata>[number]) => {
+      if (metadata.wireAnchor) return wireSegments.find(wire => wire.wireAnchor === metadata.wireAnchor) ?? null
       let matched = null as (typeof wireSegments)[number] | null
       if (
         metadata.supplySectionKey ||
@@ -1226,10 +1227,12 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
       }
 
       // Wires: use generated wireSegments (more precise than generic node bounds)
-      if (selection.type === 'wire') {
+      if (selection.type === 'wire' || (selection.type === 'structuralConnection' && selection.wireAnchor)) {
         const selectedIds = new Set(selection.ids)
-        let selectedSegments = wireSegments.filter((ws) => selectedIds.has(ws.id))
-        if (selectedSegments.length === 0 && selection.wireMetadata?.length) {
+        const selectedAnchors = new Set(selection.wireMetadata?.flatMap(meta => meta.wireAnchors ?? (meta.wireAnchor ? [meta.wireAnchor] : [])) ?? [])
+        if (selection.wireAnchor) selectedAnchors.add(selection.wireAnchor)
+        let selectedSegments = wireSegments.filter((ws) => selectedIds.has(ws.id) || ws.wireAnchors?.some(anchor => selectedAnchors.has(anchor)))
+        if (selectedSegments.length === 0 && selectedAnchors.size === 0 && selection.wireMetadata?.length) {
           const resolved = new Map<string, (typeof wireSegments)[number]>()
           for (const metadata of selection.wireMetadata) {
             let matched = null as (typeof wireSegments)[number] | null
