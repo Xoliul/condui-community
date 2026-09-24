@@ -83,7 +83,8 @@ function LibrarySearchField({
         onFocus={handleFocus}
         enterKeyHint="search"
         placeholder={placeholder}
-        className={inputClassName}
+        // Hide the native WebKit clear button; the X button below already clears the query.
+        className={`${inputClassName} [&::-webkit-search-cancel-button]:appearance-none`}
       />
       {draft && (
         <button type="button" onClick={clear} className={clearButtonClassName}>
