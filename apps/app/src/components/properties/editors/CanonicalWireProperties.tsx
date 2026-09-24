@@ -1,7 +1,12 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProjectStore } from '@/stores/projectStore'
-import { findWireRunForAnchor, selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
+import {
+  findWireRunForAnchor,
+  fromWireRunRoute,
+  selectProjectWireRuns,
+  toWireRunRoute,
+} from '@/lib/projectV2/wireRuns'
 import type { CableSpec } from '@/types/schema'
 import type { WireRunChanges } from '@/lib/wires/editWireRun'
 import { WireRouteAndCableForm, type WireRouteFormState } from '../shared/propertiesShared'
@@ -35,8 +40,7 @@ export function CanonicalWireProperties({
     cable: run?.cable ?? cable,
     ...(run
       ? {
-          wireRoute: run.route,
-          inWall: run.route === 'wall' && run.inWall !== false,
+          ...fromWireRunRoute(run.route),
           inTube: run.inTube,
           wireLengthM: run.segmentLengths?.[anchor],
           ...run.labels,
@@ -47,8 +51,7 @@ export function CanonicalWireProperties({
     const changes: WireRunChanges = isRailEdge || run
       ? {}
       : {
-          route: state.wireRoute,
-          inWall: state.inWall,
+          route: toWireRunRoute(state.wireRoute, state.inWall),
           inTube: state.inTube,
           lengthM: state.wireLengthM,
           labels: {
@@ -58,8 +61,7 @@ export function CanonicalWireProperties({
           },
         }
     if (value.cable) changes.cable = value.cable
-    if ('wireRoute' in value) changes.route = value.wireRoute
-    if ('inWall' in value) changes.inWall = value.inWall
+    if ('wireRoute' in value) changes.route = toWireRunRoute(value.wireRoute, value.inWall)
     if ('inTube' in value) changes.inTube = value.inTube
     if ('wireLengthM' in value) changes.lengthM = value.wireLengthM
     for (const key of ['hideWireLabel', 'showFireClassLabel', 'showWireLengthLabel'] as const) {

@@ -449,9 +449,8 @@ export interface WireRun {
    * `segmentLengths`, not topology; the difference is typically 30–50 cm.
    */
   busTapLengthMode?: 'from-feeder' | 'chained'
-  route?: 'wall' | 'ground' | 'air'
-  /** Only meaningful when `route === 'wall'`: in the wall (default) vs. on the wall. */
-  inWall?: boolean
+  /** `'wall'` is in the wall; `'on-wall'` is surface-mounted on it. */
+  route?: 'wall' | 'on-wall' | 'ground' | 'air'
   inTube?: boolean
   /** Per-member-edge run length in metres, keyed by the same anchor keys as {@link WireRun.members}. */
   segmentLengths?: Record<string, number>

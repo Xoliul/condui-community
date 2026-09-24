@@ -11,7 +11,6 @@ import type { Circuit, Panel } from '@/types/schema'
 export interface WireRunChanges {
   cable?: CableSpec
   route?: WireRun['route']
-  inWall?: boolean
   inTube?: boolean
   labels?: WireRun['labels']
   lengthM?: number
@@ -103,7 +102,6 @@ export function editWireRunAtAnchor(
   if (run.medium === 'busbar') {
     // Cable routing and label overrides have no meaning on a comb busbar.
     run.route = undefined
-    run.inWall = undefined
     run.inTube = undefined
     run.labels = undefined
     run.cable = { ...run.cable, kind: 'other', customKind: 'busbar', hasPE: false,
@@ -118,7 +116,6 @@ export function editWireRunAtAnchor(
     if (!run.conductorsOverridden) run.conductors = deriveSeedConductors(run.cable)
   }
   if ('route' in changes) run.route = changes.route
-  if ('inWall' in changes) run.inWall = changes.inWall
   if ('inTube' in changes) run.inTube = changes.inTube
   if (changes.labels) run.labels = { ...run.labels, ...changes.labels }
   if ('lengthM' in changes) {

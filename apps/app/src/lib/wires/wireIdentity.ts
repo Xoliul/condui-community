@@ -2,7 +2,11 @@ import { buildWireBusIndex } from './wireBusIndex'
 import type { Circuit, Installation, Panel, WireSegment } from '@/types/schema'
 import type { WireRun } from '@/types/projectV2'
 import type { OffGridSupplyAssembly } from '@/types/supplyAssembly'
-import { deriveWireAnchorKey, findWireRunForAnchor } from '@/lib/projectV2/wireRuns'
+import {
+  deriveWireAnchorKey,
+  findWireRunForAnchor,
+  fromWireRunRoute,
+} from '@/lib/projectV2/wireRuns'
 
 function splitBusFeedAnchor(
   segment: WireSegment,
@@ -285,9 +289,10 @@ export function applyWireRunsToSegments(segments: WireSegment[], runs: readonly 
     if (!run || !anchors.every((anchor) => findWireRunForAnchor(runs, anchor)?.id === run.id))
       continue
     segment.cable = { ...run.cable }
-    segment.wireRoute = run.route
+    const { wireRoute, inWall } = fromWireRunRoute(run.route)
+    segment.wireRoute = wireRoute
     segment.inTube = run.inTube
-    segment.inWall = run.route === 'wall' && run.inWall !== false
+    segment.inWall = inWall
     segment.wireLengthM = segment.wireAnchor ? run.segmentLengths?.[segment.wireAnchor] : undefined
     if (run.labels?.hideWireLabel !== undefined) segment.hideWireLabel = run.labels.hideWireLabel
     if (run.labels?.showFireClassLabel !== undefined)

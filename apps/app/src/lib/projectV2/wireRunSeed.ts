@@ -7,7 +7,7 @@ import {
   selectProjectSupplyAssemblies,
   type ProjectWithOptionalV2Electrical,
 } from './electrical'
-import { deriveWireAnchorKey, type WireAnchor } from './wireRuns'
+import { deriveWireAnchorKey, toWireRunRoute, type WireAnchor } from './wireRuns'
 
 /**
  * Best-effort seed of canonical {@link WireRun}s from the legacy wire owners (Goal 19 / ADR-0002):
@@ -40,8 +40,7 @@ export function seedWireRunsFromLegacy(project: ProjectWithOptionalV2Electrical)
 
 interface SectionSpec {
   cable: CableSpec
-  route?: 'wall' | 'ground' | 'air'
-  inWall?: boolean
+  route?: WireRun['route']
   inTube?: boolean
   labels?: WireRun['labels']
   lengthM?: number
@@ -58,7 +57,6 @@ function makeRunAccumulator() {
     const dedupeKey = JSON.stringify([
       spec.cable,
       spec.route ?? null,
-      spec.inWall ?? null,
       spec.inTube ?? null,
       spec.labels ?? null,
     ])
@@ -76,7 +74,6 @@ function makeRunAccumulator() {
       cable: spec.cable,
       conductors: deriveSeedConductors(spec.cable),
       route: spec.route,
-      inWall: spec.inWall,
       inTube: spec.inTube,
       labels: spec.labels,
       ...(typeof spec.lengthM === 'number'
@@ -90,11 +87,6 @@ function makeRunAccumulator() {
 }
 
 type RunAccumulator = ReturnType<typeof makeRunAccumulator>
-
-/** Legacy owners treat an unset `inWall` on a wall route as "on wall"; make that explicit. */
-function seedInWall(route: SectionSpec['route'], inWall: boolean | undefined): boolean | undefined {
-  return route === 'wall' ? inWall === true : undefined
-}
 
 /** Map of circuit id → its default cable, across all panels. Used for transient default runs. */
 export function buildCircuitCableIndex(
@@ -134,8 +126,10 @@ function seedCircuitWireRuns(circuit: Circuit, panelId: string, acc: RunAccumula
     if (!cable) continue
     acc.add(dedupeScope, deriveWireAnchorKey(anchor), {
       cable,
-      route: override.wireRoute ?? circuit.wireRoute,
-      inWall: seedInWall(override.wireRoute ?? circuit.wireRoute, override.inWall ?? circuit.inWall),
+      route: toWireRunRoute(
+        override.wireRoute ?? circuit.wireRoute,
+        override.inWall ?? circuit.inWall
+      ),
       inTube: override.inTube ?? circuit.inTube,
       labels: pruneUndefined({
         hideWireLabel: override.hideWireLabel ?? circuit.hideWireLabel,
@@ -158,8 +152,7 @@ function seedFeedWireRuns(project: ProjectWithOptionalV2Electrical, acc: RunAccu
       const anchor: WireAnchor = { kind: 'feed-run', feedPathId: feed.id, runKey }
       acc.add(dedupeScope, deriveWireAnchorKey(anchor), {
         cable: props.cable,
-        route: props.wireRoute,
-        inWall: seedInWall(props.wireRoute, props.inWall),
+        route: toWireRunRoute(props.wireRoute, props.inWall),
         inTube: props.inTube,
         labels: pruneUndefined({
           hideWireLabel: props.hideWireLabel,
@@ -185,8 +178,7 @@ function seedSupplyWireRuns(project: ProjectWithOptionalV2Electrical, acc: RunAc
       }
       acc.add(dedupeScope, deriveWireAnchorKey(anchor), {
         cable: props.cable,
-        route: props.wireRoute,
-        inWall: seedInWall(props.wireRoute, props.inWall),
+        route: toWireRunRoute(props.wireRoute, props.inWall),
         inTube: props.inTube,
         labels: pruneUndefined({
           hideWireLabel: props.hideWireLabel,
