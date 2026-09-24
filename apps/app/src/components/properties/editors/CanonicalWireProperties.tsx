@@ -36,6 +36,7 @@ export function CanonicalWireProperties({
     ...(run
       ? {
           wireRoute: run.route,
+          inWall: run.route === 'wall' && run.inWall !== false,
           inTube: run.inTube,
           wireLengthM: run.segmentLengths?.[anchor],
           ...run.labels,
@@ -47,6 +48,7 @@ export function CanonicalWireProperties({
       ? {}
       : {
           route: state.wireRoute,
+          inWall: state.inWall,
           inTube: state.inTube,
           lengthM: state.wireLengthM,
           labels: {
@@ -57,6 +59,7 @@ export function CanonicalWireProperties({
         }
     if (value.cable) changes.cable = value.cable
     if ('wireRoute' in value) changes.route = value.wireRoute
+    if ('inWall' in value) changes.inWall = value.inWall
     if ('inTube' in value) changes.inTube = value.inTube
     if ('wireLengthM' in value) changes.lengthM = value.wireLengthM
     for (const key of ['hideWireLabel', 'showFireClassLabel', 'showWireLengthLabel'] as const) {

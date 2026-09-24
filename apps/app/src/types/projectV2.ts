@@ -450,6 +450,8 @@ export interface WireRun {
    */
   busTapLengthMode?: 'from-feeder' | 'chained'
   route?: 'wall' | 'ground' | 'air'
+  /** Only meaningful when `route === 'wall'`: in the wall (default) vs. on the wall. */
+  inWall?: boolean
   inTube?: boolean
   /** Per-member-edge run length in metres, keyed by the same anchor keys as {@link WireRun.members}. */
   segmentLengths?: Record<string, number>

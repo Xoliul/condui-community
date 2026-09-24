@@ -287,7 +287,7 @@ export function applyWireRunsToSegments(segments: WireSegment[], runs: readonly 
     segment.cable = { ...run.cable }
     segment.wireRoute = run.route
     segment.inTube = run.inTube
-    segment.inWall = run.route === 'wall'
+    segment.inWall = run.route === 'wall' && run.inWall !== false
     segment.wireLengthM = segment.wireAnchor ? run.segmentLengths?.[segment.wireAnchor] : undefined
     if (run.labels?.hideWireLabel !== undefined) segment.hideWireLabel = run.labels.hideWireLabel
     if (run.labels?.showFireClassLabel !== undefined)
