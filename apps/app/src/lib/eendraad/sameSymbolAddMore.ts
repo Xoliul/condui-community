@@ -1,5 +1,7 @@
 import type { Endpoint, TrunkDevice } from '@/types/schema'
+import { getSymbolById } from '@/lib/symbols'
 import { getHitZoneBounds } from '@/lib/layout/findDropTarget'
+import { DOMOTICA_BOX_WIDTH } from '@/lib/domoticaLayout'
 import type { LayoutNode, LayoutTree } from '@/lib/layout/layoutTree'
 import type { Point } from '@/types/ui'
 import { endpointSupportsMultiplier, getEndpointMultiplier } from '@/utils/endpointMultipliers'
@@ -8,6 +10,11 @@ import {
   supportsSupplyDeviceMultiplier,
 } from '@/lib/supplyAssembly/inverterMultipliers'
 import { isModularSocket, isModularSocketLibraryId } from '@/lib/socket/modularSocket'
+import {
+  applyLibraryPresetToEndpoint,
+  getEndpointTypeFromSymbol,
+  getSymbolKeyFromSymbol,
+} from '@/utils/symbolMapping'
 import {
   getMultiplierBadgePosition,
   getMultiplierBadgeWidth,
@@ -29,12 +36,104 @@ export interface SameSymbolAddMoreUndoDeps extends SameSymbolAddMoreDeps {
 
 export type SameSymbolAddMoreResult = 'not-applicable' | 'incremented' | 'blocked'
 
+const ENDPOINT_SETTING_FIELDS = [
+  'relayProps',
+  'smokeDetectorProps',
+  'motionDetectorProps',
+  'energyMeterProps',
+  'socketProps',
+  'switchProps',
+  'lightPointProps',
+  'lightSpotProps',
+  'lightFluorescentProps',
+  'fixedApplianceProps',
+  'solarPanelProps',
+  'batteryProps',
+  'evChargerProps',
+  'hvacProps',
+  'energyConversionProps',
+] as const
+
+function normalizeSetting(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeSetting)
+  if (value && typeof value === 'object') {
+    const normalized = Object.fromEntries(
+      Object.entries(value)
+        .map(([key, entry]) => [key, normalizeSetting(entry)] as const)
+        .filter(([, entry]) => entry !== undefined)
+    )
+    return Object.keys(normalized).length > 0 ? normalized : undefined
+  }
+  // These are the implicit defaults used by endpoint property editors.
+  if (value === false || value === 1) return undefined
+  return value
+}
+
+function getEndpointMergeSettings(endpoint: Endpoint): string {
+  const settings = Object.fromEntries(
+    ENDPOINT_SETTING_FIELDS.map((field) => [field, normalizeSetting(endpoint[field])])
+      .filter(([, value]) => value !== undefined)
+  )
+  return JSON.stringify({ symbol: endpoint.symbol, settings })
+}
+
+function getDefaultEndpointForLibrarySymbol(symbolId: string): Endpoint | null {
+  const symbol = getSymbolById(symbolId)
+  const type = symbol && getEndpointTypeFromSymbol(symbol)
+  if (!symbol || !type) return null
+
+  const endpoint: Endpoint = {
+    id: '',
+    type,
+    label: '',
+    symbol: getSymbolKeyFromSymbol(symbol),
+    placements: [],
+  }
+  applyLibraryPresetToEndpoint(symbol, endpoint)
+  return endpoint
+}
+
+/** Settings on an existing endpoint must match the library item before a drop can merge into it. */
+export function endpointMergeSettingsMatchLibrarySymbol(
+  symbolId: string,
+  endpoint: Endpoint
+): boolean {
+  const incoming = getDefaultEndpointForLibrarySymbol(symbolId)
+  return !!incoming && getEndpointMergeSettings(endpoint) === getEndpointMergeSettings(incoming)
+}
+
+export function endpointMergeSettingsMatchEndpoints(
+  left: Endpoint,
+  right: Endpoint
+): boolean {
+  return getEndpointMergeSettings(left) === getEndpointMergeSettings(right)
+}
+
+export function endpointsShareMergeFamily(left: Endpoint, right: Endpoint): boolean {
+  return left.symbol === right.symbol || (left.type === 'socket' && right.type === 'socket')
+}
+
+/** A same-symbol or socket-variant drop onto a Domotica output cannot replace differing settings. */
+export function isConflictingOnSymbolDrop(symbolId: string, endpoint: Endpoint): boolean {
+  const incoming = getDefaultEndpointForLibrarySymbol(symbolId)
+  if (!incoming) return false
+  const sameMergeFamily =
+    endpoint.symbol === incoming.symbol ||
+    (endpoint.type === 'socket' && incoming.type === 'socket')
+  return sameMergeFamily && getEndpointMergeSettings(endpoint) !== getEndpointMergeSettings(incoming)
+}
+
 function droppedSymbolMatchesEndpoint(droppedSymbolId: string, endpoint: Endpoint): boolean {
   // Sockets use a count in properties, never the drop-to-multiply badge.
   // Modular sockets share socket_gnd_child with wall sockets and must not match them.
   if (endpoint.type === 'socket') return false
   if (isModularSocket(endpoint) || isModularSocketLibraryId(droppedSymbolId)) return false
   return endpoint.symbol === droppedSymbolId
+}
+
+function hasSameSymbolButDifferentSettings(droppedSymbolId: string, endpoint: Endpoint): boolean {
+  return droppedSymbolMatchesEndpoint(droppedSymbolId, endpoint) &&
+    !endpointMergeSettingsMatchLibrarySymbol(droppedSymbolId, endpoint)
 }
 
 export function canIncrementSameSymbolAddMoreTarget(
@@ -44,6 +143,7 @@ export function canIncrementSameSymbolAddMoreTarget(
   if (target.endpoint) {
     return (
       droppedSymbolMatchesEndpoint(droppedSymbolId, target.endpoint) &&
+      endpointMergeSettingsMatchLibrarySymbol(droppedSymbolId, target.endpoint) &&
       endpointSupportsMultiplier(target.endpoint)
     )
   }
@@ -74,6 +174,21 @@ function multiplierBadgePosition(
   // Layout nodes use center-based bounds for symbols. Their top-right corner
   // is therefore the same anchor used by the rendered multiplier badge.
   return getMultiplierBadgePosition({ x: bounds.right, y: bounds.top }, count)
+}
+
+function getMultiplierBadgeBounds(node: LayoutNode): ReturnType<typeof getHitZoneBounds> {
+  const endpoint = node.type === 'endpoint' ? (node.domainRef as Endpoint | undefined) : undefined
+  if (endpoint?.domoticaChildProps) {
+    // The child endpoint node includes layout spacing for its label, while the
+    // rendered badge is anchored to the compact symbol itself.
+    return {
+      left: node.bounds.x - DOMOTICA_BOX_WIDTH / 2,
+      top: node.bounds.y - DOMOTICA_BOX_WIDTH / 2,
+      right: node.bounds.x + DOMOTICA_BOX_WIDTH / 2,
+      bottom: node.bounds.y + DOMOTICA_BOX_WIDTH / 2,
+    }
+  }
+  return getHitZoneBounds(node, 'core')
 }
 
 function supportsSameSymbolTarget(
@@ -111,11 +226,12 @@ export function findSameSymbolAddMoreLayoutTargets(
   const visit = (node: LayoutNode) => {
     const target = supportsSameSymbolTarget(symbolId, node)
     if (target) {
-      const bounds = getHitZoneBounds(node, 'core')
+      const bounds = getMultiplierBadgeBounds(node)
       const center = {
         x: (bounds.left + bounds.right) / 2,
         y: (bounds.top + bounds.bottom) / 2,
       }
+      const badgePosition = multiplierBadgePosition(bounds, getTargetMultiplier(target))
       const outline = {
         x: center.x - SAME_SYMBOL_PREVIEW_SIZE / 2,
         y: center.y - SAME_SYMBOL_PREVIEW_SIZE / 2,
@@ -134,7 +250,7 @@ export function findSameSymbolAddMoreLayoutTargets(
           nodeId: node.id,
           target,
           center,
-          badgePosition: multiplierBadgePosition(bounds, getTargetMultiplier(target)),
+          badgePosition,
           outline,
         })
       }
@@ -161,7 +277,7 @@ export function positionHitsMultiplierBadge(layoutTree: LayoutTree, position: Po
     if (target) {
       const count = getTargetMultiplier(target)
       if (count > 1) {
-        const bounds = getHitZoneBounds(node, 'core')
+        const bounds = getMultiplierBadgeBounds(node)
         const badge = multiplierBadgePosition(bounds, count)
         const width = getMultiplierBadgeWidth(count)
         hit =
@@ -183,6 +299,9 @@ export function incrementSameSymbolAddMoreTarget(
   target: SameSymbolAddMoreTarget,
   deps: SameSymbolAddMoreDeps
 ): SameSymbolAddMoreResult {
+  if (target.endpoint && hasSameSymbolButDifferentSettings(droppedSymbolId, target.endpoint)) {
+    return 'blocked'
+  }
   if (!canIncrementSameSymbolAddMoreTarget(droppedSymbolId, target)) return 'not-applicable'
   if (target.endpoint) {
     const endpoint = target.endpoint
@@ -203,6 +322,9 @@ export function incrementSameSymbolAddMoreTargetWithUndo(
   target: SameSymbolAddMoreTarget | null,
   deps: SameSymbolAddMoreUndoDeps
 ): SameSymbolAddMoreResult {
+  if (target?.endpoint && hasSameSymbolButDifferentSettings(droppedSymbolId, target.endpoint)) {
+    return 'blocked'
+  }
   if (!target || !canIncrementSameSymbolAddMoreTarget(droppedSymbolId, target)) {
     return 'not-applicable'
   }

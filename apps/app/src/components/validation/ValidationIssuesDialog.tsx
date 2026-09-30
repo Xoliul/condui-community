@@ -866,6 +866,36 @@ function ValidationIssuesDialog({
       }
     }
 
+    // Board-scoped rules can identify a protection or supply device directly.
+    // Preserve that target type so the properties panel uses the correct lookup.
+    if (!selectionType && query) {
+      const protectionIds = Array.from(
+        new Set(
+          issue.offenders
+            .filter(
+              (offender) => offender.kind === 'protection' && query.getProtectionById(offender.id)
+            )
+            .map((offender) => offender.id)
+        )
+      )
+      const trunkDeviceIds = Array.from(
+        new Set(
+          issue.offenders
+            .filter(
+              (offender) => offender.kind === 'device' && query.getTrunkDeviceById(offender.id)
+            )
+            .map((offender) => offender.id)
+        )
+      )
+      if (protectionIds.length > 0) {
+        selectionType = 'protection'
+        ids = protectionIds
+      } else if (trunkDeviceIds.length > 0) {
+        selectionType = 'trunkDevice'
+        ids = trunkDeviceIds
+      }
+    }
+
     if (!selectionType) {
       if (currentProject && issue.scope.type === 'circuit') {
         let protectionId: string | null = null

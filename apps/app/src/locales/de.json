@@ -1,0 +1,2964 @@
+{
+  "junctionIdentity": {
+    "label": "Verbindungsidentifikation",
+    "pickExisting": "Vorhandene Identifikation wiederverwenden",
+    "toggleVisibility": "Identifikation im Schaltplan anzeigen oder ausblenden",
+    "noExisting": "Keine vorhandenen Bezeichner"
+  },
+  "terminalStrip": {
+    "pin": "Terminalnummer",
+    "incomingPin": "Eingang",
+    "outgoingPin": "Aus"
+  },
+  "appUpdate": {
+    "banner": "Eine neue Version der App ist verfügbar.",
+    "refresh": "Aktualisieren"
+  },
+  "themeControls": {
+    "light": "Licht",
+    "dark": "Dunkel"
+  },
+  "connectivity": {
+    "offlineBanner": "You are offline. Local projects remain saved on this device.",
+    "offlineReloadNotReady": "Vermeiden Sie ein Neuladen, bis Sie die App mindestens einmal online in diesem Browser-Tab geöffnet haben.",
+    "offlineReloadDevHint": "Das Neuladen im Offline-Modus funktioniert nur mit einem Produktions-Build (npm run build && vite Preview), nicht mit dem Dev-Server.",
+    "dismissOfflineBanner": "Offline-Benachrichtigung schließen",
+    "offlineIndicatorTitle": "Sie sind offline"
+  },
+  "diagnostics": {
+    "anonymousProjectName": "Diagnoseprojekt ({{idShort}})",
+    "importFallbackProjectName": "Importiertes Projekt ({{idShort}})"
+  },
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "remove": "Löschen",
+    "edit": "Bearbeiten",
+    "add": "Hinzugefügt",
+    "close": "Schließen",
+    "open": "Offen",
+    "new": "Neu",
+    "search": "Suche",
+    "export": "Export",
+    "import": "Import",
+    "ok": "OK",
+    "back": "Zurück",
+    "next": "Weiter",
+    "continue": "Weiter",
+    "confirm": "Bestätigen",
+    "moreActions": "Weitere Aktionen",
+    "none": "Keine",
+    "mixed": "Gemischt"
+  },
+  "home": {
+    "footerCopyright": "© {{year}} {{brand}}",
+    "projectsMissing": {
+      "hint": "Verlorene Projekte?",
+      "title": "Verlorene Projekte?",
+      "body": "Sie können sich lokal in einem anderen Browser, auf einem anderen Gerät oder in der alten Eendraa-Domäne befinden. Kontaktieren Sie den Support, wenn Sie Hilfe benötigen."
+    },
+    "viewMode": {
+      "grid": "Gitter",
+      "list": "Liste"
+    },
+    "folders": {
+      "newFolder": "Neuer Ordner",
+      "renameFolder": "Ordner umbenennen",
+      "deleteFolder": "Ordner löschen",
+      "deleteFolderConfirm": "Dieser Ordner wird dauerhaft gelöscht und kann nicht wiederhergestellt werden. Projekte im Ordner werden aus dem Ordner entfernt.",
+      "duplicateName": "Ein Ordner mit diesem Namen existiert bereits.",
+      "addToFolder": "Zum Ordner hinzufügen",
+      "removeFromFolder": "Aus Ordner entfernen",
+      "folderName": "Ordnername",
+      "folderNamePlaceholder": "z.B. 2025",
+      "personal": "Persönlich",
+      "ungrouped": "Andere Projekte",
+      "emptyFolder": "Projekte hierher ziehen",
+      "ungroupedDropHint": "Ziehen Sie Projekte hierher, um sie aus Ordnern fernzuhalten",
+      "dragHandle": "Zum Verschieben ziehen",
+      "dragFolderHandle": "Ziehen Sie, um den Ordner neu anzuordnen",
+      "selectProject": "Wählen Sie {{name}}"
+    }
+  },
+  "dialog": {
+    "inputLabel": "Wert eingeben"
+  },
+  "menu": {
+    "open": "Menü",
+    "backToMain": "Zurück zum Anfang",
+    "versions": "Versionen",
+    "exportPdf": "PDF exportieren",
+    "exportLabels": "Etiketten exportieren",
+    "reExportPdf": "PDF erneut exportieren",
+    "validation": "Validierung",
+    "exportProject": "Projekt herunterladen",
+    "exportProjectError": "Projekt-Download fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "settings": "Einstellungen",
+    "shortcuts": "Hotkeys",
+    "installOffline": "Zur Offline-Verwendung installieren",
+    "contactSupport": "Kontaktieren Sie den Support",
+    "documentation": "Dokumentation",
+    "areiGuide": "AREI Anleitung",
+    "tutorial": "Tutorial"
+  },
+  "pwaInstall": {
+    "iosTitle": "Zum Startbildschirm hinzufügen",
+    "iosInstructions": "Tippen Sie in Safari auf „Teilen“ und wählen Sie „Zum Startbildschirm hinzufügen“.",
+    "unavailableTitle": "Installation noch nicht verfügbar",
+    "unavailableMessage": "Dieser Browser bietet noch keine Installation an. Verwenden Sie die App weiterhin in Chrome oder Edge oder installieren Sie sie über das Browsermenü, wenn es angezeigt wird."
+  },
+  "viewer": {
+    "propertiesReadOnly": "Nur Lesen. Sensible Kontakt- und Adressinformationen werden ausgeblendet."
+  },
+  "tutorial": {
+    "title": "Tutorial",
+    "description": "Eine kurze Tour durch den Editor, damit Sie schnell loslegen können.",
+    "close": "Schließen",
+    "openOnYoutube": "Auf YouTube ansehen"
+  },
+  "touchOnboarding": {
+    "close": "Schließen",
+    "pan": "Pfannen",
+    "zoom": "Zoom"
+  },
+  "shortcuts": {
+    "title": "Hotkeys",
+    "intro": "Alle im Editor verwendeten Tastaturkürzel.",
+    "groups": {
+      "general": "Allgemein",
+      "viewport": "Ansichtsfenster",
+      "sitplan": "Lageplan",
+      "quickPlacer": "Schnellplatzierer",
+      "oneWire": "1 Schaltplan"
+    },
+    "sections": {
+      "projectPanels": "Projekt & Panels",
+      "keyboardNavigation": "Tastatur",
+      "mouseSelection": "Maus & Auswahl",
+      "trackpadTouch": "Trackpad und Touch",
+      "floors": "Böden",
+      "editing": "Bearbeiten",
+      "fastPlacement": "Schnellmodus",
+      "navigation": "Navigation"
+    },
+    "keys": {
+      "ctrlCmdZ": "Strg/Befehl + Z",
+      "ctrlCmdShiftZ": "Strg/Befehl + Umschalt + Z",
+      "ctrlCmdY": "Strg/Befehl+Y",
+      "ctrlCmdL": "Strg/Befehl+L",
+      "ctrlCmdP": "Strg/Befehl+P",
+      "ctrlCmdD": "Strg/Befehl + D",
+      "tab": "Tab",
+      "esc": "Esc",
+      "space": "Raum",
+      "f": "F",
+      "plus": "+",
+      "equals": "=",
+      "minus": "-",
+      "leftClick": "Linksklick",
+      "rightClick": "Rechtsklick",
+      "middleDrag": "Ziehen Sie die mittlere Maustaste",
+      "rightDrag": "Nach rechts ziehen",
+      "leftDragEmptyCanvas": "Ziehen Sie die linke Maustaste auf einer leeren Leinwand",
+      "shiftClick": "Umschalt + Klicken",
+      "shiftDragSelect": "Auswahl bei gedrückter Umschalttaste + Ziehen",
+      "ctrlCmdAltClick": "Strg/Befehl/Alt + Klicken",
+      "altDragSelect": "Alt + Auswahl durch Ziehen",
+      "mouseWheel": "Mausrad",
+      "twoFingerScroll": "Scrollen mit zwei Fingern",
+      "pinch": "Squeeze",
+      "ctrlWheel": "Strg / Cmd + Mausrad",
+      "oneFingerDrag": "Mit einem Finger ziehen",
+      "twoFingerDragPinch": "Ziehen/Ziehen mit zwei Fingern",
+      "doubleTap": "Doppeltippen",
+      "longPress": "Langes Drücken",
+      "threeFingerSwipeUpDown": "Mit drei Fingern nach oben/unten wischen",
+      "threeFingerSwipeLeftRight": "Mit drei Fingern nach links/rechts wischen",
+      "digit1To9": "1-9",
+      "delete": "Löschen",
+      "backspace": "Rücktaste",
+      "digits": "0-9",
+      "period": ".",
+      "comma": ",",
+      "shiftAZ": "Umschalt + A-Z",
+      "q": "Q",
+      "w": "W",
+      "d": "D",
+      "r": "R",
+      "f1": "F1",
+      "f2": "F2",
+      "f3": "F3",
+      "arrowKeys": "Pfeiltasten"
+    },
+    "entries": {
+      "undo": {
+        "description": "Rückgängig machen"
+      },
+      "redo": {
+        "description": "Wiederholen"
+      },
+      "toggleLibrary": {
+        "description": "Switch-Bibliothek"
+      },
+      "toggleProperties": {
+        "description": "Eigenschaften umschalten"
+      },
+      "toggleDockPanels": {
+        "description": "Faltpaneele"
+      },
+      "closeFloatingWindows": {
+        "description": "Fenster schließen"
+      },
+      "duplicate": {
+        "description": "Doppelte Auswahl (Stromkreis, Zweig oder Endpunkte)"
+      },
+      "deleteSelection": {
+        "description": "Auswahl löschen"
+      },
+      "focusViewport": {
+        "description": "Fokus-Ansichtsfenster"
+      },
+      "fitView": {
+        "description": "Passt ins Bild"
+      },
+      "zoomIn": {
+        "description": "Vergrößern"
+      },
+      "zoomOut": {
+        "description": "Verkleinern"
+      },
+      "selectItem": {
+        "description": "Auswählen"
+      },
+      "contextMenu": {
+        "description": "Kontextmenü"
+      },
+      "panCanvas": {
+        "description": "Verschiebung"
+      },
+      "rectangleSelect": {
+        "description": "Rechteckauswahl"
+      },
+      "addToSelection": {
+        "description": "Zur Auswahl hinzufügen"
+      },
+      "removeFromSelection": {
+        "description": "Aus Auswahl entfernen"
+      },
+      "mouseWheelZoom": {
+        "description": "Zoom"
+      },
+      "trackpadPan": {
+        "description": "Verschiebung"
+      },
+      "trackpadPinchZoom": {
+        "description": "Zoom"
+      },
+      "touchPan": {
+        "description": "Verschiebung"
+      },
+      "touchPanZoom": {
+        "description": "Schwenken und Zoomen"
+      },
+      "touchContextMenu": {
+        "description": "Kontextmenü"
+      },
+      "touchMultiSelect": {
+        "description": "Kipphebel / Rahmen"
+      },
+      "touchFocusViewport": {
+        "description": "Fokus-Ansichtsfenster"
+      },
+      "touchSidePanels": {
+        "description": "Schaltbare Seitenteile"
+      },
+      "switchFloor": {
+        "description": "Etage wechseln"
+      },
+      "toggleQuickPlacer": {
+        "description": "Schnellplatzierer ein/aus",
+        "note": "Beim Bewegen über den Lageplan"
+      },
+      "toggleWiring": {
+        "description": "Verkabelungstool ein/aus",
+        "note": "Beim Bewegen über den Lageplan"
+      },
+      "toggleDrawMode": {
+        "description": "Zeichenmodus ein/aus",
+        "note": "Beim Bewegen über den Lageplan"
+      },
+      "switchToEendraadCanvas": {
+        "description": "Ansichtsfenster zum 1-Draht-Diagramm",
+        "note": "Während Sie mit der Maus über ein Ansichtsfenster fahren; Keine Auswirkung, wenn auf diesem Bedienfeld bereits das 1-Draht-Diagramm angezeigt wird"
+      },
+      "switchToPlanCanvas": {
+        "description": "Ansichtsfenster zu Lageplan",
+        "note": "Während Sie mit der Maus über ein Ansichtsfenster fahren; Keine Auswirkung, wenn in diesem Panel bereits Lageplan angezeigt wird"
+      },
+      "switchToPanelCanvas": {
+        "description": "Ansichtsfenster zur Panel-Leinwand",
+        "note": "Während Sie mit der Maus über ein Ansichtsfenster fahren; Keine Auswirkung, wenn in diesem Panel bereits die Panel-Leinwand angezeigt wird"
+      },
+      "openingWidthType": {
+        "description": "Breite einstellen"
+      },
+      "rotateSymbols": {
+        "description": "Ausgewählte Symbole um 90° im Uhrzeigersinn drehen",
+        "note": "Während sich der Zeiger über Lageplan befindet; deaktiviert die automatische Drehung für diese Platzierungen"
+      },
+      "nudgeSymbols": {
+        "description": "Ausgewählte Symbole verschieben",
+        "note": "Wenn Lageplan sichtbar ist und ein oder mehrere Symbole ausgewählt sind; nicht beim Eingeben eines Feldes. Hahn: 1 cm; drücken und halten: 10→18 cm/s nach 250 ms. Schnelles Tippen wird in einem Speicher gebündelt; Snap wird ignoriert."
+      },
+      "quickPlacerEscape": {
+        "description": "Schließen / Schnellbeenden"
+      },
+      "quickPlacerFloor": {
+        "description": "Etage wechseln"
+      },
+      "quickPlacerPlace": {
+        "description": "Beitrag"
+      },
+      "quickPlacerSkip": {
+        "description": "Überspringen"
+      },
+      "focusCircuitLetter": {
+        "description": "Fokuskreis"
+      }
+    }
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "language": "Sprache",
+    "interface": {
+      "title": "Schnittstelle",
+      "language": "Sprache",
+      "font": "Schriftart",
+      "fontFigtree": "Feigenbaum",
+      "fontOpenSans": "Offen Sans"
+    },
+    "workflow": {
+      "title": "Methode",
+      "placePlanSymbolsManually": "Platzieren Sie selbst Symbole auf dem Plan",
+      "placePlanSymbolsManuallyHint": "Neue Symbole erscheinen auf dem Lageplan erst, wenn Sie sie platzieren, beispielsweise mit dem QuickPlacer."
+    },
+    "navigation": {
+      "title": "Canvas-Navigation",
+      "leftDragPansCanvas": "Ziehen nach links zum Schwenken (Desktop)",
+      "leftDragPansCanvasHint": "Auf Laptop und Desktop: Ziehen Sie mit der linken Maustaste, um die Leinwand zu verschieben (wie bei Berührung). Halten Sie die Umschalttaste gedrückt und ziehen Sie, um ein Rechteck auszuwählen. Das Verschieben mit der mittleren und rechten Maustaste funktioniert weiterhin."
+    },
+    "debug": {
+      "title": "Debug",
+      "eendraadHitboxDebug": "Hitboxen des Einliniendiagramm anzeigen",
+      "eendraadHitboxDebugHint": "Visualisieren Sie die zur Tropfenerkennung verwendeten Trefferzonen im Eindrahtdiagramm. Nur in der Benutzeroberfläche, nicht im Export.",
+      "eendraadTrunkLayoutDebug": "Layout-Boxen von Single-Wire-Trunks anzeigen",
+      "eendraadTrunkLayoutDebugHint": "Zeigen Sie die Sichtverkleidungen an, die zur Unterteilung von Stromkreisleitungen und Sekundärschienen verwendet werden. Nur in der Benutzeroberfläche, nicht im Export.",
+      "planPlacementDebug": "Situationszeichnungs-Debug anzeigen (Lageplan)",
+      "planPlacementDebugHint": "Visualisieren Sie Symbolzentren, Begrenzungsrahmen, Beschriftungspositionen und wandbasierte Orientierungshilfen auf dem Lageplan. Nur in der Benutzeroberfläche, nicht im Export.",
+      "planCableRouteDebug": "Kabellängen-Debug anzeigen (Sitplan)",
+      "planCableRouteDebugHint": "Zeichnen Sie die ungefähre 3D-Kabelroute und die Länge jedes Strompfadkabels auf dem Lageplan ein, zusammen mit einer Berechnungstabelle. Nur in der Benutzeroberfläche, nicht im Export.",
+      "cableRoute": {
+        "title": "Kabellängen-Debug",
+        "circuit": "Stromkreis",
+        "from": "Lieferwagen",
+        "to": "Zu",
+        "horizontal": "Horizontal",
+        "vertical": "Vertikal",
+        "riser": "Riser",
+        "slack": "Abstand",
+        "estimate": "Kostenvoranschlag",
+        "entered": "Eingegeben",
+        "basis": "Basic",
+        "gaps": "Lücken",
+        "fromBoard": "Von der Platte",
+        "onlySelected": "Nur Auswahl",
+        "clear": "Klar",
+        "beside": "neben {{label}}"
+      },
+      "panelRelationDebug": "Debug für relationales Routing für Panels anzeigen (Panel-Canvas)",
+      "panelRelationDebugHint": "Verfügbare Pfade, Routenkosten, Thread-Klassen und Modulrollen anzeigen. Detailliertes Routing wird in der Devtools-Konsole angezeigt. Nur in der Benutzeroberfläche, nicht im Export."
+    },
+    "installerInfo": {
+      "title": "Installateurdaten (AREI)",
+      "hint": "Name, Adresse und Unterschrift sind bei AREI-konformen Plänen erforderlich. Für alle Projekte gespeichert.",
+      "name": "Name des Installateurs",
+      "companyNumber": "Firmennr.",
+      "vatNumber": "Umsatzsteuer-Identifikationsnummer",
+      "vatNumberAccountHint": "Bearbeiten Sie diese Umsatzsteuer-Identifikationsnummer in der Konto-App.",
+      "email": "E-Mail",
+      "mobile": "Mobil",
+      "phone": "Telefon",
+      "namePlaceholder": "Firmen- oder Installateurname",
+      "address": "Adresse",
+      "addressPlaceholder": "Straße, Postleitzahl, Gemeinde",
+      "signature": "Unterschrift",
+      "uploadSignature": "Signatur hochladen",
+      "clearSignature": "Klar",
+      "logo": "Logo",
+      "uploadLogo": "Logo hochladen",
+      "clearLogo": "Klar",
+      "showBrandingInSchematics": "Logo und Signatur auf Diagrammen anzeigen",
+      "logoOptional": "Optional. Bilder werden auf max. verkleinert. 500 px zur Speicherung.",
+      "save": "Speichern",
+      "saving": "Speichern…",
+      "saved": "Gespeichert"
+    }
+  },
+  "visionScan": {
+    "title": "Dokument scannen",
+    "action": "Scannen",
+    "choosePdf": "Dateien auswählen",
+    "chooseFiles": "Wählen Sie PDFs oder Bilder",
+    "invalidFile": "Wählen Sie einen PDF oder ein Bild.",
+    "addPages": "Seiten hinzufügen",
+    "dragPage": "Ziehen Sie die Seite {{page}}, um sie zu verschieben",
+    "classifying": "Seiten organisieren…",
+    "recognizing": "Prozessdokument…",
+    "serviceUnavailable": "Der lokale Vision-Dienst wird nicht ausgeführt. Führen Sie npm run vision:api aus und versuchen Sie es erneut.",
+    "failed": "Das Dokument konnte nicht formatiert werden.",
+    "registrationRequired": "Registrieren Sie sich, um ein Dokument zu scannen.",
+    "hosted": {
+      "cancelScan": "Scan abbrechen",
+      "cancelFailed": "Der Scan konnte nicht abgebrochen werden.",
+      "processing": "Prozessdokument…",
+      "reviewReady": "Bereit zur Seitenprüfung"
+    },
+    "mode": {
+      "title": "Erkennung auswählen",
+      "description": "Option zum Vergleich der Erkennungsrouten entwickeln.",
+      "hybrid": {
+        "title": "Hybrid",
+        "description": "Kombiniert die OpenCV-Vorbereitung mit dem trainierten Vision-Modell. Empfohlen."
+      },
+      "opencv": {
+        "title": "OpenCV",
+        "description": "Verwendet feste Bildverarbeitung ohne das Vision-Modell."
+      }
+    },
+    "confident": "Layout sieht gut aus",
+    "review": "Überprüfen Sie diese Seite",
+    "page": "Seite {{page}}",
+    "pagePreview": "Beispiel der Seite {{page}}",
+    "crop": "Ausschnitt",
+    "cropCorner": "Ecke {{corner}} des Ausschnitts",
+    "applyCrop": "Anwenden",
+    "levels": "Helligkeit",
+    "highPass": "Ausgleich",
+    "planReview": {
+      "analyzing": "Pläne vorbereiten…",
+      "cleaned": "Bereinigt",
+      "editable": "Bearbeitbar",
+      "previous": "Vorheriger Plan",
+      "next": "Nächster Plan",
+      "zoomOut": "Verkleinern",
+      "zoomIn": "Vergrößern",
+      "fit": "Passen Sie es an die Passform an"
+    },
+    "summary": {
+      "title": "Scan-Zusammenfassung",
+      "circuits": "Schaltkreise",
+      "endpoints": "Punkte",
+      "placed": "Im Plan",
+      "detected": "Erkannt",
+      "unplaced_one": "{{count}} ist keinem Plan zugeordnet.",
+      "unplaced_other": "{{count}}-Punkte sind nicht mit einem Plan verknüpft.",
+      "create": "Projekt erstellen",
+      "creating": "Projekt erstellen…",
+      "types": {
+        "socket": "Steckdosen",
+        "switch": "Schalter",
+        "light_point": "Lichtpunkte",
+        "fixed_appliance": "Geräte",
+        "domotica": "Hausautomation"
+      },
+      "unplaced_few": "{{count}}-Punkte sind nicht mit einem Plan verknüpft.",
+      "unplaced_many": "{{count}}-Punkte sind nicht mit einem Plan verknüpft."
+    },
+    "pending": {
+      "title": "Dokumentenscan",
+      "processing": "Verarbeitung im Hintergrund",
+      "reviewPages": "Überprüfen Sie die erkannten Seiten",
+      "ready": "Bereit zur Überprüfung",
+      "failed": "Benötigt Aufmerksamkeit",
+      "unavailable": "Vision-Dienst nicht verfügbar",
+      "open": "Offen",
+      "discard": "Löschen"
+    },
+    "moveEarlier": "Seite früher platzieren",
+    "moveLater": "Seite später posten",
+    "types": {
+      "one_wire": "Einzeldraht",
+      "plan": "Plan",
+      "other": "Sonstiges"
+    }
+  },
+  "project": {
+    "rename": "Projekt umbenennen",
+    "new": "Neues Projekt",
+    "open": "Projekt öffnen",
+    "save": "Projekt speichern",
+    "export": "Projekt exportieren",
+    "customer": "Kunde",
+    "name": "Projektname",
+    "companyNumber": "Umsatzsteuer-Identifikationsnummer",
+    "customerEmail": "E-Mail",
+    "customerMobile": "Mobil",
+    "customerPhone": "Telefon",
+    "yearOfConstruction": "Baujahr",
+    "yearOfConstructionInvalid": "Geben Sie ein gültiges Jahr zwischen 1500 und 2100 ein.",
+    "meterEanCode": "Messgerät EAN-Code",
+    "meterEanCodePlaceholder": "z.B. 5412345678901234",
+    "inspectionAgency": "Inspektionsstelle",
+    "inspectionAgencyName": "Name des Organismus",
+    "showInspectionAgencyInInfoBlock": "In Infoblöcken von Diagrammen anzeigen",
+    "hideInspectionAgencyInInfoBlock": "In Infoblöcken von Schaltplänen verstecken",
+    "created": "Erstellt",
+    "updated": "Aktualisiert",
+    "templates": "Vorlagen",
+    "createTemplate": "Vorlage/Vorlage erstellen",
+    "useTemplate": "Zu verwenden",
+    "fromTemplate": "Aus Vorlage/Vorlage",
+    "chooseTemplate": "Wählen Sie eine Vorlage",
+    "emptyProject": "Leeres Projekt",
+    "templateDescription": "Beschreibung",
+    "templateDescriptionPlaceholder": "bv. Startprojekt zur Wohnungssanierung",
+    "downloadTemplate": "Vorlage/Vorlage herunterladen",
+    "deleteTemplate": "Vorlage/Vorlage löschen",
+    "deleteTemplateConfirmTitle": "Vorlage löschen?",
+    "deleteTemplateConfirmMessage": "„{{name}}“ entfernen? Damit erstellte Projekte bleiben erhalten.",
+    "templateCreateFailed": "Die Vorlage konnte nicht erstellt werden.",
+    "templateUseFailed": "Das Projekt konnte aus dieser Vorlage nicht erstellt werden.",
+    "templateDeleteFailed": "Die Vorlage konnte nicht gelöscht werden.",
+    "recent": "Neu",
+    "recentProjects": "Aktuelle Projekte",
+    "notificationBadgeTooltip": "Neue Projektbenachrichtigungen",
+    "notifications": {
+      "shared": "Neues Projekt für Sie freigegeben",
+      "versions_one": "Neue Version, erstellt von jemand anderem",
+      "versions_other": "{{count}} neue Versionen, die von jemand anderem erstellt wurden",
+      "comments_one": "{{count}} neuer Kommentar hinzugefügt",
+      "comments_other": "{{count}} neue Kommentare hinzugefügt",
+      "versions_few": "{{count}} neue Versionen, die von jemand anderem erstellt wurden",
+      "versions_many": "{{count}} neue Versionen, die von jemand anderem erstellt wurden",
+      "comments_few": "{{count}} neue Kommentare hinzugefügt",
+      "comments_many": "{{count}} neue Kommentare hinzugefügt"
+    },
+    "refresh": "Aktualisieren",
+    "noProjects": "Noch keine Projekte",
+    "noProjectsDescription": "Beginnen Sie mit der Erstellung Ihres ersten Elektroinstallationsprojekts",
+    "createFirst": "Erstellen Sie Ihr erstes Projekt",
+    "deleteConfirmTitle": "Projekt löschen?",
+    "deleteConfirmMessage": "Sind Sie sicher, dass Sie {Name} löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "deleteConfirmShort": "Sind Sie sicher?",
+    "deleteConfirmAction": "löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "importDownloaded": "Heruntergeladenes Projekt importieren",
+    "importDownloadedInvalidFile": "Wählen Sie einen .zip- oder .pdf-Projektexport.",
+    "importFailedTitle": "Import fehlgeschlagen",
+    "importFailedMessage": "Das Projekt konnte nicht importiert werden.",
+    "importTrikFile": ".TRIK-Datei importieren",
+    "importProjectLoadingTitle": "Projekt importieren…",
+    "importProjectLoadingBody": "Grundrissbilder und Projektdaten werden verarbeitet. Bei großen Dateien kann es eine Weile dauern.",
+    "importTrikInvalidFileTitle": "Ungültige Datei",
+    "importTrikInvalidFileMessage": "Wählen Sie eine gültige .trik-Datei aus.",
+    "importTrikSuccessTitle": "Import erfolgreich",
+    "importTrikSuccessMessage": "TRiK-Projekt „{{name}}“ wurde importiert.",
+    "importRepairedSupplyHandoffs": "{{count}} Veraltete Stromverbindung(en) entfernt, damit das Projekt importiert werden konnte. Die übrigen Projektdaten bleiben erhalten.",
+    "importTrikImportedLocallyTitle": "Lokal importiert",
+    "importTrikImportedLocallyMessage": "TRiK-Projekt „{{name}}“ wurde lokal importiert. Die Cloud-Synchronisierung ist fehlgeschlagen, das Projekt verbleibt im lokalen Speicher.",
+    "importTrikFailedTitle": "TRiK-Import fehlgeschlagen",
+    "importTrikFailedMessage": "TRiK-Projektimport fehlgeschlagen: {{error}}",
+    "importTrikImportedNameSuffix": "(Importiert)",
+    "importSchematicalsArchive": "Schaltplanarchiv importieren (Entwickler)…",
+    "importSchematicalsFolder": "Schematics-Ordner importieren (dev)…",
+    "devElectricalImportButton": "JSON (Entwickler) importieren…",
+    "devElectricalImportTitle": "Importieren Sie elektrische JSON",
+    "devElectricalImportJson": "Elektrischer Import-JSON",
+    "devElectricalImportValid": "JSON ist gültig",
+    "devElectricalImportInvalid": "Validierungsfehler beheben",
+    "devElectricalImportCreate": "Projekt erstellen",
+    "devElectricalImportCopyPrompt": "Systemaufforderung kopieren",
+    "devElectricalImportPromptCopied": "Systemaufforderung kopiert",
+    "devElectricalImportRepaired": "JSON wiederhergestellt",
+    "devElectricalImportRepair": {
+      "removedWrapping": "Umgebender Text oder Markdown entfernt.",
+      "closedDelimiters": "Fehlende schließende Haken am Ende hinzugefügt."
+    },
+    "openExampleProject": "Beispielprojekt öffnen",
+    "exampleTitle": "Probieren Sie ein Beispielprojekt aus",
+    "exampleDescription": "Sehen Sie, wie ein fertiges Projekt aussieht.",
+    "view": "Ansicht",
+    "create": "Projekt erstellen",
+    "download": "Projekt herunterladen",
+    "manageAccess": "Zugriff und Versionen",
+    "localOptions": "Lokale Projektoptionen",
+    "newProjectLocalWarningShort": "Cloud-Limit erreicht. Dies wird ein lokales Projekt sein.",
+    "newProjectLocalChosenWarning": "Dies wird ein lokales Projekt sein. Sie können es später auf die Cloud upgraden.",
+    "newProjectOfflineLocalWarning": "Sie sind offline. Dieses Projekt ist auf diesem Gerät gespeichert. Sobald Sie wieder online sind, synchronisieren wir es mit der Cloud, sofern Ihr Plan dies zulässt.",
+    "newProjectCooldownLocalWarning": "Ihr kostenloser Cloud-Slot ist bis {{date}} gesperrt. Dieses Projekt wird lokal erstellt.",
+    "createFailedTitle": "Projekterstellung fehlgeschlagen",
+    "createFailedMessage": "Etwas ist schief gelaufen. Bitte versuchen Sie es erneut.",
+    "registrationRequiredCreateTitle": "Registrieren Sie sich, um ein Projekt zu erstellen",
+    "registrationRequiredCreateMessage": "Neue Projekte erfordern ein kostenloses Konto. Sie können das Demoprojekt weiterhin ohne Registrierung öffnen.",
+    "registrationRequiredCreateWithLocalProjects": "Neue Projekte erfordern ein kostenloses Konto. Ihre bestehenden lokalen Projekte bleiben auf diesem Gerät verfügbar und werden nach der Registrierung in Ihr Konto verschoben.",
+    "registrationRequiredActionMessage": "Registrieren Sie sich, um Projekte zu erstellen, zu importieren und zu organisieren. Sie können das Demoprojekt weiterhin ohne Registrierung öffnen.",
+    "registrationRequiredActionWithLocalProjects": "Registrieren Sie sich, um Projekte zu erstellen, zu importieren und zu organisieren. Ihre bestehenden lokalen Projekte bleiben auf diesem Gerät verfügbar und werden nach der Registrierung in Ihr Konto verschoben.",
+    "registrationRequiredCreateCta": "Registrieren",
+    "moveToLocal": "Auf lokal verschieben",
+    "openingTitle": "Laden…",
+    "openingBody": "Bitte warten.",
+    "notFoundTitle": "Projekt nicht gefunden",
+    "notFoundBody": "Ungültiger oder gelöschter Link.",
+    "notFoundBack": "Start"
+  },
+  "infoBlock": {
+    "madeWith": "Erstellt mit {{brand}}",
+    "pageNr": "Seite",
+    "installerPropertiesTitle": "Installateurdaten",
+    "installerOverride": "Installationsdaten für dieses Projekt überschreiben",
+    "installerOverrideHint": "Projektspezifische Installateurdaten. Nur in diesem Projekt sichtbar.",
+    "installerGlobalHint": "Die globalen Installateurdaten aus den Einstellungen werden verwendet. Aktivieren Sie das Überschreiben für projektspezifische Daten.",
+    "headerInstallation": "Installationsadresse",
+    "headerInstaller": "Installateur",
+    "viewTitle": {
+      "oneWire": "Eindrahtdiagramm",
+      "panel": "Verteilertafel",
+      "sitplan": "Lageplan"
+    }
+  },
+  "installation": {
+    "defaultCable": "Standardkabel",
+    "title": "Installation",
+    "profile": "Profil",
+    "profileHousehold": "Inland",
+    "profileNonHousehold": "Nicht-Inland",
+    "address": "Adresse",
+    "street": "Straße",
+    "postalCode": "Postleitzahl",
+    "city": "Gemeinde",
+    "country": "Land",
+    "countryBelgium": "Belgien",
+    "countryFrance": "Frankreich",
+    "countryNetherlands": "Niederlande",
+    "voltage": "Spannung",
+    "mainSupply": "Hauptstromversorgung",
+    "voltage_2x230": "2×230V",
+    "voltage_3x230": "3×230V",
+    "voltage_3n400": "3N400V",
+    "voltage_1n400": "1N400V",
+    "voltage_1x230": "1×230V",
+    "lineToNeutral": "Phase-Null (V)",
+    "lineToLine": "Phase-Phase (V)",
+    "notes": "Hinweise"
+  },
+  "panels": {
+    "title": "Schilder",
+    "propertiesTitle": "Verteiler",
+    "add": "Verteiler hinzufügen",
+    "name": "Name",
+    "location": "Standort",
+    "panelType": "Verteilertyp",
+    "secondaryPanelRole": "Unterverteiler",
+    "parentSupply": "Eltern-/Netzteil",
+    "supply": "Netzteil",
+    "distribution": "Verteiler",
+    "mainPanel": "Kopfteil",
+    "secondaryPanel": "Verteiler {{number}}",
+    "diagramLabels": "Schematische Bezeichnungen",
+    "panelNumbering": "Plattennummerierung",
+    "panelNumberingHint": "Fügt B01, B02, … in der Reihenfolge von der Hauptverteiler über die Unterverteilern auf dem Einliniendiagramm hinzu.",
+    "panelNetTypeLabels": "Netztyp im Schaltplan",
+    "panelNetTypeLabelsHint": "Fügt Strom-, Spannungs- und Erdungsanschluss im Einliniendiagramm-Header hinzu, wenn ein Erdungsverbindungssystem eingestellt ist.",
+    "earthingSystemLabel": "Erdungsverbindungssystem",
+    "earthingSystemGridLabel": "Erdungssystem (Netz)",
+    "earthingSystemBackupLabel": "Erdungssystem (Backup)",
+    "earthingSystemCustom": "Nativer Wert – nicht synchron mit der Hauptverteiler, bis Sie dasselbe System zurücksetzen.",
+    "earthingSystem": {
+      "none": "Keine",
+      "TT": "TT",
+      "TN-S": "TN-S",
+      "TN-C": "TN-C",
+      "TN-C-S": "TN-C-S",
+      "IT": "IT"
+    },
+    "diagramTitleNumbered": "{{code}} – {{name}}",
+    "diagramFedFrom": "Netzteil von {{source}}",
+    "diagramNetMain": "Netz: {{net}} – {{frequency}} Hz",
+    "diagramNetSecondary": "Netz: {{net}} – {{frequency}} Hz – {{earthing}}",
+    "diagramNetWithEarthing": "Netz: {{net}} – {{earthing}}",
+    "diagramEarthingSystem": "Erdungsverbindungssystem: {{earthing}}",
+    "diagramEarthingSystemGrid": "Erdungssystem (Netz): {{earthing}}",
+    "diagramEarthingSystemBackup": "Erdungssystem (Backup): {{earthing}}"
+  },
+  "panel": {
+    "deleteConfirmTitle": "Verteiler(n) entfernen?",
+    "deleteBlockedTitle": "Hauptverteiler kann nicht entfernt werden",
+    "deleteLastMainTitle": "Letzte Hauptverteiler kann nicht entfernt werden",
+    "deleteLastMainMessage": "Mindestens eine Hauptverteiler muss übrig bleiben. Hauptverteiler „{{panelNames}}“ kann nicht entfernt werden.",
+    "deleteMainConfirmMessage": "Hauptverteiler(n) entfernen {{panelNames}}?\nDie ausgewählten Karten, ihre Stromkreise, Schutzgeräte, Unterkarten und zugehörigen Rahmen werden gelöscht. Sie können dies rückgängig machen.",
+    "deleteConfirmMessage": "Die folgenden Karten enthalten Stromkreise, Sicherheitsgeräte oder Unterkarten: {{panelNames}}\n\nDurch das Löschen werden auch alle Inhalte gelöscht. Sie können dies rückgängig machen.\n\nSind Sie sicher, dass Sie fortfahren möchten?",
+    "deleteEmptyPanelMessage": "Sind Sie sicher, dass Sie die Verteiler(n) {{panelNames}} löschen möchten?\n\nDadurch werden auch alle zugehörigen Frames und verschachtelten Verteiler entfernt. Sie können dies rückgängig machen."
+  },
+  "protections": {
+    "title": "Sicherheitsgeräte",
+    "add": "Sicherheitsgerät hinzufügen",
+    "type": "Typ",
+    "rating": "Nennstrom",
+    "curve": "Auslösekennlinie",
+    "sensitivity": "Differenzstrom IΔn",
+    "poles": "Polen",
+    "polesConfig": "Polkonfiguration",
+    "residualCurrentType": "Differentialtyp",
+    "breakingCapacity": "Kurzschlussfähigkeit",
+    "spdKind": "Symbol",
+    "spdStandard": "Blitzschutz",
+    "spdSparkGap": "Funkenbrücke",
+    "poles_1P": "1P",
+    "poles_1P_N": "1P+N",
+    "poles_2P": "2P (L+N)",
+    "poles_3P": "3P",
+    "poles_3P_N": "3P+N",
+    "poles_4P": "4P (3L+N)",
+    "residualType_AC": "AC (sinusförmig)",
+    "residualType_A": "A (pulsierender Gleichstrom)",
+    "residualType_F": "F (Mischfrequenz)",
+    "residualType_B": "B (glatter Gleichstrom)",
+    "description": "Beschreibung",
+    "type_MCB": "Automatik",
+    "type_RCD": "Fehlerstromschutzschalter",
+    "type_RCBO": "FI/LS-Schalter",
+    "MCB": "Automatik",
+    "RCD": "Fehlerstromschutzschalter",
+    "RCBO": "FI/LS-Schalter",
+    "deleteLinkedPanelTitle": "Sicherheit entfernen?",
+    "deleteLinkedPanelMessage": "Verlinkte Verteiler: {{panelNames}}",
+    "deleteLinkedPanelAction": "Entfernen Sie auch die Verteiler",
+    "deleteProtectionAction": "Nur Sicherheit entfernen"
+  },
+  "circuits": {
+    "title": "Stromkreise",
+    "legendTitle": "Flow-Track-Legende",
+    "add": "Stromkreis hinzufügen",
+    "code": "Code",
+    "kind": "Typ",
+    "cable": "Kabel",
+    "lighting": "Beleuchtung",
+    "sockets": "Steckdosen",
+    "fixed_appliance": "Fest angeschlossenes Gerät",
+    "mixed": "Gemischt",
+    "stove": "Herd",
+    "solar": "Solarmodule",
+    "battery": "Batterie",
+    "doorbell": "Türklingel",
+    "subpanel": "Unterverteiler",
+    "hvac": "HVAC",
+    "boiler": "Kessel",
+    "heating": "Heizung",
+    "ev": "EV-Ladegerät",
+    "empty": "Leer Stromkreis",
+    "other": "Sonstiges",
+    "derivedHint": "Vorgeschlagen basierend auf Stromkreis",
+    "noCircuits": "Kein Stromkreise verfügbar",
+    "addNew": "Neu hinzufügen...",
+    "addNewDialogTitle": "Neues Stromkreis hinzufügen",
+    "addNewDialogDescription": "Erstellen Sie einen neuen Stromkreis auf dem Hauptbus und weisen Sie ihm diesen Endpunkt zu.",
+    "addNewConfirm": "Stromkreis hinzufügen",
+    "addNewLabel": "Etikett",
+    "addNewLabelPlaceholder": "z.B. A, B, Küche",
+    "addNewLabelHint": "Für automatische Beschriftung leer lassen.",
+    "addNewPanel": "Verteiler"
+  },
+  "planDrop": {
+    "dialogTitle": "Zum Kreis hinzufügen",
+    "shortHeadline": "Welche Schaltung?",
+    "adjustHeadline": "Schaltung",
+    "applyCircuit": "Anwenden",
+    "done": "Fertig",
+    "panelLabel": "Verteiler",
+    "circuitHeading": "Schaltung",
+    "confirm": "Zum Kreis hinzufügen",
+    "newCircuit": "Neue Schaltung",
+    "newCircuitCodeLabel": "Schleifencode",
+    "emptyKind": "Leer"
+  },
+  "endpoints": {
+    "title": "Endpunkte",
+    "add": "Endpunkt hinzufügen",
+    "label": "Etikett",
+    "notes": "Hinweise",
+    "socket": "Steckdose",
+    "modularSocket": "Modular Steckdose",
+    "switch": "Schalter",
+    "light_point": "Leuchte",
+    "fixed_appliance": "Fest angeschlossenes Gerät",
+    "accumulatingBoiler": "Speicherkessel",
+    "accumulationHeating": "Speicherheizung",
+    "heatingWithFan": "Mit Lüfter",
+    "applianceType": "Gerätetyp",
+    "notesPlaceholder": "Optionale Hinweise für diesen Endpunkt",
+    "deviceType": "Gerätetyp",
+    "deviceTypeHelp": "Kategorie des Elektrogeräts",
+    "switchType": "Schaltertyp",
+    "lightType": "Lichttyp",
+    "socketType": "Sockeltyp",
+    "socketType_socket_gnd_child_short": "Geerdet + Kinderschutz",
+    "socketType_socket_gnd_short": "Geerdet",
+    "socketType_socket_child_short": "Kinderschutz",
+    "socketType_socket_short": "Standard",
+    "socketType_double_socket_gnd_child_short": "Doppelt, geerdet + Kind",
+    "socketType_double_socket_child_short": "Doppelt, Kinderschutz",
+    "socketOptions": "Sockeloptionen",
+    "socketSwitchOption": "Schalter",
+    "socketSwitchNone": "Keine",
+    "socketSwitchOverlay": "Steckdose mit zweipoligem Schalter",
+    "socketSwitchOverlayLock": "Steckdose mit zweipoligem Verriegelungsschalter",
+    "socketWaterproof": "Wasserdicht",
+    "socketCount": "Menge Steckdosen",
+    "setSocketCount": "Menge einstellen Steckdosen",
+    "lightCount": "Anzahl der Lichtpunkte",
+    "ventilationCount": "Anzahl der Lüfter",
+    "hvacDeviceCount": "Anzahl der Geräte",
+    "switchPoles": "Polen",
+    "switchingCount": "Anzahl der Schaltvorgänge",
+    "switchPoles1": "1-polig",
+    "switchPoles2": "2 Pole",
+    "switchPoles3": "3 Pole",
+    "twoWayPoles": "Pole (Schalter)",
+    "verklikkerlamp": "Warnleuchte",
+    "lightPointOptions": "Optionen Lichtpunkt",
+    "lightPointSafety": "Sicherheitsschaltung",
+    "lightPointAutonomous": "Autonom",
+    "lightPointSwitch1p": "Schalter (1 Pol)",
+    "lightPointOnWall": "An der Wand",
+    "lightPointSafetyShort": "Notbeleuchtung",
+    "lightPointDecentralShort": "Dezentralisiert",
+    "lightPointSwitch1pShort": "Schalter",
+    "lightPointOnWallShort": "An der Wand",
+    "lightSpotBeamType": "Trägertyp",
+    "lightSpotBeamNone": "Keine",
+    "lightSpotBeamStraight": "Gerader Strahl",
+    "lightSpotBeamDiverging": "Divergenter Strahl",
+    "lightFluorescentTubes": "Anzahl der Röhren",
+    "hvac": {
+      "energySource": "Energiequelle",
+      "type": "Typ",
+      "function": "Funktion",
+      "energy_electricity": "Elektrizität",
+      "energy_gas_fan": "Gas (mit Ventilator)",
+      "energy_gas_atmospheric": "Gas (atmosphärisch)",
+      "energy_liquid": "Flüssiger Kraftstoff",
+      "energy_solid": "Festbrennstoff",
+      "energy_none": "Keine",
+      "type_heat_exchange": "Wärmetauscher",
+      "type_cogeneration": "KWK / Kraft-Wärme-Kopplung",
+      "type_tap_spiral": "Leitungswasserspule",
+      "type_boiler": "Kessel",
+      "type_none": "Keine",
+      "function_none": "Keine",
+      "function_heat": "Heizung",
+      "function_cool": "Kühlung",
+      "function_heat_cool": "Heizen / Kühlen",
+      "energy_electricity_short": "Elektrisch.",
+      "energy_gas_fan_short": "Gas (Entlüftung)",
+      "energy_gas_atmospheric_short": "Gas (atm.)",
+      "energy_liquid_short": "Flüssigkeit",
+      "energy_solid_short": "Behoben",
+      "energy_none_short": "Keine",
+      "type_heat_exchange_short": "Änderung.",
+      "type_cogeneration_short": "BHKW",
+      "type_tap_spiral_short": "Spirale",
+      "type_boiler_short": "Kessel",
+      "type_none_short": "Keine",
+      "function_none_short": "Keine",
+      "function_heat_short": "Art.-Nr.",
+      "function_cool_short": "Cool.",
+      "function_heat_cool_short": "Heizen/Kühlen"
+    },
+    "relay": {
+      "maxCurrentRating": "Max. Nennstrom",
+      "poles": "Polen",
+      "control": "Steuerung",
+      "control_standard": "Standard",
+      "control_timer": "Timer",
+      "control_clock": "Uhr",
+      "control_impulse": "Impuls",
+      "control_thermostat": "Thermostat",
+      "control_dimmer": "Dimmer"
+    },
+    "smokeDetector": {
+      "type": "Detektortyp",
+      "type_smoke": "Rauch",
+      "type_gas": "Gas",
+      "type_manual": "Handbuch",
+      "type_beam": "Radius",
+      "type_flame": "Flamme",
+      "type_heat": "Wärme"
+    },
+    "motionDetector": {
+      "type": "Detektortyp",
+      "type_spread": "Verbreitung",
+      "type_generic": "Allgemein"
+    },
+    "energyMeter": {
+      "poles": "Polen"
+    },
+    "trunkDevice": {
+      "title": "Gerät am Stamm",
+      "label": "Etikett",
+      "position": "Position am Kofferraum",
+      "positionBefore": "Vor allen Zweigen",
+      "positionAfter": "Nach der Verzweigung {{n}}",
+      "delete": "Aus dem Kofferraum entfernen"
+    },
+    "domotica": {
+      "switchControlEnabled": "Steuerausgang aktivieren",
+      "switchType": "Typ Lenkerschalter",
+      "switchType_1p": "1P-Schalter",
+      "switchType_2p": "2P-Schalter",
+      "switchType_impulse": "Impuls-/Drucktaster",
+      "switchCount": "Anzahl der Lenkerschalter",
+      "endpointCount": "Anzahl der Endpunktausgänge",
+      "controlArea": "Steuerung",
+      "control_programmed": "Programm.",
+      "control_wireless": "Kabellos",
+      "control_detection": "Erkennung",
+      "control_button": "Druckknopf",
+      "mainType": "Hauptgerät",
+      "mainType_none": "Keine",
+      "mainType_socket": "Steckdose",
+      "mainType_switch": "Schalter",
+      "mainSwitchType": "Schaltertyp"
+    },
+    "solarPanel": {
+      "groupTitle": "Marke und Modell",
+      "wattage": "Leistung (Wp)",
+      "voltage": "Spannung (V)"
+    },
+    "battery": {
+      "voltage": "Spannung (V)",
+      "capacity": "Kapazität (kWh)",
+      "powerKw": "Leistung (kW)"
+    },
+    "evCharger": {
+      "groupTitle": "Details zur Ladestation",
+      "integratedDcResidualProtection": "Integrierte DC-Leckstromerkennung (6 mA)"
+    },
+    "certification": {
+      "groupTitle": "Geräteidentifikation (Zertifizierung)",
+      "brand": "Modell",
+      "model": "Modell",
+      "serialNumber": "Seriennummer",
+      "power": "Leistung"
+    },
+    "energyConversion": {
+      "groupTitle": "Energieumwandlung"
+    },
+    "transformerOptions": {
+      "options": "Optionen"
+    },
+    "transformer": {
+      "safetyType": "Sicherheitstransformator",
+      "safety_none": "Keine",
+      "safety_closed_short": "Geschlossen",
+      "safety_open_short": "Offen",
+      "shortCircuitProtected": "Kurzschlussfest",
+      "protective": "Schutztransformator",
+      "overlayLabel": "Transformatoretikett"
+    },
+    "conversion": {
+      "pMaxPrimary": "Pmax U prim (VA)",
+      "pMaxSecondary": "Pmax U Sek (VA)",
+      "dcOutputVoltage": "DC-Ausgang (V)",
+      "dcInputMinVoltage": "DC min. Eingang (V)"
+    }
+  },
+  "frames": {
+    "title": "Rahmen",
+    "notFound": "Rahmen nicht gefunden",
+    "frameTitle": "Titel",
+    "titlePlaceholder": "Rahmentitel eingeben...",
+    "titlePosition": "Titelposition",
+    "titlePositionInside": "Innenbereich",
+    "titlePositionOutside": "Draußen",
+    "fontSize": "Schriftgröße des Titels",
+    "contentInfo": "In diesem Feld werden {{count}} {{type}}-Elemente gruppiert",
+    "contentType_endpoint": "Endpunkt",
+    "contentType_protection": "Sicherheit",
+    "contentType_trunkDevice": "Trunk-Gerät",
+    "contentType_ground": "Erdung",
+    "contentType_mixed": "gemischt"
+  },
+  "views": {
+    "eendraad": "Einliniendiagramm",
+    "plan": "Lageplan",
+    "panel": "Verteiler",
+    "structure": "Struktur",
+    "both": "Beides",
+    "panelAndPlan": "Verteiler + Plan",
+    "documents": "Dokumente"
+  },
+  "structure": {
+    "traceHidden": "{{count}} versteckte Stufen",
+    "traceBranches": "{{count}} leitfähige Zweige",
+    "traceCycle": "Zyklus erkannt",
+    "noStructure": "Keine elektrische Struktur",
+    "noFilterResults": "Keine Ergebnisse für die aktuellen Filter",
+    "buildFailed": "Struktur konnte nicht erstellt werden",
+    "traceScope": "Spurrichtung",
+    "upstream": "Upstream",
+    "downstream": "Downstream",
+    "both": "Beides",
+    "none": "Keine",
+    "layoutDirection": "Layoutrichtung",
+    "horizontal": "Horizontal",
+    "vertical": "Vertikal",
+    "relationships": "Beziehungen",
+    "secondaryLinks": "Sekundäre Beziehungen",
+    "inferred": "Ableitungsbeziehungen",
+    "items": "Artikel",
+    "links": "Beziehungen",
+    "diagnostics": "Diagnosen",
+    "viewOptions": "Anzeigeoptionen",
+    "supply": "Netzteil",
+    "panelGraph": "Verteiler-Routen",
+    "circuitGraph": "Stromkreise",
+    "panelOrphans": "Nicht verknüpfte Verteiler-Daten",
+    "circuitOrphans": "Nicht verknüpfte Schaltkreisdaten",
+    "graphScope": "Diagrammbereich",
+    "selectedPanel": "Ausgewählte Verteiler",
+    "entireInstallation": "Vollständige Installation",
+    "occurrences": "Physische Erscheinungen",
+    "selectedConnection": "ausgewählte Verbindung",
+    "connectionBetween": "Verbindung von {{source}} zu {{target}}",
+    "item": "Strukturelement",
+    "knowledge": "Wissensstand",
+    "knowledge_explicit": "Explizit",
+    "knowledge_inferred": "Abgeleitet",
+    "knowledge_ambiguous": "Mehrdeutig",
+    "knowledge_missing": "Fehlt",
+    "source": "Quelle",
+    "sourceType": "Quelltyp",
+    "sourceId": "Quell-ID",
+    "projectedReadOnly": "Projiziertes Anzeigeelement · schreibgeschützt",
+    "wire": "Draht",
+    "busbar": "Schiene",
+    "busbarBars": "{{count}} Schienen",
+    "wireConductors": "{{count}} Leiter",
+    "resetView": "Baumansicht wiederherstellen",
+    "filtersActive": "Filter aktiv",
+    "alternativePaths_one": "{{count}} alternativer Pfad",
+    "alternativePaths_other": "{{count}} alternative Pfade",
+    "alternativePaths_few": "{{count}} alternative Pfade",
+    "alternativePaths_many": "{{count}} alternative Pfade"
+  },
+  "panelCanvas": {
+    "showOnPlan": "Im Plan anzeigen",
+    "selectPanel": "Verteiler auswählen",
+    "panelOptions": "Verteilernoptionen",
+    "visibility": "Sichtbarkeit",
+    "hiddenDevices": "Versteckte Geräte",
+    "allHierarchy": "Alle (Hierarchie)",
+    "noPanels": "Keine Schilder",
+    "feedFromTop": "Stromversorgung von oben",
+    "feedFromBottom": "Stromversorgung von unten",
+    "rows": "Zeilen",
+    "columns": "Säulen",
+    "topTerminalStripRail": "Anschlussschiene oben",
+    "bottomTerminalStripRail": "Anschlussschiene unten",
+    "showDomotica": "Hausautomation anzeigen",
+    "modules": "Module",
+    "assignToCircuit": "Stromkreis zuweisen",
+    "assignModeOn": "Klicken Sie auf einen Stromkreis…",
+    "moveToSupplyPanel": "Zur RasterVerteiler wechseln",
+    "moveToMainPanel": "Zur Hauptverteiler wechseln",
+    "hideFromPanel": "In der Verteiler-Ansicht ausblenden",
+    "showHiddenDescription": "Wählen Sie ein oder mehrere Geräte zur Anzeige aus.",
+    "supplyPanel": "Netboard",
+    "virtualEnclosure": "Netzteilkasten",
+    "hideSupplyPanel": "Netzbrett verstecken",
+    "rewireTool": "Reset-Tool",
+    "rewireModeOn": "Reset-Modus Deaktivieren",
+    "rewireModeOff": "Reshift-Modus",
+    "autoArrange": "Module automatisch organisieren",
+    "autoArrangeConfirm": "Dadurch wird das aktuelle Verteilerlayout vollständig ersetzt. Weitermachen?",
+    "labelMode": "Etikettenmodus",
+    "swapLabelRows": "Reihen wechseln",
+    "swapPanelLabels": "Vertauschen Sie alle Etikettenreihen auf der Verteiler",
+    "editRowTopLabels": "Bearbeiten Sie die oberen Beschriftungen der Zeile",
+    "editRowBottomLabels": "Bearbeiten Sie die unteren Beschriftungen der Zeile",
+    "editPanelTopLabels": "Bearbeiten Sie alle oberen Beschriftungen",
+    "editPanelBottomLabels": "Bearbeiten Sie alle unteren Beschriftungen",
+    "overflowWarningTitle": "Einige Module befinden sich in der Überlaufzone",
+    "overflowWarningMessage": "Einige Module befinden sich in der Überlaufzone. Platzieren Sie sie im Brettraster oder vergrößern Sie das Brett; Sie lassen Etikettenexporte weg.",
+    "labelSourceLabel": "Etikett",
+    "labelSourceNotes": "Hinweise",
+    "labelSourceExtra": "Zusätzlich",
+    "labelSourceTechnical": "Technik",
+    "labelCellPlaceholder": "Etikett",
+    "notesCellPlaceholder": "Hinweise",
+    "extraCellPlaceholder": "Etikettennotizen hinzufügen",
+    "technicalCellPlaceholder": "Technische Merkmale",
+    "labelAlignLeft": "Links ausrichten",
+    "labelAlignCenter": "Zentrum",
+    "labelAlignRight": "Rechts ausrichten",
+    "labelAlignJustify": "Text verteilen",
+    "panelLayout": "Verteilerlayout"
+  },
+  "panelFilter": {
+    "title": "Verteilernfilter",
+    "allPanels": "Alle Verteilern",
+    "syncWithPanelView": "Synchronisierung mit der Verteiler-Ansicht"
+  },
+  "canvas": {
+    "grid": "Raster anzeigen",
+    "snap": "Ausrichten",
+    "projectedSnap": "Projektionsausrichtung",
+    "gridSize": "Rastergröße",
+    "gridOpacity": "Gitterintensität",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern",
+    "fitToView": "Passen Sie es an die Passform an",
+    "resetZoom": "Zoom zurücksetzen",
+    "uploadFloorPlan": "Grundriss hochladen",
+    "controls": "Verwenden Sie das Mausrad zum Zoomen. • Klicken Sie mit der rechten Maustaste und ziehen Sie zum Schwenken",
+    "controlsTouch": "Zum Zoomen durch Auf- und Zuziehen • 2 Finger zum Schwenken",
+    "splitHorizontal": "Horizontale Teilung",
+    "splitVertical": "Vertikale Teilung",
+    "floor": "Boden",
+    "groundFloor": "Erdgeschoss",
+    "firstFloor": "Erster Stock",
+    "dragSymbolsHere": "(Symbole hier ziehen)",
+    "noFloors": "Keine Böden",
+    "supplyFrame": {
+      "title": "Netzteil",
+      "supplyLabel": "Netzteil",
+      "mainPanelLabel": "Kopfteil"
+    },
+    "eendraadNaming": {
+      "menuTitle": "Bezeichnung",
+      "automaticNaming": "Auto-Label",
+      "automaticNamingDescription": "Schaltkreise werden automatisch beschriftet (A,B,C,...)",
+      "hideFeederLetters": "Keine Beschriftung ohne Verbindungen",
+      "hideFeederLettersDescription": "Stromkreise ohne Anschlüsse sind nicht gekennzeichnet.",
+      "toggleLetterOnOneWire": "Großbuchstaben im Einzeldrahtdiagramm anzeigen oder ausblenden",
+      "endpointBranchLabelLocked": "Filialbezeichnungen folgen der automatischen Benennung (Kreisbuchstabe + Folgenummer).",
+      "lockedTooltip": "Auto-Label ist aktiviert",
+      "lockedDescription": "Deaktivieren Sie es, um diese Bezeichnung zu ändern.",
+      "openAutomaticNaming": "Etikett automatisch öffnen",
+      "automaticStatus": "Automatik",
+      "customStatus": "Geändert",
+      "setCustomLabel": "Benutzerdefiniertes Etikett festlegen",
+      "useAutomaticLabel": "Automatisches Etikett verwenden",
+      "customLabelNonStandardWarning": "Dieses benutzerdefinierte Etikett liegt außerhalb des Bereichs A, B, C…",
+      "customLabelDuplicateWarning": "Diese Bezeichnung wird auch von einer anderen Schaltung auf dieser Verteiler verwendet.",
+      "customLabelBothWarnings": "Dieses benutzerdefinierte Etikett liegt außerhalb des Bereichs A, B, C… und wird auch von einer anderen Schaltung auf dieser Verteiler verwendet.",
+      "resetAllLabels": "Alle Etiketten zurücksetzen",
+      "resetAllTooltip": "Entfernen Sie alle benutzerdefinierten Beschriftungen und verwenden Sie automatische Beschriftungen für alle Kreise wieder.",
+      "resetAllConfirmTitle": "Alle benutzerdefinierten Etiketten zurücksetzen?",
+      "resetAllConfirmMessage": "Alle benutzerdefinierten Schleifenetiketten werden gelöscht und durch automatische Etiketten ersetzt. Sie können diese Änderung rückgängig machen.",
+      "resetAllConfirm": "Etiketten zurücksetzen",
+      "confirmOverwriteTitle": "Buchstaben ersetzen?",
+      "confirmOverwriteMessage": "Autonaming ersetzt die aktuellen Buchstaben durch A, B, C… entsprechend den Zeilen auf jeder Verteiler. Weitermachen?",
+      "confirmOverwriteConfirm": "Weiter"
+    }
+  },
+  "planImport": {
+    "recognizeWalls": "Bearbeitbare Wände erkennen",
+    "recognizingWalls": "Wände werden erkannt...",
+    "recognitionFailed": "Wanderkennung fehlgeschlagen.",
+    "signInToRecognize": "Melden Sie sich an, um Wände zu erkennen.",
+    "scanWorkerRequired": "Diese Scanmethode ist auf dem Vision-Server nicht verfügbar.",
+    "scanMethod": "Scan-Methode",
+    "scanHybrid": "Hybrid",
+    "scanYolo": "YOLO",
+    "scanLuna": "Luna",
+    "noWallsFound": "Auf diesem Plan wurden keine Wände gefunden.",
+    "title": "Plan importieren",
+    "uploadDescription": "Laden Sie einen Grundriss als Hintergrund hoch.",
+    "dragDropOrClick": "Ziehen Sie ein Bild hierher oder klicken Sie, um es auszuwählen",
+    "orPaste": "Oder fügen Sie ein Bild aus Ihrer Zwischenablage ein",
+    "supportedFormats": "Formate: JPG, PNG, GIF, WebP, PDF, SVG, DXF, DWG",
+    "invalidFileType": "Wählen Sie eine gültige Bilddatei aus",
+    "invalidPdfFile": "Wählen Sie eine gültige PDF-Datei aus",
+    "invalidDxfFile": "Wählen Sie eine gültige DXF-Datei aus",
+    "invalidDwgFile": "Wählen Sie eine gültige DWG-Datei aus",
+    "invalidSvgFile": "Wählen Sie eine gültige SVG-Datei aus",
+    "loading": "Laden...",
+    "cropDescription": "Optionales Zuschneiden. Ziehen Sie zum Anpassen das blaue Kästchen.",
+    "applyCrop": "Anwenden",
+    "resetCrop": "Zurücksetzen",
+    "skipCrop": "Überspringen",
+    "scaleDescription": "Zeichnen Sie eine Linie für die Skala. Klicken und ziehen Sie einen bekannten Abstand.",
+    "enterDistance": "Entfernung in Metern:",
+    "skipScale": "Überspringen",
+    "redraw": "Wieder",
+    "selectFloor": "Boden",
+    "existingFloor": "Vorhandener Boden",
+    "createNewFloor": "Neuer Boden",
+    "selectFloorOption": "Wählen...",
+    "floorNamePlaceholder": "Name (z. B. Erdgeschoss, 1. Stock)",
+    "floorNameRequired": "Geben Sie einen Namen ein",
+    "preview": "Vorschau",
+    "backgroundProcessing": "Hintergrundverarbeitung",
+    "backgroundProcessingDescription": "Wir erkennen und entfernen automatisch weiße Hintergründe und invertieren Farben für den Dunkelmodus.",
+    "processing": "Bild wird verarbeitet...",
+    "whiteBackgroundDetected": "Weißer Hintergrund erkannt",
+    "whiteBackgroundDetectedDescription": "Das Bild hat einen weißen Hintergrund. Wir können dies entfernen und transparent machen, damit es im Dunkelmodus besser funktioniert.",
+    "enableBackgroundProcessing": "Entfernen Sie den weißen Hintergrund und aktivieren Sie die Unterstützung für den Dunkelmodus",
+    "noWhiteBackground": "Kein weißer Hintergrund erkannt. Das Bild wird unverändert verwendet.",
+    "original": "Original",
+    "processed": "Verarbeitet",
+    "pdfSelectPages": "Wählen Sie eine oder mehrere Seiten zum Importieren aus. Sie können jede Seite einzeln zuschneiden.",
+    "selectAllPages": "Alle Seiten auswählen",
+    "clearAllPages": "Auswahl löschen",
+    "pageLabel": "Seite {{page}}",
+    "duplicateFloor": "Boden duplizieren",
+    "vectorPreferred": "Vektor",
+    "rasterFallback": "Raster-Fallback",
+    "cropPage": "Seite zuschneiden",
+    "resetPageCrop": "Zuschnitt zurücksetzen",
+    "croppedBadge": "Kurz geschnitten",
+    "cadLayers": "Ebenen",
+    "croppedPages": "Zugeschnittene Seiten: {{count}}",
+    "pdfDestination": "Importziel",
+    "newFloorPerPage": "Erstellen Sie eine neue Etage pro ausgewählter Seite",
+    "replaceSelectedFloor": "Ausgewählte Etage ersetzen (nur erste ausgewählte Seite)",
+    "selectAtLeastOnePage": "Wählen Sie mindestens eine Seite aus",
+    "processingPdf": "Laden der PDF-Seiten...",
+    "scaleSettings": "Skaleneinstellungen",
+    "setScale": "Maßstab einstellen",
+    "updateScale": "Maßstab anpassen",
+    "applyScaleToAllPages": "Wenden Sie diesen Maßstab auf alle importierten Seiten an",
+    "scaleSetForPage": "Maßstabssatz mit Seite {{page}}",
+    "importing": "Importieren...",
+    "scaleModeTitle": "Wie möchten Sie die Skala anwenden?",
+    "scaleModeShared": "Stellen Sie den Maßstab einmal ein (erste ausgewählte Seite) und verwenden Sie ihn für alle importierten Seiten erneut",
+    "scaleModePerPage": "Stellen Sie den Maßstab separat pro Seite ein",
+    "scaleModeSkip": "Waage vorerst überspringen",
+    "scaledPagesCount": "Skalierte Seiten: {{count}} / {{total}}",
+    "skipScaleImport": "Skalierung und Import überspringen",
+    "saveFailedTitle": "Import nicht gespeichert",
+    "saveFailed": "Der Plan wurde erfolgreich importiert, aber das Projekt konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
+    "resetPageScale": "Maßstab dieser Seite zurücksetzen",
+    "pdfDarkModeTitle": "Unterstützung des Dunkelmodus",
+    "pdfDarkModeDescription": "Wählen Sie aus, ob importierte PDF-Seiten automatisch im Dunkelmodus angepasst werden sollen. Diese Einstellung gilt für alle ausgewählten Seiten.",
+    "enablePdfDarkModeProcessing": "Aktivieren Sie die Anpassung des Dunkelmodus für alle importierten PDF-Seiten",
+    "previewPage": "Beispielseite",
+    "darkModePreview": "Beispiel für den Dunkelmodus",
+    "cadColorModeTitle": "CAD-Farbmodus",
+    "cadColorModeDescription": "Wählen Sie, ob die CAD-Zeichnung in Farbe oder Graustufen importiert werden soll. Beide Beispiele passen sich dem aktuellen Hell- oder Dunkelmodus an.",
+    "colorPreview": "Farbbeispiel",
+    "enableCadGrayscale": "Konvertieren Sie CAD-Farben in Graustufen",
+    "grayscalePreview": "Graustufenbeispiel"
+  },
+  "planTools": {
+    "movePlanImage": "Planbild verschieben",
+    "resetScale": "Skala anpassen",
+    "uploadFloorPlanFirst": "Um dieses Tool zu verwenden, laden Sie zunächst ein Planbild hoch"
+  },
+  "planWiring": {
+    "tool": "Verkabelung",
+    "toolDescription": "Zeichnen Sie Verdrahtungswege zwischen Symbolen auf der aktiven Etage"
+  },
+  "layout": {
+    "presetLabel": "Layout",
+    "collapseBottomShelf": "Blende ausblenden",
+    "expandBottomShelf": "Panel anzeigen"
+  },
+  "floorPlanTools": {
+    "drawMode": "Zeichenmodus",
+    "exitDrawMode": "Zeichenmodus beenden",
+    "drawWall": "Zeichnen von Wänden (Freiform)",
+    "drawWallHint": "Umschalttaste gedrückt halten für gerade Wände (45°-Schritte)",
+    "drawWallRect": "Zeichnungswände (Rechteck)",
+    "movePoint": "Wandpunkt verschieben",
+    "insertDoor": "Tür einsetzen",
+    "insertWindow": "Fenster einfügen",
+    "drawStair": "Treppen zeichnen",
+    "placeNote": "Notiz",
+    "graphicElements": "Grafische Elemente",
+    "clipWall": "Wand schneiden",
+    "insertPoint": "Punkt einfügen",
+    "select": "Wände/Punkte auswählen"
+  },
+  "planGraphic": {
+    "sizeLocked": "Feste Größe",
+    "resizable": "Skalierbar",
+    "width": "Breite (cm)",
+    "height": "Höhe (cm)",
+    "rotation": "Drehung (Grad)",
+    "elements": {
+      "bathtub": "Badewanne",
+      "shower": "Dusche",
+      "washbasin": "Waschbecken",
+      "toilet": "Toilette",
+      "kitchenCabinet": "Schrank",
+      "car": "Auto",
+      "rectangle": "Rechteck"
+    }
+  },
+  "quickPlacer": {
+    "title": "SnelPlaatser",
+    "panelSelector": "Verteiler",
+    "mode": {
+      "slow": "Langsam",
+      "fast": "Schnell",
+      "slowTooltip": "Ziehen Sie eine Zeile auf Lageplan, um das vorhandene Symbol neu zu positionieren.",
+      "fastTooltip": "Linksklickstellen. Rechtsklick überspringt. Esc verlässt den Schnellmodus. Die Schlüssel 1–9 wechseln die Etagen der Reihe nach ab."
+    },
+    "autoSkip": {
+      "short": "Autom. überspringen",
+      "full": "Benutzerdefinierte Platzierungen automatisch überspringen"
+    },
+    "noItems": "Keine Artikel",
+    "itemCount": "{{count}} Artikel",
+    "noNotes": "Keine Notizen",
+    "customPlacement": "Benutzerdefinierte Platzierung",
+    "defaultPlacement": "Standardplatzierung",
+    "floor": "Boden",
+    "current": "Strom",
+    "emptyState": "Es sind keine Symbolplatzierungen verfügbar.",
+    "availableWhenPlanOpen": "QuickPlacer ist verfügbar, wenn die Ansicht Lageplan geöffnet ist.",
+    "unplaced": {
+      "count_one": "{{count}} zu platzieren",
+      "count_other": "{{count}} zu platzieren",
+      "count_few": "{{count}} zu platzieren",
+      "count_many": "{{count}} zu platzieren"
+    }
+  },
+  "synergrid": {
+    "fillButton": "Mit Synergrid-Liste füllen",
+    "verified": "Synergrid C10/26 zugelassen",
+    "types": {
+      "solar": "Solar",
+      "storage": "Lagerung",
+      "backup": "Sicherung",
+      "wind": "Wind",
+      "chp": "BHKW",
+      "combined": "Kombiniert"
+    },
+    "phases": {
+      "single": "1 Phase",
+      "three": "3-phasig"
+    },
+    "picker": {
+      "title": "Synergrid C10/26 genehmigte Liste",
+      "subtitle": "Wählen Sie ein Element aus der offiziellen Liste und geben Sie seine Eigenschaften ein.",
+      "searchPlaceholder": "Suchen Sie nach Marke, Modell oder Referenz",
+      "plugAndPlayOnly": "Nur Plug-and-Play",
+      "loading": "Synergrid-Liste wird geladen...",
+      "error": "Die Synergrid-Liste konnte nicht geladen werden",
+      "empty": "Keine passenden Artikel",
+      "fill": "Füllung",
+      "resultCount": "{{count}} Artikel",
+      "resultLimit": "erstes {{count}} abgebildet",
+      "resultVisible": "{{visible}} oder {{count}} abgebildet",
+      "columns": {
+        "brand": "Modell",
+        "productSeries": "Produktpalette",
+        "model": "Modell",
+        "power": "Leistung",
+        "phase": "Phase",
+        "type": "Typ",
+        "approved": "zugelassen",
+        "reference": "Referenz"
+      }
+    }
+  },
+  "inspectionAgencies": {
+    "fillButton": "Mit erkannter Liste füllen",
+    "picker": {
+      "title": "Anerkannte Inspektionsstellen",
+      "subtitle": "Wählen Sie eine anerkannte Organisation und geben Sie die Inspektionsinformationen ein.",
+      "searchPlaceholder": "Suchen Sie nach Name, Stadt, KBO, E-Mail oder Domain",
+      "loading": "Erkannte Körper werden geladen...",
+      "error": "Die erkannten Körper konnten nicht geladen werden",
+      "empty": "Keine passenden Organismen",
+      "fill": "Füllung",
+      "resultCount": "{{count}} Organismen",
+      "columns": {
+        "name": "Name",
+        "city": "Standort",
+        "companyNumber": "KBO",
+        "email": "E-Mail",
+        "phone": "Tel.",
+        "domains": "Domänen"
+      }
+    }
+  },
+  "sitplanVisibility": {
+    "title": "Sichtbarkeit",
+    "showAll": "Alle anzeigen",
+    "groundPlans": "Grundrisse",
+    "opacity": "Transparenz",
+    "labels": "Etiketten",
+    "symbols": "Symbole",
+    "symbolSize": "Symbolgröße",
+    "wires": "Verkabelung",
+    "wiresLighting": "Lichter und Schalter",
+    "wiresSockets": "Steckdosen",
+    "wiresOther": "Sonstiges",
+    "wiresSupply": "Stromversorgung und Erdung",
+    "wireStyle": "Stil",
+    "wireStyleSpline": "Kurvig",
+    "wireStyleOrthogonal": "90 Grad",
+    "wireStyleStraight": "Gerade",
+    "wiresColorCoded": "Farbe pro Gruppe",
+    "wiresHomeRuns": "Vom Verteiler",
+    "wiresBranchFeeds": "Zwischen Zweigen"
+  },
+  "situationPlan": {
+    "bulkDeleteWarning": {
+      "title": "Symbole entfernen?",
+      "message": "Diese Symbole sind auch in Einliniendiagramm enthalten. Mit Löschen verschwinden sie auch dort; Hide hält sie dort.",
+      "hide": "Ausblenden"
+    }
+  },
+  "symbols": {
+    "library": "Symbolbibliothek",
+    "recent": "Neu",
+    "favorites": "Favoriten",
+    "armed": {
+      "placing": "Orte: {{name}}",
+      "stop": "Stoppen Sie die Veröffentlichung"
+    },
+    "socket": "Steckdose",
+    "socket_gnd": "Steckdose mit Kontakt für Schutzleiter",
+    "socket_child": "Steckdose mit Kinderschutz",
+    "socket_gnd_child": "Steckdose mit Kontakt für Schutzleiter und mit Kinderschutz",
+    "double_socket_gnd_child": "Doppelt Steckdose mit Kontakt für Schutzleiter und mit Kinderschutz",
+    "double_socket_child": "Doppelt Steckdose mit Kinderschutz",
+    "switch": "Schalter",
+    "switch_1p_twoway": "Umschalter",
+    "switch_2p_twoway": "Umschalter (2-polig)",
+    "switch_dimmer": "Dimmer",
+    "switch_1p_changeover": "Umschalter",
+    "switch_1p_pull": "Zugschalter",
+    "contact": "Kontakt",
+    "switch_impulse": "Impulsschalter",
+    "switch_cross": "Kreuzschalter",
+    "source_changeover": "Umschalter",
+    "motion_detector": "Bewegungsmelder",
+    "smoke_detector": "Rauchmelder",
+    "light_point": "Leuchte",
+    "light_spot": "Spot",
+    "light_led": "LED-Leuchte",
+    "light_fluorescent": "Leuchtstoffröhre",
+    "fixed_appliance_generic": "Gerät",
+    "oven": "Ofen",
+    "washer": "Waschmaschine",
+    "dryer": "Wäschetrockner",
+    "dishwasher": "Geschirrspüler",
+    "boiler": "Elektroboiler",
+    "ev": "EV-Ladestation",
+    "freezer": "Gefrierschrank",
+    "fridge": "Kühlschrank",
+    "microwave": "Mikrowellenherd",
+    "motor": "Motor",
+    "stove": "Herd",
+    "heating": "Elektrische Heizung",
+    "ventilation": "Belüftung",
+    "door_lock": "Türschloss",
+    "furnace": "HVAC Quelle",
+    "furnace_heatpump": "Wärmepumpe",
+    "furnace_gas": "Gasheizung",
+    "furnace_oil": "Heizölkessel",
+    "furnace_pellets": "Pelletofen",
+    "buzzer": "Summer",
+    "bell": "Anruf",
+    "horn": "Hupe",
+    "siren": "Sirene",
+    "panel_distribution": "Verteiler",
+    "relay": "Relais",
+    "domotica": "Hausautomation / intelligente Installation",
+    "energy_meter": "Energiezähler",
+    "transformer": "Transformator",
+    "rectifier": "Gleichrichter (AC → DC)",
+    "inverter": "Wechselrichter (DC → AC)",
+    "dc_dc_converter": "DC-DC-Wandler",
+    "solar_panel": "Solarpanel",
+    "battery": "Batterie",
+    "dc_bus": "DC-Schiene",
+    "mcb": "Automatik",
+    "rcd": "Fehlerstromschutzschalter",
+    "rcbo": "FI/LS-Schalter",
+    "fuse": "Sicherung",
+    "main_switch": "Hauptschalter",
+    "spd": "Überspannungsschutz",
+    "rotating_switch": "Drehschalter",
+    "earthing": "Erdung",
+    "earthing_separator": "Erdungstrenner",
+    "names": {
+      "mains": "Netzanschluss",
+      "backup_feed": "Notstromversorgung",
+      "earthing": "Erdung",
+      "earthing_separator": "Erdungstrennstelle",
+      "panel_distribution": "Verteiler",
+      "junction_box": "Abzweigdose",
+      "junction_panel": "Anschlussfeld",
+      "terminal_strip": "Klemmenleiste",
+      "mcb": "Leitungsschutzschalter",
+      "rcd": "Fehlerstromschutzschalter",
+      "rcbo": "FI/LS-Schalter",
+      "fuse": "Sicherung",
+      "main_switch": "Hauptschalter",
+      "spd": "Überspannungsschutz",
+      "rotating_switch": "Drehschalter",
+      "source_changeover": "Umschalter",
+      "socket_gnd_child": "Steckdose mit Schutzleiterkontakt und Kinderschutz",
+      "double_socket_gnd_child": "Doppelsteckdose mit Schutzleiterkontakt und Kinderschutz",
+      "socket_child": "Steckdose mit Kinderschutz",
+      "double_socket_child": "Doppelsteckdose mit Kinderschutz",
+      "modular_socket": "Modulare Steckdose",
+      "socket_gnd": "Steckdose mit Schutzleiterkontakt",
+      "socket": "Steckdose",
+      "switch": "Schalter",
+      "switch_1p_twoway": "Wechselschalter",
+      "switch_cross": "Kreuzschalter",
+      "switch_dimmer": "Dimmer",
+      "switch_1p_changeover": "Umschalter",
+      "switch_1p_pull": "Zugschalter",
+      "switch_impulse": "Impulsschalter",
+      "motion_detector": "Bewegungsmelder",
+      "smoke_detector": "Rauchmelder",
+      "relay": "Relais",
+      "light_point": "Lichtpunkt",
+      "light_spot": "Strahler",
+      "light_led": "LED-Leuchte",
+      "light_fluorescent": "Leuchtstoffröhre",
+      "stove": "Herd",
+      "oven": "Backofen",
+      "washer": "Waschmaschine",
+      "dryer": "Wäschetrockner",
+      "dishwasher": "Geschirrspüler",
+      "boiler": "Elektrischer Warmwasserspeicher",
+      "freezer": "Gefrierschrank",
+      "fridge": "Kühlschrank",
+      "microwave": "Mikrowelle",
+      "heating": "Elektroheizung",
+      "ventilation": "Lüftung",
+      "door_lock": "Türschloss",
+      "ev": "EV-Ladestation",
+      "motor": "Motor",
+      "fixed_appliance_generic": "Gerät",
+      "furnace_heatpump": "Wärmepumpe",
+      "furnace_gas": "Gasheizung",
+      "furnace_oil": "Ölheizkessel",
+      "furnace_pellets": "Pelletofen",
+      "furnace": "HVAC-Quelle",
+      "buzzer": "Summer",
+      "bell": "Klingel",
+      "horn": "Hupe",
+      "siren": "Sirene",
+      "domotica": "Gebäudeautomation / Intelligente Installation",
+      "energy_meter": "Energiezähler",
+      "transformer": "Transformator",
+      "rectifier": "Gleichrichter (AC → DC)",
+      "inverter": "Wechselrichter (DC → AC)",
+      "dc_dc_converter": "DC-DC-Wandler",
+      "solar_panel": "Solarmodul",
+      "battery": "Batterie",
+      "dc_bus": "DC-Sammelschiene",
+      "note": "Notiz / Beschriftung",
+      "contact": "Kontakt"
+    }
+  },
+  "earthing": {
+    "deleteConfirmTitle": "Erdung entfernen?"
+  },
+  "supplyAssembly": {
+    "deleteChangeoverTitle": "Umschalter entfernen?",
+    "deleteChangeoverMessage": "Wenn Sie den Übertragungsschalter entfernen, werden auch der Wechselrichterzweig und die angeschlossenen Geräte entfernt. Weitermachen?"
+  },
+  "orphan": {
+    "banner": {
+      "dev": {
+        "one": "1 verwaistes oder unter Quarantäne gestelltes Element erkannt",
+        "many": "{{count}} Waisen oder Elemente in Quarantäne erkannt"
+      },
+      "prod": {
+        "quarantinedOnly": "{{count}} versteckte Elemente wurden aufgrund eines Datenproblems wiederhergestellt.",
+        "detectedOnly": "{{count}} Artikel weisen eine Inkonsistenz auf und werden möglicherweise nicht richtig angezeigt.",
+        "both": "{{count}} Artikel erfordern aufgrund eines Datenproblems Aufmerksamkeit."
+      },
+      "viewInspector": "Öffnen Sie den Orphan-Inspektor",
+      "inspectOrRepair": "Überprüfen oder reparieren"
+    },
+    "inspector": {
+      "title": "Waiseninspektor",
+      "detected": "Probleme erkannt",
+      "quarantined": "Unter Quarantäne gestellt (versteckt)",
+      "quarantinedHint": "Diese Elemente werden gespeichert, aber nicht im Schaltplan angezeigt. Klicken Sie auf „Wiederherstellen“, um sie wiederherzustellen, oder auf „Löschen“, um sie dauerhaft zu löschen.",
+      "focus": "Fokus",
+      "quarantine": "Quarantäne",
+      "fix": "Wiederherstellung",
+      "fixAll": "Alles wiederherstellen",
+      "fixAllHint": "Führen Sie alle verfügbaren automatischen Korrekturen durch (wie bei der Wiederherstellung nach Zeile).",
+      "restore": "Wiederherstellung",
+      "remove": "Löschen",
+      "removePermanent": "Dauerhaft löschen",
+      "fixQuarantineBranchesHintCircuit": "Stellen Sie die Zweigstelle/Zweigstruktur auf diesem unter Quarantäne gestellten Stromkreis wieder her, bevor Sie ihn zurückgeben.",
+      "fixQuarantineBranchesHintEndpoint": "Stellen Sie den Zweig/die Zweigstruktur auf dem Stromkreis wieder her, der noch im Schaltplan liegt (empfohlen vor der Wiederherstellung dieses Endpunkts).",
+      "empty": "Keine Waisen oder Artikel in Quarantäne."
+    },
+    "labels": {
+      "unnamedCircuit": "[ohne Titel Stromkreis]",
+      "unnamedProtection": "[unbenannte Sicherheit]"
+    },
+    "reason": {
+      "circuitRefMismatch": "Stromkreis unter falscher Sicherheit",
+      "protectionReferenceConflict": "Widersprüchliche Verweise auf Schutzmaßnahmen",
+      "endpointNotInBranch": "Endpunkt nicht im Zweig",
+      "branchRefsMissingEndpoint": "Branch verweist auf fehlenden Endpunkt",
+      "frameContentOrphan": "Box weist auf fehlenden Inhalt hin",
+      "subCircuitSelfReference": "Stromkreis wird als eigene Unternummer Stromkreis aufgeführt",
+      "subCircuitIdMissingCircuit": "Stromkreis bezieht sich auf fehlendes Sub-Stromkreis",
+      "endpointOnPanelCircuit": "Endpunkt auf PANEL Pseudo-Stromkreis",
+      "endpointMultipleFloorPlacements": "Der Endpunkt liegt auf mehreren Etagen",
+      "endpointPlacementIntegrity": "Integritätsfehler bei der Endpunktplatzierung",
+      "endpointMissingPlanPlacement": "Fehlt im Plan",
+      "panelDistributionLabelDrift": "Panel-Symbol nicht synchronisiert",
+      "panelMissingOneWireSymbol": "Panel fehlt ein Drahtsymbol",
+      "panelGridDuplicateModule": "Doppelmodul auf Panel-Leinwand",
+      "supplyTrunkMisplacedInMainGrid": "Leistungskomponente im falschen Panelbereich",
+      "supplyTrunkVisualPlacementMissing": "Leistungskomponente fehlt im Bedienfeldbereich",
+      "splitBusWithoutBackupSupply": "Geteilte Schiene ohne Notstromversorgung",
+      "branchMultiplierEndpointsSplit": "Multiplikationssymbole sind auf einen Zweig aufgeteilt",
+      "danglingReference": "Dangling-Referenz",
+      "invalidGeometry": "Ungültige Geometrie"
+    },
+    "circuit": "Stromkreis",
+    "endpoint": "Endpunkt"
+  },
+  "validation": {
+    "title": "AREI Validierung",
+    "disabledOutsideBelgium": "Validierung außerhalb Belgiens deaktiviert.",
+    "belgianRulesOnly": "Die App prüft derzeit nur die AREI-Regeln für Belgien.",
+    "errors": "Fehler",
+    "warnings": "Warnungen",
+    "info": "Info",
+    "noIssues": "Bei diesen Prüfungen wurden keine Probleme festgestellt. Dies garantiert keine vollständige AREI-Konformität.",
+    "allClear": "Alle verfügbaren Prüfungen bestanden",
+    "checking": "Prüfen...",
+    "errorsFound": "{{count}} Fehler gefunden",
+    "warningsFound": "{{count}} Warnung(en) gefunden",
+    "revalidate": "Erneut validieren",
+    "revalidateInProgress": "Erneute Validierung…",
+    "goToIssue": "Gehe zum Problem",
+    "readMoreAboutError": "Lesen Sie mehr über diesen Fehler",
+    "readMoreAboutWarning": "Lesen Sie mehr über diese Warnung",
+    "readMoreAboutInfo": "Lesen Sie mehr über diese Nachricht",
+    "scopeLabels": {
+      "circuit": "Stromkreis",
+      "board": "Verteiler",
+      "device": "Gerät",
+      "placement": "Plansymbol",
+      "segment": "Rohr",
+      "subgraph": "Teilnetz"
+    },
+    "linkedIssuesTooltip": "Diese Probleme sind miteinander verknüpft. Wenn Sie das eine lösen, kann auch das andere verschwinden.",
+    "noFilteredIssues": "Keine Probleme mit diesen Filtern.",
+    "rules": {
+      "be.areibook1.2025": {
+        "diagram-sitplan-consistency": {
+          "shortTitle": "Lageplansymbol ohne Stromkreis-ID",
+          "message": "Für die Platzierung fehlt eine gültige Stromkreis-Endpunkt-ID",
+          "details": "Jede Platzierung einer Steckdose, Leuchte oder Bedieneinheit im Lageplan muss einem Endpunkt eines Stromkreises mit Abzweigkennzeichnung (Stromkreisbuchstabe und Nummer) zugeordnet sein. Schalter müssen auf die von ihnen gesteuerten Verbraucher verweisen.",
+          "remediation": "Stellen Sie sicher, dass alle Platzierungen Endpunkten mit gültigen Stromkreis-IDs zugeordnet sind (z. B. „A1“, „B3“)."
+        },
+        "hidden-situation-plan-symbols": {
+          "shortTitle": "Ausgeblendete Symbole im Lageplan",
+          "message": "Geräte sind auf dem Lageplan ausgeblendet",
+          "details": "Ausgeblendete Symbole werden im Lageplan nicht angezeigt.",
+          "remediation": "Öffnen Sie „Ausgeblendet anzeigen“ und wählen Sie aus, welche Geräte Sie anzeigen möchten."
+        },
+        "unplaced-situation-plan-symbols": {
+          "shortTitle": "Symbole noch nicht im Lageplan platziert",
+          "message": "Symbole wurden noch nicht im Lageplan platziert",
+          "details": "Noch nicht platzierte Symbole werden im Lageplan nicht angezeigt.",
+          "remediation": "Platzieren Sie die Symbole im Lageplan, zum Beispiel mit dem Schnellplatzierer."
+        },
+        "sources-consistency": {
+          "shortTitle": "Herkunft der Haupteinspeisung fehlt",
+          "message": "Die Herkunft der Haupteinspeisung muss angegeben werden",
+          "details": "Wenn die Haupteinspeisung nicht aus dem Stromnetz, sondern aus einer anderen Quelle stammt (z. B. einem PV-Wechselrichter), muss dies in der Installation eindeutig angegeben sein.",
+          "remediation": "Geben Sie die Hauptstromquelle in den Installationseinstellungen an."
+        },
+        "nonhousehold-board-grounded-network": {
+          "shortTitle": "Geerdetes Netzsystem nicht dargestellt",
+          "message": "Das geerdete Netzsystem ist im Verteiler nicht angegeben",
+          "details": "Die Kennzeichnung eines Verteilers in einer Nichtwohnanlage muss das geerdete Netzsystem angeben.",
+          "remediation": "Öffnen Sie die Verteiler-Eigenschaften, aktivieren Sie „Geplanter Netztyp“ und wählen Sie das entsprechende TT-, TN- oder IT-Netzsystem aus."
+        },
+        "nonhousehold-board-numbering": {
+          "shortTitle": "Verteilernummerierung fehlt",
+          "message": "Die laufenden Nummern der Verteiler werden nicht angezeigt",
+          "details": "Jeder Verteiler einer Nichtwohnanlage muss eine eigene laufende Nummer tragen.",
+          "remediation": "Öffnen Sie die Verteilereigenschaften und aktivieren Sie die Verteilernummerierung."
+        },
+        "nonhousehold-circuit-cable-length": {
+          "shortTitle": "Kabellänge nicht dargestellt",
+          "message": "Die Leitungslänge des Stromkreises wird nicht angezeigt",
+          "details": "Die Dokumentation von Stromkreisen in Nichtwohnanlagen muss die Länge der elektrischen Leitungen enthalten.",
+          "remediation": "Wählen Sie die Leitung des Stromkreises aus, geben Sie eine positive Länge an und blenden Sie die Leitungslänge im Stromlaufplan ein."
+        },
+        "household-breaking-capacity": {
+          "shortTitle": "Ausschaltvermögen zu niedrig",
+          "message": "Das Ausschaltvermögen des Leitungsschutzschalters liegt unter 3000 A",
+          "details": "In Hausinstallationen benötigen Überstromschutzgeräte nach dem Anschluss ein Ausschaltvermögen von mindestens 3000 A.",
+          "remediation": "Wählen Sie einen Leitungsschutzschalter mit einem Ausschaltvermögen von mindestens 3000 A."
+        },
+        "household-supply-breaking-capacity": {
+          "shortTitle": "Ausschaltvermögen des Einspeiseschutzes zu niedrig",
+          "message": "Das Ausschaltvermögen des Einspeiseschutzes ist zu niedrig",
+          "details": "Der Schutz am Netzanschluss vor dem Zähler muss ein Ausschaltvermögen von mindestens 6000 A haben. Nachgeschaltete Schutzschalter müssen mindestens 3000 A erreichen.",
+          "remediation": "Wählen Sie den Einspeiseschutzschalter aus und erhöhen Sie sein Ausschaltvermögen."
+        },
+        "maximum-protected-length": {
+          "shortTitle": "Leitung für den Schutzschalter zu lang",
+          "message": "Kabellänge überschreitet die maximal geschützte Länge",
+          "details": "Ein Kurzschluss am Leitungsende muss den Schutzschalter sofort auslösen.",
+          "remediation": "Wählen Sie einen größeren Kabelquerschnitt, eine kürzere Leitung oder einen Schutzschalter mit niedrigerem Nennstrom bzw. einer anderen Auslösecharakteristik."
+        },
+        "overcurrent-upstream": {
+          "shortTitle": "Kein vorgeschalteter Überstromschutz",
+          "message": "Stromkreis verfügt über keinen vorgeschalteten Überstromschutz",
+          "details": "Jeder Stromkreis muss durch einen geeigneten Überstromschutz (Leitungsschutzschalter, FI/LS-Schalter oder Sicherung) geschützt sein.",
+          "remediation": "Installieren Sie am Anfang des Stromkreises einen Leitungsschutzschalter, FI/LS-Schalter oder eine Sicherung, um ihn gegen Überstrom zu schützen."
+        },
+        "rcd-grouping": {
+          "shortTitle": "Zu viele Stromkreise je Fehlerstrom-Schutzschalter",
+          "message": "Zu viele Stromkreise an einem 30-mA-Fehlerstrom-Schutzschalter",
+          "details": "Ein 30-mA-Fehlerstrom-Schutzschalter darf höchstens 8 Stromkreise schützen (Stromkreise mit eigenem FI/LS-Schalter zählen nicht mit). So werden unerwünschte Auslösungen und eine Häufung von Fehlerströmen begrenzt.",
+          "remediation": "Verringern Sie die Zahl der an diesen Fehlerstrom-Schutzschalter angeschlossenen Stromkreise oder teilen Sie sie auf mehrere Geräte auf. Stromkreise mit eigenem FI/LS-Schalter zählen nicht mit."
+        },
+        "rcd-selectivity": {
+          "shortTitle": "Fehler bei der Selektivität der Fehlerstrom-Schutzschalter",
+          "message": "Selektivität der Fehlerstrom-Schutzschalter: Der vorgeschaltete Schutz muss weniger empfindlich sein als der nachgeschaltete.",
+          "details": "Der Haupt-Fehlerstrom-Schutzschalter (z. B. 300 mA für den Brandschutz) muss vor empfindlicheren Fehlerstrom-Schutzschaltern (z. B. 30 mA für den Personenschutz) liegen. Schalten Sie niemals einen 30-mA-Schutzschalter vor einen 300-mA-Schutzschalter.",
+          "remediation": "Stellen Sie sicher, dass der Haupt-Fehlerstrom-Schutzschalter 300 mA (oder einen weniger empfindlichen Wert) und die nachgeschalteten Fehlerstrom-Schutzschalter 30 mA (empfindlicher) haben. Der Bemessungsdifferenzstrom muss vorgeschaltet also höher sein als nachgeschaltet."
+        },
+        "bathroom-rcd-30ma": {
+          "shortTitle": "Badezimmer: Fehlerstromschutz mit 30 mA erforderlich",
+          "message": "Badezimmer/Feuchtraum: Fehlerstrom-Schutzschalter oder FI/LS-Schalter mit 30 mA erforderlich",
+          "details": "Stromkreise, die einen Raum mit Badewanne und/oder Dusche versorgen, müssen durch einen Fehlerstrom-Schutzschalter mit hoher bzw. sehr hoher Empfindlichkeit (typischerweise 30 mA) geschützt werden. Da sich der Raum nicht immer sicher bestimmen lässt, wird diese Prüfung ausgelöst, wenn die Stromkreisnotizen Begriffe für Badezimmer, Badewanne oder Dusche enthalten (in beliebiger Sprache).",
+          "remediation": "Führen Sie diesen Stromkreis über einen 30-mA-Fehlerstrom-Schutzschalter oder verwenden Sie einen FI/LS-Schalter mit 30 mA. Versorgt der Stromkreis kein Badezimmer oder einen anderen Feuchtraum, passen Sie die Stromkreisnotizen an."
+        },
+        "max-endpoints-per-circuit": {
+          "shortTitle": "Zu viele Endpunkte im Stromkreis",
+          "message": "Zu viele Endpunkte im Stromkreis",
+          "details": "Für jeden Stromkreis gilt eine Höchstzahl an Endpunkten, damit Lastverteilung und Schutz gewährleistet sind.",
+          "remediation": "Teilen Sie den Stromkreis in mehrere Stromkreise auf, um die Anzahl der Endpunkte zu reduzieren."
+        },
+        "minimum-lighting-circuits": {
+          "shortTitle": "Zu wenige Beleuchtungskreise",
+          "message": "Mindestens zwei separate Beleuchtungskreise erforderlich",
+          "details": "In einem typischen Wohngebäude schreibt das AREI mindestens zwei getrennte Beleuchtungsstromkreise vor (Beleuchtungs- oder gemischte Stromkreise). Es zählen nur Stromkreise ohne Unterstromkreise; ein übergeordneter Stromkreis mit Unterstromkreisen wird nicht mitgezählt.",
+          "remediation": "Fügen Sie einen zweiten Beleuchtungs- oder gemischten Stromkreis hinzu, damit die Beleuchtung auf mindestens zwei Stromkreise verteilt ist."
+        },
+        "installation-earthing": {
+          "shortTitle": "Keine Erdung",
+          "message": "In der Installation ist keine Erdung dargestellt",
+          "details": "An keinem Verteiler ist eine Erdelektrode dargestellt. Das kann zutreffen, aber die meisten Installationen benötigen eine Erdung.",
+          "remediation": "Fügen Sie die Erdung am Hauptverteiler hinzu oder führen Sie sie zu einem nachgeordneten Verteiler, falls sich die Erdelektrode dort befindet."
+        },
+        "multiple-earthing-locations": {
+          "shortTitle": "Erdung auf mehreren Verteilern",
+          "message": "Die Erdung ist an mehreren Verteilern dargestellt",
+          "details": "In der Installation sind Erdelektroden an mehreren Verteilern dargestellt. Prüfen Sie, ob das korrekt ist; normalerweise gibt es nur einen Erdungspunkt.",
+          "remediation": "Lassen Sie die Erdung an einem Verteiler und entfernen Sie die zusätzliche Erdelektrode."
+        },
+        "cable-cross-section": {
+          "shortTitle": "Kabel ohne Querschnitt",
+          "message": "Kabelsegmente im Stromkreis haben keinen Querschnitt",
+          "details": "Alle Kabelsegmente müssen einen gültigen Querschnitt haben.",
+          "remediation": "Geben Sie den Querschnitt (sectionMm2) für alle Kabelsegmente im Stromkreis an."
+        },
+        "breaker-vs-cross-section": {
+          "shortTitle": "Schutz zu groß für Kabel",
+          "message": "Überstromschutz im Verhältnis zum Kabelquerschnitt",
+          "details": "Der Nennstrom des Leitungsschutzschalters oder FI/LS-Schalters darf die zulässige Strombelastbarkeit des Kabelquerschnitts nicht überschreiten.",
+          "remediation": "Reduzieren Sie den Nennstrom des Überstromschutzes oder erhöhen Sie den Kabelquerschnitt, um die AREI-Grenzwerte einzuhalten."
+        },
+        "minimum-cross-section": {
+          "shortTitle": "Kabelquerschnitt unter dem Mindestwert",
+          "message": "Kabelquerschnitt für diesen Stromkreistyp zu klein",
+          "details": "Das AREI 5.2.1 schreibt für jeden Stromkreistyp einen Mindestquerschnitt vor.",
+          "remediation": "Erhöhen Sie den Kabelquerschnitt mindestens auf den für diesen Stromkreistyp vorgeschriebenen Wert."
+        },
+        "cascade-protection": {
+          "shortTitle": "Nachgeschalteter Schutz zu hoch bemessen",
+          "message": "Nachgeschalteter Schutz höher bemessen als vorgeschalteter Schutz",
+          "details": "Nachgeschaltete Schutzschalter dürfen nicht höher bemessen sein als der vorgeschaltete Schutz.",
+          "remediation": "Passen Sie die Nennströme so an, dass die Nennströme der nachgeschalteten Leitungsschutzschalter gleich oder niedriger als die des vorgeschalteten Leitungsschutzschalters sind."
+        },
+        "main-rcd": {
+          "shortTitle": "Haupt-Fehlerstrom-Schutzschalter fehlt oder ist ungeeignet",
+          "message": "Ein Haupt-Fehlerstrom-Schutzschalter oder FI/LS-Schalter muss in der Einspeisung vorhanden und korrekt dimensioniert sein",
+          "details": "AREI Buch 1 schreibt am Anfang der Anlage einen Haupt-Fehlerstrom-Schutzschalter vor, typischerweise Typ A mit 300 mA und mindestens 40 A Nennstrom.",
+          "remediation": "Installieren Sie einen Haupt-Fehlerstrom-Schutzschalter oder FI/LS-Schalter in der Einspeisung vor dem Hauptverteiler. Er muss mindestens 40 A, höchstens 300 mA und mindestens Typ A haben."
+        },
+        "board-global-isolation": {
+          "shortTitle": "Verteiler lässt sich nicht vollständig ausschalten",
+          "message": "Im Verteiler fehlt eine Vorrichtung, die alle aktiven Leiter abschaltet",
+          "details": "Jeder Schalt- und Verteiler, einschließlich Unterverteilern, muss sich vollständig von allen aktiven Leitern trennen lassen – durch einen lokalen Trennschalter oder eine vorgeschaltete Einspeiseschutzeinrichtung.",
+          "remediation": "Installieren Sie im Verteiler einen lokalen Haupt- oder Trennschalter, oder stellen Sie sicher, dass eine vorgeschaltete Einspeisevorrichtung alle aktiven Leiter abschaltet."
+        },
+        "board-local-isolation-hint": {
+          "shortTitle": "Kein lokaler Trennschalter",
+          "message": "Verteiler kann nur vorgeschaltet abgeschaltet werden",
+          "details": "Der Verteiler kann über eine vorgeschaltete Einspeisevorrichtung abgeschaltet werden, hat aber keinen eigenen Haupt- oder Trennschalter. Eine lokale Abschaltmöglichkeit erhöht die Sicherheit und erleichtert die Wartung.",
+          "remediation": "Erwägen Sie, in diesem Verteiler einen lokalen Haupt- oder Trennschalter einzubauen."
+        },
+        "switch-load-reference": {
+          "shortTitle": "Schalter ohne Lasten",
+          "message": "Schalter verfügt über keine gesteuerten Lasten",
+          "details": "Jeder Schalter muss mindestens eine gesteuerte Last (controlledEndpointIds) oder eine ausdrückliche „controls“-Referenz haben.",
+          "remediation": "Fügen Sie dem Schalter controlledEndpointIds hinzu, um festzulegen, welche Lasten er steuert."
+        },
+        "switch-sequence": {
+          "shortTitle": "Ungültige Wechsel-/Kreuzschaltung",
+          "message": "Wechsel- und Kreuzschalter sind in diesem Abzweig nicht korrekt angeordnet.",
+          "details": "Eine Treppenhausschaltung benötigt genau zwei Wechselschalter: Wechselschalter → Wechselschalter oder Wechselschalter → (Kreuzschalter) → Wechselschalter. Es darf keinen dritten Wechselschalter und keine weitere Schalterkette geben.",
+          "remediation": "Verwenden Sie genau zwei Wechselschalter: Wechselschalter → Wechselschalter oder Wechselschalter → Kreuzschalter → … → Kreuzschalter → Wechselschalter. Entfernen Sie einen zusätzlichen Wechselschalter oder einen Wechselschalter zwischen Kreuzschaltern."
+        },
+        "electrical-domain": {
+          "shortTitle": "AC/DC-Domänenkonflikt",
+          "message": "Nichtübereinstimmung der elektrischen Domäne (AC/DC)",
+          "details": "Die Domäne einer Verbindung muss mit der erwarteten Eingabedomäne der verbundenen Komponente übereinstimmen. Nur Konverter dürfen verschiedene Domänen verbinden.",
+          "remediation": "Stellen Sie für die Leitung den erwarteten elektrischen Bereich (AC/DC) ein oder verwenden Sie an der Übergangsstelle einen Wandler (Transformator, Gleichrichter, Wechselrichter oder DC-DC-Wandler)."
+        },
+        "dc-cross-section-heuristic": {
+          "shortTitle": "Warnung zum DC-Kabelquerschnitt",
+          "message": "Geladener DC-Strom kann für den Stromanschluss verwendet werden",
+          "details": "Diese Warnung verwendet eine konservative Schätzung für DC-Segmente (I ~= P/U) basierend auf bekannten Wandler-/Geräteleistungen und DC-Spannungswerten. Dies dient der Information und sollte anhand tatsächlicher Gerätedaten und Installationsbedingungen überprüft werden.",
+          "remediation": "Überprüfen Sie die Ausgangsleistung des Wandlers und die tatsächliche Gleichspannung/den tatsächlichen Gleichstrom. Erhöhen Sie ggf. den DC-Leitungsquerschnitt, reduzieren Sie die erwartete Belastung oder passen Sie die Konverter-/Gerätekonfiguration an."
+        },
+        "post-main-bus-pe-conductor": {
+          "shortTitle": "PE-Leiter hinter dem Hauptverteiler nicht durchgängig",
+          "message": "AC-Stromkreise hinter der Hauptsammelschiene benötigen einen durchgängigen PE-Pfad",
+          "details": "Der Schutzleiter kann Teil des Kabels (G) sein oder als unabhängiger Leiter neben den aktiven Leitern verlaufen. Interne Verbindungen zwischen Schutzeinrichtungen dürfen nur aktive Leiter enthalten; PE bleibt über die Erdungsschiene durchgehend und darf diese Geräte nicht passieren. Die DC-Verkabelung wird nicht überprüft.",
+          "remediation": "Sorgen Sie für einen durchgängigen PE-Pfad in der abgehenden AC-Verkabelung. Verwenden Sie ein mit G gekennzeichnetes Kabel oder einen korrekt dimensionierten und verlegten separaten Schutzleiter."
+        },
+        "heavy-appliance-dedicated-circuit": {
+          "shortTitle": "Leistungsstarkes Gerät ohne eigenen Stromkreis",
+          "message": "Leistungsstarke fest angeschlossene Geräte benötigen jeweils einen eigenen Stromkreis",
+          "details": "Elektroherde, Kochfelder, Backöfen, Waschmaschinen, Trockner und Geschirrspüler benötigen jeweils einen zugeordneten Stromkreis ohne zusätzliche Steckdosen, Beleuchtung oder andere Verbraucher.",
+          "remediation": "Schließen Sie jedes leistungsstarke fest angeschlossene Gerät an einen eigenen Stromkreis an oder teilen Sie den Stromkreis so auf, dass jedes Gerät einen eigenen Schutzschalter und eine eigene Leitung hat."
+        },
+        "fixed-appliance-dedicated-hint": {
+          "shortTitle": "Fest angeschlossenes Gerät nicht zugeordnet",
+          "message": "Fest angeschlossenes Gerät ohne eigenen zugeordneten Stromkreis",
+          "details": "Geräte werden häufig auf einem eigenen Stromkreis platziert, sodass Kabelquerschnitt und Schutz auf das Gerät und zukünftige Ersetzungen abgestimmt sind.",
+          "remediation": "Erwägen Sie die Platzierung des fest angeschlossenen Geräts auf einem eigenen Stromkreis ohne zusätzliche Steckdosen, Beleuchtung oder andere Verbraucher."
+        },
+        "stove-sizing-hint": {
+          "shortTitle": "Tipps zur Dimensionierung des Herdstromkreises",
+          "message": "Empfohlene Dimensionierung des Herdstromkreises",
+          "details": "In der Praxis wird ein vollwertiger Elektroherd häufig über einen eigenen Stromkreis mit etwa 32 A und 6 mm² Kupfer versorgt. Kleinere Werte können rechtlich ausreichen, wenn sie zum Gerät passen.",
+          "remediation": "Erwägen Sie, den Bemessungsstrom des Leitungsschutzschalters und den Kabelquerschnitt des Herdstromkreises auf etwa 32 A und 6 mm² zu erhöhen, oder prüfen Sie, ob die aktuelle Dimensionierung der tatsächlichen Herdleistung entspricht."
+        },
+        "rcd-required-by-circuit-type": {
+          "shortTitle": "30 mA Diff. erforderlich",
+          "message": "Fehlerstrom-Schutzschalter 30 mA erforderlich für bestimmte Haushalte und EV-Stromkreise",
+          "details": "Beleuchtung, allgemeine Steckdosen, Waschmaschinen, Trockner, Geschirrspüler und Ladestromkreise für Elektrofahrzeuge erfordern einen 30-mA-Fehlerstromschutz gemäß AREI 4.2.4.3(b) und 7.22.4.1.",
+          "remediation": "Führen Sie diesen Stromkreis über einen Fehlerstrom-Schutzschalter oder FI/LS-Schalter mit 30 mA – im Verteiler oder über ein vorgeschaltetes 30-mA-Gerät."
+        },
+        "eendraad-orphans": {
+          "shortTitle": "Verwaiste oder falsch verknüpfte Elemente im Stromlaufplan",
+          "message": "Stromkreis, Endpunkt oder Rahmeninhalt stimmt nicht mit dem Stromlaufplan überein",
+          "details": "Einige Stromkreise, Endpunkte oder Rahmeninhalte sind falsch verknüpft. Dadurch fehlen sie im Stromlaufplan oder erscheinen unter dem falschen Schutzgerät. Endpunkte, die auch im Lageplan dargestellt werden sollen, haben möglicherweise keine Platzierung. Prüfen Sie die Unterstromkreiszuordnungen, Abzweig-Endpunktlisten und Rahmenverweise oder ergänzen Sie die fehlenden Platzierungen.",
+          "remediation": "Stellen Sie sicher, dass jeder Stromkreis genau einem Schutzgerät zugeordnet ist. Ordnen Sie jeden Endpunkt einem Abzweig zu oder entfernen Sie ihn. Korrigieren oder entfernen Sie Rahmenverweise auf fehlende Elemente und platzieren Sie die fehlenden Endpunkte im Lageplan."
+        },
+        "phase-protection-compatibility": {
+          "shortTitle": "Poolaantal klopt misschien nie"
+        },
+        "duplicate-panel-protection-label": {
+          "shortTitle": "Doppelte Schutzgerätebezeichnung am Verteiler",
+          "message": "Mehrere Schutzgeräte in diesem Verteiler haben dieselbe Bezeichnung",
+          "details": "Jedes Schutzgerät in einem Verteiler (Hauptsammelschiene, Unterverteilungsschiene, Einspeisebereich oder Einspeisung) braucht eine eindeutige Bezeichnung, damit Stromkreise im Stromlaufplan und in der Verteilerzuordnung erkennbar bleiben. Es handelt sich nicht um eine fehlende Verkabelungsverbindung, sondern um doppelte Bezeichnungen.",
+          "remediation": "Ändern Sie eine der doppelten Schutzgerätebezeichnungen oder aktivieren Sie die automatische Benennung, damit alle Bezeichnungen eindeutig sind."
+        },
+        "converter-backup-labels": {
+          "shortTitle": "Etikett auf der Notstromversorgung fehlt",
+          "message": "Ein Hinweis auf die Back-up-Funktion mit einem Etikett",
+          "details": "Komponenten der Notstromversorgung befinden sich außerhalb der Hauptsammelschiene und werden nicht automatisch benannt.",
+          "remediation": "Beschriften Sie jeden Schutz und Verbraucher im Backup-Zweig des Wechselrichters manuell eindeutig."
+        }
+      }
+    },
+    "orphanDetection": {
+      "circuitRefMismatch": "Stromkreis {{circuitCode}} ist dem Schutzgerät „{{listedUnderLabel}}“ zugeordnet, erscheint im Stromlaufplan aber unter Stromkreis {{parentCircuitCode}} (Schutzgerät „{{displayedUnderLabel}}“).",
+      "protectionReferenceConflict": "Stromkreis {{circuitCode}} wird mehreren Schutzgeräten zugeordnet ({{protectionLabels}}). Bei verschachtelten Fehlerstrom-Schutzschaltern und FI/LS-Schaltern bleibt der Stromkreis seinem Schutzschalter zugeordnet und wird über den Ankerstromkreis verbunden. Korrigieren Sie zuerst die Topologie des Stromlaufplans.",
+      "endpointNotInBranch": "Endpunkt „{{endpointLabel}}“ im Stromkreis {{circuitCode}} ist keinem Abzweig zugeordnet und erscheint nicht im Stromlaufplan.",
+      "branchRefsMissingEndpoint": "Abzweig „{{branchLabel}}“ im Stromkreis {{circuitCode}} verweist auf den fehlenden Endpunkt {{endpointId}}.",
+      "frameContentOrphans": "Box „{{frameTitle}}“ verweist auf fehlenden oder ungültigen Inhalt ({{contentId}}).",
+      "subCircuitSelfReference": "Stromkreis „{{circuitCode}}“ führt seine eigene ID in subCircuitIds auf (ungültig). Möglicherweise ist er im Stromlaufplan nicht sichtbar, erscheint aber in Auswahllisten.",
+      "subCircuitIdMissingCircuit": "Stromkreis „{{parentCircuitCode}}“ verweist auf einen fehlenden Unterstromkreis (ID: {{missingCircuitId}}).",
+      "endpointOnPanelCircuit": "Endpunkt „{{endpointLabel}}“ ist mit dem Pseudo-Stromkreis PANEL verbunden und wird im Stromlaufplan nicht korrekt angezeigt.",
+      "endpointMultipleFloorPlacements": "Endpunkt „{{endpointLabel}}“ ist auf {{floorCount}} Stockwerken platziert, obwohl das Symbol nur einmal platziert werden darf.",
+      "endpointPlacementIntegrity": "Endpunkt „{{endpointLabel}}“ hat ungültige Platzierungsdaten ({{violation}}).",
+      "planPlacementIdentityConflict": "Die Lageplanplatzierung „{{placementId}}“ wird von {{ownerLabels}} gemeinsam genutzt. Symbole können dadurch überlappen, verschwinden oder gemeinsam ausgewählt werden. Erstellen Sie die betroffenen Platzierungen mit eindeutigen IDs neu.",
+      "endpointMissingPlanPlacement": "{{endpointLabel}} ({{circuitCode}}) – außerhalb des Plans.",
+      "panelDistributionLabelDrift": "Verteilersymbol „{{endpointLabel}}“ stimmt nicht mit Verteiler „{{panelName}}“ überein (Stromkreis {{circuitCode}}).",
+      "panelMissingOneWireSymbol": "Für Verteiler „{{panelName}}“ fehlt das Einspeisesymbol oder die Verknüpfung im Stromlaufplan.",
+      "panelGridDuplicateModule": "„{{moduleLabel}}“ wird im Verteiler mehrmals angezeigt. Behalten Sie das vollständige Modul und blenden Sie das kleinere Duplikat aus.",
+      "supplyTrunkMisplacedInMainGrid": "Einspeisekomponente „{{label}}“ befindet sich im Hauptfeld (Reihe {{row}}, Spalte {{col}}), gehört aber in den Einspeisebereich. Die Verteilerdarstellung und die Einspeisung im Stromlaufplan stimmen nicht überein.",
+      "supplyTrunkVisualPlacementMissing": "Die Einspeisekomponente „{{label}}“ ist in der Einspeisetopologie vorhanden, hat aber keine sichtbare Platzierung im Verteiler.",
+      "splitBusWithoutBackupSupply": "Verteiler „{{panelName}}“ hat {{busSectionCount}} Sammelschienenabschnitte, aber keine angeschlossene Notstromversorgung. Führen Sie die Abschnitte wieder zu einer gemeinsamen Netzversorgung zusammen.",
+      "supplyAssemblyHandoffTargetMissing": "Die Einspeiseverbindung verweist auf den fehlenden Stromkreis {{missingCircuitId}}.",
+      "branchMultiplierEndpointsSplit": "Stromkreis {{circuitCode}}: Abzweig „{{branchLabel}}“ hat {{absorbCount}} zusätzliche Multiplikationssymbole als separate Endpunkte; sie sollten einen Endpunkt mit mehreren Platzierungen bilden. Verwenden Sie die Reparaturfunktion in der Prüfung verwaister Elemente."
+    },
+    "primitives": {
+      "supplyModePaths": {
+        "message": "Kein gültiger Netz-/Sicherungspfad für {{phases}}",
+        "details": "Die gezeichnete Topologie enthält kein vollständiges und koordiniertes Netz und keinen Backup-Pfad für {{phases}}.",
+        "remediation": "Schließen Sie die Netz-, Backup- und Lastseite wieder an, sodass jede gezogene Phase über einen vollständigen Strompfad verfügt."
+      },
+      "supplyConductorProtectionCoordination": {
+        "message": "{{protectionLabel}}: Leiter von {{section}} mm² ist zu klein für den Schutz von {{ratingA}} A",
+        "details": "Der gezogene Stromleiter von {{section}} mm² kann durch dieses Schutzgerät mit maximal {{maxRatingA}} A geschützt werden, die gezogene Nennleistung beträgt jedoch {{ratingA}} A.",
+        "remediation": "Erhöhen Sie den Leiterquerschnitt oder verringern Sie die Nennleistung des vorgeschalteten Schutzes."
+      },
+      "duplicatePanelProtectionLabels": {
+        "message": "Die Schutzgerätebezeichnung „{{label}}“ kommt in diesem Verteiler {{count}}-mal vor",
+        "details": "Doppelte Schutzgerätebezeichnungen im selben Verteiler (Hauptsammelschiene, Unterverteilungsschiene oder Einspeisung) erschweren die Zuordnung der Stromkreise. Ändern Sie eine Bezeichnung oder aktivieren Sie die automatische Benennung."
+      },
+      "converterBackupLabels": {
+        "protection": {
+          "message": "Der Schutz der Notstromversorgung ist nicht gekennzeichnet",
+          "details": "Schutzfunktionen im Backup-Zweig eines Wechselrichters werden nicht automatisch benannt. Fügen Sie ein klares manuelles Etikett hinzu."
+        },
+        "endpoint": {
+          "message": "Verbraucher an der Notstromversorgung hat keine Beschriftung",
+          "details": "Verbraucher im Backup-Zweig eines Wechselrichters werden nicht automatisch benannt. Fügen Sie ein klares manuelles Etikett hinzu."
+        }
+      },
+      "protectionPhaseCompatibility": {
+        "deviceLabel": "Schutzgerät",
+        "group": {
+          "message": "{{count}} Schutzgeräte passen möglicherweise nicht zu dieser {{availablePoleCount}}-poligen Einspeisung",
+          "details": "Betroffene Schutzgeräte: {{deviceLabels}}. Prüfen Sie deren Phasen- und Polzahl-Einstellungen für diese Einspeisung."
+        },
+        "neutralUnavailable": {
+          "message": "{{deviceLabel}} verwendet einen Neutralleiter, aber dieses Netz hat keinen.",
+          "details": "Diese Kombination ist möglicherweise nicht korrekt. Überprüfen Sie die Phasen- oder Poleinstellung."
+        },
+        "tooManyPoles": {
+          "message": "{{deviceLabel}} ist {{poleCount}}-polig; das ist möglicherweise zu viel für diese {{availablePoleCount}}-polige Einspeisung.",
+          "details": "Diese Kombination ist möglicherweise nicht korrekt. Überprüfen Sie die Pooleinstellung."
+        },
+        "tooFewPoles": {
+          "message": "{{deviceLabel}} ist {{poleCount}}-polig; das ist möglicherweise zu wenig für dieses Dreiphasennetz.",
+          "details": "Diese Kombination ist möglicherweise nicht korrekt. Überprüfen Sie die Pooleinstellung."
+        }
+      },
+      "hasUpstreamOvercurrent": {
+        "message": "Stromkreis {{circuitCode}} verfügt über keinen vorgeschalteten Überstromschutz",
+        "details": "Jedem Stromkreis muss ein geeigneter Überstromschutz (Leitungsschutzschalter, FI/LS-Schalter oder Sicherung) vorgeschaltet sein."
+      },
+      "countUnderThreshold": {
+        "message": "Anzahl {{count}} überschreitet den Grenzwert {{threshold}}",
+        "details": "Die Anzahl {{count}} überschreitet den zulässigen Höchstwert {{threshold}}."
+      },
+      "hasValue": {
+        "message": "Erforderlicher Wert für {{fieldName}} fehlt",
+        "details": "Das Pflichtfeld {{fieldName}} fehlt oder ist nicht definiert."
+      },
+      "switchHasControlledLoads": {
+        "message": "Schalter {{switchLabel}} verfügt über keine gesteuerten Lasten",
+        "details": "Jeder Schalter muss mindestens eine Last steuern (Licht, Steckdose oder Gerät)."
+      },
+      "branchSwitchSequence": {
+        "wrongTwoWayCount": {
+          "message": "Abzweig {{branchLabel}} zu Stromkreis {{circuitCode}}: genau zwei Umschalter erforderlich",
+          "details": "Dieser Abzweig hat in der Treppenhausschaltung nicht genau zwei Wechselschalter. Verwenden Sie genau zwei: Wechselschalter → Wechselschalter oder Wechselschalter → Kreuzschalter → Wechselschalter."
+        },
+        "twoWayChaining": {
+          "message": "Zweig {{branchLabel}} auf Stromkreis {{circuitCode}}: zusätzlicher Schalter in der Kette",
+          "details": "Setzen Sie keinen Wechselschalter zwischen Kreuzschalter oder hinter die Schalterfolge. Gültige Reihenfolge: Wechselschalter → (nur Kreuzschalter) → Wechselschalter."
+        },
+        "crossWithoutLeadingTwoWay": {
+          "message": "Abzweig {{branchLabel}} im Stromkreis {{circuitCode}}: Vor dem Kreuzschalter fehlt ein Wechselschalter",
+          "details": "Beginnen Sie mit einem Wechselschalter, fügen Sie bei Bedarf Kreuzschalter hinzu und schließen Sie mit dem zweiten Wechselschalter ab."
+        },
+        "crossWithoutTrailingTwoWay": {
+          "message": "Abzweig {{branchLabel}} im Stromkreis {{circuitCode}}: Hinter dem Kreuzschalter fehlt ein Wechselschalter",
+          "details": "Schließen Sie die Schalterfolge nach den Kreuzschaltern und vor dem Verbraucher mit einem Wechselschalter ab."
+        }
+      },
+      "placementHasValidIdentifier": {
+        "message": "Platzierung für „{{endpointLabel}}“ fehlt gültige Stromkreis-ID",
+        "details": "Die Lageplanplatzierung für „{{endpointLabel}}“ muss einem Endpunkt mit gültigem Stromkreisbuchstaben und gültiger Punktnummer (z. B. „A1“) zugeordnet sein. Prüfen Sie, ob das Symbol im Stromlaufplan zu einem Stromkreis gehört."
+      },
+      "hiddenSituationPlanSymbolsAreVisible": {
+        "message_one": "{{count}} Symbol ist im Lageplan ausgeblendet",
+        "message_other": "{{count}} Symbole sind im Lageplan ausgeblendet",
+        "details": "Versteckte Geräte:\n{{devices}}\nDas",
+        "message_few": "{{count}} Symbole sind im Lageplan ausgeblendet",
+        "message_many": "{{count}} Symbole sind im Lageplan ausgeblendet"
+      },
+      "situationPlanSymbolsArePlaced": {
+        "message_one": "{{count}} Symbol wurde noch nicht im Lageplan platziert",
+        "message_other": "{{count}} Symbole wurden noch nicht im Lageplan platziert",
+        "details": "Noch nicht gepostet:\n{{devices}}",
+        "message_few": "{{count}} Symbole wurden noch nicht im Lageplan platziert",
+        "message_many": "{{count}} Symbole wurden noch nicht im Lageplan platziert"
+      },
+      "cableHasCrossSection": {
+        "message": "Stromkreis hat Kabelsegmente ohne Querschnitt",
+        "details": "Alle Kabelsegmente müssen einen gültigen Querschnitt haben."
+      },
+      "breakerSizeMatchesCrossSection": {
+        "message": "Stromkreis {{circuitCode}}: Schutz {{breakerRating}}A überschreitet den maximalen Wert {{maxRating}}A für {{section}}mm²-Kabel",
+        "details": "Für Stromkreis {{circuitCode}} ist der Leitungsschutzschalterwert {{breakerRating}}A höher als der zulässige Strom für ein {{section}}mm²-Kupferkabel (maximal {{maxRating}}A). Senken Sie den Leitungsschutzschalter ab oder vergrößern Sie den Kabelquerschnitt."
+      },
+      "minimumCrossSection": {
+        "message": "Stromkreis {{circuitCode}}: Kabelquerschnitt {{section}}mm² ist kleiner als der Mindestquerschnitt {{required}}mm²",
+        "details": "Stromkreis {{circuitCode}} hat einen Kabelquerschnitt von {{section}} mm²; der AREI-Mindestquerschnitt für diesen Stromkreistyp beträgt {{required}} mm²."
+      },
+      "dcCrossSectionHeuristic": {
+        "message": "Stromkreis {{circuitCode}}: DC-Dimensionierungswarnung – geschätzter {{estimatedCurrentA}}A übersteigt ~{{sectionAmpacity}}A bei {{section}}mm²",
+        "details": "Heuristische Berechnung für den DC-Anteil von Stromkreis {{circuitCode}}: I ≈ P/U = {{estimatedPowerW}}W / {{estimatedVoltage}}V = {{estimatedCurrentA}}A. Der kleinste Querschnitt der DC-Verkabelung beträgt {{section}}mm² (vereinfachter Referenzwert ~{{sectionAmpacity}}A). Spannungsquelle: {{voltageSourceLabel}}. Dies ist eine Warnung, kein schwerwiegender AREI-Fehler. Überprüfen Sie die Spezifikationen des Konverters und der Geräte.",
+        "voltageSources": {
+          "fallback-48V": "Standardwert 48 V (keine explizite Gleichspannung gefunden)",
+          "conversion-device": "Spannungseinstellung des Konverters",
+          "endpoint-device": "Spannungseinstellung der Batterie oder der Solarmodule"
+        }
+      },
+      "cascadeProtectionRatings": {
+        "message": "Der nachgeschaltete Schutz ist höher bemessen als der vorgeschaltete Schutz",
+        "details": "Ein nachgeschalteter Leitungsschutzschalter oder FI/LS-Schalter darf nicht höher bemessen sein als der vorgeschaltete Schutz."
+      },
+      "supplyHasMainBreaker": {
+        "message": "Die Haupteinspeisung hat keinen vorgeschalteten Schutz",
+        "details": "Vor dem Hauptverteiler muss die Einspeisung durch einen Hauptschutzschalter oder Hauptschalter abschaltbar sein."
+      },
+      "hasSupplyOrigin": {
+        "message": "Die Herkunft der Haupteinspeisung muss angegeben werden",
+        "details": "Die Herkunft der Haupteinspeisung (Netz, Generator, PV-Wechselrichter usw.) muss in den Installationseinstellungen angegeben werden."
+      },
+      "installationHasEarthing": {
+        "message": "Die Installation verfügt über keine Erdung",
+        "details": "An keinem Verteiler ist eine Erdelektrode dargestellt. Das kann zutreffen, aber die meisten Installationen benötigen eine Erdung."
+      },
+      "installationHasSingleEarthingLocation": {
+        "message": "Die Erdung ist an mehreren Verteilern dargestellt",
+        "details": "In der Installation sind Erdelektroden an mehreren Verteilern dargestellt. Prüfen Sie, ob das korrekt ist; normalerweise gibt es nur einen Erdungspunkt."
+      },
+      "nonHouseholdPanelShowsGroundedNetwork": {
+        "message": "Verteiler {{panelName}} weist das geerdete Netzsystem nicht aus",
+        "details": "Die Kennzeichnung von Verteilern in Nichtwohnanlagen muss das geerdete Netzsystem angeben. Aktivieren Sie die Kennzeichnung des Netztyps und wählen Sie in den Verteilereigenschaften das passende TT-, TN- oder IT-System aus."
+      },
+      "nonHouseholdPanelNumberingIsShown": {
+        "message": "Die Verteilernummerierung wird nicht angezeigt",
+        "details": "Verteiler in Nichtwohnanlagen müssen fortlaufend und eindeutig nummeriert sein. Aktivieren Sie die Verteilernummerierung in den Verteilereigenschaften."
+      },
+      "nonHouseholdCircuitShowsCableLength": {
+        "message": "Bei Stromkreis {{circuitCode}} fehlt die Leitungslänge",
+        "details": "Schaltpläne von Nichtwohnanlagen müssen die Länge der elektrischen Leitungen angeben. Tragen Sie eine positive Leitungslänge ein und blenden Sie sie im Stromlaufplan ein."
+      },
+      "householdBoardBreakingCapacity": {
+        "message": "Ausschaltvermögen unter 3000 A: {{labels}}",
+        "details": "In Hausinstallationen benötigen Überstromschutzgeräte nach dem Anschluss ein Ausschaltvermögen von mindestens 3000 A."
+      },
+      "householdSupplyBreakingCapacity": {
+        "message": "Ausschaltvermögen des Einspeiseschutzes zu niedrig: {{list}}",
+        "details": "Der Anschlussschutz vor dem Zähler erfordert mindestens 6000 A. Nachfolgende Überstromschutzgeräte erfordern mindestens 3000 A."
+      },
+      "circuitWithinMaximumProtectedLength": {
+        "message": "Stromkreis {{circuitCode}}: Das Kabel {{lengthM}} m überschreitet die geschützte Länge von {{maxLengthM}} m",
+        "details": "Ein Kurzschluss am Leitungsende muss den Schutzschalter {{curve}}{{ratingA}} ({{tripCurrentA}} A) sofort auslösen. Bei {{sectionMm2}} mm² beträgt die maximale Leitungslänge {{maxLengthM}} m. Wählen Sie einen größeren Querschnitt, eine kürzere Leitung oder einen niedrigeren Nennstrom bzw. eine andere Auslösecharakteristik."
+      },
+      "rcdHasTooManyCircuits": {
+        "message": "An den Fehlerstrom-Schutzschalter sind zu viele Stromkreise angeschlossen ({{circuitCount}} > {{threshold}})",
+        "details": "Die Zahl der an einen 30-mA-Fehlerstrom-Schutzschalter angeschlossenen Stromkreise darf {{threshold}} nicht überschreiten, damit unerwünschte Auslösungen begrenzt werden. Stromkreise mit eigenem FI/LS-Schalter zählen nicht mit."
+      },
+      "rcdSelectivity": {
+        "message": "Selektivität der Fehlerstrom-Schutzschalter: Der vorgeschaltete Schutz muss weniger empfindlich sein als der nachgeschaltete (z. B. 300 mA Hauptschutz, 30 mA nachgeschalteter Schutz).",
+        "details": "Der Haupt-Fehlerstrom-Schutzschalter (z. B. 300 mA) muss vor empfindlicheren Fehlerstrom-Schutzschaltern (z. B. 30 mA) liegen. Schalten Sie niemals einen 30-mA-Schutzschalter vor einen 300-mA-Schutzschalter."
+      },
+      "wetRoomRequires30mAFromCircuitNotes": {
+        "message": "Stromkreis {{circuitCode}} versorgt laut Notiz möglicherweise ein Badezimmer, hat aber keinen 30-mA-Fehlerstrom-Schutzschalter oder FI/LS-Schalter",
+        "details": "Diese Regel wurde ausgelöst, weil die Stromkreisnotizen Begriffe für Badezimmer, Badewanne oder Dusche enthalten (Treffer: {{matched}}). Das AREI schreibt für Stromkreise, die einen Raum mit Badewanne und/oder Dusche versorgen, einen Fehlerstrom-Schutzschalter mit hoher bzw. sehr hoher Empfindlichkeit (typischerweise 30 mA) vor. Schalten Sie einen 30-mA-Fehlerstrom-Schutzschalter vor oder verwenden Sie für diesen Stromkreis einen FI/LS-Schalter mit 30 mA."
+      },
+      "circuitHasTooManyEndpoints": {
+        "message": "Stromkreis {{circuitCode}} hat zu viele steckdosenäquivalente Endpunkte ({{endpointCount}} > {{threshold}})",
+        "details": "Der Steckdosen- oder gemischte Stromkreis {{circuitCode}} hat {{endpointCount}} steckdosenäquivalente Endpunkte; der Richtwert beträgt höchstens {{threshold}}."
+      },
+      "installationHasMinimumLightingCircuits": {
+        "message": "Die Anlage hat {{count}} Beleuchtungsstromkreise; mindestens {{threshold}} sind erforderlich",
+        "details": "Das AREI (5.3.5.2) verlangt in einem typischen Wohngebäude mindestens {{threshold}} separate Beleuchtungsstromkreise. Diese Anlage hat {{count}} Beleuchtungs- oder gemischte Stromkreise ohne Unterstromkreise."
+      },
+      "domainMismatch": {
+        "message": "DC-Stromkreis kann nicht an den AC-Teil angeschlossen werden.",
+        "details": "Die Domäne einer Leitung muss mit der erwarteten Eingabe-/Ausgabedomäne der angeschlossenen Komponente übereinstimmen. Nur Wandler (Transformator, Gleichrichter, Wechselrichter, DC-DC) dürfen verschiedene Domänen verbinden."
+      },
+      "mainRcdCompliance": {
+        "missing": {
+          "message": "Hauptstromversorgung hat kein vorgeschaltetes Fehlerstrom-Schutzschalter oder FI/LS-Schalter",
+          "details": "Das AREI schreibt am Anfang der Anlage einen Haupt-Fehlerstrom-Schutzschalter vor. Installieren Sie ihn oder einen FI/LS-Schalter in der Einspeisung vor dem Hauptverteiler."
+        },
+        "rating": {
+          "message": "Der Haupt-Fehlerstrom-Schutzschalter / FI/LS-Schalter hat {{ratingA}} A Nennstrom; empfohlen sind mindestens 40 A.",
+          "details": "Der Haupt-Fehlerstrom-Schutzschalter am Anfang der Anlage muss mindestens 40 A Nennstrom haben. Erhöhen Sie den Nennstrom oder passen Sie die Auslegung der Anlage an."
+        },
+        "sensitivity": {
+          "message": "Der Haupt-Fehlerstrom-Schutzschalter / FI/LS-Schalter hat einen Bemessungsdifferenzstrom von {{sensitivityMa}} mA; zulässig sind höchstens 300 mA.",
+          "details": "Der Bemessungsdifferenzstrom des Haupt-Fehlerstrom-Schutzschalters am Anfang der Anlage darf 300 mA nicht überschreiten. Verwenden Sie ein Gerät mit 300 mA oder weniger."
+        },
+        "type": {
+          "message": "Der Haupt-Fehlerstrom-Schutzschalter / FI/LS-Schalter muss mindestens Typ A sein, kein reines AC-Gerät.",
+          "details": "Nach den jüngsten AREI-Änderungen muss der Haupt-Fehlerstrom-Schutzschalter am Anfang der Anlage mindestens Typ A sein (empfindlich gegenüber pulsierendem Gleichstrom). Ersetzen Sie reine AC-Geräte durch Typ A, F oder B."
+        }
+      },
+      "backupSupplyRcdCompliance": {
+        "message": "Der Notstrompfad hat keinen gleichwertigen Fehlerstromschutz",
+        "details": "Der Notstrompfad benötigt einen Fehlerstrom-Schutzschalter oder FI/LS-Schalter mit höchstens 300 mA Bemessungsdifferenzstrom und mindestens 40 A Nennstrom.",
+        "remediation": "Installieren Sie einen geeigneten Fehlerstrom-Schutzschalter oder FI/LS-Schalter im Notstrompfad zwischen Wechselrichter bzw. Umschalter und dem versorgten Verteiler."
+      },
+      "panelHasGlobalIsolation": {
+        "message": "Verteiler {{panelName}} hat keine Vorrichtung, die alle aktiven Leiter abschaltet",
+        "details": "Jeder Verteiler muss über eine Trennvorrichtung verfügen, die alle aktiven Leiter abschaltet – entweder lokal im Verteiler oder vorgeschaltet über die Einspeisung."
+      },
+      "panelHasLocalIsolationHint": {
+        "message": "Verteiler {{panelName}} kann nur vorgeschaltet abgeschaltet werden und hat keinen eigenen Trennschalter.",
+        "details": "Der Verteiler kann über eine vorgeschaltete Einspeisevorrichtung abgeschaltet werden, hat aber keinen eigenen Haupt- oder Trennschalter. Eine lokale Abschaltmöglichkeit erhöht die Sicherheit und erleichtert die Wartung."
+      },
+      "circuitHasRcdProtection": {
+        "missing": {
+          "message": "Stromkreis {{circuitCode}} benötigt einen Fehlerstrom-Schutzschalter oder FI/LS-Schalter mit 30 mA; vorgeschaltet wurde kein geeignetes Gerät gefunden",
+          "details": "Für Beleuchtung, allgemeine Steckdosen, Waschmaschinen, Trockner, Geschirrspüler und Ladestromkreise für Elektrofahrzeuge ist ein Fehlerstromschutz mit 30 mA vorgeschrieben. Installieren Sie einen vorgeschalteten Fehlerstrom-Schutzschalter oder FI/LS-Schalter oder führen Sie den Stromkreis über ein vorhandenes 30-mA-Gerät."
+        },
+        "sensitivity": {
+          "message": "Stromkreis {{circuitCode}} ist durch Fehlerstrom-Schutzschalter geschützt, aber keiner davon hat einen Bemessungsdifferenzstrom von 30 mA",
+          "details": "Für Beleuchtung, allgemeine Steckdosen, Waschmaschinen, Trockner, Geschirrspüler und Ladestromkreise für Elektrofahrzeuge ist Fehlerstromschutz mit 30 mA vorgeschrieben. Passen Sie den Bemessungsdifferenzstrom des vorgeschalteten Schutzes an oder führen Sie den Stromkreis über ein 30-mA-Gerät."
+        },
+        "dcCompatibility": {
+          "message": "Stromkreis {{circuitCode}} für Elektrofahrzeuge hat einen 30-mA-Fehlerstrom-Schutzschalter, aber es wurde kein Gleichfehlerstromschutz erkannt.",
+          "details": "AREI 7.22.4.1 und 5.3.5.3(f) verlangen, dass der Ladepunkt vor störenden Gleichfehlerströmen geschützt ist. Verwenden Sie einen Fehlerstrom-Schutzschalter Typ B oder prüfen Sie, ob die Ladestation über einen integrierten, abgestimmten Gleichfehlerstromschutz bzw. eine Erkennung verfügt, z. B. eine 6-mA-Gleichstromerkennung."
+        }
+      },
+      "stoveCircuitSizingHint": {
+        "message": "Herdstromkreis {{circuitCode}} ist mit {{section}} mm² und {{breakerRating}} A dimensioniert. Für einen vollwertigen Elektroherd empfehlen sich mindestens {{recommendedSection}} mm² und {{recommendedBreaker}} A.",
+        "details": "Dies ist eine Planungsempfehlung: In Belgien wird ein vollwertiger Elektroherd üblicherweise über einen eigenen Stromkreis mit etwa {{recommendedBreaker}} A und {{recommendedSection}} mm² Kupfer versorgt. Kleinere Werte können für das jeweilige Gerät zulässig sein, schränken aber spätere Ersatzmöglichkeiten ein."
+      },
+      "heavyApplianceDedicatedCircuit": {
+        "message": "Schwere fest angeschlossene Geräte {{applianceLabels}} am Stromkreis {{circuitCode}} benötigen jeweils einen eigenen Stromkreis ohne weitere Verbraucher",
+        "details": "Elektroherde, Kochfelder, Backöfen, Waschmaschinen, Trockner und Geschirrspüler benötigen jeweils einen eigenen Stromkreis ohne zusätzliche Steckdosen, Beleuchtung oder andere Verbraucher."
+      },
+      "fixedApplianceDedicatedCircuitHint": {
+        "message": "Feste Geräte {{applianceLabels}} auf Stromkreis {{circuitCode}} teilen den Stromkreis mit anderen Verbrauchern",
+        "details": "Geräte werden häufig auf einem eigenen Stromkreis platziert, sodass Kabelquerschnitt und Schutz auf das Gerät und zukünftige Ersetzungen abgestimmt sind. Erwägen Sie die Platzierung dieser Geräte auf Ihrem eigenen Stromkreis ohne zusätzliche Steckdosen, Beleuchtung oder andere Verbraucher."
+      }
+    },
+    "citations": {
+      "AREI": {
+        "code": "AREI",
+        "title": "Allgemeine Vorschriften für Elektroinstallationen"
+      }
+    }
+  },
+  "placement": {
+    "properties": "Platzierungseigenschaften",
+    "rotation": "Drehung",
+    "rotateCW": "Im Uhrzeigersinn drehen",
+    "rotateCCW": "Gegen den Uhrzeigersinn drehen",
+    "cw": "Im Uhrzeigersinn",
+    "ccw": "Gegen den Uhrzeigersinn",
+    "position": "Position",
+    "scale": "Skala",
+    "layer": "Niedrig",
+    "notFound": "Platzierung nicht gefunden"
+  },
+  "circuit": {
+    "code": "Stromkreis"
+  },
+  "export": {
+    "dialog": {
+      "title": "Export nach PDF",
+      "selectCanvases": "Leinwand zum Exportieren auswählen",
+      "eendraad": "Einliniendiagramm",
+      "eendraadShort": "Einzeldraht",
+      "panel": "Verteiler (Verteileransicht)",
+      "panelShort": "Verteiler",
+      "sitplan": "Lageplan (Grundriss)",
+      "sitplanShort": "Lageplan",
+      "mergePlanPages": "Pläne pro Etage zusammenführen",
+      "mergePlanPagesWarning": "Doppelte Etiketten gefunden; Zusammengeführte Seiten können verwirrend sein.",
+      "options": "Optionen",
+      "theme": "Thema",
+      "themeLight": "Licht",
+      "themeDark": "Dunkel",
+      "pageCount": "Anzahl der Seiten",
+      "pagesForEendraad": "{{count}} Seiten für Einliniendiagramm",
+      "pagesForPanel": "{{count}} Seiten für Verteiler",
+      "pagesForSitplan": "{{count}} Lageplanseiten",
+      "totalPages": "Gesamt: {{count}} Seiten",
+      "total": "Gesamt",
+      "editablePremiumTooltip": "Schalten Sie dieses Projekt frei oder aktualisieren Sie auf Premium, um bearbeitbare Projektdaten einzubetten.",
+      "installDates": "Installationsdaten aufzeichnen",
+      "eendraadPaperSize": "Einzelfaden-Papierformat",
+      "includeSignature": "Signatur einschließen",
+      "exportButton": "Export",
+      "cancelButton": "Abbrechen"
+    },
+    "progress": {
+      "title": "PDF...",
+      "processing": "Verarbeitung: {{pageId}}",
+      "complete": "{{percent}}% abgeschlossen",
+      "cancel": "Abbrechen"
+    },
+    "error": {
+      "title": "Export fehlgeschlagen",
+      "message": "PDF-Export fehlgeschlagen. Bitte versuchen Sie es erneut.",
+      "details": "Export abgeschlossen, aber einige Seiten sind fehlgeschlagen:\n{{errors}}",
+      "validationFailureTitle": "Der Export konnte nicht abgeschlossen werden",
+      "validationFailureMessage": "Beim Vorbereiten Ihres Exports ist ein Fehler aufgetreten. Ihr Projekt ist sicher und das Problem wurde unserem Team gemeldet. Bitte versuchen Sie es später noch einmal."
+    }
+  },
+  "labelStripExport": {
+    "title": "Etiketten exportieren",
+    "canvasWarningTitle": "Ordnen Sie zuerst die Panel-Leinwand an",
+    "canvasWarningMessage": "Ein unberührtes Layout führt zu unzuverlässigen Etiketten.",
+    "overflowWarningTitle": "Einige Module passen nicht",
+    "overflowWarningMessage": "{{count}} Ausgewählte Module befinden sich in der Überlaufzone und werden weggelassen. Überprüfen Sie vor dem Exportieren das Verteilerlayout.",
+    "sourcesTitle": "Panels einschließen",
+    "noSources": "Keine Panels verfügbar",
+    "virtualSource": "Netzteilkasten",
+    "paperSettings": "Papier",
+    "exportFormat": "Exportformat",
+    "brotherLbx": "Brother LBX",
+    "brotherPrinter": "Brother Drucker",
+    "brotherP900Family": "PT-P900 / PT-P950",
+    "brotherE920": "PT-E920BT",
+    "brotherP910": "PT-P910BT",
+    "brotherE800": "PT-E800W",
+    "brotherD800": "PT-D800W",
+    "brotherE550": "PT-E550W",
+    "brotherE560": "PT-E560BT",
+    "brotherE310": "PT-E310BT",
+    "brotherQl810w": "QL-810W",
+    "brotherQl820": "QL-820NWB",
+    "brotherTapeWidth": "Brother Bandbreite",
+    "brotherSheets": "Blätter",
+    "brotherSingleStrip": "Ein Streifen",
+    "panelContents": "Panel-Inhalte",
+    "paperSize": "Papierformat",
+    "preset": "Etikettenstreifen-Voreinstellung",
+    "generic25": "Generisch 25 mm",
+    "generic35": "Generisch 35 mm",
+    "custom": "Geändert",
+    "customHeight": "Angepasste Streifenhöhe",
+    "customHeightFirst": "Höhe des ersten Streifens",
+    "customHeightSecond": "Höhe des zweiten Streifens",
+    "height": "{{value}} mm hoch",
+    "mode": "Streifen",
+    "modeSingle": "Einzeln",
+    "modeDouble": "Doppelt",
+    "include": "Datensatz",
+    "domotics": "Hausautomation",
+    "nonProtection": "Wechselrichter",
+    "terminalStrips": "Reihenklemmen",
+    "skipEmptyRows": "Leere Zeilen überspringen",
+    "skipEmptyRowsDescription": "Deaktivieren Sie diese Option, um leere Streifen zu drucken, die Sie später manuell ausfüllen können.",
+    "madeWith": "Schranketiketten hergestellt mit",
+    "rowFromTop": "Reihe {{row}} von oben",
+    "preview": "Beispiel",
+    "hidePreview": "Vorschau ausblenden",
+    "previewPages": "{{count}} Seiten",
+    "previewLoading": "Beispiel in Bearbeitung...",
+    "previewError": "Das Beispiel konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+    "export": "Export",
+    "errorTitle": "Etikettenexport fehlgeschlagen",
+    "errorMessage": "Der Etikettenexport konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+    "generatedDescription": "{{type}} für {{items}}"
+  },
+  "panelRelationOverview": "Übersicht über Panel-Beziehungen",
+  "properties": {
+    "title": "Eigenschaften",
+    "projectProperties": "Projekteigenschaften",
+    "viewSettings": "Anzeigeeinstellungen",
+    "gridSize": "Rastergröße",
+    "multiSelectDifferent": "Mehrere Elemente mit unterschiedlichen Eigenschaften ausgewählt. Das Bearbeiten von Eigenschaften ist deaktiviert.",
+    "multiSelectSame": "Mehrere Elemente ausgewählt. Gruppenbearbeitung folgt in Kürze.",
+    "selectedCount": "{{count}} Artikel ausgewählt",
+    "mixedValue": "Gemischt",
+    "multiSelectUnsupported": "Diese Elemente können nicht zusammen bearbeitet werden."
+  },
+  "stairs": {
+    "width": "Treppenbreite",
+    "stepDepth": "Eingang",
+    "cornerStyle": "Eckpfosten",
+    "cornerStyleRound": "Abgeschlossen",
+    "cornerStyleSharp": "Scharf",
+    "defaultPointBehavior": "Standardpunktverhalten",
+    "pointBehaviorTurn": "Treppen",
+    "pointBehaviorPlatform": "Plattform",
+    "selectedPointOverride": "Überschreibung für ausgewählten Punkt",
+    "selectedPointsOverride": "Überschreibungen für ausgewählte Punkte",
+    "selectedPointOverrideHelp": "Override pro Punkt. Verwenden Sie eine Plattform, um einen Treppenabsatz zu schaffen und die Stufen auf den angrenzenden Teilen zu unterdrücken.",
+    "clearPointOverride": "Standardtreppen verwenden",
+    "pointOverrideCount": "{{count}}-Punkt(e) überschreiben dieses Verhalten.",
+    "mixedPointModes": "Gemischte Werte",
+    "drawUpArrows": "Aufstiegsrichtungspfeile anzeigen",
+    "invertUpArrow": "Pfeilrichtung umkehren",
+    "upArrowDirection": "Aufstiegspfeil",
+    "upArrowDirectionLeft": "Links",
+    "upArrowDirectionRight": "Rechts",
+    "invertSpiralDirection": "Spiralrichtung umkehren",
+    "spiralSweepDegrees": "Spiralbogen"
+  },
+  "contextMenu": {
+    "deletePlanImage": "Planbild löschen",
+    "deletePlanImageConfirmTitle": "Planbild löschen?",
+    "deletePlanImageConfirmMessage": "Das Planbild wird aus {{floor}} gelöscht.",
+    "addElement": "Element hinzufügen",
+    "addNote": "Notiz hinzufügen",
+    "addFrame": "Rahmen hinzufügen",
+    "editProperties": "Eigenschaften bearbeiten",
+    "duplicate": "Duplikat",
+    "moveProtectionToNewPanel": "Wechsel zum neuen Verteiler",
+    "copy": "Kopie",
+    "cut": "Schnitt",
+    "paste": "Einfügen",
+    "delete": "Löschen",
+    "deleteAll": "Alle löschen",
+    "assignToCircuit": "Stromkreis zuweisen",
+    "alignLeft": "Links ausrichten",
+    "alignRight": "Rechts ausrichten",
+    "alignTop": "Oben ausrichten",
+    "alignBottom": "Unten ausrichten",
+    "alignCenter": "Zentrum",
+    "distributeHorizontal": "Horizontal teilen",
+    "distributeVertical": "Vertikale Verteilung",
+    "lockPosition": "Sperrposition",
+    "unlockPosition": "Entriegelungsposition",
+    "sendToBack": "Nach hinten",
+    "bringToFront": "Vorwärts",
+    "moveToFloor": "Zum Boden bewegen...",
+    "copyToFloor": "Auf Boden kopieren...",
+    "copyToFloorDescription": "Wählen Sie die Zielgeschosse für die aktuelle Auswahl im Grundriss.",
+    "copyOpeningsAlong": "Öffnungen kopieren",
+    "copyToFloorSummaryPerFloor": "{{walls}} Wände, {{stairs}} Treppen und {{openings}} Öffnungen pro Etage",
+    "copyToFloorSummaryTotal": "Kopie auf {{floors}} Etage(n): {{total}} Artikel insgesamt",
+    "isolateCircuit": "Stromkreis isolieren",
+    "showAll": "Alle anzeigen",
+    "addMore": "Mehr hinzufügen...",
+    "hideInThisView": "Aus dieser Ansicht ausblenden",
+    "showHidden": "Ausgeblendet anzeigen...",
+    "mergePoints": "Punkte zusammenführen"
+  },
+  "multiplier": {
+    "setTotalCount": "Legen Sie die Gesamtzahl der Symbole im Sitplan fest",
+    "totalCount": "Gesamtmenge",
+    "invalidNumber": "Geben Sie eine Ganzzahl ein",
+    "mustBeAtLeastOne": "Die Zahl muss mindestens 1 sein",
+    "mustBeAtLeastCurrent": "Die Nummer muss mindestens der aktuellen Nummer entsprechen",
+    "maximumCount": "Maximum ist {{max}}",
+    "allowedInverterCounts": "Verwenden Sie 1, 2 oder 3",
+    "maxCount": "Maximal ist 99"
+  },
+  "floorSelection": {
+    "selectFloor": "Boden auswählen",
+    "createNew": "Neue Etage erstellen",
+    "noFloors": "Es sind keine Etagen vorhanden. Erstellen Sie die erste Etage:",
+    "floorName": "Etagenname",
+    "floorNamePlaceholder": "z.B. Erdgeschoss, Erster Stock",
+    "add": "Hinzugefügt",
+    "delete": "Löschen",
+    "addFloor": "Boden hinzufügen",
+    "deleteFloor": "Etage löschen",
+    "selected": "Aktiv",
+    "moveUp": "Oben",
+    "moveDown": "Unten",
+    "deleteConfirmTitle": "Etage löschen?",
+    "deleteConfirmMessage": "Sind Sie sicher, dass Sie {{name}} löschen möchten? Platzierungen auf dieser Etage werden auf eine andere Etage verlegt. Dies kann nicht rückgängig gemacht werden.",
+    "cannotDeleteLast": "Mindestens eine Etage muss bestehen bleiben.",
+    "referenceOverlayShow": "Zeigen Sie diese Etage leicht als Referenz an, während Sie auf einer anderen Etage zeichnen",
+    "referenceOverlayHide": "Referenz für diese Etage ausblenden"
+  },
+  "hiddenItemsDialog": {
+    "description": "Wählen Sie ein oder mehrere Elemente aus, die erneut im Plan angezeigt werden sollen.",
+    "confirm": "Anzeigen",
+    "selectAll": "Alles auswählen",
+    "moveToCurrentView": "Zur aktuellen Ansicht wechseln",
+    "none": "In dieser Ansicht sind keine ausgeblendeten Elemente vorhanden.",
+    "unnamedItem": "Unbenanntes Element",
+    "protectionFallback": "Sicherheitsgerät",
+    "trunkDeviceFallback": "Gerät am Stamm",
+    "domoticaFallback": "Hausautomationsmodul",
+    "manageHidden": "Versteckte Symbole verwalten",
+    "deviceOnCircuit": "{{device}} auf {{circuit}}",
+    "selectSymbol": "Wählen Sie {{symbol}}"
+  },
+  "tally": {
+    "title": "Materialliste",
+    "categoryProtection": "Sicherheitsgeräte",
+    "categoryEnergyMeters": "Energiezähler",
+    "categorySockets": "Steckdosen",
+    "categorySwitches": "Schalter",
+    "categoryImpulse": "Impulsschalter",
+    "categoryLights": "Lichtpunkte",
+    "categoryRelays": "Relais",
+    "categoryDomotica": "Hausautomation / Smart Home",
+    "categoryStove": "Ofenverteiler",
+    "categoryPanels": "Schilder",
+    "categoryWires": "Drähte",
+    "wireLengthTotal": "{{length}} insgesamt",
+    "wireLengthEstimate": "Grobe Schätzung basierend auf dem Grundriss: {{length}}",
+    "wireLengthEstimateShort": "Schätzung {{length}}",
+    "wireLengthEstimateHint": "Gezeichneter oder kalibrierter Grundriss: Luftlinie Abstand ×2; +3 m bei jedem Bodenwechsel.",
+    "devicesCount": "Geräte",
+    "typesCount": "Typen",
+    "exportCsv": "Export nach CSV",
+    "supplyWarningTitle": "Am Stromkabel – kann vorinstalliert oder nicht modifizierbar sein",
+    "supplyPathSegment": "Netzteil",
+    "groundPathSegment": "Erdung",
+    "panelGrid": "Reihen × Module",
+    "panelNoGrid": "Verteiler (kein Raster)",
+    "stoveJunctionBox": "Ofenverteiler",
+    "empty": "Keine Geräte zum Anzeigen. Fügen Sie Verteiler, Stromkreise und Endpunkte hinzu.",
+    "selectSymbol": "Wählen Sie dieses Symbol",
+    "specOptionsHeading": "Optionen",
+    "specLinesAria": "Optionen für diesen Gerätetyp",
+    "specSocketOutletCount": "{{count}}×",
+    "socketOptionTwoPoleSwitch": "Zweipoliger Schalter",
+    "socketOptionTwoPoleSwitchLock": "Zweipoliger abschließbarer Schalter",
+    "directCircuit": "Direkt",
+    "csvCategory": "Kategorie",
+    "csvSummary": "Zusammenfassung",
+    "csvCount": "Menge",
+    "csvPanel": "Verteiler",
+    "csvPath": "Pfad",
+    "csvDetails": "Details"
+  },
+  "wires": {
+    "cableDefault": "Standard",
+    "makeCableDefault": "Machen Sie den Standard",
+    "useCableDefault": "Standard verwenden",
+    "multipleConnections": "Gemeinsames Leitungssegment. Wählen Sie eine einzelne Verbindung aus, um den Draht zu bearbeiten.",
+    "title": "Drahteigenschaften",
+    "phase": "Phase",
+    "phaseAll": "Alle Phasen",
+    "phaseInherited": "Erworben",
+    "phaseAutomatic": "Automatik",
+    "phaseSelect": "Phase auswählen",
+    "busbarPhaseOrder": "Schienenphasenfolge",
+    "showPhaseLabel": "Phase auf einem Draht anzeigen",
+    "hidePhaseLabel": "Phase auf einem Draht ausblenden",
+    "type": "Typ",
+    "conductors": "Anleitungen",
+    "thickness": "Dicke",
+    "fireClass": "Brandklasse",
+    "inTube": "Rohr",
+    "onWall": "An der Wand",
+    "inWall": "In der Wand",
+    "inGround": "Land",
+    "inAir": "Luft",
+    "routeNone": "Keine",
+    "routeLabel": "Kabelroute",
+    "notFound": "Drahtsegment nicht gefunden",
+    "onlyVertical": "Eigenschaften sind nur für vertikale Drähte verfügbar",
+    "noCircuit": "Drahtsegment ist keinem Stromkreis zugeordnet",
+    "circuitNotFound": "Stromkreis nicht gefunden",
+    "trySelectingAgain": "Versuchen Sie erneut, den Draht auszuwählen. Drahtsegmente werden neu generiert, sodass die Auswahl möglicherweise verloren geht.",
+    "other": "Sonstiges",
+    "batteryCable": "Batteriekabel",
+    "customTypePlaceholder": "Eigener Typname",
+    "supplyTitle": "Stromkabeleigenschaften",
+    "supplySegmentUpstream": "Versorgungsseite (zur Trennung)",
+    "supplySegmentCrossing": "Panel-Rand",
+    "supplySegmentDownstream": "Hauptpanel (zum Bus)",
+    "earthingTitle": "Eigenschaften des Erdungskabels",
+    "earthingConductorsNote": "Erdungskabel ist immer ein einzelner Leiter mit Erde (1G).",
+    "noInstallation": "Installation nicht gefunden",
+    "hideLabel": "Kabeletikett ausblenden",
+    "showFireClassLabel": "Brandklasse auf einem Kabel anzeigen",
+    "hideFireClassLabel": "Brandklasse auf einem Kabel ausblenden",
+    "length": "Länge",
+    "lengthPlaceholder": "Länge in Metern",
+    "lengthWithUnit": "{{value}} m",
+    "domainDc": "DC",
+    "showWireLengthLabel": "Kabellänge im Stromlaufplan anzeigen",
+    "hideWireLengthLabel": "Kabellänge im Stromlaufplan ausblenden",
+    "busStubNoProperties": "Dieser Thread hat keine bearbeitbaren Eigenschaften",
+    "domainTag": "Elektrischer Bereich (AC/DC)",
+    "domainMismatchTitle": "Hier kann keine Verbindung hergestellt werden",
+    "domainMismatchDrop": "{{component}} erfordert die Eingabe {{domain}}, aber der Thread hier ist {{wireDomain}}.",
+    "deleteRectifierWithDcDevicesTitle": "Gleichrichter und Gleichstromgeräte entfernen?",
+    "deleteRectifierWithDcDevicesMessage": "Dieser Gleichrichter versorgt {{count}} reine Gleichstromgeräte (Solarmodule/Batterien). Durch das Entfernen werden auch diese Geräte entfernt. Möchten Sie fortfahren?",
+    "lengthEstimateRange": "≈ {{low}}–{{high}} m gemäß Plan",
+    "lengthFromPlan": "Schätzung nach Plan",
+    "calibratePlan": "Legen Sie den Planmaßstab fest, um Längen zu schätzen",
+    "lengthEstimateStale": "Plan geändert. Überprüfen Sie diese Länge.",
+    "useLengthEstimate": "Verwenden ≈ {{value}} m"
+  },
+  "plan": {
+    "doorProperties": "Tür",
+    "windowProperties": "Fenster",
+    "openingWidth": "Breite",
+    "cm": "cm",
+    "doorHinge": "Scharnier",
+    "doorHingeLeft": "Links",
+    "doorHingeRight": "Rechts",
+    "doorHingeNone": "Keine",
+    "doorHingeDouble": "Doppelt",
+    "doorOpening": "Eröffnung",
+    "doorOpeningIn": "Innen",
+    "doorOpeningOut": "Gehen Sie nach draußen",
+    "doorOpeningAngle": "Öffnungswinkel (Grad)",
+    "resetScale": {
+      "distance": "Entfernung (m)",
+      "confirmRescaleTitle": "Neuen Bildmaßstab anwenden?",
+      "confirmRescaleIntro": "Sie haben den Maßstab des Planbildes geändert (~{{factor}}x). Wählen Sie, was Sie tun möchten:",
+      "optionRescale": "Skalieren Sie gezeichnete Elemente neu, um ihre aktuellen Abmessungen in Metern beizubehalten.",
+      "optionKeep": "Belassen Sie gezeichnete Elemente an Ort und Stelle und berechnen Sie ihre Abmessungen neu.",
+      "optionCancel": "Abbrechen und alles unverändert lassen.",
+      "confirmRescaleConfirm": "Bemaßungen pflegen",
+      "confirmRescaleCancel": "Abmessungen neu berechnen"
+    }
+  },
+  "junctionPanel": {
+    "label": "Name der Verteilertafel",
+    "labelPlaceholder": "Name (gleicher Name = gleicher Verteiler im Lageplan)",
+    "pickExisting": "Vorhandenes auswählen…",
+    "noExisting": "Keine vorhandenen Namen",
+    "labelHelp": "Gleicher Name auf mehreren Symbolen = ein Verteiler im Lageplan. Ändern Sie den Namen, um einen zweiten Verteiler hinzuzufügen."
+  },
+  "ground": {
+    "trunkDevice": "Geräteerdungskabel"
+  },
+  "supply": {
+    "trunkDevice": "Gerätestromkabel",
+    "mainProtectionLabel": "Haupt",
+    "port1": "Port 1",
+    "port2": "Port 2",
+    "converterPhases": "AC-Phasen",
+    "converterAcConnection": "AC-Anschluss",
+    "converterAcShared": "Gemeinsamer Netzanschluss",
+    "converterAcSeparate": "Separate Netz- und Notstromanschlüsse",
+    "converterDcConnections": "DC-Anschlüsse",
+    "converterTopDcConnections": "DC-Anschlüsse oben",
+    "inverterUnit": "Wechselrichter",
+    "nameLabelOnDiagramHint": "Falls sichtbar: erscheint über dem Symbol auf dem horizontalen Stromkabel."
+  },
+  "installDates": {
+    "tool": "Installationsdatum",
+    "toolDescription": "Markieren Sie ausgewählte Elemente im Einliniendiagramm nach Datum",
+    "installDate": "Installationsdatum",
+    "installDateHint": "Lassen Sie das Feld leer, um das Baujahr des Projekts anzugeben.",
+    "color": "Farbe des Installationsdatums",
+    "chooseExactDate": "Wählen Sie das genaue Datum aus",
+    "clearExplicitDate": "Explizites Datum löschen",
+    "month": "Monat",
+    "day": "Tschüss",
+    "menuSection": "Termine",
+    "showLabelsOutsideMode": "Datumsetiketten",
+    "showLabelsOutsideModeDescription": "Außerhalb des Datumsmodus anzeigen.",
+    "forceMonochrome": "Monochrom",
+    "forceMonochromeDescription": "Verwenden Sie eine neutrale Farbe.",
+    "oldInstallation": "Alte Installation",
+    "propagatePanelTitle": "Auch alle zugrunde liegenden Geräte ändern?",
+    "propagatePanelMessage": "Wählen Sie aus, ob dieses Installationsdatum vom Verteiler fortgeführt werden soll.",
+    "propagateCircuitTitle": "Auch zugrunde liegende Geräte ändern?",
+    "propagateCircuitMessage": "Wählen Sie aus, ob sich dieser Installationstermin auf die Verbraucher des Stromkreises erstrecken soll.",
+    "propagateProtections": "Ja – nur Schutzmaßnahmen",
+    "propagateAll": "Ja – alles",
+    "propagateConsumers": "Ja – Verbraucher auch"
+  },
+  "feedOrganization": {
+    "title": "Power-Layout",
+    "single": "Ein Netzteil",
+    "splitSwitchable": "Net + umschaltbares Backup",
+    "splitBackup": "Net + Backup",
+    "bus": "Schiene",
+    "gridFeed": "Netzteil",
+    "backupFeed": "Notstromversorgung",
+    "gridMarker": "Netz",
+    "backupMarker": "Sicherung",
+    "switchableBackupMarker": "Backup/Netzwerk"
+  },
+  "wallProperties": {
+    "title": "Wandeigenschaften",
+    "drawingTitle": "Neue Wand",
+    "thickness": "Dicke (cm)",
+    "thicknessHint": "Dicke in Zentimetern. Lassen Sie das Feld leer, um die Standardwandstärke aus dem Grundriss zu verwenden.",
+    "length": "Länge",
+    "delete": "Wand entfernen",
+    "confirmDelete": "Diese Wand entfernen?",
+    "appearanceTitle": "Wandoptik",
+    "appearanceHint": "Globale Farben für alle Wände im Grundriss. Legen Sie separate Farben für das helle und dunkle Thema fest.",
+    "modeLight": "Lichtthema",
+    "modeDark": "Dunkles Thema",
+    "fillColor": "Füllwand",
+    "strokeColor": "Wandumfang",
+    "paletteLabel": "Schnellpalette",
+    "paletteColor": "Palettenfarbe anwenden"
+  },
+  "projectDocuments": {
+    "planDisplay": {
+      "title": "Plan anzeigen",
+      "darkMode": "Stellen Sie den Dunkelmodus ein",
+      "colour": "Farbe",
+      "greyscale": "Graustufen",
+      "noColour": "Importiert in Graustufen; Reimport für die Farben"
+    },
+    "add": "Dokumente hinzufügen",
+    "emptyTitle": "Noch keine Dokumente",
+    "drop": "Ziehen Sie PDFs oder Bilder hierher",
+    "rejected_one": "{{count}}-Datei übersprungen: Nur PDF und Bilder",
+    "rejected_other": "{{count}}-Dateien: nur PDF und Bilder",
+    "back": "Alle Dokumente",
+    "categories": {
+      "inspection": "Inspektion und Konformität",
+      "datasheet": "Gerätedokumentation",
+      "sourcePlan": "Quellpläne",
+      "schematic": "Schaltpläne",
+      "other": "Sonstiges"
+    },
+    "category": "Kategorie",
+    "name": "Name",
+    "pages_one": "{{count}} Seite",
+    "pages_other": "{{count}} Seiten",
+    "includeInExport": "Beim Export einbeziehen",
+    "inExport": "Im Export",
+    "linkedTo": "Verlinkt mit",
+    "visibleToViewersHint": "Für Betrachter sichtbar, wenn das Projekt geteilt ist",
+    "notLinked": "Noch kein Gerät gekoppelt.",
+    "linkToDevice": "Mit Gerät verknüpfen",
+    "noLinkableDevices": "Keine Geräte zum Verknüpfen",
+    "unlink": "Verknüpfung lösen",
+    "remove": "Löschen",
+    "loadFailed": "Dieses Dokument kann nicht geöffnet werden",
+    "attach": "Dokument verknüpfen",
+    "open": "Öffnen",
+    "section": "Dokumente",
+    "exportTile": "Dokumente",
+    "propertiesTitle": "Dokument",
+    "uploadFiles": "Dateien hochladen",
+    "removeConfirmTitle": "Dokument löschen?",
+    "removeConfirmMessage": "„{{name}}“ wird aus diesem Projekt entfernt.",
+    "projectFileHint": "Aus dem Planimport des Projekts.",
+    "rejectedTooLarge_one": "{{count}}-Datei übersprungen: größer als 100 MB",
+    "rejectedTooLarge_other": "{{count}}-Dateien übersprungen: größer als 100 MB",
+    "uploadFailed": "Diese Dateien konnten nicht hinzugefügt werden",
+    "replaceFile": "Datei ersetzen",
+    "replaceFileShort": "Ersetzen",
+    "visibleToViewers": "Für Betrachter sichtbar",
+    "visibleToViewersShareNote": "Mit einem Gerät verknüpfte Dokumente und Pläne auf einer Etage sind für alle sichtbar, die dieses Projekt ansehen können.",
+    "rejectedStorageFull_one": "{{count}}-Datei übersprungen: Dokumentspeicher ist voll",
+    "rejectedStorageFull_other": "{{count}} Dateien übersprungen: Dokumentenspeicher ist voll",
+    "storageUsage": "{{used}} von {{limit}}",
+    "storageLabel": "Dokumentenspeicher",
+    "includePage": "Seite beim Export einbeziehen",
+    "deletePage": "Seite löschen",
+    "deletePageConfirmTitle": "Seite löschen?",
+    "deletePageConfirmMessage": "Seite {{page}} wird aus „{{name}}“ gelöscht.",
+    "deletePageFailed": "Dieses PDF kann nicht bearbeitet werden",
+    "deletePages": "Mehrere Seiten löschen",
+    "deletePagesConfirm": "{{count}} Seiten löschen",
+    "pageNumber": "Seite {{page}}",
+    "pagesInExport": "{{count}} von {{total}} Seiten im Export",
+    "removeFloorPlanConfirmMessage": "„{{name}}“ ist der Plan für {{floors}}. Durch das Löschen wird es auch aus dem Lageplan entfernt.",
+    "exportFailed": "„{{name}}“ konnte nicht zum PDF hinzugefügt werden",
+    "moveTo": "Zu {{category}} verschieben",
+    "moveLocked": "Wird auf dem Lageplan verwendet",
+    "reduceSize": "Reduzieren",
+    "reduceSizeBalanced": "Ausgewogen: gut ablesbar",
+    "reduceSizeSmallest": "Kleinster: geringere Qualität",
+    "reduceSizeQuality": "Qualität",
+    "reduceSizeCurrent": "Jetzt {{size}}.",
+    "reduceSizePdfHint": "Seiten werden zu Bildern, sodass Text nicht mehr auswählbar ist.",
+    "reduceSizeDone": "Reduziert von {{before}} auf {{after}}.",
+    "reduceSizeNoGain": "Diese Datei ist bereits so klein wie möglich.",
+    "reduceSizeFailed": "Diese Datei konnte nicht verkleinert werden.",
+    "reducingSize": "Reduzieren…",
+    "overBudgetTitle": "Nicht genügend Speicherplatz",
+    "overBudgetMessage_one": "{{count}}-Datei passt nicht in die verbleibende {{free}}. Reduzieren und hinzufügen?",
+    "overBudgetMessage_other": "{{count}}-Dateien passen nicht in die verbleibenden {{free}}. Reduzieren und hinzufügen?",
+    "overBudgetConfirm": "Reduzieren und hinzufügen",
+    "builtInHint": "Immer Teil des Projekts",
+    "rejected_few": "{{count}}-Dateien: nur PDF und Bilder",
+    "rejected_many": "{{count}}-Dateien: nur PDF und Bilder",
+    "pages_few": "{{count}} Seiten",
+    "pages_many": "{{count}} Seiten",
+    "rejectedTooLarge_few": "{{count}}-Dateien übersprungen: größer als 100 MB",
+    "rejectedTooLarge_many": "{{count}}-Dateien übersprungen: größer als 100 MB",
+    "rejectedStorageFull_few": "{{count}} Dateien übersprungen: Dokumentenspeicher ist voll",
+    "rejectedStorageFull_many": "{{count}} Dateien übersprungen: Dokumentenspeicher ist voll",
+    "overBudgetMessage_few": "{{count}}-Dateien passen nicht in die verbleibenden {{free}}. Reduzieren und hinzufügen?",
+    "overBudgetMessage_many": "{{count}}-Dateien passen nicht in die verbleibenden {{free}}. Reduzieren und hinzufügen?"
+  },
+  "schematicAssistant": {
+    "validationReview": {
+      "title": "Steuerung",
+      "findings": "Benachrichtigungen",
+      "error": "Fehler",
+      "warning": "Warnungen",
+      "info": "Informationen",
+      "resolved": "Behoben",
+      "introduced": "Neu",
+      "remaining": "Verbleibend",
+      "limitedDetails": "Eine begrenzte Liste von Nachrichten wird angezeigt.",
+      "unavailable": "Steuerung nicht verfügbar. Meldungen konnten nicht verglichen werden."
+    },
+    "catalogSource": "Synergrid C10/26 · Katalogexemplar",
+    "catalogUpdated": "Quelle aktualisiert: {{date}}",
+    "catalogUnavailable": "Katalog nicht verfügbar. Keine Daten verifiziert.",
+    "catalogNoMatches": "Keine passenden Einträge in diesem Katalogexemplar.",
+    "catalogMoreMatches": "Weitere Ergebnisse verfügbar. Verfeinern Sie Ihre Suche.",
+    "dockLeft": "Links sichern",
+    "conversation": "Gespräch",
+    "you": "Sie",
+    "assistant": "Assistent",
+    "applied": "Änderungen übernommen.",
+    "declined": "Vorschlag abgelehnt. Es wurden keine Änderungen vorgenommen.",
+    "superseded": "Der vorherige Vorschlag wurde nicht angewendet.",
+    "createAction": "Schaltplan erstellen…",
+    "editAction": "Schaltplan-Assistent…",
+    "createTitle": "Schaltplan generieren",
+    "editTitle": "Schaltplan-Assistent",
+    "newProjectName": "Neuer Schaltplan",
+    "scope": "Nur Einliniendiagramm. Überprüfen Sie jede Änderung, bevor Sie sie anwenden.",
+    "context": "Kontext",
+    "selected": "Ausgewählt",
+    "noSelection": "Keine ausgewählt",
+    "moreSelected": "+{{count}} mehr",
+    "unresolvedSelection": "{{count}} ausgewählte Elemente konnten nicht erkannt werden",
+    "truncatedSelection": "{{count}} ausgewählte Elemente weggelassen",
+    "prompt": "Beschreiben Sie Ihre Änderungen",
+    "createPlaceholder": "Erstellen Sie einen Schaltplan mit einer Hauptverteiler…",
+    "editPlaceholder": "Fügen Sie vier Steckdosen zu Stromkreis A hinzu…",
+    "generate": "Senden",
+    "generating": "Angebot vorbereiten…",
+    "review": "Vorgeschlagene Änderungen",
+    "modelNotes": "Kommentare und Annahmen des Modells",
+    "details": "Vollständiger Vorschlag",
+    "installation": "Installation",
+    "createdSummary": "{{circuits}} Schaltkreise, {{endpoints}} Verbindungspunkte",
+    "warnings": {
+      "newSymbolsAwaitPlacement": "Neue Symbole warten darauf, auf dem Lageplan platziert zu werden.",
+      "inverterDisconnectedBypassRemains": "Der Netzeingang des Wechselrichters ist nicht angeschlossen. Der manuelle Umschalter sorgt für die direkte Netzstromversorgung.",
+      "supplyValuesAsSpecified": "Netzteile und Schutzwerte werden wie angegeben übernommen. Die elektrische Konformität wurde nicht überprüft.",
+      "electricalComplianceNotVerified": "Die elektrische Konformität wurde nicht überprüft."
+    },
+    "decline": "Ablehnen",
+    "accept": "Änderungen übernehmen",
+    "acceptCreate": "Projekt erstellen",
+    "stale": "Das Projekt wurde geändert. Erstellen Sie einen neuen Vorschlag, bevor Sie ihn anwenden.",
+    "noProject": "Öffnen Sie zunächst ein Projekt.",
+    "requestFailed": "Der Vorschlag konnte nicht vorbereitet werden. Bitte versuchen Sie es erneut.",
+    "invalidProposal": "Der Vorschlag konnte nicht validiert werden. Bitte versuchen Sie es erneut.",
+    "unsupportedTitle": "Noch nicht unterstützt",
+    "alternatives": "Probieren Sie es aus",
+    "validation": {
+      "unknown_target": "Ein angegebenes Element wurde nicht gefunden. Wählen Sie das gewünschte Element aus und versuchen Sie es erneut.",
+      "unsupported_topology": "Diese Änderung wird für den aktuellen Schaltkreis, die Verteiler oder das Netzteil nicht unterstützt. Nehmen Sie diese Änderung im Editor vor.",
+      "socket_limit": "Dieser Steckdose unterstützt diese Nummer nicht. Fordern Sie weniger Verbindungspunkte an.",
+      "missing_specification": "Elektrische Daten fehlen. Geben Sie den Schaltkreiscode, das Kabel und die erforderlichen Werte an und versuchen Sie es erneut.",
+      "duplicate_code": "Dieser Kreiscode wird bereits verwendet. Wählen Sie einen anderen Code."
+    },
+    "applyFailed": "Diese Änderungen konnten nicht angewendet werden.",
+    "operations": {
+      "append_sockets": "Steckdosen hinzufügen",
+      "update_circuit": "Schaltkreisbeschreibung ändern",
+      "update_endpoint": "Verbindungspunkt ändern",
+      "add_circuit": "Schaltung hinzufügen",
+      "create": "Schaltplan erstellen",
+      "update_supply_device": "Netzteil wechseln",
+      "disconnect_supply_grid_input": "Trennen Sie den Netzeingang des Wechselrichters",
+      "set_circuit_cable": "Kabel wechseln",
+      "update_protection": "Sicherheit ändern",
+      "rename_circuit": "Kreis umbenennen",
+      "move_panel_to_circuit": "Bewegen Sie das Brett zum Kreis",
+      "append_endpoints": "Geräte hinzufügen",
+      "add_supply_system": "Netzteil hinzufügen"
+    },
+    "errors": {
+      "configuration": "Legen Sie zunächst den OpenRouter-Schlüssel und das OpenRouter-Modell auf dem Server fest.",
+      "local_only": "Dieser Prototyp ist nur auf localhost verfügbar.",
+      "invalid_context": "Dieses Projekt kann vom Prototyp nicht verarbeitet werden.",
+      "invalid_response": "Das Modell hat einen ungültigen Vorschlag gemacht. Bitte versuchen Sie es erneut.",
+      "provider_auth": "Der OpenRouter-Schlüssel auf dem Server wurde abgelehnt.",
+      "provider_credit": "Das OpenRouter-Konto verfügt über nicht genügend Guthaben.",
+      "provider_busy": "Das Modell ist beschäftigt. Bitte versuchen Sie es später noch einmal.",
+      "provider_error": "Das Modell konnte die Anfrage nicht abschließen. Bitte versuchen Sie es erneut.",
+      "timeout": "Die Anfrage hat zu lange gedauert. Bitte versuchen Sie es erneut.",
+      "busy": "Eine Anfrage ist bereits im Gange. Bitte versuchen Sie es später noch einmal.",
+      "unsubmitted_draft": "Der Vorschlag ist noch nicht fertig. Bitten Sie den Assistenten, es auszufüllen oder abzulehnen.",
+      "tool_budget": "Diese Frage erfordert zu viele Schritte. Teilen Sie sie in kleinere Änderungen auf.",
+      "invalid_session": "Verbinden Sie den Assistenten erneut mit diesem Editor."
+    },
+    "supplyUnitScope": "Gilt für alle {{count}}-Einheiten.",
+    "supplyUnitRatings": "Gilt für alle {{count}}-Einheiten. Die Werte gelten pro Einheit.",
+    "supplyFields": {
+      "label": "Etikett",
+      "notes": "Beschreibung",
+      "brand": "Modell",
+      "model": "Modell",
+      "powerW": "Leistung pro Wechselrichter (W)",
+      "capacityKWh": "Kapazität pro Batterie (kWh)",
+      "wattageW": "Solarleistung (W)",
+      "ratedCurrentA": "Nennstrom (A)",
+      "ratingA": "Schutzwert (A)",
+      "curve": "Kurve",
+      "sensitivityMa": "Empfindlichkeit (mA)",
+      "breakingCapacityKa": "Ausschaltvermögen (kA)",
+      "port1Label": "Netzeingangsetikett",
+      "port2Label": "Backup-Eingangsetikett",
+      "gridInputConnected": "Wechselrichter-Netzeingang",
+      "unspecified": "Nicht angegeben",
+      "connected": "Verbunden",
+      "disconnected": "Nicht verbunden",
+      "before": "Vorne",
+      "after": "Na",
+      "kind": "Kabeltyp",
+      "customKind": "Kundenspezifischer Kabeltyp",
+      "conductors": "Anleitungen",
+      "sectionMm2": "Querschnitt (mm²)",
+      "hasPE": "Schutzleiter",
+      "fireClass": "Brandklasse",
+      "inTube": "Im Rohr",
+      "route": "Route",
+      "residualCurrentType": "Differentialtyp",
+      "code": "Schleifencode"
+    },
+    "usingTools": "Ausführen von Editorfunktionen…",
+    "toolsConnected": "Editor verbunden",
+    "copyMcp": "MCP-Verbindung kopieren",
+    "mcpCopied": "Verbindung kopiert",
+    "mcpCopyFailed": "Die MCP-Verbindung konnte nicht kopiert werden.",
+    "devTrace": {
+      "work": "Version",
+      "steps": "Schritte",
+      "running": "Beschäftigt",
+      "done": "Fertig",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen",
+      "modelText": "Modelltext",
+      "modelCall": "Modellaufruf",
+      "arguments": "Argumente",
+      "result": "Ergebnis"
+    }
+  },
+  "supplyImportReview": {
+    "title": "Netzteil",
+    "unknown": "Unbekannt",
+    "yes": "Ja",
+    "no": "Nr",
+    "unspecified": "Das Netzteil ist nicht angegeben; Es werden keine Netzteile importiert.",
+    "incomingCable": "Stromkabel",
+    "connections": "Verbindungen",
+    "allLoads": "Alle importierten Schaltkreise werden über den Hauptausgang an {{panel}} versorgt.",
+    "gridInputConnected": "Netzeingang des Wechselrichters angeschlossen",
+    "gridInputDisconnected": "Netzeingang des Wechselrichters nicht angeschlossen",
+    "neutralSwitched": "Geschalteter Neutralleiter",
+    "topology": {
+      "manual_changeover": "Manuelle Umschaltung",
+      "direct_backup": "Direkte Inverter-Stromversorgung"
+    },
+    "devices": {
+      "grid": "Stromnetz",
+      "energy_meter": "Energiezähler",
+      "protection": "Sicherheit",
+      "inverter": "Wechselrichter",
+      "dcBus": "DC-Schiene",
+      "battery": "Batterie",
+      "solar": "Solarmodule",
+      "changeover": "Umschalter",
+      "mainPanel": "Kopfteil",
+      "inverterGridInput": "Wechselrichter-Netzeingang",
+      "inverterBackupOutput": "Wechselrichter-Backup-Ausgang",
+      "inverterDcInput": "DC-Eingangswechselrichter",
+      "generator": "Generator",
+      "pv_inverter": "PV-Wechselrichter",
+      "unknown": "Unbekannte Quelle",
+      "unknownSource": "Unbekannte Quelle",
+      "acDistribution": "AC-Verteilung",
+      "integratedTransfer": "Integrierte Umschaltung"
+    },
+    "roles": {
+      "incoming": "Ernährungsprogramm",
+      "gridInput": "Wechselrichter-Netzeingang",
+      "backupOutput": "Wechselrichter-Backup-Ausgang",
+      "dcSource": "DC-Quellenzweig"
+    },
+    "fields": {
+      "voltageSystem": "Spannungssystem",
+      "phases": "Phasen",
+      "protectionType": "Typ",
+      "current": "Nennstrom",
+      "poles": "Polen",
+      "sensitivity": "Empfindlichkeit",
+      "residualCurrentType": "Differentialtyp",
+      "curve": "Kurve",
+      "breakingCapacity": "Bruchkraft",
+      "brand": "Modell",
+      "model": "Modell",
+      "units": "Menge",
+      "power": "Leistung",
+      "voltage": "Spannung",
+      "capacity": "Kapazität pro Batterie",
+      "neutralTreatment": "Neutralleiter",
+      "cableType": "Kabeltyp",
+      "conductors": "Anleitungen",
+      "section": "Querschnitt",
+      "earthConductor": "Erdleiter",
+      "fireClass": "Brandklasse"
+    }
+  },
+  "cableSchedule": {
+    "settings": {
+      "floorHeight": "Geschosshöhe",
+      "socketHeight": "Steckdosen",
+      "switchHeight": "Schalter",
+      "panelHeight": "Verteiler",
+      "heights": "Höhen (m)"
+    },
+    "title": "Kabelliste",
+    "board": "Verteiler",
+    "circuit": "Stromkreis",
+    "from": "Von",
+    "to": "Nach",
+    "cable": "Kabel",
+    "length": "Länge (m)",
+    "estimateLow": "Schätzung min (m)",
+    "estimateHigh": "Schätzung max (m)",
+    "sourceHeader": "Quelle",
+    "source": {
+      "entered": "Eingegeben",
+      "accepted": "Nach Plan",
+      "stale": "Länge prüfen",
+      "uncalibrated": "Maßstab einstellen",
+      "estimate": "Schätzung",
+      "missing": "Unbekannt"
+    },
+    "useEstimates": "Schätzungen verwenden ({{count}})",
+    "cableCount_one": "{{count}} Kabel",
+    "cableCount_other": "{{count}} Kabel",
+    "collapseCircuit": "Stromkreis einklappen",
+    "expandCircuit": "Stromkreis ausklappen",
+    "use": "Verwenden",
+    "exportCsv": "CSV exportieren",
+    "empty": "Platzieren Sie Symbole auf dem Plan, um deren Kabel anzuzeigen.",
+    "totals": "Gesamtmenge pro Kabel",
+    "continued": "Fortsetzung",
+    "point": {
+      "socket": "Steckdose"
+    },
+    "cableCount_few": "{{count}} Kabel",
+    "cableCount_many": "{{count}} Kabel"
+  },
+  "wireLegend": {
+    "lighting": "Beleuchtung",
+    "sockets": "Steckdosen",
+    "devices": "Fest angeschlossene Geräte",
+    "feeders": "Zwischen Verteilern",
+    "supply": "Versorgung",
+    "dc": "DC",
+    "earthing": "Erdung",
+    "other": "Sonstiges",
+    "selected": "Ausgewählt"
+  }
+}

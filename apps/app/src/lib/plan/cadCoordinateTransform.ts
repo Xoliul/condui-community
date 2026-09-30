@@ -13,6 +13,7 @@ import {
   type Affine2D,
   type LegacyLibreDwgToSvg,
 } from './svgAffineMatrix'
+import { planImageLocalToScenePoint, scenePointToPlanImageLocal } from './planImageRotation'
 export interface CadMetadataHeader {
   insunits?: unknown
   measurement?: unknown
@@ -400,22 +401,26 @@ export function uncroppedAssetPxToCadPoint(
 export function scenePointToUncroppedAssetPx(
   scene: { x: number; y: number },
   cropInAssetSpace: CadReferenceCropRect,
-  planImageOffset: { x: number; y: number }
+  planImageOffset: { x: number; y: number },
+  planImageRotationDeg = 0
 ): { x: number; y: number } {
+  const local = scenePointToPlanImageLocal(scene, planImageOffset, planImageRotationDeg)
   return {
-    x: scene.x - planImageOffset.x + cropInAssetSpace.x,
-    y: scene.y - planImageOffset.y + cropInAssetSpace.y,
+    x: local.x + cropInAssetSpace.x,
+    y: local.y + cropInAssetSpace.y,
   }
 }
 export function uncroppedAssetPxToScenePoint(
   assetPx: { x: number; y: number },
   cropInAssetSpace: CadReferenceCropRect,
-  planImageOffset: { x: number; y: number }
+  planImageOffset: { x: number; y: number },
+  planImageRotationDeg = 0
 ): { x: number; y: number } {
-  return {
-    x: assetPx.x + planImageOffset.x - cropInAssetSpace.x,
-    y: assetPx.y + planImageOffset.y - cropInAssetSpace.y,
-  }
+  return planImageLocalToScenePoint(
+    { x: assetPx.x - cropInAssetSpace.x, y: assetPx.y - cropInAssetSpace.y },
+    planImageOffset,
+    planImageRotationDeg
+  )
 }
 /** @deprecated Use scenePointToUncroppedAssetPx with planImageOffset. */
 export function sitplanPointToUncroppedAssetPx(
@@ -431,12 +436,14 @@ export function scenePointToCadPoint(
   scene: { x: number; y: number },
   cadReference: CadReferenceV1,
   rawViewBox: SvgViewBox,
-  planImageOffset: { x: number; y: number }
+  planImageOffset: { x: number; y: number },
+  planImageRotationDeg = 0
 ): { x: number; y: number } {
   const uncropped = scenePointToUncroppedAssetPx(
     scene,
     cadReference.cropInAssetSpace,
-    planImageOffset
+    planImageOffset,
+    planImageRotationDeg
   )
   return uncroppedAssetPxToCadPoint(
     uncropped,
@@ -449,7 +456,8 @@ export function cadPointToScenePoint(
   cad: { x: number; y: number },
   cadReference: CadReferenceV1,
   rawViewBox: SvgViewBox,
-  planImageOffset: { x: number; y: number }
+  planImageOffset: { x: number; y: number },
+  planImageRotationDeg = 0
 ): { x: number; y: number } {
   const uncropped = cadPointToUncroppedAssetPx(
     cad,
@@ -457,7 +465,12 @@ export function cadPointToScenePoint(
     resolveCadToSvgMatrix(cadReference),
     cadReference.svgNormalization
   )
-  return uncroppedAssetPxToScenePoint(uncropped, cadReference.cropInAssetSpace, planImageOffset)
+  return uncroppedAssetPxToScenePoint(
+    uncropped,
+    cadReference.cropInAssetSpace,
+    planImageOffset,
+    planImageRotationDeg
+  )
 }
 export function computeCropInModelSpace(
   cropInAssetSpace: CadReferenceCropRect,
@@ -518,13 +531,15 @@ export function resolveCadReferenceRawViewBox(cadReference: CadReferenceV1): Svg
 export function scenePointToCadPointFromReference(
   scene: { x: number; y: number },
   cadReference: CadReferenceV1,
-  planImageOffset: { x: number; y: number }
+  planImageOffset: { x: number; y: number },
+  planImageRotationDeg = 0
 ): { x: number; y: number } {
   if (!cadReference.cadToSvgMatrix || !cadReference.rawViewBox) {
     const uncropped = scenePointToUncroppedAssetPx(
       scene,
       cadReference.cropInAssetSpace,
-      planImageOffset
+      planImageOffset,
+      planImageRotationDeg
     )
     const sourceExtents = cadReference.fullSourceExtents
     const sourceSize = cadReference.uncroppedAssetSize
@@ -558,7 +573,8 @@ export function scenePointToCadPointFromReference(
     scene,
     cadReference,
     resolveCadReferenceRawViewBox(cadReference),
-    planImageOffset
+    planImageOffset,
+    planImageRotationDeg
   )
 }
 export { parseOuterCadToSvgMatrix }

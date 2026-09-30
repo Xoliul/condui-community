@@ -1,3 +1,4 @@
+import { LANGUAGE_OPTIONS } from '@/utils/languageRouting'
 import { startTransition } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -5,11 +6,7 @@ import i18n from '@/i18n'
 import CustomDropdown from '@/components/common/CustomDropdown'
 import { InstallerInfoSection } from '@/components/settings/InstallerInfoSection'
 
-const LANGUAGES = [
-  { code: 'nl-BE', label: 'NL' },
-  { code: 'fr-BE', label: 'FR' },
-  { code: 'en', label: 'EN' },
-] as const
+const LANGUAGES = LANGUAGE_OPTIONS
 
 export function SettingsPanel({ showDebug = import.meta.env.DEV }: { showDebug?: boolean }) {
   const { t } = useTranslation()
@@ -21,10 +18,16 @@ export function SettingsPanel({ showDebug = import.meta.env.DEV }: { showDebug?:
   const setEendraadTrunkLayoutDebug = useSettingsStore((state) => state.setEendraadTrunkLayoutDebug)
   const planPlacementDebug = useSettingsStore((state) => state.planPlacementDebug)
   const setPlanPlacementDebug = useSettingsStore((state) => state.setPlanPlacementDebug)
+  const planCableRouteDebug = useSettingsStore((state) => state.planCableRouteDebug)
+  const setPlanCableRouteDebug = useSettingsStore((state) => state.setPlanCableRouteDebug)
   const panelRelationDebug = useSettingsStore((state) => state.panelRelationDebug)
   const setPanelRelationDebug = useSettingsStore((state) => state.setPanelRelationDebug)
   const leftDragPansCanvas = useSettingsStore((state) => state.leftDragPansCanvas)
   const setLeftDragPansCanvas = useSettingsStore((state) => state.setLeftDragPansCanvas)
+  const placePlanSymbolsManually = useSettingsStore((state) => state.placePlanSymbolsManually)
+  const setPlacePlanSymbolsManually = useSettingsStore(
+    (state) => state.setPlacePlanSymbolsManually
+  )
 
   const handleLanguageChange = (newLanguage: string) => {
     setLanguage(newLanguage)
@@ -56,6 +59,27 @@ export function SettingsPanel({ showDebug = import.meta.env.DEV }: { showDebug?:
               className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           </div>
+        </div>
+      </section>
+
+      <section>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
+          {t('settings.workflow.title')}
+        </h3>
+        <div className="space-y-1">
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              className="rounded"
+              data-testid="settings-place-plan-symbols-manually"
+              checked={placePlanSymbolsManually}
+              onChange={(e) => setPlacePlanSymbolsManually(e.target.checked)}
+            />
+            {t('settings.workflow.placePlanSymbolsManually')}
+          </label>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {t('settings.workflow.placePlanSymbolsManuallyHint')}
+          </p>
         </div>
       </section>
 
@@ -140,6 +164,24 @@ export function SettingsPanel({ showDebug = import.meta.env.DEV }: { showDebug?:
                 {t(
                   'settings.debug.planPlacementDebugHint',
                   'Visualize symbol centers, selection bounds, label positions and wall-based orientation helpers on the sitplan. UI-only, not exported.'
+                )}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  className="rounded"
+                  checked={planCableRouteDebug}
+                  onChange={(e) => setPlanCableRouteDebug(e.target.checked)}
+                />
+                {t('settings.debug.planCableRouteDebug', 'Show plan cable length debug (sitplan)')}
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t(
+                  'settings.debug.planCableRouteDebugHint',
+                  'Draw the estimated 3D cable route and length of every circuit wire on the sitplan, with a table of the calculation. UI-only, not exported.'
                 )}
               </p>
             </div>

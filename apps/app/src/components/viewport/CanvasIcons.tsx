@@ -4,6 +4,7 @@ import { scopeSvgMarkupClasses } from '../../lib/ui/scopedSvgMarkup'
 import eendraadSvg from '../../../public/icons/canvas-eendraad.svg?raw'
 import panelSvg from '../../../public/icons/canvas-panel.svg?raw'
 import planSvg from '../../../public/icons/canvas-plan.svg?raw'
+import documentsSvg from '../../../public/icons/canvas-documents.svg?raw'
 
 interface IconProps {
   className?: string
@@ -48,9 +49,14 @@ export function StructureIcon({ className = 'w-6 h-6' }: IconProps) {
   )
 }
 
+export function DocumentsIcon({ className }: IconProps) {
+  return <SvgIcon svg={documentsSvg} className={className} />
+}
+
 export const CANVAS_ICONS: Record<CanvasType, (props: IconProps) => React.JSX.Element> = {
   eendraad: EendraadIcon,
   plan: SitplanIcon,
   panel: PanelIcon,
   structure: StructureIcon,
+  documents: DocumentsIcon,
 }

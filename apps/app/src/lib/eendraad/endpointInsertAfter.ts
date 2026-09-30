@@ -40,6 +40,10 @@ export function computeEndpointInsertAfter(
     }
   }
 
+  if (target.domoticaChildDropIntent === 'insertBefore' && branchIds?.length) {
+    return { insertAfterEndpointId: target.insertAfterEndpointId ?? null, createNewBranch: false }
+  }
+
   if (inBetween) {
     if (!branchIds?.length) {
       return { insertAfterEndpointId: target.insertAfterEndpointId ?? undefined, createNewBranch: false }
@@ -51,7 +55,8 @@ export function computeEndpointInsertAfter(
       const insertIdx = branchIds.indexOf(insertAfterId)
       if (insertIdx >= 0) {
         const ep = circuit.endpoints.find((e) => e.id === insertAfterId)
-        if (ep && isActualEndpoint(ep)) {
+        const isDomoticaAfterConversion = symbol.id === 'domotica' && isEnergyConversionEndpointSymbol(ep?.symbol)
+        if (ep && isActualEndpoint(ep) && !isDomoticaAfterConversion) {
           insertAfterId = insertIdx > 0 ? branchIds[insertIdx - 1] : null
         }
       }

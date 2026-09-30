@@ -4,6 +4,9 @@ import {
 } from '@/lib/domoticaLayout'
 import type { Circuit, Endpoint } from '@/types/schema'
 import { clamp } from '@/lib/geometry'
+import { resolveSymbolPortsForWire } from '@/lib/symbols'
+import type { ElectricalDomain } from '@/types/schema'
+import type { DropTarget } from '@/lib/layout/findDropTarget'
 
 type DomoticaOutputGroup = 'control' | 'endpoint'
 type DomoticaChildRef = NonNullable<Endpoint['domoticaChildProps']>
@@ -187,12 +190,12 @@ export function relabelDomoticaChildRows(circuit: Circuit): Endpoint[] {
     const baseLabel = parent.domoticaChildProps
       ? parentLabel
       : parentLabel.replace(/\.\d+$/, '')
-    let rowLabelIndex = 1
     const nestedChildIds: string[] = []
 
     const labelRowsForGroup = (ids: string[] | undefined, group: DomoticaOutputGroup) => {
       (ids ?? []).forEach((rootChildId, outputIndex) => {
         if (!rootChildId) return
+        const rowLabel = `${baseLabel}.${outputIndex + 1}`
         const rowChildren = circuit.endpoints.filter(
           (child) =>
             child.domoticaChildProps?.parentEndpointId === parent.id &&
@@ -206,8 +209,7 @@ export function relabelDomoticaChildRows(circuit: Circuit): Endpoint[] {
         for (const childId of orderedRowIds) {
           const child = nextById.get(childId)
           if (!child) continue
-          child.label = `${baseLabel}.${rowLabelIndex}`
-          rowLabelIndex += 1
+          child.label = rowLabel
           if (child.symbol === 'domotica' && child.domoticaProps) nestedChildIds.push(child.id)
         }
       })
@@ -267,6 +269,75 @@ export function domoticaChildRefForEndpoint(
   if (!endpointId) return null
   const ref = circuit.endpoints.find((endpoint) => endpoint.id === endpointId)?.domoticaChildProps
   return ref ? { ...ref } : null
+}
+
+/** Keep the output's first-child reference on the head of an existing serial row. */
+export function updateDomoticaChainHeadAfterInsert(
+  circuit: Circuit,
+  insertedEndpointId: string,
+  beforeEndpointId: string | undefined,
+): Endpoint[] {
+  const inserted = circuit.endpoints.find((endpoint) => endpoint.id === insertedEndpointId)
+  const ref = inserted?.domoticaChildProps
+  if (!ref || !beforeEndpointId) return circuit.endpoints
+  return circuit.endpoints.map((endpoint) => {
+    if (endpoint.id !== ref.parentEndpointId) return endpoint
+    const slots = endpoint.domoticaProps?.endpointChildEndpointIds
+    if (slots?.[ref.outputIndex] !== beforeEndpointId) return endpoint
+    const nextSlots = [...slots]
+    nextSlots[ref.outputIndex] = insertedEndpointId
+    return { ...endpoint, domoticaProps: { ...endpoint.domoticaProps, endpointChildEndpointIds: nextSlots } }
+  })
+}
+
+/** A converter on an occupied output belongs before that output's existing loads. */
+export function resolveDomoticaConversionDropTarget(circuit: Circuit, target: DropTarget): DropTarget {
+  if (!target.domoticaOutput || !target.endpointId) return target
+  const parent = circuit.endpoints.find((endpoint) => endpoint.id === target.endpointId)
+  const childId = parent?.domoticaProps?.endpointChildEndpointIds?.[target.domoticaOutput.index]
+  const branch = circuit.branches?.find((candidate) => childId && candidate.endpointIds.includes(childId))
+  if (!childId || !branch) return target
+  const index = branch.endpointIds.indexOf(childId)
+  return {
+    ...target,
+    endpointId: childId,
+    branchEndpoints: branch.endpointIds,
+    insertAfterEndpointId: index > 0 ? branch.endpointIds[index - 1] : null,
+    domoticaOutput: undefined,
+    domoticaChildDropIntent: 'insertBefore',
+  }
+}
+
+/** Follow only the owning Domotica row, excluding sibling outputs and descendants. */
+export function getDomoticaEndpointInputDomain(
+  circuit: Circuit,
+  endpointId: string,
+  baseDomain: ElectricalDomain,
+  ancestry: Set<string> = new Set(),
+): ElectricalDomain {
+  const endpoint = circuit.endpoints.find((candidate) => candidate.id === endpointId)
+  const ref = endpoint?.domoticaChildProps
+  if (ancestry.has(endpointId)) return baseDomain
+  const nextAncestry = new Set(ancestry).add(endpointId)
+  let domain = ref
+    ? getDomoticaEndpointInputDomain(circuit, ref.parentEndpointId, baseDomain, nextAncestry)
+    : baseDomain
+  const branch = circuit.branches?.find((candidate) => candidate.endpointIds.includes(endpointId))
+  const ordered = branch
+    ? branch.endpointIds.flatMap((id) => circuit.endpoints.find((candidate) => candidate.id === id) ?? [])
+    : circuit.endpoints
+  for (const candidate of ordered) {
+    if (candidate.id === endpointId) break
+    const candidateRef = candidate.domoticaChildProps
+    if (ref) {
+      if (candidateRef?.parentEndpointId !== ref.parentEndpointId ||
+          candidateRef.outputGroup !== ref.outputGroup || candidateRef.outputIndex !== ref.outputIndex) continue
+    } else if (candidateRef) continue
+    if (!candidate.symbol) continue
+    const resolved = resolveSymbolPortsForWire(candidate.symbol, domain)
+    if (resolved.matched && resolved.oppositePortDomain) domain = resolved.oppositePortDomain
+  }
+  return domain
 }
 
 export function insertDomoticaChildEndpoint(

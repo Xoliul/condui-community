@@ -42,6 +42,12 @@ import {
   TrunkDeviceProperties,
 } from './editors/TrunkSupplyGroundProperties'
 import { StructuralReadOnlyProperties } from './StructuralReadOnlyProperties'
+/* @project-documents-strip-start */
+import LinkedDocumentsSection from '@/components/documents/LinkedDocumentsSection'
+import DocumentProperties from '@/components/documents/DocumentProperties'
+import DocumentTitleBadges from '@/components/documents/DocumentTitleBadges'
+import { isProjectDocumentsEnabled } from '@/lib/documents/availability'
+/* @project-documents-strip-end */
 export default function PropertiesPanel({
   readOnly = false,
   showSensitiveInfoNotice = false,
@@ -311,6 +317,20 @@ export default function PropertiesPanel({
                 />
               )
             }
+            if (target.type === 'auxiliaryEnclosure') {
+              const enclosure = currentProject
+                ? selectProjectAuxiliaryElectricalEnclosures(currentProject).find(
+                    (candidate) => candidate.id === target.enclosureId
+                  )
+                : undefined
+              return enclosure ? (
+                <AuxiliaryEnclosureProperties
+                  key={enclosure.id}
+                  enclosure={enclosure}
+                  onUpdate={updateAuxiliaryElectricalEnclosure}
+                />
+              ) : null
+            }
             return null
           })()}
         {selection.type === 'wire' && (
@@ -428,6 +448,18 @@ export default function PropertiesPanel({
             />
           ) : <StructuralReadOnlyProperties metadata={selection.structuralMetadata} />
         ) : null}
+        {/* @project-documents-strip-start */}
+        {isProjectDocumentsEnabled() && selection.type === 'document' && (
+          <DocumentProperties key={id} documentId={id} />
+        )}
+        {isProjectDocumentsEnabled() && (
+          <LinkedDocumentsSection
+            selectionType={selection.type}
+            selectedId={id}
+            elementLabel={panelTitle}
+          />
+        )}
+        {/* @project-documents-strip-end */}
       </>
     )
   } else {
@@ -439,9 +471,17 @@ export default function PropertiesPanel({
     )
   }
 
+  let titleAccessory: React.ReactNode = null
+  /* @project-documents-strip-start */
+  if (isProjectDocumentsEnabled() && selection.type === 'document' && selectedId) {
+    titleAccessory = <DocumentTitleBadges documentId={selectedId} />
+  }
+  /* @project-documents-strip-end */
+
   return (
     <PropertiesPanelFrame
       title={panelTitle}
+      titleAccessory={titleAccessory}
       panelVisible={panelVisible}
       embedded={embedded}
       panelWidth={panelWidth}

@@ -15,6 +15,8 @@ import {
 type PlacementRow = Placement & {
   endpointId?: string
   trunkDeviceId?: string
+  enclosureId?: string
+  planLabel?: string
   junctionPanelLabel?: string
 }
 
@@ -180,7 +182,8 @@ const PlanPlacementLabelEntryWithSource = React.memo(function PlanPlacementLabel
 }) {
   const endpoint = usePlacementEndpoint(placement)
   const trunkDevice = usePlacementTrunkDevice(placement)
-  const labelText = endpoint?.label ?? trunkDevice?.label ?? placement.junctionPanelLabel
+  const labelText =
+    endpoint?.label ?? trunkDevice?.label ?? placement.junctionPanelLabel ?? placement.planLabel
   if (!labelText) return null
   return (
     <PlanPlacementLabelEntry

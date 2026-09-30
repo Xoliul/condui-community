@@ -1,15 +1,19 @@
+import { getLocalizedSymbolName } from '@/lib/symbolNames'
 /**
  * Mini library for "Add element" at right-click position (1draad or plan).
  * Shows favorites first (if any), then full list; search focused by default.
+ * The search is local: it must not filter (or be hidden behind) the sidebar library.
  */
 
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, X } from 'lucide-react'
 import { useLibraryStore } from '@/stores/libraryStore'
 import type { SymbolMetadata } from '@/lib/symbols'
 import type { Point } from '@/types/ui'
 import { canSymbolAppearOnSituationPlan } from '@/lib/plan/situationPlanSymbolEligibility'
+import { isSymbolAvailableInLibrary } from '@/lib/supplyTopologyFeature'
+import { filterBySearchRelevance } from '@/utils/search'
 
 const ADD_ELEMENT_DROP_MARGIN = 12
 
@@ -29,15 +33,25 @@ interface AddElementPickerProps {
   onClose: () => void
   /** Which symbols to show: 1draad or plan (sitplan) */
   scope?: AddElementScope
+  /** Hide symbols that cannot be placed at `dropPosition`. */
+  canPlaceSymbol?: (symbol: SymbolMetadata) => boolean
 }
 
-export default function AddElementPicker({ dropPosition, onSelect, onClose, scope = 'eendraad' }: AddElementPickerProps) {
+export default function AddElementPicker({
+  dropPosition,
+  onSelect,
+  onClose,
+  scope = 'eendraad',
+  canPlaceSymbol,
+}: AddElementPickerProps) {
   const { t, i18n } = useTranslation()
+  const locale = i18n.language
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
-  const searchQuery = useLibraryStore((s) => s.searchQuery)
-  const setSearchQuery = useLibraryStore((s) => s.setSearchQuery)
-  const getFilteredSymbols = useLibraryStore((s) => s.getFilteredSymbols)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeIndex, setActiveIndex] = useState(0)
+  const symbols = useLibraryStore((s) => s.symbols)
   const getSymbolById = useLibraryStore((s) => s.getSymbolById)
   const favoriteSymbols = useLibraryStore((s) => s.favoriteSymbols)
 
@@ -47,20 +61,28 @@ export default function AddElementPicker({ dropPosition, onSelect, onClose, scop
   }, [])
 
   const getLocalizedName = (symbol: SymbolMetadata) => {
-    const locale = i18n.language
-    if (locale === 'nl-BE') return symbol.nameNL
-    if (locale === 'fr-BE') return symbol.nameFR
-    return symbol.name
+    return getLocalizedSymbolName(symbol, locale)
   }
 
   const favoritesList = useMemo(() => {
     const list = favoriteSymbols
       .map((id) => getSymbolById(id))
       .filter((s): s is SymbolMetadata => !!s)
-    return filterByScope(list, scope)
-  }, [favoriteSymbols, getSymbolById, scope])
+    const scoped = filterByScope(list, scope)
+    return canPlaceSymbol ? scoped.filter(canPlaceSymbol) : scoped
+  }, [favoriteSymbols, getSymbolById, scope, canPlaceSymbol])
 
-  const filteredList = useMemo(() => filterByScope(getFilteredSymbols(), scope), [getFilteredSymbols, scope])
+  const filteredList = useMemo(() => {
+    const available = filterByScope(symbols.filter(isSymbolAvailableInLibrary), scope)
+    const placeable = canPlaceSymbol ? available.filter(canPlaceSymbol) : available
+    return filterBySearchRelevance(placeable, searchQuery.trim(), (s) => [
+      s.name,
+      getLocalizedSymbolName(s, locale),
+      s.nameNL,
+      s.nameFR,
+      ...s.tags,
+    ])
+  }, [symbols, scope, canPlaceSymbol, searchQuery, locale])
 
   const displayList = useMemo(() => {
     if (searchQuery) return filteredList
@@ -74,6 +96,33 @@ export default function AddElementPicker({ dropPosition, onSelect, onClose, scop
   const handlePick = (symbol: SymbolMetadata) => {
     onSelect(symbol, dropPosition)
     onClose()
+  }
+
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [searchQuery])
+
+  useEffect(() => {
+    listRef.current
+      ?.querySelector<HTMLElement>(`[data-picker-index="${activeIndex}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+  }, [activeIndex])
+
+  const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (displayList.length === 0) return
+      const step = e.key === 'ArrowDown' ? 1 : -1
+      setActiveIndex((index) => (index + step + displayList.length) % displayList.length)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const symbol = displayList[Math.min(activeIndex, displayList.length - 1)]
+      if (symbol) handlePick(symbol)
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      onClose()
+    }
   }
 
   return (
@@ -109,25 +158,32 @@ export default function AddElementPicker({ dropPosition, onSelect, onClose, scop
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               placeholder={t('common.search')}
               className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0 p-2">
+        <div ref={listRef} className="flex-1 overflow-y-auto min-h-0 p-2">
           {displayList.length === 0 ? (
             <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
               {searchQuery ? t('common.noResults', 'No results') : t('symbols.noSymbols', 'No symbols')}
             </div>
           ) : (
             <div className="space-y-1">
-              {displayList.map((symbol) => (
+              {displayList.map((symbol, index) => (
                 <button
                   key={symbol.id}
                   type="button"
+                  data-picker-index={index}
                   onClick={() => handlePick(symbol)}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-left transition-colors"
+                  onMouseMove={() => setActiveIndex(index)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
+                    index === activeIndex
+                      ? 'bg-gray-100 dark:bg-gray-700'
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
                 >
                   <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded">
                     <img

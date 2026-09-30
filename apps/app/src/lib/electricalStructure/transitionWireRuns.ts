@@ -1,4 +1,11 @@
 import { buildWireBusIndex } from '@/lib/wires/wireBusIndex'
+import { asRailCable, isSecondaryBusFeederAnchor, railRunByGroup } from '@/lib/wires/railWireRuns'
+import {
+  isProjectDefaultCableAnchor,
+  isSeededCircuitCable,
+  resolveProjectDefaultCableKind,
+  withProjectDefaultCableKind,
+} from '@/lib/wires/circuitWireDefaults'
 import { circuitWireDomains } from '@/lib/wires/circuitWireIdentity'
 import type { CableSpec } from '@/types/schema'
 import type { ProjectV2, WireRun } from '@/types/projectV2'
@@ -32,10 +39,12 @@ export function stampTransitionWires(
 
   const panels = getProjectElectricalPanels(project)
   const buses = buildWireBusIndex(panels)
+  const rails = railRunByGroup(buses, authoredRuns)
   const domains = circuitWireDomains(panels)
   const circuitCableById = buildCircuitCableIndex(project)
   const installation = getProjectElectricalInstallation(project)
   const mainSupplyCable = installation?.mainSupply?.cable
+  const defaultCableKind = resolveProjectDefaultCableKind(installation)
   const rootFeedCableByPanel = new Map<string, CableSpec>()
   for (const feed of installation?.feedTopology?.rootFeeds ?? []) {
     if (feed.cable) rootFeedCableByPanel.set(feed.panelId, feed.cable)
@@ -136,7 +145,9 @@ export function stampTransitionWires(
       medium?: 'cable' | 'busbar'
       material?: 'copper' | 'aluminium'
       lengthM?: number
+      lengthEstimated?: boolean
       wireRefId?: string
+      followsDefaultCable?: boolean
     }
   ): void => {
     relationship.properties = {
@@ -151,6 +162,10 @@ export function stampTransitionWires(
         ...(spec.medium ? { medium: spec.medium } : {}),
         ...(spec.material ? { material: spec.material } : {}),
         ...(typeof spec.lengthM === 'number' ? { lengthM: spec.lengthM } : {}),
+        ...(typeof spec.lengthM === 'number' && spec.lengthEstimated
+          ? { lengthEstimated: true }
+          : {}),
+        ...(spec.followsDefaultCable ? { followsDefaultCable: true } : {}),
       },
     }
   }
@@ -266,16 +281,26 @@ export function stampTransitionWires(
         domain: domains.get(`${deviceNode.circuitId}:${deviceNode.source.entityId}`) ?? 'AC',
       }
     // A persisted run wins for any edge.
-    const run = runByAnchor.get(anchorKey)
+    const ownRun = runByAnchor.get(anchorKey)
+    const railGroup = buses.groupByAnchor.get(anchorKey)
+    if (railGroup) relationship.properties = { ...relationship.properties, wireBusGroup: railGroup }
+    const run = railGroup && ownRun?.medium !== 'cable'
+      ? rails.get(railGroup) ?? ownRun : ownRun
+    const defaultCableEdge = !isBusTap && isProjectDefaultCableAnchor(anchorKey)
     if (run) {
-      const railMedium = run.medium === 'busbar' && isBusTap
+      const railMedium = run.medium === 'busbar' && (isBusTap || isSecondaryBusFeederAnchor(anchorKey))
+      const followsDefaultCable = defaultCableEdge && run.followsDefaultCable === true
       stampWire(relationship, {
-        cable: run.cable,
+        cable: followsDefaultCable
+          ? withProjectDefaultCableKind(run.cable, defaultCableKind)
+          : run.cable,
+        followsDefaultCable,
         conductorCount: run.conductors.length,
         anchor: anchorKey,
         medium: railMedium ? 'busbar' : run.medium === 'busbar' ? 'cable' : run.medium,
         material: railMedium ? run.material : undefined,
-        lengthM: run.segmentLengths?.[anchorKey],
+        lengthM: run.segmentLengthSources?.[anchorKey] === 'estimated-stale' ? undefined : run.segmentLengths?.[anchorKey],
+        lengthEstimated: run.segmentLengthSources?.[anchorKey] === 'estimated',
         wireRefId: run.id,
       })
       continue
@@ -290,6 +315,11 @@ export function stampTransitionWires(
         ? buses.groupByProtection.get(inputProtection.source.entityId)
         : undefined
       cable = (group ? buses.cableByGroup.get(group) : undefined) ?? busbarCable
+      medium = 'busbar'
+      material = 'copper'
+    } else if (isSecondaryBusFeederAnchor(anchorKey)) {
+      const feederCable = (railGroup ? buses.cableByGroup.get(railGroup) : undefined) ?? circuitCableById.get(deviceNode!.circuitId!)
+      cable = feederCable ? asRailCable(feederCable) : undefined
       medium = 'busbar'
       material = 'copper'
     } else if (isCircuitWire && deviceNode) {
@@ -315,9 +345,11 @@ export function stampTransitionWires(
       cable = mainSupplyCable // supply-assembly connection / handoff
     }
     if (!cable) continue
+    const followsDefaultCable = defaultCableEdge && isSeededCircuitCable(cable)
 
     stampWire(relationship, {
-      cable,
+      cable: followsDefaultCable ? withProjectDefaultCableKind(cable, defaultCableKind) : cable,
+      followsDefaultCable,
       conductorCount: deriveSeedConductors(cable).length,
       anchor: anchorKey,
       medium,

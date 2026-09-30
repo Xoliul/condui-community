@@ -16,6 +16,7 @@ import { logger } from '@/lib/logger'
 type SitplanPlacementRow = Placement & {
   endpointId?: string
   trunkDeviceId?: string
+  enclosureId?: string
   junctionPanelLabel?: string
   isEarthing?: boolean
 }
@@ -830,6 +831,29 @@ export function usePlanContextMenu(
                           />
                         ) : undefined,
                         subtitle: symbolMeta?.name,
+                      },
+                    ]
+                  }
+                  if (pl.enclosureId) {
+                    const symbolMeta = getSymbolById('panel_distribution')
+                    const enclosure = useProjectStore
+                      .getState()
+                      .currentProject?.disciplines?.electrical?.auxiliaryEnclosures?.find(
+                        (candidate) => candidate.id === pl.enclosureId
+                      )
+                    return [
+                      {
+                        id: pl.id,
+                        label:
+                          enclosure?.name.trim() ||
+                          t('panelCanvas.virtualEnclosure', 'Supply enclosure'),
+                        icon: symbolMeta ? (
+                          <img
+                            src={symbolMeta.svgPath}
+                            alt=""
+                            className="w-7 h-7 object-contain dark:invert"
+                          />
+                        ) : undefined,
                       },
                     ]
                   }

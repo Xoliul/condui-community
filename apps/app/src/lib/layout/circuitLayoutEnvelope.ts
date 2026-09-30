@@ -445,7 +445,7 @@ function getBranchesEnvelope(circuit: Circuit, config: CircuitEnvelopeConfig): H
           (endpoint.symbol === 'solar_panel' ||
             endpoint.symbol === 'battery' ||
             endpoint.symbol === 'ev')
-        return !isRightLabel && getVisibleEndpointNoteText(endpoint) ? [endpointIndex] : []
+        return endpoint.symbol !== 'domotica' && !isRightLabel && getVisibleEndpointNoteText(endpoint) ? [endpointIndex] : []
       })
     )
     endpoints.forEach((endpoint, endpointIndex) => {
@@ -462,7 +462,7 @@ function getBranchesEnvelope(circuit: Circuit, config: CircuitEnvelopeConfig): H
         endpointIndex === endpoints.length - 1,
         config.symbolSize,
         true,
-        endpoints.length === 1 && endpoint.type !== 'switch'
+        endpoint.symbol === 'domotica' || (endpoints.length === 1 && endpoint.type !== 'switch')
           ? getEndpointNoteMinimumLeftX(anchorX, 0)
           : bottomNoteEndpointIndexes.has(endpointIndex)
             ? (crowdedNoteLabelBounds?.minimumLeftX ?? getEndpointNoteMinimumLeftX(anchorX, 0))

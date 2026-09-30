@@ -43,6 +43,7 @@ import { shortProjectIdLabel } from '@/utils/project'
 import { logger } from '@/lib/logger'
 import { summarizeConverterDcPersistence } from '@/lib/supplyAssembly/persistenceDiagnostics'
 import { migrateLegacyWireRunEdgeAnchors } from '@/lib/wires/migrateWireRunAnchors'
+import { joinSecondaryFeederRuns } from '@/lib/wires/secondaryFeederRuns'
 import { materializeLegacyDcRailConnections } from '@/lib/wires/circuitWireIdentity'
 import {
   collectSupplyDeviceReferenceIssues,
@@ -114,6 +115,8 @@ export function hydrateProjectForEditor(project: ProjectInput): {
   const healedPlanWiring = healPlanWiring(runtimeProject)
   const materializedDcRailConnections = materializeLegacyDcRailConnections(panels)
   const migratedWireRunAnchors = migrateLegacyWireRunEdgeAnchors(runtimeProject)
+  // A secondary board's feeder edited on one board before this was joined: join its two ends.
+  const joinedSecondaryFeederRuns = joinSecondaryFeederRuns(runtimeProject)
   recordSessionAction(
     `Opened project in editor (${shortProjectIdLabel(runtimeProject.project.id)})`
   )
@@ -157,7 +160,8 @@ export function hydrateProjectForEditor(project: ProjectInput): {
       synchronizedPanelPlanVisibility ||
       healedPlanWiring ||
       materializedDcRailConnections ||
-      migratedWireRunAnchors,
+      migratedWireRunAnchors ||
+      joinedSecondaryFeederRuns,
   }
 }
 

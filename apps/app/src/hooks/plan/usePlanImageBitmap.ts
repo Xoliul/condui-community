@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
-import { applyDarkModeInversion, invertSvgForDarkMode } from '@/utils/planImageProcessing'
+import {
+  applyDarkModeInversion,
+  grayscaleSvgColors,
+  invertSvgForDarkMode,
+} from '@/utils/planImageProcessing'
 import { importedPlanAssetUsesSvgContent, type Floor } from '@/types/schema'
 import { logger } from '@/lib/logger'
 
@@ -24,6 +28,7 @@ export function usePlanImageBitmap(
   const svgContent = importedPlanAssetUsesSvgContent(canonicalAsset?.kind)
     ? canonicalAsset?.svgContent
     : undefined
+  const grayscale = canonicalAsset?.grayscale === true
 
   useEffect(() => {
     if (!planImageDataUrl && !svgContent) {
@@ -37,11 +42,20 @@ export function usePlanImageBitmap(
       try {
         let imageUrlToUse = planImageDataUrl ?? ''
         if (svgContent) {
-          let svgToUse = svgContent
+          let svgToUse = grayscale ? grayscaleSvgColors(svgContent) : svgContent
           if (themeMode === 'dark' && darkModeAware) {
             svgToUse = await invertSvgForDarkMode(svgContent)
           }
           imageUrlToUse = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgToUse)}`
+        } else if (
+          themeMode === 'dark' &&
+          darkModeAware &&
+          canonicalAsset?.kind === 'pdf-raster' &&
+          planImageDataUrl
+        ) {
+          // Keep the PDF page opaque while inverting it so the page's white
+          // paper becomes dark instead of showing the canvas through it.
+          imageUrlToUse = await applyDarkModeInversion(planImageDataUrl)
         } else if (hasWhiteBackground && planImageProcessedDataUrl) {
           imageUrlToUse = planImageProcessedDataUrl
           if (themeMode === 'dark' && darkModeAware) {
@@ -85,7 +99,9 @@ export function usePlanImageBitmap(
     planImageProcessedDataUrl,
     hasWhiteBackground,
     darkModeAware,
+    canonicalAsset?.kind,
     svgContent,
+    grayscale,
     themeMode,
     floor?.id,
   ])

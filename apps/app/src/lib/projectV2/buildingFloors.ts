@@ -15,6 +15,7 @@ import type {
   FloorV2,
   GeometryModelV2,
 } from '@/types/projectV2'
+import { resolvePlanPxPerMeter } from '@/lib/plan/planScale'
 
 type ProjectWithCompatibilityBuilding = {
   floors?: Floor[]
@@ -114,7 +115,9 @@ function floorToV2(floor: Floor & Partial<FloorV2>): FloorV2 {
     planAssetId,
     processedPlanAssetId,
     scale: floor.scale,
+    planScaleNeedsCalibration: floor.planScaleNeedsCalibration,
     planImageOffset: floor.planImageOffset,
+    planImageRotationDeg: floor.planImageRotationDeg,
     planImageOpacity: floor.planImageOpacity,
     sitplanSymbolSizeCm: floor.sitplanSymbolSizeCm,
     hiddenSitplanElementIds: floor.hiddenSitplanPlacementIds,
@@ -165,6 +168,7 @@ function resolvePlanImportAssetForV2Floor(
     svgContent: sourceAsset?.svgContent ?? legacy?.svgContent,
     crop: primaryAsset?.crop ?? legacy?.crop,
     darkModeAware: primaryAsset?.darkModeAware ?? legacy?.darkModeAware,
+    grayscale: primaryAsset?.grayscale ?? legacy?.grayscale,
     cadReference: legacy?.cadReference,
   }
 }
@@ -190,10 +194,12 @@ function floorV2ToCompatibility(
     name: v2Floor.name,
     layers: ['electrical'],
     scale: v2Floor.scale,
+    planScaleNeedsCalibration: v2Floor.planScaleNeedsCalibration,
     planAsset: planImportAsset?.dataUrl,
     planAssetProcessed: planImportAsset?.processedDataUrl,
     planImportAsset,
     planImageOffset: v2Floor.planImageOffset,
+    planImageRotationDeg: v2Floor.planImageRotationDeg,
     planImageOpacity: v2Floor.planImageOpacity,
     sitplanSymbolSizeCm: v2Floor.sitplanSymbolSizeCm,
     hiddenSitplanPlacementIds: v2Floor.hiddenSitplanElementIds,
@@ -239,6 +245,7 @@ function assetsFromFloor(floor: Floor): AssetModelV2[] {
       pageCount: floor.planImportAsset.pageCount,
       crop: floor.planImportAsset.crop,
       darkModeAware: floor.planImportAsset.darkModeAware,
+      grayscale: floor.planImportAsset.grayscale,
       legacy: floor.planImportAsset,
     })
   }
@@ -257,6 +264,7 @@ function assetsFromFloor(floor: Floor): AssetModelV2[] {
       pageCount: floor.planImportAsset.pageCount,
       crop: floor.planImportAsset.crop,
       darkModeAware: floor.planImportAsset.darkModeAware,
+      grayscale: floor.planImportAsset.grayscale,
       legacy: floor.planImportAsset,
     })
   }
@@ -322,6 +330,7 @@ function clonePlanScale(scale: Floor['scale']): Floor['scale'] {
           p1: { ...scale.reference.p1 },
           p2: { ...scale.reference.p2 },
           meters: scale.reference.meters,
+          ...(scale.reference.floorId ? { floorId: scale.reference.floorId } : {}),
           ...(scale.reference.coordinateSpace
             ? { coordinateSpace: scale.reference.coordinateSpace }
             : {}),
@@ -343,10 +352,13 @@ export function setPlanScaleForProject(
   scale: Floor['scale'],
 ): void {
   const building = ensureBuilding(document)
-  building.planScale = clonePlanScale(scale)
+  // A numeric-only import at the same units must not discard the owning floor's ruler.
+  const next = scale && !scale.reference && building.planScale?.reference && resolvePlanPxPerMeter(scale) === resolvePlanPxPerMeter(building.planScale)
+    ? { ...scale, reference: building.planScale.reference } : scale
+  building.planScale = clonePlanScale(next)
   building.floors = building.floors.map((floor) => ({
     ...floor,
-    scale: clonePlanScale(scale),
+    scale: clonePlanScale(next),
   }))
 }
 
@@ -498,7 +510,10 @@ function nativeFloorPlanFromBuildingElements(
   floorId: string
 ): Floor['floorPlan'] | undefined {
   const sourceElements = document.elements
-  if (sourceElements) {
+  // A newly assigned array inside an Immer producer can contain live drafts. Its
+  // derived view is outside the state tree, so Immer will not finalize that view.
+  const cacheable = !!sourceElements && Object.isFrozen(sourceElements)
+  if (cacheable) {
     const cached = floorPlansByElements.get(sourceElements)?.get(floorId)
     if (cached !== undefined) return cached
   }
@@ -570,7 +585,7 @@ function nativeFloorPlanFromBuildingElements(
     stairs,
     graphicElements,
   }
-  if (sourceElements) {
+  if (cacheable) {
     let cache = floorPlansByElements.get(sourceElements)
     if (!cache) {
       cache = new Map()
@@ -593,16 +608,24 @@ export function selectProjectFloorPlan(
 function compatibilityFloors(document: ProjectWithOptionalV2Building): Floor[] {
   const nativeFloors = document.building?.floors
   if (!nativeFloors) return []
-  const cached = compatibilityFloorsByNativeFloors.get(nativeFloors)
-  if (cached && cached.assets === document.assets && cached.elements === document.elements) {
-    return cached.floors
+  const cacheable =
+    Object.isFrozen(nativeFloors) &&
+    (document.assets === undefined || Object.isFrozen(document.assets)) &&
+    (document.elements === undefined || Object.isFrozen(document.elements))
+  if (cacheable) {
+    const cached = compatibilityFloorsByNativeFloors.get(nativeFloors)
+    if (cached && cached.assets === document.assets && cached.elements === document.elements) {
+      return cached.floors
+    }
   }
   const floors = nativeFloors.map((floor) => floorV2ToCompatibility(floor, document))
-  compatibilityFloorsByNativeFloors.set(nativeFloors, {
-    assets: document.assets,
-    elements: document.elements,
-    floors,
-  })
+  if (cacheable) {
+    compatibilityFloorsByNativeFloors.set(nativeFloors, {
+      assets: document.assets,
+      elements: document.elements,
+      floors,
+    })
+  }
   return floors
 }
 

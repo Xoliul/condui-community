@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { Point2 } from '@/types/schema'
 import FloatingDistanceInput from './FloatingDistanceInput'
 import { computePlanImportFitScale } from './planImportViewport'
+import { createPlanScaleReference } from '@/lib/plan/planScale'
+import { isScaleRulerPlacementButton } from '@/lib/plan/scaleRulerInput'
 
 const MAGNIFIER_ZOOM = 2
 const MAGNIFIER_DIAMETER_PX = 144
@@ -49,7 +51,7 @@ function ScaleRuler({
   const inputRef = useRef<HTMLInputElement>(null)
   const lastEmittedRef = useRef<string | null>(null)
   const lastAppliedInitialRef = useRef<string | null>(null)
-  const autoCreatedForImageRef = useRef<string | null>(null)
+  const initializedImageRef = useRef<string | null>(null)
   const onReferenceChangeRef = useRef<ScaleRulerProps['onReferenceChange']>(onReferenceChange)
 
   useEffect(() => {
@@ -82,14 +84,14 @@ function ScaleRuler({
     setDraggingHandle(null)
   }, [initialReference, isDrawing, draggingHandle])
 
-  // Auto-persist reference as soon as line + meters are valid.
+  // Sync the editable draft. Confirmation validates it before applying the scale.
   useEffect(() => {
     const emit = onReferenceChangeRef.current
     if (!emit) return
     // Never autosync while actively drawing or dragging handles; this prevents
     // feedback loops between local interaction state and parent rehydration.
     if (isDrawing || draggingHandle) return
-    if (!startPoint || !endPoint || !Number.isFinite(meters) || meters <= 0) {
+    if (!startPoint || !endPoint) {
       if (lastEmittedRef.current !== null) {
         lastEmittedRef.current = null
         emit(null)
@@ -118,7 +120,6 @@ function ScaleRuler({
       imageRef.current = img
       setImageSize({ width: img.width, height: img.height })
       setImageLoaded(true)
-      autoCreatedForImageRef.current = null
     }
     img.src = imageDataUrl
 
@@ -129,32 +130,20 @@ function ScaleRuler({
   }, [imageDataUrl])
 
   useEffect(() => {
-    if (!autoCreateInitialReference || initialReference || !imageLoaded || !imageSize) return
-    if (startPoint || endPoint || isDrawing || draggingHandle) return
-
-    const signature = `${imageDataUrl}:${imageSize.width}x${imageSize.height}`
-    if (autoCreatedForImageRef.current === signature) return
-    autoCreatedForImageRef.current = signature
-
-    const y = imageSize.height / 2
-    const p1 = { x: imageSize.width * 0.25, y }
-    const p2 = { x: imageSize.width * 0.75, y }
-    setStartPoint(p1)
-    setEndPoint(p2)
-    setTempEndPoint(null)
+    if (!autoCreateInitialReference || !imageLoaded || !imageSize) return
+    if (initializedImageRef.current === imageDataUrl) return
+    if (initialReference || startPoint || endPoint) {
+      initializedImageRef.current = imageDataUrl
+      return
+    }
+    if (isDrawing || draggingHandle) return
+    initializedImageRef.current = imageDataUrl
+    setStartPoint({ x: imageSize.width * 0.25, y: imageSize.height * 0.5 })
+    setEndPoint({ x: imageSize.width * 0.75, y: imageSize.height * 0.5 })
     setMeters(5)
-    setIsDrawing(false)
-    setDraggingHandle(null)
   }, [
-    autoCreateInitialReference,
-    initialReference,
-    imageLoaded,
-    imageSize,
-    imageDataUrl,
-    startPoint,
-    endPoint,
-    isDrawing,
-    draggingHandle,
+    autoCreateInitialReference, imageLoaded, imageSize, imageDataUrl,
+    initialReference, startPoint, endPoint, isDrawing, draggingHandle,
   ])
 
   // Update scale when container size changes (same fit logic as ImageCropper)
@@ -331,6 +320,7 @@ function ScaleRuler({
 
   // Handle mouse down
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isScaleRulerPlacementButton(e.button)) return
     e.preventDefault()
     e.stopPropagation()
     if (!imageSize) return
@@ -338,8 +328,8 @@ function ScaleRuler({
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect) return
     
-    const x = (e.clientX - rect.left) / scale
-    const y = (e.clientY - rect.top) / scale
+    const x = (e.clientX - rect.left) * imageSize.width / rect.width
+    const y = (e.clientY - rect.top) * imageSize.height / rect.height
     
     // If we have a complete line, check if clicking on a handle
     if (startPoint && endPoint) {
@@ -378,8 +368,8 @@ function ScaleRuler({
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect || !imageSize) return
     
-    const x = (e.clientX - rect.left) / scale
-    const y = (e.clientY - rect.top) / scale
+    const x = (e.clientX - rect.left) * imageSize.width / rect.width
+    const y = (e.clientY - rect.top) * imageSize.height / rect.height
     
     // If dragging a handle, update that handle's position
     if (draggingHandle === 'start' && startPoint) {
@@ -418,7 +408,7 @@ function ScaleRuler({
 
   // Handle complete
   const handleComplete = useCallback(() => {
-    if (!startPoint || !endPoint) return
+    if (!startPoint || !endPoint || !createPlanScaleReference(startPoint, endPoint, meters)) return
     
     onScaleComplete({
       p1: startPoint,
@@ -474,6 +464,7 @@ function ScaleRuler({
               <button
                 type="button"
                 onClick={handleComplete}
+                disabled={!createPlanScaleReference(startPoint, endPoint, meters)}
                 className="flex-1 px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-md shadow-md transition-colors"
               >
                 {t('common.continue')}
@@ -493,16 +484,15 @@ function ScaleRuler({
               {t('planImport.redraw')}
             </button>
           </>
-        ) : (
-          <button
-            type="button"
-            data-testid="e2e-import-plan-skip-scale"
-            onClick={onSkip}
-            className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            {t('planImport.skipScale')}
-          </button>
-        )}
+        ) : null}
+        <button
+          type="button"
+          data-testid="e2e-import-plan-skip-scale"
+          onClick={onSkip}
+          className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        >
+          {t('planImport.skipScale')}
+        </button>
       </div>
     </div>
   )

@@ -267,14 +267,22 @@ export function computeOpeningGeometry(points: Point2[], position: number): Wall
 
   // Find segment that contains targetDist. Use strict upper bound so openings at the
   // segment boundary stay in the lower segment (avoid float assigning them to the next).
+  // Skip zero-length segments (duplicate consecutive points): they cannot host an opening.
   let segmentIndex = 0
+  let lastValid = -1
+  let found = false
   for (let i = 0; i < points.length - 1; i++) {
+    const start = lengths[i] ?? 0
     const end = lengths[i + 1] ?? 0
+    if (end - start < 1e-10) continue
+    lastValid = i
     if (targetDist < end + 1e-10) {
       segmentIndex = i
+      found = true
       break
     }
   }
+  if (!found && lastValid >= 0) segmentIndex = lastValid
 
   const segmentStartDist = lengths[segmentIndex] ?? 0
   const segmentEndDist = lengths[segmentIndex + 1] ?? totalLength

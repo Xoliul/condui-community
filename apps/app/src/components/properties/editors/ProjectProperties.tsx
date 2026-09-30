@@ -13,7 +13,11 @@ import {
   type InspectionAgencyCatalogEntry,
 } from '@/lib/inspectionAgencyCatalog'
 import { useProjectStore, type ProjectState } from '@/stores/projectStore'
-import type { Installation } from '@/types/schema'
+import type { CableSpec, Installation } from '@/types/schema'
+import {
+  PROJECT_DEFAULT_CABLE_KINDS,
+  resolveProjectDefaultCableKind,
+} from '@/lib/wires/circuitWireDefaults'
 import {
   applyNominalVoltageSystem,
   hidesLineToNeutralField,
@@ -640,6 +644,31 @@ export function ProjectProperties({
                   </div>
                 </div>
               </div>
+            </div>
+            <div>
+              <label
+                htmlFor="project-default-cable"
+                className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1"
+              >
+                {t('installation.defaultCable', 'Default cable')}
+              </label>
+              <select
+                id="project-default-cable"
+                value={resolveProjectDefaultCableKind(installation)}
+                disabled={readOnly}
+                onChange={(event) =>
+                  updateInstallation({
+                    defaultCableKind: event.target.value as CableSpec['kind'],
+                  })
+                }
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 disabled:opacity-60"
+              >
+                {PROJECT_DEFAULT_CABLE_KINDS.map((kind) => (
+                  <option key={kind} value={kind}>
+                    {kind}
+                  </option>
+                ))}
+              </select>
             </div>
             {!isTemplate && (
               <div>

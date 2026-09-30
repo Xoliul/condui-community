@@ -40,6 +40,7 @@ export function getViewportPanelZones(layout: ViewportLayout): ViewportPanelZone
   const p0 = panels[0]
   const p1 = panels[1]
   const p2 = panels[2]
+  const p3 = panels[3]
 
   if (preset === 'single' && p0) {
     return [{ type: p0.canvas, panelIndex: 0, rect: FULL_RECT }]
@@ -108,6 +109,19 @@ export function getViewportPanelZones(layout: ViewportLayout): ViewportPanelZone
     ]
   }
 
+  if (preset === 'grid' && p0 && p1 && p2 && p3) {
+    const top = { top: 0, height: primaryRatio }
+    const bottom = { top: primaryRatio, height: 1 - primaryRatio }
+    const left = { left: 0, width: secondaryRatio }
+    const right = { left: secondaryRatio, width: 1 - secondaryRatio }
+    return [
+      { type: p0.canvas, panelIndex: 0, rect: { ...left, ...top } },
+      { type: p1.canvas, panelIndex: 1, rect: { ...right, ...top } },
+      { type: p2.canvas, panelIndex: 2, rect: { ...left, ...bottom } },
+      { type: p3.canvas, panelIndex: 3, rect: { ...right, ...bottom } },
+    ]
+  }
+
   return p0 ? [{ type: p0.canvas, panelIndex: 0, rect: FULL_RECT }] : []
 }
 
@@ -127,6 +141,9 @@ export function getViewportDividerSpecs(layout: ViewportLayout): ViewportDivider
       ratioKey: 'secondary',
       heightFraction: primaryRatio,
     })
+  } else if (preset === 'grid' && panels.length >= 4) {
+    out.push({ direction: 'horizontal', ratio: primaryRatio, ratioKey: 'primary' })
+    out.push({ direction: 'vertical', ratio: secondaryRatio, ratioKey: 'secondary' })
   } else if (preset === 'topWideBottomPair' && panels.length >= 3) {
     out.push({ direction: 'horizontal', ratio: primaryRatio, ratioKey: 'primary' })
     out.push({

@@ -1473,7 +1473,16 @@ export function FloorPlanMode({
       return
     }
 
-    if (wallDrawingState.currentPoints.length >= 2 && activeFloorId) {
+    const typedCentimeters = Number.parseFloat(penDimensionText.trim().replace(',', '.'))
+    const hasTypedLength = Number.isFinite(typedCentimeters) && typedCentimeters > 0
+
+    // Without a typed length, Enter finishes the polyline as drawn. A typed length
+    // always adds that segment first, also after earlier segments were clicked.
+    if (
+      wallDrawingState.currentPoints.length >= 2 &&
+      activeFloorId &&
+      !(hasTypedLength && previewPoint)
+    ) {
       commitWallWithUndo(activeFloorId, wallDrawingState.currentPoints)
       resetDrawingState()
       setActiveTool('drawWall')
@@ -1482,12 +1491,8 @@ export function FloorPlanMode({
 
     if (!previewPoint) return
 
-    const typedCentimeters = Number.parseFloat(penDimensionText.trim().replace(',', '.'))
     appendPenPoint(previewPoint, {
-      lockedLengthMeters:
-        Number.isFinite(typedCentimeters) && typedCentimeters > 0
-          ? typedCentimeters / 100
-          : penLockedLengthMeters,
+      lockedLengthMeters: hasTypedLength ? typedCentimeters / 100 : penLockedLengthMeters,
       commitSegment: true,
     })
   }, [
@@ -1527,6 +1532,7 @@ export function FloorPlanMode({
             },
             placement: 'center',
             value: penDimensionText || centimeters.toFixed(1),
+            live: !penDimensionText,
             active: true,
           },
         ],
@@ -1563,6 +1569,7 @@ export function FloorPlanMode({
           anchor: { x: (start.x + end.x) / 2, y: start.y },
           placement: 'above',
           value: rectDimensionTextX || ((widthPx / canvasPxPerMeter) * 100).toFixed(1),
+          live: !rectDimensionTextX,
           active: rectActiveAxis === 'x',
         })
       }
@@ -1572,6 +1579,7 @@ export function FloorPlanMode({
           anchor: { x: end.x, y: (start.y + end.y) / 2 },
           placement: 'right',
           value: rectDimensionTextY || ((heightPx / canvasPxPerMeter) * 100).toFixed(1),
+          live: !rectDimensionTextY,
           active: rectActiveAxis === 'y',
         })
       }

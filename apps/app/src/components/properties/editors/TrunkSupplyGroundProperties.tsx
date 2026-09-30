@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { DebouncedTextInput, DebouncedTextarea } from '@/components/forms'
+import { PanelGridDimensionInput } from '../shared/PanelGridDimensionInput'
 import CustomDropdown from '@/components/common/CustomDropdown'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjectStore, type ProjectState } from '@/stores/projectStore'
@@ -1263,40 +1264,20 @@ export function TrunkDeviceProperties({
             />
             <span>{t('panelCanvas.topTerminalStripRail', 'Top clamp rail')}</span>
           </button>
-          <div className="flex items-center gap-2">
-            <span className="w-16 text-sm text-gray-700 dark:text-gray-300">
-              {t('panelCanvas.rows', 'Rows')}
-            </span>
-            <input
-              type="number"
-              min={1}
-              max={32}
-              value={junctionPanelGrid.rows ?? DEFAULT_PANEL_GRID_ROWS}
-              onChange={(event) =>
-                updateJunctionPanelGrid(device.id, {
-                  rows: Math.max(1, Math.min(32, Number(event.target.value) || 1)),
-                })
-              }
-              className="w-24 rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-16 text-sm text-gray-700 dark:text-gray-300">
-              {t('panelCanvas.columns', 'Columns')}
-            </span>
-            <input
-              type="number"
-              min={1}
-              max={48}
-              value={junctionPanelGrid.columns ?? DEFAULT_PANEL_GRID_COLUMNS}
-              onChange={(event) =>
-                updateJunctionPanelGrid(device.id, {
-                  columns: Math.max(1, Math.min(48, Number(event.target.value) || 1)),
-                })
-              }
-              className="w-24 rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
+          <PanelGridDimensionInput
+            label={t('panelCanvas.rows', 'Rows')}
+            value={junctionPanelGrid.rows ?? DEFAULT_PANEL_GRID_ROWS}
+            min={1}
+            max={32}
+            onChange={(rows) => updateJunctionPanelGrid(device.id, { rows })}
+          />
+          <PanelGridDimensionInput
+            label={t('panelCanvas.columns', 'Columns')}
+            value={junctionPanelGrid.columns ?? DEFAULT_PANEL_GRID_COLUMNS}
+            min={1}
+            max={48}
+            onChange={(columns) => updateJunctionPanelGrid(device.id, { columns })}
+          />
           <button
             type="button"
             aria-pressed={junctionPanelGrid.terminalStripBottomRail ?? false}
@@ -1616,10 +1597,13 @@ export function TrunkDeviceProperties({
 
       {isInlineSwitch && (
         <>
-          <SwitchTypeDropdown
-            value={normalizeSwitchSymbol(device.symbol)}
-            onChangeSymbol={(symbol) => handleUpdate({ symbol, protectionType: undefined })}
-          />
+          {/* Circuit-trunk switches are always plain switches; only supply DC lanes offer other types. */}
+          {device.type !== 'switch' && (
+            <SwitchTypeDropdown
+              value={normalizeSwitchSymbol(device.symbol)}
+              onChangeSymbol={(symbol) => handleUpdate({ symbol, protectionType: undefined })}
+            />
+          )}
           {device.symbol === 'switch' && (
             <SwitchPolesGrid
               value={(device.poles ?? 1) as 1 | 2 | 3 | 4}
@@ -2661,40 +2645,20 @@ export function SupplyPanelProperties({
       <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
         {t('panelCanvas.supplyPanel', 'Supply panel')}
       </h3>
-      <div className="flex items-center gap-2">
-        <span className="w-16 text-sm text-gray-700 dark:text-gray-300">
-          {t('panelCanvas.rows')}
-        </span>
-        <input
-          type="number"
-          min={1}
-          max={32}
-          value={supplyPanelRows}
-          onChange={(e) =>
-            updatePanelGrid(panelId, {
-              supplyPanelRows: Math.max(1, Math.min(32, Number(e.target.value) || 1)),
-            })
-          }
-          className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="w-16 text-sm text-gray-700 dark:text-gray-300">
-          {t('panelCanvas.columns')}
-        </span>
-        <input
-          type="number"
-          min={1}
-          max={48}
-          value={supplyPanelColumns}
-          onChange={(e) =>
-            updatePanelGrid(panelId, {
-              supplyPanelColumns: Math.max(1, Math.min(48, Number(e.target.value) || 1)),
-            })
-          }
-          className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
-      </div>
+      <PanelGridDimensionInput
+        label={t('panelCanvas.rows')}
+        value={supplyPanelRows}
+        min={1}
+        max={32}
+        onChange={(supplyPanelRows) => updatePanelGrid(panelId, { supplyPanelRows })}
+      />
+      <PanelGridDimensionInput
+        label={t('panelCanvas.columns')}
+        value={supplyPanelColumns}
+        min={1}
+        max={48}
+        onChange={(supplyPanelColumns) => updatePanelGrid(panelId, { supplyPanelColumns })}
+      />
     </div>
   )
 }

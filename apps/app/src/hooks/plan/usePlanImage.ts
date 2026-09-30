@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useProjectStore } from '@/stores/projectStore'
-import { applyDarkModeInversion, invertSvgForDarkMode } from '@/utils/planImageProcessing'
+import {
+  applyDarkModeInversion,
+  grayscaleSvgColors,
+  invertSvgForDarkMode,
+} from '@/utils/planImageProcessing'
 import { importedPlanAssetUsesSvgContent, type Floor } from '@/types/schema'
 import { logger } from '@/lib/logger'
 
@@ -55,6 +59,7 @@ export function usePlanImage(
   const svgContent = importedPlanAssetUsesSvgContent(canonicalAsset?.kind)
     ? canonicalAsset?.svgContent
     : undefined
+  const grayscale = canonicalAsset?.grayscale === true
 
   // Load image when plan asset changes
   useEffect(() => {
@@ -70,11 +75,20 @@ export function usePlanImage(
         // Determine which image URL to use
         let imageUrlToUse = planImageDataUrl ?? ''
         if (svgContent) {
-          let svgToUse = svgContent
+          let svgToUse = grayscale ? grayscaleSvgColors(svgContent) : svgContent
           if (theme.mode === 'dark' && darkModeAware) {
             svgToUse = await invertSvgForDarkMode(svgContent)
           }
           imageUrlToUse = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgToUse)}`
+        } else if (
+          theme.mode === 'dark' &&
+          darkModeAware &&
+          canonicalAsset?.kind === 'pdf-raster' &&
+          planImageDataUrl
+        ) {
+          // Keep the PDF page opaque while inverting it so the page's white
+          // paper becomes dark instead of showing the canvas through it.
+          imageUrlToUse = await applyDarkModeInversion(planImageDataUrl)
         } else if (hasWhiteBackground && planImageProcessedDataUrl) {
           // If we have a processed version and it has white background, use that.
           imageUrlToUse = planImageProcessedDataUrl
@@ -147,7 +161,9 @@ export function usePlanImage(
     planImageProcessedDataUrl,
     hasWhiteBackground,
     darkModeAware,
+    canonicalAsset?.kind,
     svgContent,
+    grayscale,
     theme.mode,
     activeFloor?.id,
     canvasRef,

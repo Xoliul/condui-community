@@ -1,4 +1,13 @@
-export type SupportedLanguage = 'nl-BE' | 'fr-BE' | 'en'
+export const SUPPORTED_LANGUAGES = ['nl-BE', 'en', 'fr-BE', 'de', 'pl', 'ro'] as const
+export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
+
+export const LANGUAGE_PREFIXES: Record<SupportedLanguage, string> = {
+  'nl-BE': 'nl', en: 'en', 'fr-BE': 'fr', de: 'de', pl: 'pl', ro: 'ro',
+}
+
+export const LANGUAGE_OPTIONS = SUPPORTED_LANGUAGES.map((code) => ({
+  code, label: LANGUAGE_PREFIXES[code].toUpperCase(),
+}))
 
 const SHORT_LANGUAGE_MAP: Record<string, SupportedLanguage> = {
   nl: 'nl-BE',
@@ -6,12 +15,18 @@ const SHORT_LANGUAGE_MAP: Record<string, SupportedLanguage> = {
   fr: 'fr-BE',
   'fr-be': 'fr-BE',
   en: 'en',
+  de: 'de',
+  'de-de': 'de',
+  pl: 'pl',
+  'pl-pl': 'pl',
+  ro: 'ro',
+  'ro-ro': 'ro',
 }
 
 export function normalizeSupportedLanguage(value: string | null | undefined): SupportedLanguage | null {
   if (!value) return null
-  const normalized = SHORT_LANGUAGE_MAP[value.toLowerCase()]
-  return normalized ?? null
+  const code = value.trim().toLowerCase().replace('_', '-')
+  return SHORT_LANGUAGE_MAP[code] ?? SHORT_LANGUAGE_MAP[code.split('-')[0] ?? ''] ?? null
 }
 
 export function getPathLanguagePrefix(pathname: string | null | undefined): SupportedLanguage | null {
@@ -35,7 +50,7 @@ export function buildPathForLanguage(pathWithoutLanguage: string, language: Supp
   if (language === 'en') {
     return `/en${cleanedPath}` || '/en'
   }
-  const shortPrefix = language === 'nl-BE' ? 'nl' : 'fr'
+  const shortPrefix = LANGUAGE_PREFIXES[language]
   return cleanedPath ? `/${shortPrefix}${cleanedPath}` : `/${shortPrefix}`
 }
 
@@ -74,8 +89,7 @@ export function buildPathForLanguageForHostname(
     return `/en${cleanedPath}` || '/en'
   }
 
-  const wantsNlPrefix = language === 'nl-BE'
-  const shortPrefix = wantsNlPrefix ? 'nl' : 'fr'
+  const shortPrefix = LANGUAGE_PREFIXES[language]
   return cleanedPath ? `/${shortPrefix}${cleanedPath}` : `/${shortPrefix}`
 }
 

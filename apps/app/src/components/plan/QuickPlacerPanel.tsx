@@ -61,6 +61,8 @@ interface QuickPlacerPanelProps {
   onItemHoverEnd: () => void
   onItemDragStart: (item: QuickPlacerItem) => void
   onItemDragEnd: () => void
+  /** Scroll this item into view (e.g. the first symbol not on the plan yet). */
+  focusPlacementId?: string | null
 }
 
 function withAlpha(color: string, alpha: number) {
@@ -164,6 +166,7 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
       onItemHoverEnd,
       onItemDragStart,
       onItemDragEnd,
+      focusPlacementId = null,
     },
     forwardedRef
   ) {
@@ -202,6 +205,7 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
     })
     const selectedCircuitButtonRef = useRef<HTMLButtonElement | null>(null)
     const currentFastItemRef = useRef<HTMLButtonElement | null>(null)
+    const focusItemRef = useRef<HTMLButtonElement | null>(null)
     const [touchDragItem, setTouchDragItem] = useState<QuickPlacerItem | null>(null)
     const [touchDragPos, setTouchDragPos] = useState<{ x: number; y: number } | null>(null)
     const touchGestureRef = useRef<TouchGestureState | null>(null)
@@ -308,15 +312,15 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
           backgroundColor: colors.background,
         },
         circuitButtonActive: {
-          backgroundColor: colors.hoverColor,
-          color: '#ffffff',
-          boxShadow: isDark ? '0 1px 3px rgba(0, 0, 0, 0.28)' : '0 1px 3px rgba(15, 23, 42, 0.14)',
+          backgroundColor: withAlpha(colors.hoverColor, isDark ? 0.16 : 0.08),
+          color: colors.textColor,
+          boxShadow: `inset 0 0 0 2px ${colors.hoverColor}`,
         },
         itemCount: {
           color: colors.secondaryText,
         },
         itemCountActive: {
-          color: withAlpha('#ffffff', 0.82),
+          color: colors.secondaryText,
         },
         notes: {
           color: colors.secondaryText,
@@ -372,6 +376,14 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
       if (mode !== 'fast') return
       currentFastItemRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
     }, [mode, currentFastItem?.placement.id, selectedCircuit?.id])
+
+    useEffect(() => {
+      if (!focusPlacementId) return
+      const frame = requestAnimationFrame(() => {
+        focusItemRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      })
+      return () => cancelAnimationFrame(frame)
+    }, [focusPlacementId, selectedCircuit?.id])
 
     const handleDragStart = useCallback(
       (event: DragEvent<HTMLButtonElement>, item: QuickPlacerItem) => {
@@ -637,13 +649,23 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
                         >
                           {circuit.identifier}
                         </div>
-                        {showItemCount && (
-                          <div
-                            className="shrink-0 text-[11px]"
-                            style={isSelected ? styles.itemCountActive : styles.itemCount}
+                        {circuit.awaitingCount > 0 ? (
+                          <span
+                            data-testid={`quick-placer-circuit-awaiting-${circuit.id}`}
+                            title={t('quickPlacer.unplaced.count', { count: circuit.awaitingCount })}
+                            className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-sky-600 px-1 text-[10px] font-semibold leading-none text-white"
                           >
-                            {t('quickPlacer.itemCount', { count: itemCount })}
-                          </div>
+                            {circuit.awaitingCount > 99 ? '99+' : circuit.awaitingCount}
+                          </span>
+                        ) : (
+                          showItemCount && (
+                            <div
+                              className="shrink-0 text-[11px]"
+                              style={isSelected ? styles.itemCountActive : styles.itemCount}
+                            >
+                              {t('quickPlacer.itemCount', { count: itemCount })}
+                            </div>
+                          )
                         )}
                       </div>
                     </button>
@@ -709,7 +731,13 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
                             const previewMetrics = getQuickPlacerPreviewMetrics(item.endpoint)
                             return (
                               <button
-                                ref={isCurrent ? currentFastItemRef : null}
+                                ref={(node) => {
+                                  if (isCurrent) currentFastItemRef.current = node
+                                  if (item.placement.id === focusPlacementId) {
+                                    focusItemRef.current = node
+                                  }
+                                }}
+                                data-awaiting-placement={item.isAwaitingPlacement || undefined}
                                 key={item.placement.id}
                                 type="button"
                                 draggable={mode === 'slow'}
@@ -728,6 +756,9 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
                                 className="relative flex shrink-0 flex-col items-center rounded-[7px] border px-1.5 py-1 text-center transition-colors"
                                 style={{
                                   ...(isHighlighted ? styles.symbolCardCurrent : styles.symbolCard),
+                                  ...(item.isAwaitingPlacement && !isHighlighted
+                                    ? { borderStyle: 'dashed', borderColor: '#0284c7' }
+                                    : null),
                                   width: previewMetrics.cardWidth,
                                 }}
                                 onMouseEnter={(event) => {
@@ -740,6 +771,10 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
                                   onItemHoverEnd()
                                   if (!isHighlighted) {
                                     Object.assign(event.currentTarget.style, styles.symbolCard)
+                                    if (item.isAwaitingPlacement) {
+                                      event.currentTarget.style.borderStyle = 'dashed'
+                                      event.currentTarget.style.borderColor = '#0284c7'
+                                    }
                                   }
                                 }}
                               >

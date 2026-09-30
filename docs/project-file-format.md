@@ -24,7 +24,10 @@ The current manifest has archive format version `1`, the format label `project-w
 
 ## `project.json`
 
-The current schema version is `2.2.0`.
+The current schema version is `2.3.0`.
+
+The project locale supports `nl-BE`, `en`, `fr-BE`, `de`, `pl`, and `ro`.
+Electrical JSON imports accept the same locale codes. Dutch remains the default.
 
 The root document contains these portable domains:
 
@@ -87,6 +90,10 @@ An auxiliary enclosure may persist `ownerPanelId`, `panelViewPosition`, and a
 The hierarchy derives the frame's vertical transition band between the shared supply
 and its owning main panel; the persisted position remains a horizontal placement hint
 and a compatibility value for older editors.
+An auxiliary enclosure may also persist `placements`: situation-plan placements with the
+same shape as other symbol placements, so supply cables can be routed through it. Hiding
+such a placement on its floor (`hiddenSitplanElementIds`) also hides the cables that end at
+it. Readers that do not draw enclosures on the plan preserve the list.
 It is a visual mounting boundary rather than another distribution panel. A supply
 trunk device may persist `panelMounting` with `kind: "grid"`, `kind: "panel"`, or
 `kind: "auxiliary"`; this device-owned value is authoritative for which panel-canvas
@@ -99,6 +106,13 @@ positions, using the panel overflow band when necessary, without deleting or rew
 them. Missing arrays mean that the project has no supply-assembly data. The
 existing one-wire, panel, and situation-plan canvases derive the representations they
 need from the same topology.
+
+The experimental [semantic electrical import](electrical-import/README.md) can create
+these existing native supply records from an optional `installation.supply.system`.
+That input is a separate creation contract, not a portable project field or a way to
+round-trip existing supplies. It introduces no project schema version or ZIP-layout
+change: generated devices, supply assemblies, handoffs and pending placements use
+the native fields documented here.
 
 A supply inverter trunk device may persist `converterAcConnection: "shared"` or
 `"separate"`. Missing values retain the shared grid-connection arrangement.
@@ -206,6 +220,12 @@ remain on the trunk record. Relays are passive serial devices in AC and DC assem
 paths, not overcurrent protections. Older relay-symbol trunk records with a fallback
 type remain readable; reconciliation normalizes their type while preserving their
 stored properties and connections.
+An ordinary circuit's `trunkDevices` may also contain series switching devices that
+switch every branch downstream of their `trunkPosition`: relays use `type: "relay"`
+and `symbol: "relay"` as above, and plain switches use `type: "switch"` and
+`symbol: "switch"` with the pole count in `poles` (1–4) and `polesConfig`. Other
+switch symbols (two-way, cross, dimmer, changeover, pull, impulse) are branch
+endpoints only and are not valid circuit-trunk devices.
 Supply-trunk devices may contain `supplyPath: "backup"` for the converter,
 `"backup-output"` for serial protection between the converter backup output and the
 changeover, `"changeover-grid"` for serial devices on the grid-only lower lane before
@@ -448,6 +468,15 @@ the user and must not be auto-oriented to nearby walls. Missing `rotationMode` i
 backward-compatible and leaves auto-orientation available for symbol kinds that support
 it; a missing or invalid legacy angle is read as zero.
 
+A situation-plan placement `style` object may carry two optional boolean hints.
+`customPosition: true` records that the user positioned the symbol; tools that re-lay-out
+automatic placements should leave such placements where they are.
+`awaitingPlacement: true` marks an automatically created placement that the user has not
+put on the plan yet: editors keep it off the drawn and exported plan, still list it for
+placement, and clear the flag once the placement receives an explicit position. Both
+hints are absent on older files, which keeps every placement drawn as before. Loaders
+keep the `style` object as-is.
+
 Situation-plan wall elements may optionally contain a `curve` property with
 `kind: "rationalQuadratic"` and a positive numeric `weight`. A curved wall stores
 exactly three geometry points in start, control, end order. The weight
@@ -559,16 +588,62 @@ Cable specifications may use the stable `kind` values `battery-cable` and `twinf
 for DC battery wiring; these are portable data values and are localized only when
 displayed in the editor or drawing labels.
 
-`disciplines.electrical.wireRuns` (schema `2.2.0`) is the canonical per-edge wire model
+`disciplines.electrical.wireRuns` (schema `2.2.0` and later) is the canonical per-edge wire model
 (Goal 19 / ADR-0002). Each run holds a shared `cable`, a `conductors` list (per-phase
 function, optional per-core section), an optional `medium` (`cable` or `busbar`) with
 `material` and `busTapLengthMode` for busbars, route/tube flags, per-member `segmentLengths`
 in metres, and `members`: stable anchor keys (not relationship ids) of the edges sharing the
-run. The `2.2.0` migration seeds this collection best-effort from the legacy owners
+run. The optional `segmentLengthSources`, keyed like `segmentLengths`, marks a length with
+`'estimated'` when it was accepted from a plan-based route estimate rather than entered; a
+missing entry means an entered length. Recalibration invalidates accepted estimates with
+`'estimated-stale'` and removes their numeric `segmentLengths` entry. This marker may therefore
+remain without a length until the estimate is reviewed. Readers must not use a stored length
+marked stale for electrical checks. Older readers see a missing length. An explicit length edit
+or renewed acceptance replaces the stale marker; manually entered lengths are preserved.
+
+The circuit-section connection into `bus-section:secondary-bus:<circuitId>` is a
+secondary-bus feeder and supports both `medium: "busbar"` and `medium: "cable"`.
+An unauthored feeder defaults to a busbar; an authored cable run remains a cable.
+In busbar mode, the feeder and outgoing rail taps share the rail's cable and conductor
+properties. Switching a connection to busbar joins this shared run and inherits its
+current specification, discarding that connection's former cable dimensions. Busbar mode hides
+wire labels and routing decorations; selecting cable mode restores the wire label.
+Outgoing bus taps also support either medium. Selecting a cable type separates that
+connection into its own run, leaving the horizontal rail and neighbouring taps unchanged.
+
+Situation-plan wire traces are stored as `electrical.plan-wire.<kind>` elements whose
+`properties.route` holds the whole trace: `from`/`to` symbol placements, a `source` of `auto`
+or `manual`, and manual `waypoints`. Two optional fields describe cable routing:
+- `wireAnchor` names the one-wire wire whose cable the trace draws.
+- `riser` marks a trace whose cable arrives from another floor: `fromFloorId` names that floor,
+  and an optional `pos` moves the vertical passage away from the source symbol's plan position.
+  A passage is shared: every manual trace leaving the same source placement for the same floor
+  stores the same `pos`, and loaders apply it to that source's other cables to that floor.
+
+Both are optional, and readers that ignore them still draw the trace between its placements.
+`disciplines.electrical.planWiring.visibility` may also carry optional cable-routing settings:
+- `homeRunsVisible`: wires from the board to the first point of a circuit (absent means off).
+- `branchFeedsVisible`: wires linking lighting branches (absent means off).
+- `supplyVisible`: supply cables (inverter, solar panels, batteries) and earthing conductors
+  (absent means on).
+- `colorCoded`: colour plan wires by group outside wire mode too (absent means off).
+- `cableRouteSettings`: mounting heights in metres the length estimate assumes, each optional:
+  `floorHeightM`, `socketHeightM`, `switchHeightM`, `panelHeightM`.
+
+Its `defaultStyle` is `spline`, `orthogonal`, or `straight`; readers that do not know `straight`
+fall back to their default style. The `2.2.0` migration seeds this collection best-effort from the legacy owners
 (`sectionWireOverrides`, feed `wireSections`, supply-connection `wireProperties`); unmapped
 legacy wire data falls back to defaults rather than blocking the migration, and the seed runs
 only when the collection is absent so edited runs are preserved on re-save. The legacy owners
 remain readable during the transition.
+
+A run's `route` is `wall` (in the wall), `on-wall` (surface-mounted on the wall), `ground`, or
+`air`; absent means no route. Legacy owners express the same choice as `wireRoute` plus an
+`inWall` flag, where `wireRoute: 'wall'` without `inWall` means on the wall, and `inWall` alone
+means in the wall. The `2.2.0` seed stored every wall route as `wall` and dropped routes implied
+only by `inWall` or a domain override; the `2.3.0` upgrade re-derives the route of each run whose
+members all come from legacy owners and whose route still equals what that seed wrote. Runs whose
+route or membership changed since are kept as they are.
 
 New wire edits write only to `wireRuns`. Circuit anchors identify the downstream device
 or derived secondary rail and electrical domain. A secondary rail is derived from a
@@ -585,6 +660,16 @@ may contain several tap anchors. Editing its specification changes all members; 
 remain default inputs until a run is authored. Drawing-only `wireAnchor`, `wireAnchors`, and
 `wireBusGroup` metadata are recomputed and are not required portable project data.
 
+`disciplines.electrical.installation.defaultCableKind` is an optional cable `kind` that AC
+circuit wires follow while nobody has chosen their type. New circuits are still written with
+a concrete `cable` of kind `XVB`; readers treat an AC circuit wire without an owning run whose
+circuit cable has kind `XVB` (and no `customKind`) as following the default, and render it
+with `defaultCableKind` while keeping its section, cores, and fire class. A circuit cable of
+any other kind is authored and kept. A run may set `followsDefaultCable: true` to mark that
+its `cable.kind` is inherited rather than chosen; its other cable fields stay authored. Both
+fields are ignored for DC, supply, earthing, and busbar runs. A missing `defaultCableKind` is
+`XVB`, so older projects render unchanged; no schema version change is required.
+
 Some current documents also require the reserved compatibility containers `collaboration`, `comments`, and `chronology`. Local implementations must preserve unknown members in these containers and use the neutral values produced by `createEmptyProjectV2` or the official migration code rather than constructing them by hand. They must not infer local permissions or enable features from their contents.
 
 These containers are named only because removing or rewriting them can make loading or round trips lossy. Their internal service-side interpretation is outside the portable format.
@@ -595,6 +680,23 @@ An importer may replace the root `project.id` when the imported identity collide
 
 ## Project-owned assets
 
+`building.planScale` is the shared conversion from plan canvas units to metres. A valid scale
+has a finite positive `pxPerMeter`, or two distinct finite reference points and a finite positive
+`meters` distance. Reference points use `coordinateSpace: 'asset'`; their optional `floorId`
+identifies the floor owning the asset-local ruler. Older references without that owner remain
+accepted. Legacy PDF raster-coordinate references are repaired once during loading.
+
+Calibrated imported plans are resized into the shared canvas units through asset `width` and
+`height`; source raster pixels and SVG content keep their original resolution. CAD coordinate
+metadata must describe the resized display coordinates. Recalibrating a floor preserves other
+floors' physical dimensions by transforming their geometry, display assets, placements and traces.
+Optional `building.floors[].planScaleNeedsCalibration: true` marks an imported plan with no known
+distance. It must not supply accepted cable-length estimates until calibrated. Missing or false
+preserves the historical behaviour. Confirming the displayed ruler, including its editable initial
+value, applies that calibration. Only an explicit Skip leaves an imported plan uncalibrated; an
+invalid or incomplete ruler cannot be confirmed. These optional fields do not change the schema
+version or archive layout.
+
 Floor-plan images, processed images, vectors, and local installer artwork are stored in the project fields that own them. Binary payloads use standard data URLs; SVG content may be stored as SVG text where the schema permits it. Readers must preserve unrecognized asset metadata but must not fetch or execute unknown content automatically.
 
 Current writers externalize and hydrate floor-plan payloads through the native `assets` array and
@@ -604,13 +706,44 @@ during import normalization; storage and ZIP asset adapters do not treat a top-l
 array as a second runtime asset authority. Hosted and community readers use the same limits,
 path rules, validation, and legacy repair behavior.
 
+Attached documents use asset kind `document`. An entry either carries its own PDF or image payload
+in `dataUrl` (with `mimeType`, `sourceName`, and optional `sizeBytes`), or has no payload and
+annotates another asset named by `document.sourceAssetId`. The optional `document` object holds the
+display name, a category, an export flag, an optional `exportPages` list of 1-based pages to
+export (all pages when absent), links to electrical elements (`type` and `id`), and the time it
+was added. Archives write payloads below `assets/project-<id>/documents/`. Readers in every
+edition must preserve document entries, including ones they do not display. A document copied from
+a hosted team library may carry an opaque `document.teamDocumentId`; readers preserve it and need
+not interpret it.
+
+A document entry without a payload and without `document.sourceAssetId` may instead carry an
+external influences table in `document.externalInfluences`: a `rooms` list whose entries have an
+`id`, a `name`, a `publiclyAccessible` flag, and `classes`, which maps two-letter AREI parameter
+codes (`AA` to `CB`) to ascending lists of class numbers; several classes per code express a
+combination such as `AA3+5`. Readers drop unknown codes and out-of-range classes. Writers may add a
+spreadsheet copy of each table (`.xlsx`) under the same `documents/` folder. That copy is
+informational: `project.json` stays the source, readers ignore it, and nothing references it. Copies embedded in an
+exported PDF, and diagnostic or support copies, omit them; a project restored from such a copy
+has no attached documents.
+
+A document entry without a payload may instead carry `document.builtIn: "cableSchedule"` and an
+`includeInExport` flag. It stores only whether the cable schedule, which every project derives
+from its cables and never stores, goes along with a PDF export. Readers that do not know the
+value preserve the entry and ignore it.
+
 CAD-derived floor plans use imported-plan asset kind `cad-vector` (distinct from PDF vector imports). When present, `cadReference` stores versioned source-coordinate metadata: source units, uncropped asset size, per-floor crop in both asset and model space, import-session linkage for multi-floor splits, and the forward/inverse transform parameters captured at import. Legacy projects imported before this metadata existed do not carry `cadReference`.
+
+Floor-plan assets may carry two display flags: `darkModeAware` (adapt the plan when drawn in dark
+mode) and, for vector plans, `grayscale` (draw the stored SVG in greyscale; `svgContent` keeps its
+colours). Readers that ignore `grayscale` draw the plan in colour. Plans greyscaled at import by
+older versions have greyscale `svgContent` itself and cannot be switched back to colour.
 
 ## Compatibility and normalization
 
 The loader accepts:
 
-- `2.2.0`, the current native format;
+- `2.3.0`, the current native format;
+- `2.2.0`, upgraded by repairing the routes of seeded wire runs (see below);
 - `2.1.0`, upgraded by seeding the canonical wire-run collection (see below);
 - `2.0.0`, upgraded by adding the current scope contract, then seeding wire runs;
 - `0.2.0`, migrated through the legacy V1-to-V2 importer, then seeding wire runs.

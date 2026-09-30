@@ -9,7 +9,7 @@ import { useDialogStore } from '@/stores/dialogStore'
 import { useCanvasRegistryStore } from '@/stores/canvasRegistryStore'
 import { generateId } from '@/utils'
 import { isDemoProjectId } from '@/lib/demoProject'
-import { ensurePanelPlacement } from '@/utils/panelPlacement'
+import { ensurePanelPlacement, getPanelEndpoint } from '@/utils/panelPlacement'
 import type { CanvasDropMeta, CanvasSize, Point, Selection } from '@/types/ui'
 import type {
   Endpoint,
@@ -29,6 +29,7 @@ import { CanvasOverlayScaleProvider } from '@/contexts/CanvasOverlayScaleContext
 import { WireSegments } from './WireSegment'
 import { logger } from '@/lib/logger'
 import { trackSymbolPlace } from '@/lib/analytics/editorEventAnalytics'
+import { isVirtualOneWireOnlySymbol } from '@/lib/plan/situationPlanSymbolEligibility'
 import {
   DragCursorSymbol,
   DragPreview,
@@ -50,11 +51,14 @@ import { panelHasModularChangeover } from '@/lib/panel/panelFeedOrganization'
 import { canCreateSupplyTopologyFromDrop } from '@/lib/supplyTopologyFeature'
 import { getMainBusInsertionSectionId } from '@/lib/panel/panelBusSections'
 import { panelHasContent, isLastMainPanel } from '@/utils/eendraad'
-import { endpointSupportsMultiplier } from '@/utils/endpointMultipliers'
+import { endpointSupportsMultiplier, getEndpointMultiplier } from '@/utils/endpointMultipliers'
 import { supportsSupplyDeviceMultiplier } from '@/lib/supplyAssembly/inverterMultipliers'
 import {
+  endpointMergeSettingsMatchEndpoints,
+  endpointsShareMergeFamily,
   findSameSymbolAddMoreLayoutTargets,
   incrementSameSymbolAddMoreTargetWithUndo,
+  isConflictingOnSymbolDrop,
   positionHitsMultiplierBadge,
   type SameSymbolAddMoreTarget,
 } from '@/lib/eendraad/sameSymbolAddMore'
@@ -104,8 +108,21 @@ import {
   type DropTarget,
   type FindDropTargetOptions,
 } from '@/lib/layout/findDropTarget'
+import {
+  circuitTrunkBranchSlotDropTarget,
+  findCircuitTrunkBranchSlot,
+} from '@/lib/layout/circuitTrunkBranchSlots'
+import {
+  getBranchDragGroupEndpointIds,
+  getBranchDownstreamEndpointIds,
+} from '@/lib/eendraad/downstreamSelection'
+import { TrunkBranchSlotPreview } from '@/components/canvas/eendraad/TrunkBranchSlotPreview'
 import { createFindElementsInRectangleHandler } from '@/handlers/eendraad'
-import { executeDropBehavior, type DropBehaviorCallbacks } from '@/handlers/eendraad/dropBehaviors'
+import {
+  canDropSymbolOnEmptyCanvas,
+  executeDropBehavior,
+  type DropBehaviorCallbacks,
+} from '@/handlers/eendraad/dropBehaviors'
 import { PROTECTION_SYMBOL_IDS, protectionTypeToSymbolKey } from '@/lib/protectionKind'
 import { getSupplyEnclosureBoundaryCenter } from '@/lib/layout/supplyEnclosureBoundaryGeometry'
 import { getSymbolById, type SymbolMetadata } from '@/lib/symbols'
@@ -134,6 +151,7 @@ import {
 } from '@/lib/plan/autoSitplanPlacement'
 import { resolveSitplanTargetFloorId } from '@/lib/plan/sitplanTargetFloor'
 import { ensureEarthingSitplanPlacement } from '@/lib/plan/earthingSitplanPlacement'
+import { isMainPanelDistributionEndpoint } from '@/lib/plan/panelDistributionEndpoint'
 import { confirmDeleteEarthing, performDeleteEarthingLocations } from '@/lib/installation/deleteEarthing'
 import {
   findGroundTrunkDeviceOwner,
@@ -171,12 +189,14 @@ import {
 import { resolvePanelSupplyLinkForPanel } from '@/lib/eendraad/panelSupplyLink'
 import {
   duplicateCircuitDcBranchDeviceAtDropTarget,
+  duplicateCircuitTrunkDeviceAtDropTarget,
   repositionDuplicatedProtectionToDropTarget,
   protectionDropTargetHitsSource,
   resolveProtectionDropTargetForPosition,
   runEendraadEndpointAltDragDuplicate,
 } from '@/lib/eendraad/eendraadAltDragDuplicate'
 import { clonePlacementsForDuplicate } from '@/lib/eendraad/duplicateSitplanHelpers'
+import { circuitContainsJunctionPanelIdentity, getJunctionIdentity } from '@/lib/junctionIdentity'
 import { reorderDomoticaChildEndpoint } from '@/lib/eendraad/domoticaOutputOrdering'
 import {
   moveEndpointSelectionBetweenCircuits,
@@ -239,6 +259,7 @@ import {
 } from '@/lib/installDates'
 import {
   buildCircuitInstallDateTargets,
+  buildInstallDateInheritanceIndex,
   buildPanelInstallDateTargets,
   buildProtectionInstallDateTargets,
   getInstallDateTargetInheritedYear,
@@ -322,6 +343,7 @@ function applyEendraadEndpointsToFloor(endpointIds: string[], floorId: string): 
     } else {
       const project = state.currentProject
       if (!project) continue
+      if (isVirtualOneWireOnlySymbol(latest.symbol)) continue
       const circuitInfo = state.findCircuitForEndpoint(latest.id)
       if (!circuitInfo) continue
       const placementId = generateId()
@@ -544,6 +566,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
   const [dateToolFrameSelection, setDateToolFrameSelection] = useState<{
     year: number
     bounds: { x: number; y: number; width: number; height: number }
+    selectionKey: string
   } | null>(null)
   const dateToolInputRef = useRef<HTMLInputElement>(null)
   const suppressDateFrameSelectionRef = useRef(false)
@@ -933,7 +956,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
   const detectDropTargetCallback = useDropTargetDetection() // Tree-based hit testing
 
   // Drag preview state and handler
-  const { dragPreview, setDragPreview, handleDragOver } = useEendraadDragPreview(
+  const { dragPreview, setDragPreview, dragPointer, handleDragOver } = useEendraadDragPreview(
     detectDropTargetCallback,
     {
       draggingProtectionIdRef,
@@ -959,6 +982,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
     }
   )
   const protectionMainBusCursorRef = useRef<Konva.Circle | null>(null)
+  const trunkBranchSlotMarkerRef = useRef<Konva.Circle | null>(null)
 
   // Keep an internally dragged symbol active independently from the currently
   // hovered target. Relocation may clear dragPreview while the pointer is
@@ -1159,8 +1183,11 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
       previewGraph.createdEndpointIds.length > 0 ||
       previewGraph.createdProtectionIds.length > 0 ||
       previewGraph.createdTrunkDeviceIds.length > 0)
+  // A trunk reorder draws its own slot preview; the generic fallback would show an
+  // append-at-the-top preview for the same circuit target.
   const showLegacyDragPreview =
     !!dragPreview &&
+    !dragPreview.trunkBranchSlot &&
     activePlacementSymbolId !== 'dc_bus' &&
     (preferLegacyDragPreview || !hasSimulatedPreviewVisuals)
   const showSimulatedDragPreview = hasSimulatedPreviewVisuals && !preferLegacyDragPreview
@@ -1548,11 +1575,18 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
         return getTrunkDeviceById(target.id)?.device
       }
       withSingleUndoEntry(() => {
+        const inheritance = currentProject
+          ? buildInstallDateInheritanceIndex(currentProject)
+          : undefined
         if (currentProject) {
           let nextColors = currentProject.project.installDateColors ?? {}
           let changedColors = false
           for (const target of targets) {
-            const inheritedYear = getInstallDateTargetInheritedYear(currentProject, target)
+            const inheritedYear = getInstallDateTargetInheritedYear(
+              currentProject,
+              target,
+              inheritance
+            )
             const requestedYear = target.preserveYear ?? year
             if (
               target.clearOverride ||
@@ -1574,7 +1608,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
         }
         for (const target of targets) {
           const inheritedYear = currentProject
-            ? getInstallDateTargetInheritedYear(currentProject, target)
+            ? getInstallDateTargetInheritedYear(currentProject, target, inheritance)
             : undefined
           const requestedYear = target.preserveYear ?? year
           const existingDate = getExplicitInstallationDate(getTargetEntity(target))
@@ -1907,7 +1941,12 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
 
   useEffect(() => {
     setClosedDateToolSelectionKey(null)
-    setDateToolFrameSelection(null)
+    // A frame click sets the selection and the frame context together; keep that
+    // context while the selection still matches the clicked frame.
+    const selectionKey = selection.ids.join('|')
+    setDateToolFrameSelection((previous) =>
+      previous?.selectionKey === selectionKey ? previous : null
+    )
   }, [selection.ids, selection.type])
 
   const dateToolSelectionBounds = useMemo(() => {
@@ -1971,7 +2010,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
   const dateToolDraftDate = `${String(dateToolDraftYear).padStart(4, '0')}-${String(dateToolMonth).padStart(2, '0')}-${String(dateToolSafeDay).padStart(2, '0')}`
   const commitDateToolDraft = useCallback(() => {
     const parsed = normalizeInstallYear(dateToolYear)
-    const clamped = parsed == null ? selectedDateToolYear : clamp(currentInstallYear, 1900, parsed)
+    const clamped = parsed == null ? selectedDateToolYear : clamp(parsed, 1900, currentInstallYear)
     setDateToolYear(String(clamped))
     const safeDay = Math.min(
       dateToolDay,
@@ -2050,7 +2089,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
         position
       )[0]
 
-      const { target: rawTarget, debug: dropDebug } = findDropTargetWithDebug(
+      const { target: rawTarget } = findDropTargetWithDebug(
         layoutTree,
         position,
         symbol.id === 'earthing_separator'
@@ -2066,15 +2105,30 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
             }
       )
 
-      const matchedDomainId = dropDebug.path.find((step) => step.matched)?.domainId
-      const sameSymbolEndpointId =
-        directSameSymbolTarget?.target.endpoint?.id ?? rawTarget.endpointId ?? matchedDomainId
-      const sameSymbolEndpoint = sameSymbolEndpointId
-        ? getEndpointById(sameSymbolEndpointId)
-        : undefined
-      const sameSymbolTrunkDevice =
-        directSameSymbolTarget?.target.trunkDevice ??
-        (matchedDomainId ? getTrunkDeviceById(matchedDomainId)?.device : undefined)
+      // A Domotica child's central hit zone means replace. If the incoming
+      // symbol belongs to the same device family but has different settings,
+      // refuse the drop instead of silently replacing the configured child.
+      if (rawTarget.domoticaChildDropIntent === 'replace' && rawTarget.endpointId) {
+        let existingEndpoint: Endpoint | undefined
+        const findEndpoint = (node: LayoutNode) => {
+          if (node.type === 'endpoint' && node.domainId === rawTarget.endpointId) {
+            existingEndpoint = node.domainRef as Endpoint | undefined
+            return
+          }
+          for (const child of node.children) {
+            findEndpoint(child)
+            if (existingEndpoint) return
+          }
+        }
+        layoutTree.panels.forEach(findEndpoint)
+        if (existingEndpoint && isConflictingOnSymbolDrop(symbol.id, existingEndpoint)) {
+          logger.info(`[drop-diag] Conflicting configured endpoint drop blocked for symbol=${symbol.id}`)
+          return
+        }
+      }
+
+      const sameSymbolEndpoint = directSameSymbolTarget?.target.endpoint
+      const sameSymbolTrunkDevice = directSameSymbolTarget?.target.trunkDevice
       const sameSymbolTarget: SameSymbolAddMoreTarget | null = sameSymbolEndpoint
         ? { endpoint: sameSymbolEndpoint }
         : sameSymbolTrunkDevice
@@ -2472,23 +2526,38 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
         const selectedEndpointIds = (selectionIds ?? useUIStore.getState().selection.ids).filter(
           (id) => !!store.getEndpointById(id)
         )
-        if (
-          sourceCircuitId &&
-          selectedEndpointIds.length > 1 &&
-          selectedEndpointIds.includes(elementId)
-        ) {
-          setDragPreview((preview) =>
-            preview
-              ? {
-                  ...preview,
-                  movingEndpointSelection: {
-                    draggedEndpointId: elementId,
-                    sourceCircuitId,
-                    endpointIds: selectedEndpointIds,
-                  },
-                }
-              : preview
-          )
+        const isGroupMove =
+          selectedEndpointIds.length > 1 && selectedEndpointIds.includes(elementId)
+        const movingEndpointIds = isGroupMove ? selectedEndpointIds : [elementId]
+        // Domotica groups keep their dedicated slot handling.
+        const canUseTrunkSlot =
+          !!sourceCircuitId && endpoint.symbol !== 'domotica' && !endpoint.domoticaChildProps
+        const trunkBranchSlot =
+          canUseTrunkSlot && layoutTree
+            ? (findCircuitTrunkBranchSlot(layoutTree, newPos, {
+                includeBranchRows: isGroupMove,
+              }) ?? undefined)
+            : undefined
+        if (sourceCircuitId && (isGroupMove || trunkBranchSlot)) {
+          const movingEndpointSelection = {
+            draggedEndpointId: elementId,
+            sourceCircuitId,
+            endpointIds: movingEndpointIds,
+          }
+          trunkBranchSlotMarkerRef.current?.y(newPos.y)
+          trunkBranchSlotMarkerRef.current?.getLayer()?.batchDraw()
+          setDragPreview((preview) => {
+            if (!trunkBranchSlot) {
+              return preview ? { ...preview, movingEndpointSelection } : preview
+            }
+            return {
+              position: newPos,
+              symbolData: preview?.symbolData ?? symbolMeta,
+              dropTarget: circuitTrunkBranchSlotDropTarget(trunkBranchSlot),
+              movingEndpointSelection,
+              trunkBranchSlot,
+            }
+          })
         }
         return
       }
@@ -2662,10 +2731,65 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
           preferSecondaryBusForNestedProtection: classified.protectionIds.length > 0,
           ignoreCircuitTrunkDeviceSymbolHits: elementType === 'trunkDevice',
         })
-        const multiKind = resolveEendraadMultiMoveKind(classified, rawMultiTarget)
+        // Whole-branch moves resolve the gap between branches along the circuit trunk.
+        const trunkBranchSlot =
+          classified.endpointIds.length === dragSelectionIds.length
+            ? findCircuitTrunkBranchSlot(layoutTree, position)
+            : null
+        const multiKind = trunkBranchSlot
+          ? 'endpoint'
+          : resolveEendraadMultiMoveKind(classified, rawMultiTarget)
 
         if (multiKind === 'endpoint') {
-          const endpointTarget = augmentCircuitVerticalWireDomain(rawMultiTarget, position)
+          const selectedDomoticaChildren = classified.endpointIds
+            .map((id) => store.getEndpointById(id))
+            .filter((endpoint): endpoint is Endpoint => !!endpoint?.domoticaChildProps)
+          if (selectedDomoticaChildren.length === 1) {
+            const child = selectedDomoticaChildren[0]!
+            const sourceCircuitInfo = store.findCircuitForEndpoint(child.id)
+            const sourceCircuit = sourceCircuitInfo?.circuit
+            const branchSelection = sourceCircuit
+              ? getBranchDownstreamEndpointIds(sourceCircuit, child.id)
+              : []
+            const domoticaTarget = findDomoticaOutputDropTarget(layoutTree, position)
+
+            // Double-click selects the child and the rest of its branch. Move
+            // that branch by reassigning its Domotica output, while leaving its
+            // branch topology intact.
+            if (
+              classified.endpointIds.length === dragSelectionIds.length &&
+              sourceCircuit &&
+              branchSelection.length === classified.endpointIds.length &&
+              branchSelection.every((id) => classified.endpointIds.includes(id)) &&
+              classified.endpointIds.every((id) => branchSelection.includes(id)) &&
+              domoticaTarget?.circuitId === sourceCircuit.id &&
+              domoticaTarget.endpointId &&
+              domoticaTarget.domoticaOutput
+            ) {
+              const movedCircuit = reorderDomoticaChildEndpoint(
+                sourceCircuit,
+                child.id,
+                domoticaTarget.endpointId,
+                domoticaTarget.domoticaOutput.group,
+                domoticaTarget.domoticaOutput.index
+              )
+              if (!movedCircuit) return false
+              return withSingleUndoEntry(
+                () => {
+                  updateCircuit(sourceCircuit.id, {
+                    endpoints: movedCircuit.endpoints,
+                    branches: movedCircuit.branches,
+                  })
+                  setSelection({ type: 'endpoint', ids: branchSelection })
+                  return true
+                },
+                { sessionLabel: 'move domotica output branch' }
+              )
+            }
+          }
+          const endpointTarget = trunkBranchSlot
+            ? circuitTrunkBranchSlotDropTarget(trunkBranchSlot)
+            : augmentCircuitVerticalWireDomain(rawMultiTarget, position)
           if (classified.endpointIds.some((id) => store.getEndpointById(id)?.domoticaChildProps)) {
             return false
           }
@@ -3019,6 +3143,54 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
             const symbolMeta = getSymbolById(sourceEndpoint.symbol)
             if (!symbolMeta) return false
 
+            // A single endpoint dropped on a circuit trunk becomes its own branch in that gap.
+            const trunkBranchSlot =
+              sourceCircuitId &&
+              sourceEndpoint.symbol !== 'domotica' &&
+              !sourceEndpoint.domoticaChildProps
+                ? findCircuitTrunkBranchSlot(layoutTree, position, { includeBranchRows: false })
+                : null
+            if (trunkBranchSlot && sourceCircuitId) {
+              const slotTarget = circuitTrunkBranchSlotDropTarget(trunkBranchSlot)
+              const sourceCircuit = store.getCircuitById(sourceCircuitId)
+              const targetCircuit = store.getCircuitById(trunkBranchSlot.circuitId)
+              if (!sourceCircuit || !targetCircuit) return false
+              if (sourceCircuit.id === targetCircuit.id) {
+                const moved = moveEndpointSelectionOnCircuit(
+                  sourceCircuit,
+                  elementId,
+                  [elementId],
+                  slotTarget,
+                  { allowSingle: true }
+                )
+                if (!moved) return false
+                updateCircuit(sourceCircuit.id, {
+                  endpoints: moved.endpoints,
+                  branches: moved.branches,
+                })
+              } else {
+                const moved = moveEndpointSelectionBetweenCircuits(
+                  sourceCircuit,
+                  targetCircuit,
+                  elementId,
+                  [elementId],
+                  slotTarget,
+                  { allowSingle: true }
+                )
+                if (!moved) return false
+                updateCircuit(sourceCircuit.id, {
+                  endpoints: moved.source.endpoints,
+                  branches: moved.source.branches,
+                })
+                updateCircuit(targetCircuit.id, {
+                  endpoints: moved.target.endpoints,
+                  branches: moved.target.branches,
+                })
+              }
+              setSelection({ type: 'endpoint', ids: [elementId] })
+              return true
+            }
+
             // Reuse the same drop target detection as handleDrop (including wire-domain augmentation)
             const { target: rawTarget } = findDropTargetWithDebug(layoutTree, position, {
               preferMainBusOverGroundWire: true,
@@ -3093,6 +3265,37 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
             const targetEndpoint = dropTarget.endpointId
               ? store.getEndpointById(dropTarget.endpointId)
               : null
+
+            // A central Domotica child drop is a replace operation. Treat a
+            // dragged child like a library drop: block incompatible settings,
+            // and combine matching multiplier-capable endpoints instead of
+            // deleting the configured target.
+            if (
+              sourceEndpoint.domoticaChildProps &&
+              targetEndpoint?.domoticaChildProps &&
+              dropTarget.domoticaChildDropIntent === 'replace' &&
+              endpointsShareMergeFamily(sourceEndpoint, targetEndpoint)
+            ) {
+              if (!endpointMergeSettingsMatchEndpoints(sourceEndpoint, targetEndpoint)) {
+                logger.info('[EendraadCanvas] blocked Domotica child drop with different settings')
+                return false
+              }
+              if (
+                sourceEndpoint.symbol === targetEndpoint.symbol &&
+                endpointSupportsMultiplier(targetEndpoint)
+              ) {
+                const incremented = syncEndpointMultiplierCount(
+                  createSyncEndpointMultiplierDeps(),
+                  targetEndpoint.id,
+                  getEndpointMultiplier(targetEndpoint) + 1
+                )
+                if (!incremented) return false
+                store.deleteEndpoint(sourceEndpoint.id)
+                setSelection({ type: 'endpoint', ids: [targetEndpoint.id] })
+                return true
+              }
+            }
+
             const isDomoticaParentMove =
               sourceEndpoint.symbol === 'domotica' && !sourceEndpoint.domoticaChildProps
             const domoticaGroupEndpointIds = isDomoticaParentMove && sourceCircuitInfo?.circuit
@@ -3405,6 +3608,22 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
                   variant: 'warning',
                 })
               },
+            }
+
+            if (sourceEndpoint.symbol === 'junction_panel') {
+              const targetCircuitId = dropTarget.circuitId ??
+                (dropTarget.protectionId
+                  ? getProtectionById(dropTarget.protectionId)?.circuits?.[0]?.id
+                  : undefined)
+              const targetCircuit = targetCircuitId ? store.getCircuitById(targetCircuitId) : undefined
+              if (
+                targetCircuit &&
+                circuitContainsJunctionPanelIdentity(
+                  targetCircuit,
+                  getJunctionIdentity(sourceEndpoint),
+                  sourceEndpoint.id,
+                )
+              ) return false
             }
 
             // This is a move of an existing endpoint, not a new symbol placement.
@@ -4088,17 +4307,30 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
         if (isDuplicateDrag) {
           return withSingleUndoEntry(
             () => {
+              let newDeviceId: string | null = null
               const sourceCircuit = useProjectStore.getState().getCircuitById(sourceCircuitId)
               const sourceDevice = sourceCircuit?.branches
                 ?.flatMap((branch) => branch.branchDevices ?? [])
                 .find((device) => device.id === elementId)
-              if (!sourceCircuit || !sourceDevice) return false
-              const newDeviceId = duplicateCircuitDcBranchDeviceAtDropTarget(
-                sourceDevice,
-                sourceCircuit,
-                dropTarget,
-                updateCircuit,
-              )
+              if (sourceCircuit && sourceDevice) {
+                newDeviceId = duplicateCircuitDcBranchDeviceAtDropTarget(
+                  sourceDevice,
+                  sourceCircuit,
+                  dropTarget,
+                  updateCircuit,
+                )
+              } else {
+                useProjectStore.setState((state: ProjectState) => {
+                  if (!state.currentProject) return
+                  newDeviceId = duplicateCircuitTrunkDeviceAtDropTarget(
+                    state.currentProject,
+                    sourceCircuitId,
+                    elementId,
+                    dropTarget,
+                  )
+                  if (newDeviceId) state.isDirty = true
+                })
+              }
               if (!newDeviceId) return false
               setSelection({ type: 'trunkDevice', ids: [newDeviceId] })
               return true
@@ -4127,7 +4359,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
         }
 
         if (!moved) return false
-        setSelection({ type: 'trunkDevice', ids: [elementId] })
+        setSelection({ type: dropTarget.type === 'endpoint' ? 'endpoint' : 'trunkDevice', ids: [elementId] })
         return true
       }
 
@@ -4335,6 +4567,17 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
       endpointDragStartSelectionIdsRef.current = selection.ids.includes(elementId)
         ? [...selection.ids]
         : [elementId]
+      // Grabbing the first endpoint of a branch on its own moves the whole branch.
+      if (
+        elementType === 'endpoint' &&
+        !altKey &&
+        elementDragModeRef.current !== 'duplicate' &&
+        endpointDragStartSelectionIdsRef.current.length === 1
+      ) {
+        const circuit = useProjectStore.getState().findCircuitForEndpoint(elementId)?.circuit
+        const branchGroup = circuit ? getBranchDragGroupEndpointIds(circuit, elementId) : null
+        if (branchGroup) endpointDragStartSelectionIdsRef.current = branchGroup
+      }
 
       // Long-press duplicate already started window-level drag; block Konva move-drag.
       if (elementDragModeRef.current === 'duplicate') {
@@ -4466,18 +4709,9 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
       const panelPlacement = ensurePanelPlacement(project, panel)
       if (!panelPlacement) return
 
-      // Check if endpoint already exists in panel circuits
-      let endpointId: string
-      let existingEndpoint: Endpoint | undefined
-
-      // Search for existing panel endpoint in panel circuits
-      for (const circuit of panel.circuits) {
-        existingEndpoint = circuit.endpoints.find(
-          (e: Endpoint) =>
-            e.symbol === 'panel_distribution' && (e.panelId === panel.id || e.label === panel.name)
-        )
-        if (existingEndpoint) break
-      }
+      // Use the same complete lookup as ensurePanelPlacement, including
+      // protection circuits and subpanels.
+      const existingEndpoint = getPanelEndpoint(project, panel.id)
 
       if (!existingEndpoint) {
         // Check if a dummy circuit already exists for this panel
@@ -4502,15 +4736,15 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
         }
 
         // Add endpoint to circuit
-        panelPlacement.endpoint.placements = [panelPlacement.placement]
-        addEndpoint(dummyCircuit.id, panelPlacement.endpoint)
-        endpointId = panelPlacement.endpoint.id
+        addEndpoint(dummyCircuit.id, {
+          ...panelPlacement.endpoint,
+          placements: [panelPlacement.placement],
+        })
       } else {
-        endpointId = existingEndpoint.id
         // Non-destructive sync: panel_distribution endpoints should have one placement.
         // If one already exists (possibly moved by the user), never auto-add another.
         if (existingEndpoint.placements.length === 0) {
-          addPlacement(endpointId, panelPlacement.placement)
+          addPlacement(existingEndpoint.id, panelPlacement.placement)
         }
       }
     })
@@ -5597,11 +5831,19 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
             },
             variant: 'danger',
           })
+        } else if (!getEndpointById(resolvedElementId)) {
+          // Wires, busbars, bus sections and other derived items are implicit: they
+          // disappear with the symbols that create them, so offer no Delete here.
+          items.push(...addElementAndNoteItems)
         } else {
           // Endpoint context menu
           const endpoint = getEndpointById(resolvedElementId!)
           const supportsAddMore =
             !!endpoint && (endpointSupportsMultiplier(endpoint) || endpoint.type === 'socket')
+          // The store refuses to delete the main panel's distribution symbol.
+          const canDeleteEndpoint =
+            !!endpoint &&
+            !(currentProject && isMainPanelDistributionEndpoint(currentProject, endpoint))
           items.push(
             ...addElementAndNoteItems,
             {
@@ -5717,16 +5959,20 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
                   },
                 ]
               : []),
-            { label: '', onClick: () => {}, separator: true },
-            {
-              label: t('contextMenu.delete'),
-              icon: getContextMenuIcon('delete'),
-              onClick: () => {
-                deleteEndpoint(resolvedElementId!)
-                clearSelection()
-              },
-              variant: 'danger',
-            }
+            ...(canDeleteEndpoint
+              ? [
+                  { label: '', onClick: () => {}, separator: true },
+                  {
+                    label: t('contextMenu.delete'),
+                    icon: getContextMenuIcon('delete'),
+                    onClick: () => {
+                      deleteEndpoint(resolvedElementId!)
+                      clearSelection()
+                    },
+                    variant: 'danger' as const,
+                  },
+                ]
+              : [])
           )
         }
       } else {
@@ -5756,6 +6002,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
         )
       }
 
+      while (items.length > 0 && items[items.length - 1]?.separator) items.pop()
       return items
     },
     [
@@ -5803,6 +6050,15 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
     },
     [handleDrop]
   )
+
+  // Blank canvas only accepts a few symbols (e.g. a new board); list only those there so
+  // picking an element never silently does nothing.
+  const canPlaceAddElementSymbol = useMemo(() => {
+    if (!addElementDropPosition || !layoutTree) return undefined
+    const { target } = findDropTargetWithDebug(layoutTree, addElementDropPosition)
+    if (target.type !== null || target.panelId) return undefined
+    return (symbol: import('@/lib/symbols').SymbolMetadata) => canDropSymbolOnEmptyCanvas(symbol.id)
+  }, [addElementDropPosition, layoutTree])
 
   const supplySeparators = useMemo(() => {
     if (!layout) return []
@@ -6060,6 +6316,12 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
     () => (
       <>
         {selectedEndpointOverlay}
+        {dragPreview?.trunkBranchSlot && (
+          <TrunkBranchSlotPreview
+            slot={dragPreview.trunkBranchSlot}
+            markerRef={trunkBranchSlotMarkerRef}
+          />
+        )}
         {dragPreview?.movingProtection && (
           <Circle
             ref={protectionMainBusCursorRef}
@@ -6098,6 +6360,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
             dropPosition={addElementDropPosition}
             onSelect={handleAddElementSelect}
             onClose={() => setAddElementDropPosition(null)}
+            canPlaceSymbol={canPlaceAddElementSymbol}
           />
         )}
         <BaseCanvas
@@ -6954,7 +7217,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
                 })}
 
             {/* Drop-zone hints: legal targets while dragging from the library */}
-            {canPlaceSymbols && activePlacementSymbol && (
+            {canPlaceSymbols && activePlacementSymbol && !dragPreview?.trunkBranchSlot && (
               <DropZoneHintsOverlay
                 layoutTree={layoutTree}
                 project={currentProject}
@@ -6962,6 +7225,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
                 activeDropTarget={dragPreview?.dropTarget ?? null}
                 activeDropTargetNodeId={activeDropTargetNodeId}
                 activePosition={dragPreview?.position ?? null}
+                pointerPosition={dragPreview?.position ?? dragPointer}
                 relocation={internalDragPlacement}
                 movingPanelAttachmentId={
                   internalDragPlacement?.elementId ?? dragPreview?.movingPanelAttachment?.panelId
@@ -7016,6 +7280,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
                   setDateToolFrameSelection({
                     year: frame.year,
                     bounds: frame.bounds,
+                    selectionKey: selectionTargets.map((target) => target.id).join('|'),
                   })
                 }}
               />
@@ -7076,7 +7341,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
             <label className="mb-1 block font-medium text-gray-700 dark:text-gray-200">
               {t('installDates.installDate', 'Install date')}
             </label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <label
                 className="relative block h-8 w-8 shrink-0 cursor-pointer rounded border border-gray-300 shadow-sm dark:border-gray-600"
                 style={{ backgroundColor: dateToolStoredColor }}
@@ -7133,7 +7398,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
                   if (dateToolYear === '') return
                   const parsed = normalizeInstallYear(dateToolYear)
                   const clamped =
-                    parsed == null ? selectedDateToolYear : clamp(currentInstallYear, 1900, parsed)
+                    parsed == null ? selectedDateToolYear : clamp(parsed, 1900, currentInstallYear)
                   setDateToolYear(String(clamped))
                 }}
                 onPointerDown={(e) => {
@@ -7158,7 +7423,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
                     moveEvent.preventDefault()
                     const delta = Math.trunc((startY - moveEvent.clientY) / 8)
                     if (delta === 0) return
-                    const nextYear = clamp(currentInstallYear, 1900, startYear + delta)
+                    const nextYear = clamp(startYear + delta, 1900, currentInstallYear)
                     setDateToolYear(String(nextYear))
                   }
                   const finishPointer = (pointerEvent: PointerEvent) => {
@@ -7180,7 +7445,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
                 placeholder={String(
                   currentProject?.project.yearOfConstruction ?? new Date().getFullYear()
                 )}
-                className="min-w-0 flex-1 touch-none cursor-ns-resize rounded-md border border-gray-300 bg-white px-2 py-1.5 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                className="min-w-[4rem] flex-1 touch-none cursor-ns-resize rounded-md border border-gray-300 bg-white px-2 py-1.5 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               />
               <button
                 type="button"

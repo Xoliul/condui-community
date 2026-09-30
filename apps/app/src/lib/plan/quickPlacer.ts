@@ -1,7 +1,7 @@
 import { groupEndpointsIntoBranches, initializeBranchesIfNeeded } from '@/lib/layout/endpointChains'
 import { getMainBusOrder } from '@/lib/eendraad/mainBusOrder'
 import { resolvePanelSupplyLinkForPanel } from '@/lib/eendraad/panelSupplyLink'
-import { hasCustomPlacement } from '@/lib/plan/customPlacement'
+import { hasCustomPlacement, isAwaitingPlanPlacement } from '@/lib/plan/customPlacement'
 import {
   selectProjectBuildingFloors,
   type ProjectWithOptionalV2Building,
@@ -16,6 +16,8 @@ export interface QuickPlacerItem {
   endpoint: Endpoint
   placement: Placement
   isCustomPlacement: boolean
+  /** Not on the plan yet (manual plan placement); placing it puts it on the plan. */
+  isAwaitingPlacement: boolean
   floorName: string
 }
 
@@ -37,6 +39,8 @@ export interface QuickPlacerCircuit {
   panelDepth: number
   protectionId?: string
   branches: QuickPlacerBranch[]
+  /** Items in this circuit that are not on the plan yet. */
+  awaitingCount: number
 }
 
 type QuickPlacerProject = ProjectWithOptionalV2Building & ProjectWithOptionalV2Electrical
@@ -210,6 +214,7 @@ export function buildQuickPlacerCircuits(
         endpoint,
         placement,
         isCustomPlacement: hasCustomPlacement(placement),
+        isAwaitingPlacement: isAwaitingPlanPlacement(placement),
         floorName: floorNameById.get(placement.floorId) ?? placement.floorId,
       }))
       if (items.length === 0) continue
@@ -249,6 +254,10 @@ export function buildQuickPlacerCircuits(
       panelDepth: Math.max(0, panelPath.length - 1),
       protectionId: protection?.id,
       branches,
+      awaitingCount: branches.reduce(
+        (sum, branch) => sum + branch.items.filter((item) => item.isAwaitingPlacement).length,
+        0
+      ),
     })
   }
 
@@ -283,5 +292,19 @@ export function findNextQuickPlacerCircuit(
     }
   }
 
+  return null
+}
+
+/** First item still waiting to be put on the plan, in Quick Placer order. */
+export function findFirstAwaitingQuickPlacerItem(
+  circuits: QuickPlacerCircuit[]
+): { circuit: QuickPlacerCircuit; item: QuickPlacerItem } | null {
+  for (const circuit of circuits) {
+    if (circuit.awaitingCount === 0) continue
+    for (const branch of circuit.branches) {
+      const item = branch.items.find((candidate) => candidate.isAwaitingPlacement)
+      if (item) return { circuit, item }
+    }
+  }
   return null
 }

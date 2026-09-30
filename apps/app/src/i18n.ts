@@ -1,3 +1,6 @@
+import de from './locales/de.json'
+import pl from './locales/pl.json'
+import ro from './locales/ro.json'
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { applyCanonicalLanguagePathIfNeeded } from '@/utils/languageRouting'
@@ -27,6 +30,9 @@ function withSymbolCategoryLabels<T extends { symbols: Record<string, unknown> }
 }
 
 const resources = {
+  de: { translation: withSymbolCategoryLabels(de, 'de') },
+  pl: { translation: withSymbolCategoryLabels(pl, 'pl') },
+  ro: { translation: withSymbolCategoryLabels(ro, 'ro') },
   'nl-BE': { translation: withSymbolCategoryLabels(nlBE, 'nl-BE') },
   'fr-BE': { translation: withSymbolCategoryLabels(frBE, 'fr-BE') },
   en: { translation: withSymbolCategoryLabels(en, 'en') },

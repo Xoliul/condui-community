@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { TFunction } from 'i18next'
-import { pointInPolygon } from '@/lib/geometry'
-import { getRoomPolygonsFromWalls } from '@/lib/plan/roomPolygons'
 import type { DialogConfig } from '@/stores/dialogStore'
 import type { ProjectState } from '@/stores/projectStore'
-import type { Door, Floor, PlanGraphicElement, Point2, Wall, Window } from '@/types/schema'
+import type { Floor, Point2 } from '@/types/schema'
 import { calculatePxPerMeter } from './usePlanScale'
+import { createPlanScaleReference, resolvePlanPxPerMeter } from '@/lib/plan/planScale'
+import { rescaleFloorPlan } from '@/lib/plan/rescalePlan'
+import { scenePointToPlanImageLocal } from '@/lib/plan/planImageRotation'
 
 export function usePlanScaleRulerState() {
   const [isResettingScale, setIsResettingScale] = useState(false)
@@ -46,7 +47,6 @@ type UsePlanScaleResetControllerOptions = {
 }
 
 export function usePlanScaleResetController({
-  activeFloor,
   activeFloorId,
   activeTool,
   applyPlanRescale,
@@ -74,20 +74,20 @@ export function usePlanScaleResetController({
     isResettingScale &&
     scaleRulerPoints.p1 &&
     scaleRulerPoints.p2 &&
-    (scaleRulerMeters ?? activeFloor?.scale?.reference?.meters)
+    scaleRulerMeters != null
       ? (() => {
           const { p1, p2 } = scaleRulerPoints
-          const meters = scaleRulerMeters ?? activeFloor!.scale!.reference!.meters
-          const dx = p2!.x - p1!.x
-          const dy = p2!.y - p1!.y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          return dist > 0 && meters > 0 ? dist / meters : null
+          const meters = scaleRulerMeters!
+          const reference = createPlanScaleReference(p1!, p2!, meters)
+          return reference ? resolvePlanPxPerMeter({ reference }) : null
         })()
       : null
 
   const handleResetScaleStart = useCallback(() => {
     const floor = activeFloorId ? getFloorById(activeFloorId) : null
-    const initialMeters = scaleRulerMeters ?? floor?.scale?.reference?.meters ?? 1
+    const reference = floor?.scale?.reference
+    const ownsReference = reference && !floor?.planScaleNeedsCalibration && (!reference.floorId || reference.floorId === activeFloorId)
+    const initialMeters = scaleRulerMeters ?? (ownsReference ? reference.meters : 1)
     setIsResettingScale(true)
     setScaleRulerPoints({ p1: null, p2: null })
     setScaleRulerMeters(initialMeters)
@@ -124,6 +124,7 @@ export function usePlanScaleResetController({
 
       const floorBefore = getFloorById(activeFloorId)
       if (!floorBefore) return
+      if (!createPlanScaleReference(p1World, p2World, meters)) return
 
       setIsResettingScale(false)
       setScaleRulerPoints({ p1: null, p2: null })
@@ -131,25 +132,15 @@ export function usePlanScaleResetController({
       setScaleRulerMetersInput('')
       setActiveTool('none')
 
-      const localP1 = {
-        x: p1World.x - currentPlanImagePosition.x,
-        y: p1World.y - currentPlanImagePosition.y,
-      }
-      const localP2 = {
-        x: p2World.x - currentPlanImagePosition.x,
-        y: p2World.y - currentPlanImagePosition.y,
-      }
-      const newScaleReference = {
-        p1: localP1,
-        p2: localP2,
-        meters,
-        coordinateSpace: 'asset' as const,
-      }
+      // The reference is drawn inside the (possibly rotated) plan image group.
+      const rotationDeg = floorBefore.planImageRotationDeg ?? 0
+      const localP1 = scenePointToPlanImageLocal(p1World, currentPlanImagePosition, rotationDeg)
+      const localP2 = scenePointToPlanImageLocal(p2World, currentPlanImagePosition, rotationDeg)
+      const newScaleReference = createPlanScaleReference(localP1, localP2, meters, activeFloorId)!
       const hasPlanImage = !!(floorBefore.planAsset || floorBefore.planImportAsset)
       const floorPlan = floorBefore.floorPlan
       const hasVectorWalls = !!floorPlan && floorPlan.walls.length > 0
-      const hasExistingScaleReference = !!floorBefore.scale?.reference
-      const oldPxPerMeter = calculatePxPerMeter(floorBefore)
+      const oldPxPerMeter = calculatePxPerMeter(floorBefore) ?? 100
       const dx = p2World.x - p1World.x
       const dy = p2World.y - p1World.y
       const distancePx = Math.sqrt(dx * dx + dy * dy)
@@ -158,7 +149,7 @@ export function usePlanScaleResetController({
       const shouldAttemptWallRescale =
         hasPlanImage &&
         hasVectorWalls &&
-        hasExistingScaleReference &&
+        !floorBefore.planScaleNeedsCalibration &&
         oldPxPerMeter != null &&
         newPxPerMeter != null &&
         newPxPerMeter > 0
@@ -192,18 +183,12 @@ export function usePlanScaleResetController({
         sumY += point.y
       }
       const center = { x: sumX / allPoints.length, y: sumY / allPoints.length }
-      const roomPolygons = getRoomPolygonsFromWalls(floorPlan!.walls)
       const placementsOnFloor = getPlacementsByFloor(activeFloorId)
       const placementsToRescale: Array<{ id: string; pos: Point2 }> = []
       for (const placement of placementsOnFloor) {
         const pos = placement.pos ?? null
         if (!pos) continue
-        for (const polygon of roomPolygons) {
-          if (pointInPolygon(pos, polygon)) {
-            placementsToRescale.push({ id: placement.id, pos })
-            break
-          }
-        }
+        placementsToRescale.push({ id: placement.id, pos })
       }
 
       const title = t('plan.resetScale.confirmRescaleTitle')
@@ -249,32 +234,6 @@ export function usePlanScaleResetController({
               const latestPlan = latestFloor?.floorPlan
               if (!latestFloor || !latestPlan) return
 
-              const scaledWalls = latestPlan.walls.map((wall: Wall) => ({
-                ...wall,
-                points: wall.points.map((point: Point2) => ({
-                  x: center.x + (point.x - center.x) * scaleFactor,
-                  y: center.y + (point.y - center.y) * scaleFactor,
-                })),
-              }))
-              const scaledDoors = latestPlan.doors.map((door: Door) => ({
-                ...door,
-                width: door.width * scaleFactor,
-              }))
-              const scaledWindows = latestPlan.windows.map((window: Window) => ({
-                ...window,
-                width: window.width * scaleFactor,
-              }))
-              const scaledGraphicElements = (latestPlan.graphicElements ?? []).map(
-                (element: PlanGraphicElement) => ({
-                  ...element,
-                  pos: {
-                    x: center.x + (element.pos.x - center.x) * scaleFactor,
-                    y: center.y + (element.pos.y - center.y) * scaleFactor,
-                  },
-                  width: element.width * scaleFactor,
-                  height: element.height * scaleFactor,
-                }),
-              )
               const placementUpdates = placementsToRescale.map(({ id, pos }) => ({
                 id,
                 pos: {
@@ -287,13 +246,7 @@ export function usePlanScaleResetController({
                 activeFloorId,
                 {
                   scale: { reference: newScaleReference },
-                  floorPlan: {
-                    ...latestPlan,
-                    walls: scaledWalls,
-                    doors: scaledDoors,
-                    windows: scaledWindows,
-                    graphicElements: scaledGraphicElements,
-                  },
+                  floorPlan: rescaleFloorPlan(latestPlan, scaleFactor, center),
                 },
                 placementUpdates,
               )

@@ -1,7 +1,7 @@
 import { getSymbolById } from '@/lib/symbols'
 import { symbolCanAppearInPanelGrid } from '@/lib/panel/panelGridSymbolEligibility'
 
-const SITUATION_PLAN_EXCLUDED_SYMBOLS = new Set(['domotica', 'energy_meter'])
+const SITUATION_PLAN_EXCLUDED_SYMBOLS = new Set(['domotica', 'energy_meter', 'contact'])
 const OPTIONAL_SITUATION_PLAN_SYMBOLS = new Set([
   'transformer',
   'rectifier',
@@ -27,4 +27,9 @@ export function symbolRequiresSituationPlanPlacement(symbolId: string | undefine
     !symbolCanAppearInPanelGrid(symbolId) &&
     !OPTIONAL_SITUATION_PLAN_SYMBOLS.has(symbolId)
   )
+}
+
+/** Virtual one-wire elements: never get a plan placement or a panel module. */
+export function isVirtualOneWireOnlySymbol(symbolId: string | undefined): boolean {
+  return symbolId === 'contact'
 }

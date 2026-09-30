@@ -24,6 +24,7 @@ import { eendraChromeHeaderBackgroundClass } from '@/lib/ui/chromeLayoutStyles'
 import { ConduiLogo } from '@/components/branding/ConduiLogo'
 import { EditorPreferencesToolbar } from '@/components/settings/EditorPreferencesToolbar'
 import { logger } from '@/lib/logger'
+import { importProjectFromTrikLocal } from '@/lib/import/trik/assembleProject'
 import type { Installation } from '@/types/schema'
 import {
   downloadCommunityBlob,
@@ -117,6 +118,7 @@ export default function CommunityHome() {
   const { t } = useTranslation()
   const navigate = useLocalizedNavigate()
   const importRef = useRef<HTMLInputElement>(null)
+  const trikImportRef = useRef<HTMLInputElement>(null)
   const actionsAnchorRef = useRef<HTMLDivElement>(null)
   const layoutRef = useRef<HomeProjectLayout>(loadHomeProjectLayout(null))
   const [projects, setProjects] = useState<ProjectMetadata[]>([])
@@ -125,6 +127,7 @@ export default function CommunityHome() {
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false)
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<ProjectMetadata | null>(null)
+  const [isTrikImporting, setIsTrikImporting] = useState(false)
 
   const setHomeLayout = useCallback(
     (updater: HomeProjectLayout | ((previous: HomeProjectLayout) => HomeProjectLayout)) => {
@@ -176,6 +179,38 @@ export default function CommunityHome() {
     project.project.updatedAt = now
     await saveProject(project, { storageMode: 'local' })
     navigate(`/project/${project.project.id}`)
+  }
+
+  const importTrikProject = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.trik')) {
+      window.alert(
+        t('project.importTrikInvalidFileMessage', {
+          defaultValue: 'Select a valid .trik file.',
+        }),
+      )
+      return
+    }
+
+    setIsTrikImporting(true)
+    try {
+      const project = await importProjectFromTrikLocal(file)
+      project.project.id = generateId()
+      const now = new Date().toISOString()
+      project.project.createdAt = now
+      project.project.updatedAt = now
+      await saveProject(project, { storageMode: 'local' })
+      navigate(`/project/${project.project.id}`)
+    } catch (error) {
+      logger.error('Failed to import TRiK project:', error)
+      window.alert(
+        t('project.importTrikFailedMessage', {
+          defaultValue: 'TRiK project import failed: {{error}}',
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      )
+    } finally {
+      setIsTrikImporting(false)
+    }
   }
 
   const renameProject = async (project: ProjectMetadata) => {
@@ -306,6 +341,18 @@ export default function CommunityHome() {
                   >
                     {t('project.importDownloaded')}
                   </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={isTrikImporting}
+                    onClick={() => {
+                      setIsActionsMenuOpen(false)
+                      trikImportRef.current?.click()
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-slate-800 transition-colors hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60 dark:text-slate-100 dark:hover:bg-slate-800"
+                  >
+                    {t('project.importTrikFile')}
+                  </button>
                   <div className="border-t border-slate-200 dark:border-slate-700" role="separator" />
                   <button
                     type="button"
@@ -329,6 +376,17 @@ export default function CommunityHome() {
                     const file = event.target.files?.[0]
                     event.target.value = ''
                     if (file) void importProject(file).catch((error) => window.alert(String(error)))
+                  }}
+                />
+                <input
+                  ref={trikImportRef}
+                  type="file"
+                  accept=".trik,application/xml,text/xml"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    event.target.value = ''
+                    if (file) void importTrikProject(file)
                   }}
                 />
               </div>

@@ -27,6 +27,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { useDialogStore } from '@/stores/dialogStore'
 import { useThemeColors } from '@/lib/theme/hooks'
 import { useCanvasFontFamily } from '@/editions/community/communityHooks'
+import { useTouchPrimaryDevice } from '@/hooks/useTouchPrimaryDevice'
 import { ZOOM_100 } from '@/constants/canvasConstants'
 import {
   panelGridModuleRefKey,
@@ -50,6 +51,7 @@ import RelationWires, { type PanelHierarchyRoute } from './RelationWires'
 import type { PanelWirePathRegion, WirePathSegment } from './panelWireRouter'
 import { RewireTool } from './RewireTool'
 import { RewirePreviewWire } from './RewirePreviewWire'
+import { findPanelLibraryDropSlot } from '@/lib/panel/panelLibraryDropSlot'
 import {
   buildDirectPanelFeederConnectors,
   buildFullPanelScene,
@@ -790,6 +792,8 @@ interface HierarchyDragPreview {
   ref?: PanelGridModuleRef
   isAltDuplicate?: boolean
   invalid?: boolean
+  /** Library drop onto an existing protection: preview wire from that feeder (canvas coords). */
+  feedWirePoints?: number[]
   createAuxiliary?: boolean
   deviceIds?: string[]
   items?: Array<{
@@ -882,6 +886,8 @@ export function HierarchyPanelCanvas({
   const connectorGroupRef = useRef<Konva.Group>(null)
   const colors = useThemeColors()
   const fontFamily = useCanvasFontFamily()
+  const touchPrimary = useTouchPrimaryDevice()
+  const touchHandleHitStrokeWidth = touchPrimary ? 56 / Math.max(panelZoom, 0.1) : 'auto'
   const selection = useUIStore((s) => s.selection)
   const setSelection = useUIStore((s) => s.setSelection)
   const openDialog = useDialogStore((s) => s.openDialog)
@@ -1891,6 +1897,104 @@ export function HierarchyPanelCanvas({
     [currentProject, panelOptions, scene]
   )
 
+  /**
+   * Where a library symbol dropped at `position` lands on `surface`: the pointer's cell when
+   * it is free, otherwise the nearest free cells beside the module under the pointer. A
+   * protection dropped on an existing protection is fed from it (the feeder).
+   */
+  const resolveHierarchyLibraryDrop = useCallback(
+    (position: Point, symbol: SymbolMetadata, surface: HierarchySurface) => {
+      if (!currentProject) return null
+      const gridTop =
+        surface.y +
+        (surface.kind === 'panel' ? surface.mainPanelY : 0) +
+        PANEL_FRAME_MARGIN +
+        getTerminalStripTopOffset(surface.panel)
+      const gridLeft = surface.x + PANEL_FRAME_MARGIN
+      const localX = position.x - gridLeft
+      const localY = position.y - gridTop
+      const widthCols = getLibraryDropWidthCols(symbol, currentProject)
+      const requestedCol = Math.max(
+        0,
+        Math.min(surface.cols - widthCols, Math.round(localX / CELL_W) - Math.floor(widthCols / 2))
+      )
+      const requestedRow = clamp(snapToGrid(localX, localY + CELL_H / 2).row, 0, surface.rows - 1)
+
+      const gridPlacements = surface.placements.filter(
+        (placement) => !placement.inSupplyPanel && !placement.isOverflow
+      )
+      const hit = gridPlacements.find(
+        (placement) =>
+          position.x >= surface.x + placement.x &&
+          position.x <= surface.x + placement.x + placement.width &&
+          position.y >= surface.y + placement.y &&
+          position.y <= surface.y + placement.y + placement.height
+      )
+      const slot = findPanelLibraryDropSlot({
+        occupied: gridPlacements.map((placement) => ({
+          row: placement.row,
+          col: placement.col,
+          widthCols: placement.width / CELL_W,
+        })),
+        rows: surface.rows,
+        cols: surface.cols,
+        widthCols,
+        requested: { row: requestedRow, col: requestedCol },
+        anchor: hit ? { row: hit.row, col: hit.col, widthCols: hit.width / CELL_W } : null,
+      })
+
+      const hitProtectionId = hit?.ref.kind === 'protection' ? hit.ref.id : undefined
+      const isProtectionDrop = (PROTECTION_SYMBOL_IDS as readonly string[]).includes(symbol.id)
+      const feederProtection =
+        isProtectionDrop && hitProtectionId
+          ? surface.panel?.protections.find(
+              (protection) =>
+                protection.id === hitProtectionId && (protection.circuits?.length ?? 0) > 0
+            )
+          : undefined
+
+      const ghost = slot
+        ? {
+            x: gridLeft + slot.col * CELL_W,
+            y: gridTop + slot.row * ROW_STRIDE,
+            width: widthCols * CELL_W,
+            height: CELL_H,
+          }
+        : null
+      let feedWirePoints: number[] | undefined
+      if (ghost && hit && feederProtection) {
+        const originCx = surface.x + hit.x + hit.width / 2
+        const originTop = surface.y + hit.y
+        const originBottom = originTop + hit.height
+        const targetCx = ghost.x + ghost.width / 2
+        const below = ghost.y > originBottom
+        const gapY = below ? originBottom + ROW_GAP / 2 : originTop - ROW_GAP / 2
+        feedWirePoints = [
+          originCx,
+          below ? originBottom : originTop,
+          originCx,
+          gapY,
+          targetCx,
+          gapY,
+          targetCx,
+          ghost.y,
+        ]
+      }
+
+      return {
+        slot,
+        ghost,
+        widthCols,
+        requestedRow,
+        requestedCol,
+        gridTop,
+        feederProtection,
+        feedWirePoints,
+      }
+    },
+    [currentProject]
+  )
+
   const handleHierarchyDragOver = useCallback(
     (position: Point, symbolData: unknown | null) => {
       if (!scene || !currentProject || !symbolData || typeof symbolData !== 'object') {
@@ -1907,46 +2011,36 @@ export function HierarchyPanelCanvas({
         return
       }
 
-      const localX = position.x - hoverSurface.x - PANEL_FRAME_MARGIN
-      const localY =
-        position.y -
-        hoverSurface.y -
-        (hoverSurface.kind === 'panel' ? hoverSurface.mainPanelY : 0) -
-        PANEL_FRAME_MARGIN -
-        getTerminalStripTopOffset(hoverSurface.panel)
-      const widthCols = getLibraryDropWidthCols(symbol, currentProject)
-      const col = Math.max(
-        0,
-        Math.min(
-          hoverSurface.cols - widthCols,
-          Math.round(localX / CELL_W) - Math.floor(widthCols / 2)
-        )
-      )
-      const snapped = snapToGrid(localX, localY + CELL_H / 2)
-      const row = clamp(snapped.row, 0, hoverSurface.rows - 1)
+      const resolved = resolveHierarchyLibraryDrop(position, symbol, hoverSurface)
+      if (!resolved) {
+        setDragPreview(null)
+        return
+      }
       const invalid =
-        isModularSocketDrop &&
-        (hoverSurface.kind !== 'panel' || !canDropModularSocketOnPanel(hoverSurface.panel))
+        !resolved.ghost ||
+        (isModularSocketDrop &&
+          (hoverSurface.kind !== 'panel' || !canDropModularSocketOnPanel(hoverSurface.panel)))
 
       setDragPreview({
         surfaceId: hoverSurface.id,
         panelId: hoverSurface.panel?.id,
-        x:
-          hoverSurface.x +
-          PANEL_FRAME_MARGIN +
-          col * CELL_W,
-        y:
-          hoverSurface.y +
-          (hoverSurface.kind === 'panel' ? hoverSurface.mainPanelY : 0) +
-          PANEL_FRAME_MARGIN +
-          getTerminalStripTopOffset(hoverSurface.panel) +
-          row * ROW_STRIDE,
-        width: widthCols * CELL_W,
-        height: CELL_H,
+        ...(resolved.ghost ?? {
+          x: hoverSurface.x + PANEL_FRAME_MARGIN + resolved.requestedCol * CELL_W,
+          y: resolved.gridTop + resolved.requestedRow * ROW_STRIDE,
+          width: resolved.widthCols * CELL_W,
+          height: CELL_H,
+        }),
         invalid,
+        feedWirePoints: invalid ? undefined : resolved.feedWirePoints,
       })
     },
-    [currentProject, detectHierarchyLibraryDropHover, detectHierarchyPanelTarget, scene]
+    [
+      currentProject,
+      detectHierarchyLibraryDropHover,
+      detectHierarchyPanelTarget,
+      resolveHierarchyLibraryDrop,
+      scene,
+    ]
   )
 
   const handleHierarchyDrop = useCallback(
@@ -1969,23 +2063,11 @@ export function HierarchyPanelCanvas({
       const isProtectionDevice = (PROTECTION_SYMBOL_IDS as readonly string[]).includes(symbol.id)
       const isEnergyMeter = symbol.id === 'energy_meter'
 
-      const localX = position.x - targetSurface.x - PANEL_FRAME_MARGIN
-      const localY =
-        position.y -
-        targetSurface.y -
-        targetSurface.mainPanelY -
-        PANEL_FRAME_MARGIN -
-        getTerminalStripTopOffset(targetSurface.panel)
-      const droppedModuleWidthCols = getLibraryDropWidthCols(symbol, currentProject)
-      const snapped = snapToGrid(localX, localY + CELL_H / 2)
-      const row = clamp(snapped.row, 0, targetSurface.rows - 1)
-      const col = Math.max(
-        0,
-        Math.min(
-          targetSurface.cols - droppedModuleWidthCols,
-          Math.round(localX / CELL_W) - Math.floor(droppedModuleWidthCols / 2)
-        )
-      )
+      // Never stack modules: land beside whatever is under the pointer instead.
+      const resolved = resolveHierarchyLibraryDrop(position, symbol, targetSurface)
+      if (!resolved?.slot) return
+      const { row, col } = resolved.slot
+      const feederCircuitId = resolved.feederProtection?.circuits?.[0]?.id
 
       if (isModularSocketDrop) {
         const hitPlacement = targetSurface.placements.find(
@@ -2066,41 +2148,52 @@ export function HierarchyPanelCanvas({
       }
 
       if (isProtectionDevice) {
-        const protectionType = protectionTypeFromSymbolId(symbol.id) || 'MCB'
-        const defaults = getProtectionCreationProps(currentProject, protectionType)
-        const autoCircuitCode = resolveInitialProtectionBusLabel(
-          protectionType,
-          getNextAvailableCircuitCode(currentProject, targetPanel.id)
+        const store = useProjectStore.getState()
+        store.withSingleUndoEntry(
+          () => {
+            const protectionType = protectionTypeFromSymbolId(symbol.id) || 'MCB'
+            const defaults = getProtectionCreationProps(currentProject, protectionType)
+            const autoCircuitCode = resolveInitialProtectionBusLabel(
+              protectionType,
+              getNextAvailableCircuitCode(currentProject, targetPanel.id)
+            )
+            const protectionId = generateId()
+            const circuitId = generateId()
+            const protection: ProtectionDevice = {
+              id: protectionId,
+              type: protectionType,
+              label: autoCircuitCode,
+              circuits: [],
+              ...defaults,
+            }
+            useProjectStore.getState().addProtection(targetPanel.id, protection)
+            const circuit: Circuit = {
+              id: circuitId,
+              code: autoCircuitCode,
+              kind: 'other',
+              cable: createDefaultAcCircuitCable(),
+              endpoints: [],
+              ...DEFAULT_AC_CIRCUIT_WIRE_LABEL_FLAGS,
+            }
+            useProjectStore.getState().addCircuit(targetPanel.id, circuit, protectionId)
+            const moduleRef: PanelGridModuleRef = { kind: 'protection', id: protectionId }
+            const existingSlots = targetPanel.gridView?.slots ?? []
+            useProjectStore
+              .getState()
+              .updatePanelGridSlots(
+                targetPanel.id,
+                [...existingSlots, { row, col, module: moduleRef }],
+                { preserveProtectionOrder: true }
+              )
+            // Dropped on an existing protection: feed the new one from it.
+            if (feederCircuitId) {
+              useProjectStore.getState().rewireModules(feederCircuitId, circuitId)
+            }
+            setSelection({ type: 'protection', ids: [protectionId] })
+            return true
+          },
+          { sessionLabel: 'place protection from library' }
         )
-        const protectionId = generateId()
-        const circuitId = generateId()
-        const protection: ProtectionDevice = {
-          id: protectionId,
-          type: protectionType,
-          label: autoCircuitCode,
-          circuits: [],
-          ...defaults,
-        }
-        useProjectStore.getState().addProtection(targetPanel.id, protection)
-        const circuit: Circuit = {
-          id: circuitId,
-          code: autoCircuitCode,
-          kind: 'other',
-          cable: createDefaultAcCircuitCable(),
-          endpoints: [],
-          ...DEFAULT_AC_CIRCUIT_WIRE_LABEL_FLAGS,
-        }
-        useProjectStore.getState().addCircuit(targetPanel.id, circuit, protectionId)
-        const moduleRef: PanelGridModuleRef = { kind: 'protection', id: protectionId }
-        const existingSlots = targetPanel.gridView?.slots ?? []
-        useProjectStore
-          .getState()
-          .updatePanelGridSlots(
-            targetPanel.id,
-            [...existingSlots, { row, col, module: moduleRef }],
-            { preserveProtectionOrder: true }
-          )
-        setSelection({ type: 'protection', ids: [protectionId] })
         return
       }
 
@@ -2149,7 +2242,13 @@ export function HierarchyPanelCanvas({
         setSelection({ type: 'trunkDevice', ids: [deviceId] })
       }
     },
-    [currentProject, detectHierarchyLibraryDropHover, detectHierarchyPanelTarget, setSelection]
+    [
+      currentProject,
+      detectHierarchyLibraryDropHover,
+      detectHierarchyPanelTarget,
+      resolveHierarchyLibraryDrop,
+      setSelection,
+    ]
   )
 
   const selectedRef = useMemo((): PanelGridModuleRef | null => {
@@ -3989,6 +4088,9 @@ export function HierarchyPanelCanvas({
                           height={32}
                           fill="#0284c7"
                           cornerRadius={3}
+                          stroke="#0284c7"
+                          strokeWidth={1}
+                          hitStrokeWidth={touchHandleHitStrokeWidth}
                           draggable
                           onDragMove={(event) => {
                             event.cancelBubble = true
@@ -4023,6 +4125,9 @@ export function HierarchyPanelCanvas({
                           height={6}
                           fill="#0284c7"
                           cornerRadius={3}
+                          stroke="#0284c7"
+                          strokeWidth={1}
+                          hitStrokeWidth={touchHandleHitStrokeWidth}
                           draggable
                           onDragMove={(event) => {
                             event.cancelBubble = true
@@ -4364,6 +4469,9 @@ export function HierarchyPanelCanvas({
                         height={32}
                         fill="#0284c7"
                         cornerRadius={3}
+                        stroke="#0284c7"
+                        strokeWidth={1}
+                        hitStrokeWidth={touchHandleHitStrokeWidth}
                         draggable
                         onMouseDown={(event) => {
                           event.cancelBubble = true
@@ -4406,6 +4514,9 @@ export function HierarchyPanelCanvas({
                         height={6}
                         fill="#0284c7"
                         cornerRadius={3}
+                        stroke="#0284c7"
+                        strokeWidth={1}
+                        hitStrokeWidth={touchHandleHitStrokeWidth}
                         draggable
                         onMouseDown={(event) => {
                           event.cancelBubble = true
@@ -4852,6 +4963,9 @@ export function HierarchyPanelCanvas({
               </Group>
             )
           })()}
+          {dragPreview?.feedWirePoints && (
+            <RewirePreviewWire points={dragPreview.feedWirePoints} stroke="#10b981" animateDash />
+          )}
           {hierarchyRewirePreviewWire && (
             <RewirePreviewWire
               points={hierarchyRewirePreviewWire.points}

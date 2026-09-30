@@ -1,12 +1,89 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import fs from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { pwaManifest } from './pwa.config.mjs'
 
 const repoRoot = path.resolve(import.meta.dirname, '../..')
 const appRoot = import.meta.dirname
+
+/**
+ * pdf.js decodes JBIG2/CCITT fax images, JPEG 2000, and ICC colour with WebAssembly modules it
+ * loads by name from `wasmUrl`. Without them pdf.js drops the rest of a page that uses such an
+ * image. Serve the installed version's files at `/pdfjs-wasm/` in dev and ship them in builds.
+ */
+const PDFJS_WASM_FILES = [
+  'jbig2.wasm',
+  'openjpeg.wasm',
+  'qcms_bg.wasm',
+  'LICENSE_JBIG2',
+  'LICENSE_OPENJPEG',
+  'LICENSE_QCMS',
+  'LICENSE_PDFJS_JBIG2',
+  'LICENSE_PDFJS_OPENJPEG',
+  'LICENSE_PDFJS_QCMS',
+] as const
+
+function pdfjsWasmDirectory(): string {
+  const requireFromApp = createRequire(import.meta.url)
+  return path.join(path.dirname(requireFromApp.resolve('pdfjs-dist/package.json')), 'wasm')
+}
+
+function createPdfjsWasmPlugin() {
+  return {
+    name: 'pdfjs-wasm-assets',
+    configureServer(server: {
+      middlewares: {
+        use: (
+          handler: (
+            req: { url?: string },
+            res: { setHeader: (name: string, value: string) => void; end: (body: Buffer) => void },
+            next: () => void
+          ) => void
+        ) => void
+      }
+    }) {
+      server.middlewares.use((req, res, next) => {
+        const match = req.url?.match(/^\/pdfjs-wasm\/([A-Za-z0-9_.-]+)(?:\?.*)?$/)
+        const fileName = match?.[1]
+        if (!fileName || !(PDFJS_WASM_FILES as readonly string[]).includes(fileName)) return next()
+        res.setHeader(
+          'Content-Type',
+          fileName.endsWith('.wasm') ? 'application/wasm' : 'text/plain; charset=utf-8'
+        )
+        res.end(fs.readFileSync(path.join(pdfjsWasmDirectory(), fileName)))
+      })
+    },
+    generateBundle(this: {
+      emitFile: (file: { type: 'asset'; fileName: string; source: Uint8Array }) => string
+    }) {
+      const directory = pdfjsWasmDirectory()
+      for (const fileName of PDFJS_WASM_FILES) {
+        this.emitFile({
+          type: 'asset',
+          fileName: `pdfjs-wasm/${fileName}`,
+          source: fs.readFileSync(path.join(directory, fileName)),
+        })
+      }
+    },
+  }
+}
+
+function isBuildFlagEnabled(value: unknown): boolean {
+  if (typeof value !== 'string') return false
+  return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase())
+}
+
+/**
+ * Documents follow the same build flag as hosted builds (Vite reads the same env files for the
+ * `community` mode), minus their hosted-only parts.
+ */
+const projectDocumentsEnabled = isBuildFlagEnabled(
+  process.env.VITE_ENABLE_PROJECT_DOCUMENTS ??
+    loadEnv('community', appRoot, '').VITE_ENABLE_PROJECT_DOCUMENTS,
+)
 
 export function normalizeCommunityModuleIds(
   moduleIds: Iterable<string>,
@@ -73,6 +150,62 @@ export function assertNoElectricalVisionModules(moduleIds: Iterable<string>): vo
   }
 }
 
+const projectDocumentsModulePrefixes = [
+  'apps/app/src/components/documents/',
+  'apps/app/src/lib/documents/',
+  'apps/app/src/stores/projectDocumentsStore',
+  'apps/app/src/stores/externalInfluencesDocuments',
+] as const
+
+/** Hosted-only parts of Documents: paid-project tables, the team library, paid gating. */
+const hostedProjectDocumentsModulePrefixes = [
+  'apps/app/src/components/documents/documentsHostedFeatures',
+  'apps/app/src/components/documents/ExternalInfluence',
+  'apps/app/src/components/documents/PaidFeatureGate',
+  'apps/app/src/components/documents/TeamLibraryPicker',
+  'apps/app/src/components/documents/usePaidProjectAccess',
+  'apps/app/src/components/documents/useRequestProjectUpgrade',
+  'apps/app/src/components/documents/useSaveToTeamLibrary',
+  'apps/app/src/components/documents/useTeamDocumentLibraryAccess',
+  'apps/app/src/lib/documents/externalInfluence',
+  'apps/app/src/lib/documents/limitedDocumentPages',
+  'apps/app/src/lib/documents/teamDocument',
+  'apps/app/src/stores/externalInfluencesDocuments',
+] as const
+
+/**
+ * Without the Documents flag no Documents module may reach the community build; with it, only
+ * the hosted-only ones may not.
+ */
+export function assertNoProjectDocumentsModules(
+  moduleIds: Iterable<string>,
+  { documentsEnabled = false }: { documentsEnabled?: boolean } = {},
+): void {
+  const prefixes = documentsEnabled
+    ? hostedProjectDocumentsModulePrefixes
+    : projectDocumentsModulePrefixes
+  const leaked = [...new Set(moduleIds)].filter((moduleId) =>
+    prefixes.some((prefix) => moduleId.startsWith(prefix)),
+  )
+  if (leaked.length > 0) {
+    throw new Error(
+      `Community build includes ${documentsEnabled ? 'hosted ' : ''}project documents module(s): ${leaked.join(', ')}`,
+    )
+  }
+}
+
+function stripProjectDocumentsSource(source: string): string {
+  return source
+    .replace(
+      /\{\s*\/\*\s*@project-documents-strip-start\s*\*\/\s*\}[\s\S]*?\{\s*\/\*\s*@project-documents-strip-end\s*\*\/\s*\}/g,
+      '',
+    )
+    .replace(
+      /\/\*\s*@project-documents-strip-start\s*\*\/[\s\S]*?\/\*\s*@project-documents-strip-end\s*\*\//g,
+      '',
+    )
+}
+
 function stripDisabledElectricalVisionScanSource(source: string): string {
   return source
     .replace(
@@ -86,17 +219,19 @@ function stripDisabledElectricalVisionScanSource(source: string): string {
 }
 
 const aliases = {
+  '@/lib/vision/availability': './src/editions/community/communityPlanRecognition.ts',
+  '@/lib/vision/recognizePlanWalls': './src/editions/community/communityPlanRecognition.ts',
   '@/hooks/useExportDialog': './src/editions/community/useCommunityExportDialog.tsx',
   '@/hooks/useAuthSession': './src/editions/community/communityAuthSession.ts',
   '@/components/home/NewProjectDialog':
     './src/editions/community/CommunityNewProjectDialog.tsx',
   '@/components/export/ExportDialog': './src/editions/community/CommunityExportDialog.tsx',
   '@/lib/editionPdfRenderingPolicy': './src/editions/community/communityPdfRenderingPolicy.ts',
+  '@/components/documents/documentsHostedFeatures':
+    './src/editions/community/communityDocumentsHostedFeatures.tsx',
   '@/lib/db': './src/editions/community/communityDb.ts',
   '@/lib/ui/homeButtonStyles':
     './src/editions/community/communityHomeButtonStyles.ts',
-  '@/lib/editionInstallationProfileCapabilities':
-    './src/editions/community/communityInstallationProfileCapabilities.ts',
   '@/lib/installerProfile': './src/editions/community/communityInstallerProfile.ts',
   '@/lib/analytics/googleAnalytics': './src/editions/community/communityAnalytics.ts',
   '@eendra/analytics': './src/editions/community/communityAnalytics.ts',
@@ -147,6 +282,7 @@ function createCommunitySourceBoundaryPlugin() {
     },
     transform(source: string, id: string) {
       let code = stripDisabledElectricalVisionScanSource(source)
+      if (!projectDocumentsEnabled) code = stripProjectDocumentsSource(code)
       code = code.replace(
         /\/\*\s*@community-strip-start\s*\*\/[\s\S]*?\/\*\s*@community-strip-end\s*\*\//g,
         '',
@@ -166,6 +302,7 @@ function createCommunitySourceBoundaryPlugin() {
 
 export default defineConfig({
   plugins: [
+    createPdfjsWasmPlugin(),
     {
       ...createCommunitySourceBoundaryPlugin(),
       generateBundle() {
@@ -173,6 +310,7 @@ export default defineConfig({
         assertNoHostedTemplateModules(modules)
         assertNoHostedDxfModules(modules)
         assertNoElectricalVisionModules(modules)
+        assertNoProjectDocumentsModules(modules, { documentsEnabled: projectDocumentsEnabled })
         fs.writeFileSync(
           path.resolve(appRoot, '.community-module-audit.local.json'),
           `${JSON.stringify({ modules: [...new Set(modules)] }, null, 2)}\n`,

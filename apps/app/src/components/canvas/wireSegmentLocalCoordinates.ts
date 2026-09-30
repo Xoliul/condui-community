@@ -25,6 +25,14 @@ export function localizeWireSegment(wire: WireSegment): LocalWireRender {
           },
         }
       : {}),
+    ...(wire.wireLabelBaseEndPoint
+      ? {
+          wireLabelBaseEndPoint: {
+            x: wire.wireLabelBaseEndPoint.x - origin.x,
+            y: wire.wireLabelBaseEndPoint.y - origin.y,
+          },
+        }
+      : {}),
     ...(wire.wireLabelEndPoint
       ? {
           wireLabelEndPoint: {

@@ -1,3 +1,4 @@
+import { current, isDraft } from 'immer'
 import type {
   Installation,
   Panel,
@@ -94,8 +95,26 @@ export function replacePlanWireRoutesForProject(
   const retained = document.elements.filter((element) => !isPlanWireElement(element))
   document.elements = [
     ...retained,
-    ...routes.map((route) => planWireRouteToElement(structuredClone(route))),
+    ...routes.map((route) => planWireRouteToElement(storedRouteCopy(route))),
   ]
+}
+
+/** A plain copy of a route; routes read inside a store mutation can hold Immer drafts at any depth. */
+function plainCopy<T>(value: T): T {
+  if (isDraft(value)) return current(value as object) as T
+  if (Array.isArray(value)) return value.map(plainCopy) as T
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, plainCopy(entry)])
+    ) as T
+  }
+  return value
+}
+
+function storedRouteCopy(route: PlanWireRoute): PlanWireRoute {
+  // Aliases are derived from the live cable estimate each time; they are never stored.
+  const { wireAnchorAliases: _aliases, ...stored } = plainCopy(route)
+  return stored
 }
 
 export function updatePlanWireRoutesForProject(

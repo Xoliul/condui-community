@@ -1,4 +1,5 @@
 import { isSupplyBranchDevice } from '@/lib/supplyAssembly/electricalTopology'
+import { hideInlineConverterMetadataByDefault } from '@/lib/conversionLabels'
 import type {
   Panel,
   Circuit,
@@ -15,6 +16,11 @@ import {
 } from '@/handlers/eendraad/dropBehaviors'
 import { symbolSupportsWireDomain, type SymbolMetadata } from '@/lib/symbols'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
+import {
+  circuitAcceptsTrunkSwitch,
+  isCircuitTrunkSwitchDropTarget,
+  isCircuitTrunkSwitchSymbol,
+} from '@/lib/eendraad/circuitTrunkSwitch'
 import { initializeBranchesIfNeeded, getCircuitBranches } from '@/lib/layout/endpointChains'
 import { getEndpointTypeFromSymbol, getSymbolKeyFromSymbol } from '@/utils'
 import {
@@ -47,7 +53,12 @@ import {
   getNextTerminalStripLabel,
   getTerminalStripTrunkConnectionProps,
 } from '@/lib/terminalStrip/labels'
-import { getNextJunctionIdentity, isSharedJunctionSymbol } from '@/lib/junctionIdentity'
+import {
+  circuitContainsJunctionPanelIdentity,
+  getJunctionIdentity,
+  getNextJunctionIdentity,
+  isSharedJunctionSymbol,
+} from '@/lib/junctionIdentity'
 import {
   createDefaultAcCircuitCable,
   DEFAULT_AC_CIRCUIT_WIRE_LABEL_FLAGS,
@@ -55,10 +66,14 @@ import {
 import { ensureRootFeedForBusSection, getSupplyFeedDevicesForPanel } from '@/lib/feedTopology'
 import {
   domoticaChildRefForEndpoint,
+  updateDomoticaChainHeadAfterInsert,
+  getDomoticaEndpointInputDomain,
+  resolveDomoticaConversionDropTarget,
   domoticaChildRefForBranchInsert,
   insertDomoticaChildEndpoint,
 } from '@/lib/eendraad/domoticaOutputOrdering'
 import { syncSequentialEndpointBranchLabelsToCircuit } from '@/lib/eendraad/automaticEndpointBranchNaming'
+import { getAllCircuits } from '@/lib/eendraad/projectElectricalDomain'
 import { getMainBusItemsWithIndices } from '@/lib/eendraad/mainBusOrder'
 import { resolvePanelSupplyLinksForSourcePanel } from '@/lib/eendraad/panelSupplyLink'
 import {
@@ -283,6 +298,9 @@ function circuitFeedsSubPanelSim(project: PreviewProject, circuitId: string): bo
  * Compute trunk position similarly to existing getCircuitTrunkPositionForDrop, but purely on Circuit.
  */
 function getCircuitTrunkPositionForDropSim(target: DropTarget, circuit: Circuit): number {
+  if (target.insertAfterCircuitContent) {
+    return Math.max(getCircuitBranches(circuit).length, ...(circuit.trunkDevices ?? []).map((device) => device.trunkPosition ?? 0))
+  }
   const trunkDevices = [...(circuit.trunkDevices ?? [])].sort(
     (a, b) => (a.trunkPosition ?? 0) - (b.trunkPosition ?? 0)
   )
@@ -365,7 +383,7 @@ function getWireDomainAtDropTargetSim(
     )
     if (!trunkDevices.length) return AC
 
-    if (typeof target.circuitTrunkSegmentIndex === 'number') {
+    if (typeof target.circuitTrunkSegmentIndex === 'number' && !target.insertAfterCircuitContent) {
       const segmentIndex = target.circuitTrunkSegmentIndex
       if (segmentIndex <= 0) return AC
       let domain: typeof DEFAULT_ELECTRICAL_DOMAIN = AC
@@ -383,7 +401,9 @@ function getWireDomainAtDropTargetSim(
 
     const trunkPosition = getCircuitTrunkPositionForDropSim(target, circuit)
     if (trunkPosition === 0) return AC
-    const prevDevices = trunkDevices.filter((d) => (d.trunkPosition ?? 0) < trunkPosition)
+    const prevDevices = target.insertAfterCircuitContent
+      ? trunkDevices
+      : trunkDevices.filter((d) => (d.trunkPosition ?? 0) < trunkPosition)
     let domain: typeof DEFAULT_ELECTRICAL_DOMAIN = AC
     for (const prevDevice of prevDevices) {
       const resolved = resolveSymbolPortsForWire(prevDevice.symbol, domain)
@@ -399,7 +419,10 @@ function getWireDomainAtDropTargetSim(
     if (!circuitId) return AC
     const circuit = findCircuitInProject(project, circuitId)
     if (!circuit) return AC
-    const trunkDevices = circuit.trunkDevices ?? []
+    const branchIndex = getCircuitBranches(circuit).findIndex((branch) =>
+      branch.some((endpoint) => endpoint.id === target.endpointId || target.branchEndpoints?.includes(endpoint.id)))
+    const trunkDevices = (circuit.trunkDevices ?? []).filter((device) =>
+      branchIndex < 0 || (device.trunkPosition ?? 0) <= branchIndex)
     const sorted = [...trunkDevices].sort((a, b) => (a.trunkPosition ?? 0) - (b.trunkPosition ?? 0))
     let domain: typeof DEFAULT_ELECTRICAL_DOMAIN = AC
     for (const td of sorted) {
@@ -410,6 +433,14 @@ function getWireDomainAtDropTargetSim(
     }
 
     // Branch drops must account for upstream in-branch conversion symbols.
+    const targetEndpoint = circuit.endpoints.find((endpoint) => endpoint.id === target.endpointId)
+    if (targetEndpoint && (targetEndpoint.domoticaChildProps || target.domoticaOutput)) {
+      const input = getDomoticaEndpointInputDomain(circuit, targetEndpoint.id, domain)
+      if (target.domoticaOutput || target.domoticaChildDropIntent === 'insertBefore') return input
+      if (!targetEndpoint.symbol) return input
+      const resolved = resolveSymbolPortsForWire(targetEndpoint.symbol, input)
+      return resolved.matched ? (resolved.oppositePortDomain ?? input) : input
+    }
     const branchIds = target.branchEndpoints ?? []
     if (branchIds.length > 0) {
       let upstreamIds: string[] = []
@@ -566,14 +597,21 @@ function simulateEndpointDrop(
     }
   }
 
-  if (inBetween) {
+  if (target.domoticaChildDropIntent === 'insertBefore' && branchEndpointIds?.length) {
+    createNewBranch = false
+  }
+
+  if (target.domoticaChildDropIntent === 'insertBefore' && branchEndpointIds?.length) {
+    // Keep the preview on the existing Domotica chain using the preceding endpoint.
+  } else if (inBetween) {
     if (branchEndpointIds?.length) {
       // Clamp in-between devices so they never end up after an actual endpoint.
       if (typeof insertAfterEndpointId === 'string') {
         const idx = branchEndpointIds.indexOf(insertAfterEndpointId)
         if (idx >= 0) {
           const ep = circuit.endpoints.find((e) => e.id === insertAfterEndpointId)
-          if (ep && isActualEndpoint(ep)) {
+          const isDomoticaAfterConversion = symbol.id === 'domotica' && isEnergyConversionEndpointSymbol(ep?.symbol)
+          if (ep && isActualEndpoint(ep) && !isDomoticaAfterConversion) {
             insertAfterEndpointId = idx > 0 ? branchEndpointIds[idx - 1] : null
           }
         }
@@ -700,13 +738,18 @@ function simulateEndpointDrop(
 
   // Label assignment (simplified but aligned with endpointBehavior).
   if (!isDomoticaOutputDrop && !endpoint.domoticaChildProps) {
-    const chainRef = isDomoticaChildReplace
+    const chainRef = isDomoticaChildReplace || target.domoticaChildDropIntent === 'insertBefore'
       ? domoticaChildRefForEndpoint(circuit, target.endpointId)
       : domoticaChildRefForBranchInsert(circuit, insertAfterEndpointId, target.branchEndpoints)
     if (chainRef) {
       endpoint.domoticaChildProps = chainRef
     }
   }
+
+  const downstreamIds = target.branchEndpoints?.slice(
+    typeof insertAfterEndpointId === 'string' ? target.branchEndpoints.indexOf(insertAfterEndpointId) + 1 : 0
+  )
+  if (!createNewBranch && downstreamIds?.length) hideInlineConverterMetadataByDefault(endpoint)
 
   // Insert endpoint into circuit.endpoints list.
   const endpoints = [...circuit.endpoints]
@@ -723,6 +766,10 @@ function simulateEndpointDrop(
     endpoints.push(endpoint)
   }
   circuit.endpoints = endpoints
+
+  if (target.domoticaChildDropIntent === 'insertBefore') {
+    circuit.endpoints = updateDomoticaChainHeadAfterInsert(circuit, endpointId, target.endpointId)
+  }
 
   if (isDomoticaChildReplace && target.endpointId && target.endpointId !== endpointId) {
     removeEndpointFromPreviewCircuit(circuit, target.endpointId)
@@ -1316,10 +1363,11 @@ function simulateTrunkDeviceOnCircuit(
     label:
       symbol.id === 'terminal_strip'
         ? getNextTerminalStripLabel(project)
-        : type === 'conversion'
+        : type === 'conversion' || type === 'switch' || type === 'relay'
           ? ''
           : (symbol.name ?? ''),
     trunkPosition,
+    ...(type === 'switch' ? { poles: 1, polesConfig: '1P' as const } : {}),
     ...(target.converterDcConnection
       ? { converterDcConnection: { ...target.converterDcConnection } }
       : {}),
@@ -1333,7 +1381,7 @@ function simulateTrunkDeviceOnCircuit(
 
   const list = [...(circuit.trunkDevices ?? []), trunkDevice]
   // Order according to segment index if available
-  if (typeof target.circuitTrunkSegmentIndex === 'number') {
+  if (typeof target.circuitTrunkSegmentIndex === 'number' && !target.insertAfterCircuitContent) {
     const segIndex = target.circuitTrunkSegmentIndex
     list.sort((a, b) => (a.trunkPosition ?? 0) - (b.trunkPosition ?? 0))
     const currentIdx = list.findIndex((d) => d.id === deviceId)
@@ -1793,6 +1841,10 @@ export function mutateTrunkDeviceRelocation(
   symbol: SymbolMetadata
 ): boolean {
   if (!project) return false
+  if (isConversionTrunkSymbolId(symbol.id) && target.circuitId) {
+    const circuit = findCircuitInProject(project, target.circuitId)
+    if (circuit) target = resolveDomoticaConversionDropTarget(circuit, target)
+  }
   if (target.type === 'supplyConverterDcWire') {
     return !!moveCircuitTrunkDeviceToSupplyDcBus(
       project,
@@ -1800,6 +1852,44 @@ export function mutateTrunkDeviceRelocation(
       relocating.sourceCircuitId,
       target
     )
+  }
+  if (target.type === 'endpoint' && target.circuitId && target.endpointId &&
+      (target.domoticaChildDropIntent === 'insertBefore' || target.domoticaChildDropIntent === 'insertAfter') &&
+      isConversionTrunkSymbolId(symbol.id)) {
+    const source = findCircuitInProject(project, relocating.sourceCircuitId)
+    const destination = findCircuitInProject(project, target.circuitId)
+    const device = source?.trunkDevices?.find((candidate) => candidate.id === relocating.id)
+    const anchor = destination?.endpoints.find((endpoint) => endpoint.id === target.endpointId)
+    const branch = destination?.branches?.find((candidate) => candidate.endpointIds.includes(target.endpointId!))
+    if (!source || !destination || !device || !anchor || !branch) return false
+    if (!anchor.domoticaChildProps &&
+        !(anchor.symbol === 'domotica' && target.domoticaChildDropIntent === 'insertBefore')) return false
+    // A converter with owned output lanes cannot move independently of its loads.
+    if ((device.conversionProps?.dcConnectionCount ?? 1) > 1 ||
+        source.endpoints.some((endpoint) => endpoint.converterDcConnection?.converterId === device.id) ||
+        source.trunkDevices?.some((candidate) => candidate.converterDcConnection?.converterId === device.id) ||
+        projectPanels(project).some((panel) => getAllCircuits(panel).some((circuit) =>
+          circuit.supplySource?.kind === 'converter-backup' && circuit.supplySource.converterId === device.id))) return false
+    if (!canPlaceTrunkConversionAtTargetSim(symbol, target, project)) return false
+    const endpoint: Endpoint = {
+      id: device.id, type: 'fixed_appliance', symbol: device.symbol,
+      label: anchor.label, placements: device.placements ?? [],
+      energyConversionProps: device.conversionProps,
+      notes: device.notes, labelNotes: device.labelNotes, panelLabel: device.panelLabel,
+      installationDate: device.installationDate,
+      installationDateSuppressed: device.installationDateSuppressed,
+      rulesetDateOverride: device.rulesetDateOverride, symbolLabelDisplay: device.symbolLabelDisplay,
+      domoticaChildProps: anchor.domoticaChildProps ? { ...anchor.domoticaChildProps } : undefined,
+    }
+    const before = target.domoticaChildDropIntent === 'insertBefore'
+    if (before) hideInlineConverterMetadataByDefault(endpoint)
+    const endpointIndex = destination.endpoints.findIndex((candidate) => candidate.id === anchor.id)
+    const branchIndex = branch.endpointIds.indexOf(anchor.id)
+    source.trunkDevices = source.trunkDevices!.filter((candidate) => candidate.id !== device.id)
+    destination.endpoints.splice(endpointIndex + (before ? 0 : 1), 0, endpoint)
+    branch.endpointIds.splice(branchIndex + (before ? 0 : 1), 0, endpoint.id)
+    if (before) destination.endpoints = updateDomoticaChainHeadAfterInsert(destination, endpoint.id, anchor.id)
+    return true
   }
   if (target.type !== 'circuit' || !target.circuitId || target.branchEndpoints?.length) return false
 
@@ -1822,9 +1912,21 @@ export function mutateTrunkDeviceRelocation(
     return false
   }
 
+  const afterContentPosition = target.insertAfterCircuitContent
+    ? getCircuitTrunkPositionForDropSim(target, targetCircuit)
+    : undefined
+
   const sourceList = sourceCircuit.trunkDevices ?? []
   const relocatingDevice = sourceList.find((device) => device.id === relocating.id)
   if (!relocatingDevice) return false
+  if (
+    relocatingDevice.symbol === 'junction_panel' &&
+    circuitContainsJunctionPanelIdentity(
+      targetCircuit,
+      getJunctionIdentity(relocatingDevice),
+      relocating.id,
+    )
+  ) return false
   if (
     relocatingDevice.type === 'dc_bus' &&
     relocatingDevice.converterDcConnection &&
@@ -1849,7 +1951,7 @@ export function mutateTrunkDeviceRelocation(
   )
 
   let insertIdx: number
-  if (typeof target.circuitTrunkSegmentIndex === 'number') {
+  if (typeof target.circuitTrunkSegmentIndex === 'number' && !target.insertAfterCircuitContent) {
     const seg = target.circuitTrunkSegmentIndex
     if (sameCircuit) {
       insertIdx = adjustTrunkSegmentInsertIndex({
@@ -1875,7 +1977,9 @@ export function mutateTrunkDeviceRelocation(
   const mcbStackOnly =
     orderedSans.length === 0 || orderedSans.every((d) => (d.trunkPosition ?? 0) === 0)
 
-  if (mcbStackOnly) {
+  if (afterContentPosition !== undefined) {
+    device.trunkPosition = afterContentPosition
+  } else if (mcbStackOnly) {
     newList.forEach((d) => {
       d.trunkPosition = 0
     })
@@ -1903,7 +2007,7 @@ export function simulateTrunkDeviceRelocationOnProject(
   if (!mutateTrunkDeviceRelocation(cloned, relocating, target, symbol)) return null
 
   const affectedCircuitIds =
-    target.type === 'circuit' && target.circuitId
+    target.circuitId
       ? [relocating.sourceCircuitId, target.circuitId].filter((id, i, arr) => arr.indexOf(id) === i)
       : [relocating.sourceCircuitId]
 
@@ -1911,17 +2015,17 @@ export function simulateTrunkDeviceRelocationOnProject(
     project: cloned,
     affectedPanelIds: [],
     affectedCircuitIds,
-    createdEndpointIds: [],
+    createdEndpointIds: target.type === 'endpoint' ? [relocating.id] : [],
     createdProtectionIds: [],
     createdTrunkDeviceIds: [],
-    movedTrunkDeviceIds: [relocating.id],
+    movedTrunkDeviceIds: target.type === 'endpoint' ? [] : [relocating.id],
     createdSupplyTrunkDeviceIds: [],
     createdGroundTrunkDeviceIds: [],
   }
 
   const panelA = findPanelForCircuit(cloned, relocating.sourceCircuitId)
   const panelB =
-    target.type === 'circuit' && target.circuitId
+    target.circuitId
       ? findPanelForCircuit(cloned, target.circuitId)
       : target.panelId
         ? findPanelById(projectPanels(cloned), target.panelId)
@@ -1990,7 +2094,8 @@ export function simulateEndpointSelectionMoveOnProject(
       sourceCircuit,
       moving.draggedEndpointId,
       moving.endpointIds,
-      target
+      target,
+      { allowSingle: true }
     )
     if (!result) return null
     sourceCircuit.endpoints = result.endpoints
@@ -2003,7 +2108,8 @@ export function simulateEndpointSelectionMoveOnProject(
       targetCircuit,
       moving.draggedEndpointId,
       moving.endpointIds,
-      target
+      target,
+      { allowSingle: true }
     )
     if (!result) return null
     sourceCircuit.endpoints = result.source.endpoints
@@ -2047,6 +2153,10 @@ export function simulateDropOnProject(
   target: DropTarget
 ): EendraadPreviewChangeSet | null {
   if (!project) return null
+  if (isConversionTrunkSymbolId(symbol.id) && target.circuitId) {
+    const circuit = findCircuitInProject(project, target.circuitId)
+    if (circuit) target = resolveDomoticaConversionDropTarget(circuit, target)
+  }
   if (!canCreateSupplyTopologyFromDrop(symbol, target.type)) return null
   if (symbol.id === 'dc_bus' && !canDropDcBusOnTarget(target, project)) return null
   if (
@@ -2152,6 +2262,21 @@ export function simulateDropOnProject(
     target.type === 'mainBus'
   ) {
     simulateEarthingStemDrop(cloned, target, changeSet)
+    return changeSet
+  }
+
+  if (
+    isCircuitTrunkSwitchSymbol(symbol.id) &&
+    isCircuitTrunkSwitchDropTarget(target) &&
+    circuitAcceptsTrunkSwitch(findCircuitInProject(cloned, target.circuitId!) ?? undefined)
+  ) {
+    simulateTrunkDeviceOnCircuit(
+      cloned,
+      target,
+      symbol,
+      symbol.id === 'relay' ? 'relay' : 'switch',
+      changeSet
+    )
     return changeSet
   }
 

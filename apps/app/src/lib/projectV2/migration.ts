@@ -34,7 +34,7 @@ import {
 import { emptyChronology } from '@/lib/chronology/chronology'
 import { sanitizeLegacyV2Project } from './sanitizeLegacyV2Project'
 import { normalizeLegacyPlanWiringAtBoundary } from './planWiring'
-import { seedWireRunsFromLegacy } from './wireRunSeed'
+import { repairSeededWireRunRoutes, seedWireRunsFromLegacy } from './wireRunSeed'
 
 type ProjectV2BeforeScopes = Omit<ProjectV2, 'schemaVersion' | 'collaboration'> & {
   schemaVersion: '2.0.0'
@@ -46,11 +46,17 @@ type ProjectV2BeforeWireRuns = Omit<ProjectV2, 'schemaVersion'> & {
   schemaVersion: '2.1.0'
 }
 
+/** Wire-run document whose seeded runs may carry the `2.2.0` route loss; repaired to `2.3.0`. */
+type ProjectV2BeforeWireRouteRepair = Omit<ProjectV2, 'schemaVersion'> & {
+  schemaVersion: '2.2.0'
+}
+
 export type LegacyProjectDocument =
   | Project
   | ProjectV2
   | ProjectV2BeforeScopes
   | ProjectV2BeforeWireRuns
+  | ProjectV2BeforeWireRouteRepair
 
 const SYSTEM_BUILDING = 'system_building'
 const SYSTEM_ELECTRICAL = 'system_electrical'
@@ -72,6 +78,10 @@ function isProjectV2BeforeScopes(value: unknown): value is ProjectV2BeforeScopes
 
 function isProjectV2BeforeWireRuns(value: unknown): value is ProjectV2BeforeWireRuns {
   return isRecord(value) && value.schemaVersion === '2.1.0'
+}
+
+function isProjectV2BeforeWireRouteRepair(value: unknown): value is ProjectV2BeforeWireRouteRepair {
+  return isRecord(value) && value.schemaVersion === '2.2.0'
 }
 
 export function isProjectV1(value: unknown): value is Project {
@@ -221,6 +231,7 @@ function assetFromFloor(floor: Floor): AssetModelV2[] {
       pageCount: floor.planImportAsset.pageCount,
       crop: floor.planImportAsset.crop,
       darkModeAware: floor.planImportAsset.darkModeAware,
+      grayscale: floor.planImportAsset.grayscale,
       legacy: floor.planImportAsset,
     })
   }
@@ -259,7 +270,9 @@ function floorToV2(floor: Floor): FloorV2 {
         ? `${floor.planImportAsset.id}-processed`
         : undefined) ?? floor.planAssetProcessed,
     scale: floor.scale,
+    planScaleNeedsCalibration: floor.planScaleNeedsCalibration,
     planImageOffset: floor.planImageOffset,
+    planImageRotationDeg: floor.planImageRotationDeg,
     planImageOpacity: floor.planImageOpacity,
     sitplanSymbolSizeCm: floor.sitplanSymbolSizeCm,
     hiddenSitplanElementIds: floor.hiddenSitplanPlacementIds,
@@ -797,8 +810,9 @@ interface SchemaUpgradeStep {
 /**
  * Ordered schema upgrades, oldest→newest. `applyScopeContract` finalizes any pre-scope document to
  * the current canonical shape (scopes + wire-run seed + current version), so the V1 and pre-scope
- * steps reach `2.2.0` directly. A `2.1.0` document already has scopes, so its step re-finalizes to
- * seed wire runs and stamp `2.2.0`. Adding a future version means appending one entry here.
+ * steps reach the current version directly. A `2.1.0` document already has scopes, so its step
+ * re-finalizes to seed wire runs. A `2.2.0` document only needs its seeded wire-run routes repaired.
+ * Adding a future version means appending one entry here.
  */
 const SCHEMA_UPGRADE_STEPS: SchemaUpgradeStep[] = [
   {
@@ -824,6 +838,30 @@ const SCHEMA_UPGRADE_STEPS: SchemaUpgradeStep[] = [
       const { schemaVersion: _schemaVersion, collaboration, ...project } =
         document as ProjectV2BeforeWireRuns
       return applyScopeContract(project, collaboration?.contributions)
+    },
+  },
+  {
+    from: '2.2.0',
+    to: PROJECT_V2_SCHEMA_VERSION,
+    matches: isProjectV2BeforeWireRouteRepair,
+    apply: (document) => {
+      const project = document as ProjectV2BeforeWireRouteRepair
+      const electrical = project.disciplines.electrical
+      const wireRuns = electrical?.wireRuns
+      return {
+        ...project,
+        schemaVersion: PROJECT_V2_SCHEMA_VERSION,
+        disciplines:
+          electrical && Array.isArray(wireRuns)
+            ? {
+                ...project.disciplines,
+                electrical: {
+                  ...electrical,
+                  wireRuns: repairSeededWireRunRoutes(project, wireRuns),
+                },
+              }
+            : project.disciplines,
+      }
     },
   },
 ]

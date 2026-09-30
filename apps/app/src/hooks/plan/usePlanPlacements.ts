@@ -1,4 +1,5 @@
 import { useMemo, useRef } from 'react'
+import { isAwaitingPlanPlacement } from '@/lib/plan/customPlacement'
 import { useProjectStore, type ProjectState } from '@/stores/projectStore'
 import { getSymbolCategory } from '@/components/plan/SitplanVisibilityPanel'
 import type { SymbolKey, Placement } from '@/types/schema'
@@ -8,13 +9,18 @@ import {
   selectProjectElectricalPanels,
 } from '@/lib/projectV2/electrical'
 import { findPanelById } from '@/lib/panel/panelTree'
-import { installationHasAnyEarthing } from '@/lib/eendraad/panelGround'
+import {
+  installationHasAnyEarthing,
+  panelRendersEarthingStem,
+} from '@/lib/eendraad/panelGround'
 import { canSymbolAppearOnSituationPlan } from '@/lib/plan/situationPlanSymbolEligibility'
 import { endpointSymbolVisibleOnSitplan } from '@/lib/plan/planSymbolVisibility'
 
 type SitplanPlacementRow = Placement & {
   endpointId?: string
   trunkDeviceId?: string
+  enclosureId?: string
+  planLabel?: string
   isEarthing?: boolean
   junctionPanelLabel?: string
 }
@@ -32,6 +38,8 @@ function shallowEqualPlacementRow(a: SitplanPlacementRow, b: SitplanPlacementRow
     a.locked === b.locked &&
     a.endpointId === b.endpointId &&
     a.trunkDeviceId === b.trunkDeviceId &&
+    a.enclosureId === b.enclosureId &&
+    a.planLabel === b.planLabel &&
     a.junctionPanelLabel === b.junctionPanelLabel &&
     a.isEarthing === b.isEarthing &&
     (a.style === b.style || JSON.stringify(a.style) === JSON.stringify(b.style))
@@ -102,13 +110,18 @@ export function usePlanPlacements(
     )
     let filtered = floorPlacements.filter((placement: SitplanPlacementRow) => {
       if (placement.isEarthing) return hasGround
-      if (placement.junctionPanelLabel != null) return true
+      if (placement.junctionPanelLabel != null || placement.enclosureId != null) return true
       const endpoint = placement.endpointId ? getEndpointById(placement.endpointId) : undefined
-      const trunkDevice = placement.trunkDeviceId
-        ? getTrunkDeviceById(placement.trunkDeviceId)?.device
+      const trunkInfo = placement.trunkDeviceId
+        ? getTrunkDeviceById(placement.trunkDeviceId)
         : undefined
+      const trunkDevice = trunkInfo?.device
       if (endpoint) return endpointSymbolVisibleOnSitplan(endpoint)
-      return canSymbolAppearOnSituationPlan(trunkDevice?.symbol)
+      return (
+        (trunkDevice?.type === 'energy_meter' &&
+          (trunkInfo?.isSupplyDevice === true || trunkInfo?.circuit?.code === 'PANEL')) ||
+        canSymbolAppearOnSituationPlan(trunkDevice?.symbol)
+      )
     })
     if (sitplanPanelFilterId) {
       const selectedPanel = findPanelById(
@@ -116,13 +129,36 @@ export function usePlanPlacements(
         sitplanPanelFilterId
       )
       filtered = filtered.filter((placement: SitplanPlacementRow) => {
-        if (placement.isEarthing) return selectedPanel?.isMain === true
+        if (placement.isEarthing) {
+          return selectedPanel
+            ? panelRendersEarthingStem(
+                selectedPanel,
+                selectProjectElectricalInstallation(currentProject)
+              )
+            : false
+        }
         if (placement.junctionPanelLabel != null) return true
+        if (placement.enclosureId != null) {
+          const enclosure = currentProject.disciplines?.electrical?.auxiliaryEnclosures?.find(
+            (candidate) => candidate.id === placement.enclosureId
+          )
+          return enclosure?.ownerPanelId === sitplanPanelFilterId
+        }
         if (placement.endpointId) {
           return findCircuitForEndpoint(placement.endpointId)?.panel.id === sitplanPanelFilterId
         }
         if (placement.trunkDeviceId) {
-          const circuitId = getTrunkDeviceById(placement.trunkDeviceId)?.circuit?.id
+          const trunkInfo = getTrunkDeviceById(placement.trunkDeviceId)
+          if (
+            trunkInfo?.isSupplyDevice &&
+            trunkInfo.device.type === 'energy_meter' &&
+            !trunkInfo.circuit
+          ) {
+            return trunkInfo.supplyPanelId
+              ? trunkInfo.supplyPanelId === sitplanPanelFilterId
+              : selectedPanel?.isMain === true
+          }
+          const circuitId = trunkInfo?.circuit?.id
           return circuitId
             ? useProjectStore.getState().findPanelForCircuit(circuitId)?.id === sitplanPanelFilterId
             : false
@@ -148,8 +184,11 @@ export function usePlanPlacements(
     if (!planVisibility.symbolsVisible) return []
     const filtered = placements.filter((placement: SitplanPlacementRow) => {
       if (hiddenPlacementIds.has(placement.id)) return false
+      // Waiting for the user to place it (manual plan placement): stays in the Quick Placer only.
+      if (isAwaitingPlanPlacement(placement)) return false
       if (placement.isEarthing) return planVisibility.panelsVisible
       if (placement.junctionPanelLabel != null) return planVisibility.panelsVisible
+      if (placement.enclosureId != null) return planVisibility.panelsVisible
       const endpoint = placement.endpointId ? getEndpointById(placement.endpointId) : undefined
       const trunkDevice = placement.trunkDeviceId
         ? getTrunkDeviceById(placement.trunkDeviceId)?.device

@@ -1,5 +1,17 @@
 import type { Endpoint, EnergyConversionDeviceProps, TrunkDevice } from '@/types/schema'
-import { formatCompactDiagramField } from '@/lib/certificationLabels'
+import { CERTIFICATION_LISTING_VISIBILITY_KEY, formatCompactDiagramField } from '@/lib/certificationLabels'
+
+/** Inline supplies start compact; an explicit visibility choice is preserved. */
+export function hideInlineConverterMetadataByDefault(endpoint: Endpoint): void {
+  if (endpoint.symbol !== 'inverter' && endpoint.symbol !== 'rectifier') return
+  endpoint.symbolLabelDisplay = {
+    ...endpoint.symbolLabelDisplay,
+    visibility: {
+      [CERTIFICATION_LISTING_VISIBILITY_KEY]: false,
+      ...endpoint.symbolLabelDisplay?.visibility,
+    },
+  }
+}
 
 type ConversionSource =
   | Pick<
@@ -45,9 +57,9 @@ export function isConversionLabelVisible(
 }
 
 export function getVisibleEndpointNoteText(
-  endpoint: Pick<Endpoint, 'notes' | 'notesVisible' | 'domoticaChildProps'>
+  endpoint: Pick<Endpoint, 'notes' | 'notesVisible' | 'domoticaChildProps' | 'symbol'>
 ): string {
-  if (endpoint.notesVisible === false || endpoint.domoticaChildProps) return ''
+  if (endpoint.notesVisible === false || (endpoint.domoticaChildProps && endpoint.symbol !== 'domotica')) return ''
   return (endpoint.notes ?? '').trim()
 }
 

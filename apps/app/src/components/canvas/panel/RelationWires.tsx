@@ -2556,6 +2556,7 @@ function computeWires(
           reservedSegments,
           pathwayRegions: lockedSameRowRegion ?? pathwayRegions,
           pathwayLinks: lockedSameRowRegion ? undefined : pathwayLinks,
+          separateHorizontalLanes: true,
         })
         return {
           wire: option,

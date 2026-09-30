@@ -1,5 +1,5 @@
 import type { CanvasType, PanelCanvasMode, Point, ViewportLayout } from '@/types/ui'
-import { isStructuralCanvasEnabled } from '@/lib/structuralCanvas/availability'
+import { getAvailableCanvasTypes } from '@/lib/viewport/availableCanvasTypes'
 
 export interface LocalCanvasViewTransform {
   zoom: number
@@ -17,12 +17,6 @@ export interface LocalProjectEditorState {
   canvasViews?: Partial<Record<CanvasType, LocalCanvasViewTransform>>
 }
 
-function availableCanvasTypes(): CanvasType[] {
-  return isStructuralCanvasEnabled()
-    ? ['eendraad', 'plan', 'panel', 'structure']
-    : ['eendraad', 'plan', 'panel']
-}
-
 export function sanitizeLocalCanvasViews(
   value: unknown
 ): LocalProjectEditorState['canvasViews'] | undefined {
@@ -30,7 +24,7 @@ export function sanitizeLocalCanvasViews(
   const source = value as Partial<Record<CanvasType, unknown>>
   const result: Partial<Record<CanvasType, LocalCanvasViewTransform>> = {}
 
-  for (const canvas of availableCanvasTypes()) {
+  for (const canvas of getAvailableCanvasTypes()) {
     const candidate = source[canvas]
     if (!candidate || typeof candidate !== 'object') continue
     const view = candidate as { zoom?: unknown; pan?: { x?: unknown; y?: unknown } }

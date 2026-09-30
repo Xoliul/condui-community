@@ -2,7 +2,7 @@ import { Group, Line, Path } from 'react-konva'
 import {
   PLAN_WIRE_ACTIVE_OPACITY,
   PLAN_WIRE_DASH,
-  PLAN_WIRE_STROKE_WIDTH,
+  planWireStrokeWidth,
 } from '@/lib/plan/planWiring'
 
 export type PlanWireDragPreviewModel = {
@@ -12,14 +12,14 @@ export type PlanWireDragPreviewModel = {
   arrowHead: number[] | null
 }
 
-export function PlanWireDragPreview({ preview }: { preview: PlanWireDragPreviewModel }) {
+export function PlanWireDragPreview({ preview, zoom }: { preview: PlanWireDragPreviewModel; zoom?: number }) {
   return (
     <Group name="plan-wire-drag-preview" listening={false}>
       {preview.path ? (
         <Path
           data={preview.path}
           stroke={preview.stroke}
-          strokeWidth={PLAN_WIRE_STROKE_WIDTH}
+          strokeWidth={planWireStrokeWidth(zoom)}
           opacity={PLAN_WIRE_ACTIVE_OPACITY}
           dash={PLAN_WIRE_DASH}
           lineCap="round"
@@ -30,7 +30,7 @@ export function PlanWireDragPreview({ preview }: { preview: PlanWireDragPreviewM
         <Line
           points={preview.points}
           stroke={preview.stroke}
-          strokeWidth={PLAN_WIRE_STROKE_WIDTH}
+          strokeWidth={planWireStrokeWidth(zoom)}
           opacity={PLAN_WIRE_ACTIVE_OPACITY}
           dash={PLAN_WIRE_DASH}
           lineCap="round"

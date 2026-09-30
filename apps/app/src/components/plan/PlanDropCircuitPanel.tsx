@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { GripVertical, X } from 'lucide-react'
@@ -37,16 +37,72 @@ const CREATE_NEW_ID = '__plan_drop_create_new__'
 const PANEL_WIDTH = 352
 const PANEL_MIN_TOP_PX = EDITOR_TOP_BAR_HEIGHT_PX + 8
 
-function initialFrame(clientX: number, clientY: number): { left: number; top: number } {
-  const margin = 10
-  const gap = 28
-  const estH = 400
-  let left = clientX + gap
-  let top = clientY - estH - gap
-  if (top < PANEL_MIN_TOP_PX) top = clientY + gap
-  left = clamp(left, margin, window.innerWidth - PANEL_WIDTH - margin)
-  top = clamp(top, PANEL_MIN_TOP_PX, window.innerHeight - estH - margin)
-  return { left, top }
+const PANEL_ESTIMATED_HEIGHT = 400
+const VIEWPORT_MARGIN_PX = 8
+/** Keeps the picker off the canvas toolbars along the plan's edges. */
+const CANVAS_TOOLBAR_INSET_PX = 64
+const ANCHOR_CLEARANCE_PX = 48
+
+type PanelFrame = { left: number; top: number }
+type ScreenRect = { left: number; top: number; right: number; bottom: number }
+
+/** Where the user last dragged the picker this page session; reused for every later drop. */
+let rememberedFrame: PanelFrame | null = null
+
+function clampFrame(frame: PanelFrame, height: number): PanelFrame {
+  return {
+    left: clamp(
+      frame.left,
+      VIEWPORT_MARGIN_PX,
+      window.innerWidth - PANEL_WIDTH - VIEWPORT_MARGIN_PX
+    ),
+    top: clamp(frame.top, PANEL_MIN_TOP_PX, window.innerHeight - height - VIEWPORT_MARGIN_PX),
+  }
+}
+
+/**
+ * Opens in the corner of the plan canvas farthest from the drop, clear of the canvas
+ * toolbars, so the symbol just placed (and the next spot to click) stays visible.
+ */
+export function initialPlanDropPanelFrame(
+  anchor: { x: number; y: number },
+  bounds: ScreenRect,
+  height: number
+): PanelFrame {
+  const fitsInside = bounds.right - bounds.left >= PANEL_WIDTH + 2 * CANVAS_TOOLBAR_INSET_PX
+  const area = fitsInside
+    ? {
+        left: bounds.left + CANVAS_TOOLBAR_INSET_PX,
+        right: bounds.right - CANVAS_TOOLBAR_INSET_PX,
+        top: bounds.top + CANVAS_TOOLBAR_INSET_PX,
+        bottom: bounds.bottom - CANVAS_TOOLBAR_INSET_PX,
+      }
+    : {
+        left: VIEWPORT_MARGIN_PX,
+        right: window.innerWidth - VIEWPORT_MARGIN_PX,
+        top: PANEL_MIN_TOP_PX,
+        bottom: window.innerHeight - VIEWPORT_MARGIN_PX,
+      }
+  const lefts = [area.left, area.right - PANEL_WIDTH]
+  const tops = [area.top, area.bottom - height]
+  let best: { frame: PanelFrame; score: number } | null = null
+  for (const left of lefts) {
+    for (const top of tops) {
+      const frame = clampFrame({ left, top }, height)
+      const coversAnchor =
+        anchor.x >= frame.left - ANCHOR_CLEARANCE_PX &&
+        anchor.x <= frame.left + PANEL_WIDTH + ANCHOR_CLEARANCE_PX &&
+        anchor.y >= frame.top - ANCHOR_CLEARANCE_PX &&
+        anchor.y <= frame.top + height + ANCHOR_CLEARANCE_PX
+      const distance = Math.hypot(
+        frame.left + PANEL_WIDTH / 2 - anchor.x,
+        frame.top + height / 2 - anchor.y
+      )
+      const score = distance - (coversAnchor ? 100_000 : 0)
+      if (!best || score > best.score) best = { frame, score }
+    }
+  }
+  return best?.frame ?? clampFrame({ left: anchor.x, top: anchor.y }, height)
 }
 
 export interface PlanDropCircuitPanelProps {
@@ -58,11 +114,17 @@ export interface PlanDropCircuitPanelProps {
   symbol: SymbolMetadata
   dropKind: PlanDropKind
   clientAnchor: { x: number; y: number }
+  /** Screen rect of the plan canvas; the picker opens inside it, away from the drop. */
+  avoidBounds?: ScreenRect
+  /** The close (×) button was used, as opposed to Done, Esc or an outside click. */
+  onCloseButton?: () => void
   /** Undo stack index where this picker session starts (collapse on close). */
   undoGroupStartIndex: number
   /** Circuits created for this drop that should be removed when abandoned. */
   provisionalCircuitIds?: string[]
   onDismiss: () => void
+  /** Let clicks pass the backdrop (armed library placement keeps stamping while the picker is open). */
+  nonModal?: boolean
   /** Called after endpoints were moved to `circuitId` (plan + one-wire split view uses this to fit the diagram). */
   onAfterCircuitAssignment?: (circuitId: string) => void
 }
@@ -74,16 +136,46 @@ function PlanDropCircuitPanelInner({
   symbol,
   dropKind,
   clientAnchor,
+  avoidBounds,
+  onCloseButton,
   undoGroupStartIndex,
   provisionalCircuitIds = [],
   onDismiss,
+  nonModal = false,
   onAfterCircuitAssignment,
 }: PlanDropCircuitPanelProps) {
   const { t } = useTranslation()
   const panelRootRef = useRef<HTMLDivElement>(null)
-  const [frame, setFrame] = useState(() => initialFrame(clientAnchor.x, clientAnchor.y))
+  const getDefaultBounds = () => ({
+    left: 0,
+    top: PANEL_MIN_TOP_PX,
+    right: window.innerWidth,
+    bottom: window.innerHeight,
+  })
+  const [frame, setFrame] = useState<PanelFrame>(() =>
+    rememberedFrame
+      ? clampFrame(rememberedFrame, PANEL_ESTIMATED_HEIGHT)
+      : initialPlanDropPanelFrame(
+          clientAnchor,
+          avoidBounds ?? getDefaultBounds(),
+          PANEL_ESTIMATED_HEIGHT
+        )
+  )
   const frameRef = useRef(frame)
   frameRef.current = frame
+
+  // Re-fit with the measured height (the estimate can land it on the drop or off-screen).
+  useLayoutEffect(() => {
+    const height = panelRootRef.current?.offsetHeight
+    if (!height) return
+    setFrame(
+      rememberedFrame
+        ? clampFrame(rememberedFrame, height)
+        : initialPlanDropPanelFrame(clientAnchor, avoidBounds ?? getDefaultBounds(), height)
+    )
+    // Only on open: later anchor changes remount the panel (keyed by endpoint).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const dragRef = useRef<{
     startX: number
@@ -104,11 +196,12 @@ function PlanDropCircuitPanelInner({
     }
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
   }, [])
+  const draggedRef = useRef(false)
 
   const onDragPointerMove = useCallback((e: React.PointerEvent) => {
     const d = dragRef.current
     if (!d) return
-    const estH = 400
+    const estH = panelRootRef.current?.offsetHeight ?? PANEL_ESTIMATED_HEIGHT
     const nextLeft = clamp(
       d.origLeft + (e.clientX - d.startX),
       8,
@@ -119,11 +212,16 @@ function PlanDropCircuitPanelInner({
       PANEL_MIN_TOP_PX,
       window.innerHeight - estH - 8
     )
+    draggedRef.current = true
     setFrame({ left: nextLeft, top: nextTop })
   }, [])
 
   const onDragPointerUp = useCallback((e: React.PointerEvent) => {
     dragRef.current = null
+    if (draggedRef.current) {
+      draggedRef.current = false
+      rememberedFrame = frameRef.current
+    }
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId)
     } catch {
@@ -464,18 +562,19 @@ function PlanDropCircuitPanelInner({
 
   const shell = (
     <div
-      {...{ [APP_MODAL_BACKDROP_ATTR]: 'true' }}
-      className="fixed inset-0"
+      {...(nonModal ? {} : { [APP_MODAL_BACKDROP_ATTR]: 'true' })}
+      className={nonModal ? 'pointer-events-none fixed inset-0' : 'fixed inset-0'}
       style={{ zIndex: PLAN_DROP_CIRCUIT_PANEL_Z_INDEX }}
-      onClick={handleDismiss}
+      onClick={nonModal ? undefined : handleDismiss}
     >
       <div
+        {...(nonModal ? { [APP_MODAL_BACKDROP_ATTR]: 'true' } : {})}
         ref={panelRootRef}
         data-plan-circuit-panel
         role="dialog"
         aria-modal="true"
         aria-labelledby="plan-drop-circuit-heading"
-        className="absolute flex max-h-[min(520px,92vh)] w-[min(100vw-16px,352px)] flex-col overflow-hidden rounded-md border border-gray-200 bg-white shadow-xl dark:border-gray-600 dark:bg-gray-800"
+        className="pointer-events-auto absolute flex max-h-[min(520px,92vh)] w-[min(100vw-16px,352px)] flex-col overflow-hidden rounded-md border border-gray-200 bg-white shadow-xl dark:border-gray-600 dark:bg-gray-800"
         style={{ left: frame.left, top: frame.top }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -505,7 +604,10 @@ function PlanDropCircuitPanelInner({
           </h2>
           <button
             type="button"
-            onClick={handleDismiss}
+            onClick={() => {
+              onCloseButton?.()
+              handleDismiss()
+            }}
             className="shrink-0 rounded-md p-2 text-gray-500 hover:bg-gray-200/80 hover:text-gray-800 dark:hover:bg-gray-700 dark:hover:text-gray-100"
             aria-label={t('common.close')}
           >

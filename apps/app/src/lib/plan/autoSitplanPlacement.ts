@@ -17,6 +17,8 @@ import {
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import { getAllCircuits } from '@/lib/eendraad/projectElectricalDomain'
+import { markAwaitingPlanPlacement } from '@/lib/plan/customPlacement'
+import { isManualPlanPlacementEnabled } from '@/lib/plan/manualPlanPlacementPreference'
 
 const ORIGIN_X = 400
 const ORIGIN_Y = 300
@@ -32,6 +34,11 @@ export type AutoSitplanPlacementOpts = {
   placementId: string
   /** Plan-space position to try first (e.g. viewport center); separated from overlaps when set */
   preferredPlanPos?: { x: number; y: number }
+  /**
+   * Load-time healing creates placements that must stay visible; everything else follows
+   * the user's manual plan placement preference.
+   */
+  ignoreManualPlacementPreference?: boolean
 }
 
 type AutoSitplanPlacementProject = ProjectWithOptionalV2Building & ProjectWithOptionalV2Electrical
@@ -199,7 +206,7 @@ export function buildAutoSitplanPlacement(
     pos = stillOverlaps ? separatePlanPositionFromPlacements(legacyPos, newHalf, obstacles) : fromPreferred
   }
 
-  return {
+  const placement: Placement = {
     id: opts.placementId,
     floorId: opts.floorId,
     layer,
@@ -207,4 +214,7 @@ export function buildAutoSitplanPlacement(
     rotationDeg: 0,
     scale: 1,
   }
+  return isManualPlanPlacementEnabled() && !opts.ignoreManualPlacementPreference
+    ? markAwaitingPlanPlacement(placement)
+    : placement
 }

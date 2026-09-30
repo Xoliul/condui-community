@@ -473,19 +473,22 @@ export function buildElectricalStructureSnapshot(project: ProjectV2): Electrical
     if (circuit.code === 'PANEL' && trunks.length)
       incomingTrunkNodesByPanelId.set(panelId, projectedTrunkNodeIds)
 
-    // A DC rail is a separate fan-out with explicit branch ownership. Ordinary
-    // circuit branches start after the serial trunk, not after an unrelated rail.
-    const commonBranchSource = trunks.at(-1)?.type === 'dc_bus'
-      ? circuitNodeId
-      : (priorTrunkNodeId ?? circuitNodeId)
     const branchMemberIds = new Set<string>()
     for (const [branchIndex, branch] of (circuit.branches ?? []).entries()) {
+      // A trunk device at position k follows branch k-1. Earlier taps bypass
+      // it, just as they do in the one-wire drawing.
+      const upstreamTrunk = trunks.filter((device) =>
+        !hasLocalDcConnection(device) && (device.trunkPosition ?? 0) <= branchIndex).at(-1)
+      // A rail has explicit fan-out ownership rather than feeding every tap.
+      const branchSource = upstreamTrunk?.type === 'dc_bus'
+        ? circuitNodeId
+        : (upstreamTrunk ? trunkNodeIdsByCanonicalId.get(upstreamTrunk.id) : undefined) ?? circuitNodeId
       // A DC-rail branch is a fan-out from the rail, not another direct child
       // of the upstream protection in the visual structure graph. Keep circuit
       // ownership as a fact, but start the visible branch path at its bus.
       let previous = branch.dcBusId
         ? (trunkNodeIdsByCanonicalId.get(branch.dcBusId) ?? circuitNodeId)
-        : commonBranchSource
+        : branchSource
       let branchMembershipEmitted = false
 
       // The one-wire branch list contains a domotica parent and all of its

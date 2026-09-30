@@ -16,12 +16,3 @@ export function isHouseholdInstallation(
   return resolveInstallationProfile(installation) === 'household'
 }
 
-export function forceHouseholdInstallationProfile(
-  installation: Pick<Installation, 'installationProfile'> | null | undefined,
-): boolean {
-  if (!installation || installation.installationProfile === DEFAULT_INSTALLATION_PROFILE) {
-    return false
-  }
-  installation.installationProfile = DEFAULT_INSTALLATION_PROFILE
-  return true
-}

@@ -36,6 +36,7 @@ export const symbolTooltipsFrBE = {
   switch_dimmer: "Variateur pour régler l'éclairage.",
   switch_1p_changeover: 'Commutateur entre deux circuits.',
   switch_1p_pull: 'Interrupteur à tirage, souvent au plafond.',
+  contact: "Contact libre, p. ex. contact d'entrée pour la domotique.",
   switch_impulse: 'Bouton poussoir ou impulsionnel pour télérupteur ou domotique.',
   motion_detector: 'Détecteur de mouvement qui commande un circuit.',
   smoke_detector:

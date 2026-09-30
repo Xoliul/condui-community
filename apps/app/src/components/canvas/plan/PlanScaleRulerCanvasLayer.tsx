@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 import ScaleRulerCanvas from '@/components/plan/ScaleRulerCanvas'
 import type { ProjectState } from '@/stores/projectStore'
 import type { Floor, Point2 } from '@/types/schema'
+import { planImageLocalToScenePoint } from '@/lib/plan/planImageRotation'
 
 export function PlanScaleRulerCanvasLayer({
   activeFloorId,
@@ -37,22 +38,26 @@ export function PlanScaleRulerCanvasLayer({
   >
   zoom: number
 }) {
+  const onPointsChange = useCallback((p1: Point2 | null, p2: Point2 | null) => setScaleRulerPoints({ p1, p2 }), [setScaleRulerPoints])
   if (!isResettingScale) return null
   const activeFloorForScale: Floor | null = activeFloorId
     ? (getFloorById(activeFloorId) ?? null)
     : null
-  const existingReferenceLocal = activeFloorForScale?.scale?.reference ?? null
+  const reference = activeFloorForScale?.scale?.reference
+  const existingReferenceLocal = reference && !activeFloorForScale?.planScaleNeedsCalibration && (!reference.floorId || reference.floorId === activeFloorId) ? reference : null
   const existingReferenceWorld =
     existingReferenceLocal && planImage
       ? {
-          p1: {
-            x: existingReferenceLocal.p1.x + planImagePosition.x,
-            y: existingReferenceLocal.p1.y + planImagePosition.y,
-          },
-          p2: {
-            x: existingReferenceLocal.p2.x + planImagePosition.x,
-            y: existingReferenceLocal.p2.y + planImagePosition.y,
-          },
+          p1: planImageLocalToScenePoint(
+            existingReferenceLocal.p1,
+            planImagePosition,
+            activeFloorForScale?.planImageRotationDeg ?? 0
+          ),
+          p2: planImageLocalToScenePoint(
+            existingReferenceLocal.p2,
+            planImagePosition,
+            activeFloorForScale?.planImageRotationDeg ?? 0
+          ),
           meters: existingReferenceLocal.meters,
         }
       : null
@@ -72,9 +77,10 @@ export function PlanScaleRulerCanvasLayer({
           p2: { x: endPoint.x, y: endPoint.y },
         })
         setScaleRulerMeters(meters)
-        setScaleRulerMetersInput(String(meters))
+        setScaleRulerMetersInput(Number.isFinite(meters) ? String(meters) : '')
       }}
-      meters={scaleRulerMeters ?? existingReferenceLocal?.meters ?? 1}
+      onPointsChange={onPointsChange}
+      meters={scaleRulerMeters ?? Number.NaN}
       onMetersChange={(meters: number) => {
         setScaleRulerMeters(meters)
         setScaleRulerMetersInput(String(meters))

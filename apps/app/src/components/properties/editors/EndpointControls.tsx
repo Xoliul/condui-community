@@ -699,6 +699,7 @@ export const SWITCH_TYPE_SYMBOLS: SymbolKey[] = symbols
       s.id !== 'relay' &&
       (s.id === 'switch' ||
         s.id.startsWith('switch_') ||
+        s.id === 'contact' ||
         s.id === 'motion_detector' ||
         s.id === 'smoke_detector')
   )

@@ -40,6 +40,10 @@ const VALIDATION_AREI_LINKS: Record<string, ValidationAreiLink> = {
     path: '/issues/documentation-inspection-responsibility',
     hash: 'schema_soorten',
   },
+  'be.areibook1.2025.unplaced-situation-plan-symbols': {
+    path: '/issues/documentation-inspection-responsibility',
+    hash: 'schema_soorten',
+  },
   'be.areibook1.2025.sources-consistency': {
     path: '/issues/documentation-inspection-responsibility',
     hash: 'schema_eigenschappen',

@@ -17,6 +17,7 @@ import type { ExportScene } from '../types'
 import { ExportError } from '../types'
 import { exportLog } from '../exportLogger'
 import { getEendraadSchematicAreaMm, limitEendraadScaleToInfoBlockCollision } from '../pdfPageLayout'
+import type { ExportPaperSize } from '../pageSizes'
 import { getCircuitBusSectionId } from '@/lib/panel/panelBusSections'
 import { getPanelPackedPaintBounds } from '@/lib/layout/trunkPaintedEnvelope'
 
@@ -179,10 +180,18 @@ function getPackBounds(
  * maximum and collided against the info-box obstacle. All pages of this panel
  * use the same value; other panels may differ.
  */
-export function chooseEendraadPanelScale(packHeightPx: number): number {
-  const heightMm = getEendraadSchematicAreaMm('landscape').heightMm
+export function chooseEendraadPanelScale(
+  packHeightPx: number,
+  paperSize: ExportPaperSize = 'A4'
+): number {
+  // A3 keeps the A4 physical scale so the wider sheet carries more circuits per
+  // page instead of enlarging the same content. The A3 sheet is larger in both
+  // directions, so the A4 scale always clears its (smaller) info box.
+  const heightMm = getEendraadSchematicAreaMm('landscape', 'A4').heightMm
   const heightFit = Math.min(EENDRAAD_MAX_SCALE_MM_PER_PX, heightMm / Math.max(packHeightPx, 1))
-  return limitEendraadScaleToInfoBlockCollision(packHeightPx, heightFit)
+  const a4Scale = limitEendraadScaleToInfoBlockCollision(packHeightPx, heightFit)
+  if (paperSize === 'A4') return a4Scale
+  return limitEendraadScaleToInfoBlockCollision(packHeightPx, a4Scale, undefined, paperSize)
 }
 
 interface CoreSlice {
@@ -190,8 +199,8 @@ interface CoreSlice {
   right: number
 }
 
-function getSliceWidthPxForScale(scale: number): number {
-  return getEendraadSchematicAreaMm('landscape').widthMm / scale
+function getSliceWidthPxForScale(scale: number, paperSize: ExportPaperSize = 'A4'): number {
+  return getEendraadSchematicAreaMm('landscape', paperSize).widthMm / scale
 }
 
 function getSliceOverlapPx(globalScale: number): number {
@@ -205,9 +214,10 @@ function getBlocksInRange(blocks: MainBusBlock[], left: number, right: number): 
 function buildCoreSlices(
   blocks: MainBusBlock[],
   sceneBounds: ExportScene['bounds'],
-  globalScale: number
+  globalScale: number,
+  paperSize: ExportPaperSize = 'A4'
 ): CoreSlice[] {
-  const sliceWidthPx = getSliceWidthPxForScale(globalScale)
+  const sliceWidthPx = getSliceWidthPxForScale(globalScale, paperSize)
   const cutPoints = getCutPoints(blocks, sceneBounds, sliceWidthPx)
   const sceneRight = sceneBounds.x + sceneBounds.width
   const slices: CoreSlice[] = []
@@ -293,11 +303,17 @@ function buildCoreSlices(
 function getSlicingMetrics(
   panelLayout: BottomUpPanelLayout,
   scene: ExportScene,
-  globalScale: number
+  globalScale: number,
+  paperSize: ExportPaperSize = 'A4'
 ): { pageCount: number; sparseTail: boolean } {
   const blocks = getMainBusBlocks(panelLayout)
   if (blocks.length === 0) return { pageCount: 1, sparseTail: false }
-  const slices = buildCoreSlices(blocks, getPackBounds(panelLayout, scene.bounds), globalScale)
+  const slices = buildCoreSlices(
+    blocks,
+    getPackBounds(panelLayout, scene.bounds),
+    globalScale,
+    paperSize
+  )
   const tail = slices.at(-1)
   return {
     pageCount: slices.length,
@@ -310,7 +326,10 @@ function getSlicingMetrics(
  * Fast dialog estimate using packed paint bounds. Uses the same per-panel
  * height-fit scale as export slicing so the predicted page count matches the PDF.
  */
-export function estimateEendraadPageCount(panelLayouts: BottomUpPanelLayout[]): number {
+export function estimateEendraadPageCount(
+  panelLayouts: BottomUpPanelLayout[],
+  paperSize: ExportPaperSize = 'A4'
+): number {
   return panelLayouts.reduce((count, panelLayout) => {
     if (panelLayout.frameRole === 'supply') return count + 1
     const packed = getPanelPackedPaintBounds(panelLayout)
@@ -326,26 +345,29 @@ export function estimateEendraadPageCount(panelLayouts: BottomUpPanelLayout[]): 
           },
     } as ExportScene
     const packBounds = getPackBounds(panelLayout, scene.bounds)
-    const scale = chooseEendraadPanelScale(packBounds.height)
-    return count + getSlicingMetrics(panelLayout, scene, scale).pageCount
+    const scale = chooseEendraadPanelScale(packBounds.height, paperSize)
+    return count + getSlicingMetrics(panelLayout, scene, scale, paperSize).pageCount
   }, 0)
 }
 
 export async function calculateEendraadSlices(
   panelLayout: BottomUpPanelLayout,
   scene: ExportScene,
-  scaleOverride?: number
+  scaleOverride?: number,
+  paperSize: ExportPaperSize = 'A4'
 ): Promise<EendraadSlicingResult> {
   const sceneBounds = scene.bounds
   if (panelLayout.frameRole === 'supply') {
-    const schematicArea = getEendraadSchematicAreaMm('landscape')
+    const schematicArea = getEendraadSchematicAreaMm('landscape', paperSize)
     const globalScale = limitEendraadScaleToInfoBlockCollision(
       sceneBounds.height,
       Math.min(
         EENDRAAD_MAX_SCALE_MM_PER_PX,
         schematicArea.widthMm / sceneBounds.width,
         schematicArea.heightMm / sceneBounds.height
-      )
+      ),
+      undefined,
+      paperSize
     )
     return {
       slices: [
@@ -363,10 +385,10 @@ export async function calculateEendraadSlices(
   }
   const blocks = getMainBusBlocks(panelLayout)
   const packBounds = getPackBounds(panelLayout, sceneBounds)
-  const panelScale = chooseEendraadPanelScale(packBounds.height)
+  const panelScale = chooseEendraadPanelScale(packBounds.height, paperSize)
   const globalScale = Math.min(scaleOverride ?? panelScale, EENDRAAD_MAX_SCALE_MM_PER_PX)
   const mainBusY = panelLayout.mainBus.y
-  const sliceWidthPx = getSliceWidthPxForScale(globalScale)
+  const sliceWidthPx = getSliceWidthPxForScale(globalScale, paperSize)
   const overlapPx = getSliceOverlapPx(globalScale)
 
   if (panelScale < EENDRAAD_MAX_SCALE_MM_PER_PX && scaleOverride == null) {
@@ -398,7 +420,7 @@ export async function calculateEendraadSlices(
     }
   }
 
-  const coreSlices = buildCoreSlices(blocks, packBounds, globalScale)
+  const coreSlices = buildCoreSlices(blocks, packBounds, globalScale, paperSize)
   const slices: FrameSlice[] = []
   const allCircuitIds = new Set(blocks.flatMap((b) => b.circuitIds))
 

@@ -31,6 +31,11 @@ export function migrateLegacyWireRunEdgeAnchors(project: ProjectV2): boolean {
           run.segmentLengths[replacement] ??= lengthM
           delete run.segmentLengths[anchor]
         }
+        const source = run.segmentLengthSources?.[anchor]
+        if (source) {
+          run.segmentLengthSources![replacement] ??= source
+          delete run.segmentLengthSources![anchor]
+        }
       }
       if (nextMembers.includes(replacement)) runChanged = true
       else nextMembers.push(replacement)

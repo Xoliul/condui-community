@@ -3,7 +3,7 @@ export function useEditionFeatureAvailability() {
     advancedPanelLabels: false,
     inspectionAgencyCatalog: false,
     installationDates: false,
-    installationProfileSelection: false,
+    installationProfileSelection: true,
     installerBranding: false,
     synergridCatalog: false,
   }

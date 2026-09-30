@@ -14,14 +14,10 @@ import {
   arePanelGridSlotsEqual,
   deletePanelFromProject,
   findCircuitById,
-  findCircuitOwner,
-  findProtectionSupplyingPanel,
   isModuleRefValid,
   isSharedSupplyTrunkModuleRef,
   maybeApplyAutomaticEendraadNamingForPanel,
-  panelContainsDescendant,
   panelGridModuleRefKey,
-  removePanelFromHierarchy,
   syncManualChronologyForInstallDateUpdate,
   getAllCircuits,
   isTerminalStripDevice,
@@ -42,10 +38,6 @@ import {
 } from '@/lib/panel/panelEarthingSync'
 import { findPanelById } from '@/lib/panel/panelTree'
 import {
-  isPanelDistributionEndpointForPanel,
-  resolvePanelSupplyLinkForPanelInPanels,
-} from '@/lib/eendraad/panelSupplyLink'
-import {
   applyPanelColumnChange,
   applyPanelRowChange,
 } from '@/components/canvas/panel/panelRowChange'
@@ -64,10 +56,9 @@ import { getTerminalStripId } from '@/lib/terminalStrip/labels'
 import { ensurePanelPlacement } from '@/utils/panelPlacement'
 import { ensureDefaultEarthingSeparators, generateId } from '@/utils/project'
 import { findTrunkDeviceInProject } from '@/utils/project'
-import { supportsExtendedInstallationProfiles } from '@/lib/editionInstallationProfileCapabilities'
 import { resetAllManualEendraadLabelOverrides } from '@/lib/eendraad/automaticMainBusNaming'
-import { DEFAULT_INSTALLATION_PROFILE, resolveInstallationProfile } from '@/lib/installationProfile'
-import { promotePanelToRootSupply } from '@/lib/panel/panelSupplyMove'
+import { resolveInstallationProfile } from '@/lib/installationProfile'
+import { movePanelToCircuitInProject, promotePanelToRootSupply } from '@/lib/panel/panelSupplyMove'
 import { isLastMainPanel } from '@/utils/eendraad'
 import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
 import {
@@ -75,7 +66,6 @@ import {
   setPanelFeedOrganizationInProject,
 } from '@/lib/panel/panelFeedOrganization'
 import { attachRootPanelToExistingSupplyAssembly } from '@/lib/supplyAssembly/panelHandoff'
-import { detachPanelInputHandoffs } from '@/lib/supplyAssembly/detachPanelHandoffs'
 import { reconcileSupplyAssemblyAcConductorFlow } from '@/lib/supplyAssembly/editorIntegration'
 import {
   updateJunctionPanelTerminal as updateJunctionPanelTerminalInProject,
@@ -92,16 +82,8 @@ export const createPanelSlice: ProjectSliceCreator = (set, get) => ({
         const profileWillBecomeNonHousehold =
           updates.installationProfile === 'non_household' &&
           resolveInstallationProfile(installation) !== 'non_household'
-        const permittedUpdates = supportsExtendedInstallationProfiles(
-          state.currentProjectStorageMode
-        )
-          ? updates
-          : { ...updates, installationProfile: DEFAULT_INSTALLATION_PROFILE }
-        Object.assign(installation, permittedUpdates)
-        if (
-          profileWillBecomeNonHousehold &&
-          permittedUpdates.installationProfile === 'non_household'
-        ) {
+        Object.assign(installation, updates)
+        if (profileWillBecomeNonHousehold) {
           applyNonHouseholdPanelDefaults(
             installation,
             getEditableProjectElectricalPanels(state.currentProject)
@@ -340,70 +322,18 @@ export const createPanelSlice: ProjectSliceCreator = (set, get) => ({
       if (!panel) return
 
       if (target.type === 'circuit') {
-        const targetOwner = findCircuitOwner(panels, target.circuitId)
-        if (!targetOwner?.protection) return
-        if (targetOwner.protection.subPanelId && targetOwner.protection.subPanelId !== panelId)
-          return
-        if (targetOwner.panel.id === panelId) return
-        if (panelContainsDescendant(panel, targetOwner.panel.id)) return
-      }
-
-      const previousLink = resolvePanelSupplyLinkForPanelInPanels(panels, panelId)
-
-      if (target.type === 'supply') {
-        const mutablePanels = getEditableProjectElectricalPanels(project)
-        const mutableInstallation = getEditableProjectElectricalInstallation(project)
-        if (!mutableInstallation) return
-        const result = promotePanelToRootSupply(mutablePanels, mutableInstallation, panelId)
-        if (result) {
-          attachRootPanelToExistingSupplyAssembly(project, panelId)
+        if (movePanelToCircuitInProject(project, panelId, target.circuitId).ok)
           state.isDirty = true
-        }
         return
       }
-
-      const detachedPanel = removePanelFromHierarchy(panels, panelId)
-      if (!detachedPanel) return
-
-      detachPanelInputHandoffs(project, panelId)
-
-      const previousFeeder = findProtectionSupplyingPanel(panels, panelId)
-      if (previousFeeder) {
-        previousFeeder.protection.subPanelId = undefined
-        for (const circuit of previousFeeder.protection.circuits ?? []) {
-          circuit.endpoints = circuit.endpoints.filter(
-            (endpoint) => !isPanelDistributionEndpointForPanel(endpoint, panel)
-          )
-        }
-      } else if (previousLink?.protection) {
-        // The link was resolved before detaching the panel, so this also handles
-        // malformed/nested hierarchies where the fallback lookup no longer sees
-        // the old parent after removal.
-        previousLink.protection.subPanelId = undefined
-        for (const circuit of previousLink.protection.circuits ?? []) {
-          circuit.endpoints = circuit.endpoints.filter(
-            (endpoint) => !isPanelDistributionEndpointForPanel(endpoint, panel)
-          )
-        }
+      const mutablePanels = getEditableProjectElectricalPanels(project)
+      const mutableInstallation = getEditableProjectElectricalInstallation(project)
+      if (!mutableInstallation) return
+      const result = promotePanelToRootSupply(mutablePanels, mutableInstallation, panelId)
+      if (result) {
+        attachRootPanelToExistingSupplyAssembly(project, panelId)
+        state.isDirty = true
       }
-
-      const targetOwner = findCircuitOwner(panels, target.circuitId)
-      if (!targetOwner?.protection) {
-        detachedPanel.isMain = true
-        panels.push(detachedPanel)
-      } else {
-        detachedPanel.isMain = false
-        targetOwner.panel.subPanels.push(detachedPanel)
-        targetOwner.protection.subPanelId = detachedPanel.id
-      }
-
-      const topology = ensureInstallationFeedTopology(installation, panels)
-      topology.rootFeeds = topology.rootFeeds.filter((feed) => {
-        const rootPanel = findPanelById(panels, feed.panelId)
-        return rootPanel?.isMain === true
-      })
-
-      state.isDirty = true
     }),
 
   updatePanelGrid: (panelId, updates) =>

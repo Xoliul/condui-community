@@ -958,12 +958,13 @@ export const createCircuitTrunkSlice: ProjectSliceCreator = (set, get) => ({
           symbol
         )
         if (ok) {
-          if (dropTarget.type === 'circuit' && dropTarget.circuitId) {
+          if ((dropTarget.type === 'circuit' || dropTarget.type === 'endpoint') && dropTarget.circuitId) {
             rewriteRelocatedCircuitTrunkDeviceGridRef(
               state.currentProject,
               deviceId,
               sourceCircuitId,
-              dropTarget.circuitId
+              dropTarget.circuitId,
+              dropTarget.type === 'endpoint' ? 'endpoint' : 'trunkDevice'
             )
           } else if (dropTarget.type === 'supplyConverterDcWire') {
             const sourcePanel = getProjectElectricalPanels(state.currentProject)

@@ -1,7 +1,10 @@
 import { useTranslation } from 'react-i18next'
+import { isAuxiliaryEnclosureShownOnPlan } from '@/lib/plan/auxiliaryEnclosurePlanPlacement'
+import { useProjectStore } from '@/stores/projectStore'
 import { DebouncedTextInput } from '@/components/forms'
 import { MIN_AUXILIARY_COLUMNS } from '@/lib/panel/auxiliarySupplyEnclosures'
 import type { AuxiliaryElectricalEnclosure } from '@/types/supplyAssembly'
+import { PanelGridDimensionInput } from '../shared/PanelGridDimensionInput'
 
 const inputClass =
   'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
@@ -14,6 +17,10 @@ export function AuxiliaryEnclosureProperties({
   onUpdate: (id: string, updates: Partial<AuxiliaryElectricalEnclosure>) => void
 }) {
   const { t } = useTranslation()
+  const shownOnPlan = useProjectStore((state) =>
+    state.currentProject ? isAuxiliaryEnclosureShownOnPlan(state.currentProject, enclosure) : false
+  )
+  const setShownOnPlan = useProjectStore((state) => state.setAuxiliaryEnclosureShownOnPlan)
   const updateGrid = (updates: Partial<AuxiliaryElectricalEnclosure['gridView']>) =>
     onUpdate(enclosure.id, {
       gridView: { ...enclosure.gridView, ...updates },
@@ -32,6 +39,17 @@ export function AuxiliaryEnclosureProperties({
           className={inputClass}
         />
       </div>
+
+      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <input
+          type="checkbox"
+          data-testid="auxiliary-enclosure-show-on-plan"
+          checked={shownOnPlan}
+          onChange={(event) => setShownOnPlan(enclosure.id, event.target.checked)}
+          className="rounded border-gray-400"
+        />
+        {t('panelCanvas.showOnPlan', 'Show on plan')}
+      </label>
 
       <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
         <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -59,41 +77,20 @@ export function AuxiliaryEnclosureProperties({
           />
           <span>{t('panelCanvas.topTerminalStripRail', 'Top clamp rail')}</span>
         </button>
-        <label className="flex items-center gap-2">
-          <span className="w-16 text-sm text-gray-700 dark:text-gray-300">
-            {t('panelCanvas.rows', 'Rows')}
-          </span>
-          <input
-            type="number"
-            min={1}
-            max={32}
-            value={enclosure.gridView.rows}
-            onChange={(event) =>
-              updateGrid({ rows: Math.max(1, Math.min(32, Number(event.target.value) || 1)) })
-            }
-            className={inputClass}
-          />
-        </label>
-        <label className="flex items-center gap-2">
-          <span className="w-16 text-sm text-gray-700 dark:text-gray-300">
-            {t('panelCanvas.columns', 'Columns')}
-          </span>
-          <input
-            type="number"
-            min={MIN_AUXILIARY_COLUMNS}
-            max={48}
-            value={Math.max(MIN_AUXILIARY_COLUMNS, enclosure.gridView.columns)}
-            onChange={(event) =>
-              updateGrid({
-                columns: Math.max(
-                  MIN_AUXILIARY_COLUMNS,
-                  Math.min(48, Number(event.target.value) || MIN_AUXILIARY_COLUMNS)
-                ),
-              })
-            }
-            className={inputClass}
-          />
-        </label>
+        <PanelGridDimensionInput
+          label={t('panelCanvas.rows', 'Rows')}
+          value={enclosure.gridView.rows}
+          min={1}
+          max={32}
+          onChange={(rows) => updateGrid({ rows })}
+        />
+        <PanelGridDimensionInput
+          label={t('panelCanvas.columns', 'Columns')}
+          value={Math.max(MIN_AUXILIARY_COLUMNS, enclosure.gridView.columns)}
+          min={MIN_AUXILIARY_COLUMNS}
+          max={48}
+          onChange={(columns) => updateGrid({ columns })}
+        />
         <button
           type="button"
           aria-pressed={enclosure.gridView.terminalStripBottomRail ?? false}

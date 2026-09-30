@@ -10,6 +10,7 @@ import type { Placement } from '@/types/schema'
 type SitplanPlacementRow = Placement & {
   endpointId?: string
   trunkDeviceId?: string
+  enclosureId?: string
   junctionPanelLabel?: string
   isEarthing?: boolean
 }
@@ -39,6 +40,22 @@ export function openHiddenSituationPlanDialogForFloor(
         {
           id,
           label: t('symbols.earthing', 'Earthing'),
+          icon: symbol ? (
+            <img src={symbol.svgPath} alt="" className="h-7 w-7 object-contain dark:invert" />
+          ) : undefined,
+        },
+      ]
+    }
+
+    if (placement.enclosureId) {
+      const symbol = getSymbolById('panel_distribution')
+      const enclosure = store.currentProject?.disciplines?.electrical?.auxiliaryEnclosures?.find(
+        (candidate) => candidate.id === placement.enclosureId
+      )
+      return [
+        {
+          id,
+          label: enclosure?.name.trim() || t('panelCanvas.virtualEnclosure', 'Supply enclosure'),
           icon: symbol ? (
             <img src={symbol.svgPath} alt="" className="h-7 w-7 object-contain dark:invert" />
           ) : undefined,

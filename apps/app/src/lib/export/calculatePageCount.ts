@@ -26,6 +26,8 @@ export interface PageCountOptions {
   includeEendraad: boolean
   includePanel: boolean
   includeSitplan: boolean
+  mergePlanPages?: boolean
+  eendraadPaperSize?: 'A4' | 'A3'
 }
 
 /**
@@ -53,7 +55,7 @@ export function calculatePageCounts(
 
   // Calculate sitplan pages (1 per floor)
   if (options.includeSitplan === true) {
-    sitplan = buildSitplanExportTargets(project).length
+    sitplan = buildSitplanExportTargets(project, options.mergePlanPages === true).length
   }
 
   // Calculate panel pages (1 per panel)
@@ -68,7 +70,7 @@ export function calculatePageCounts(
   // Calculate 1draad pages (sliced frames)
   if (options.includeEendraad === true) {
     if (layout) {
-      eendraad = estimateEendraadPageCount(layout.panels)
+      eendraad = estimateEendraadPageCount(layout.panels, options.eendraadPaperSize)
     } else {
       // No layout available - estimate based on number of panels
       const panelCount = countElectricalPanels(getProjectElectricalPanels(project))

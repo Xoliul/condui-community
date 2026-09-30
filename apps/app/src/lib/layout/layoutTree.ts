@@ -35,6 +35,7 @@ import {
   DOMOTICA_BOX_WIDTH,
   DOMOTICA_BRANCH_LEAD,
   DOMOTICA_CHILD_LABEL_GAP,
+  DOMOTICA_CHILD_ON_DROP_ZONE_SIZE,
   DOMOTICA_MAX_ENDPOINT_OUTPUTS,
   DOMOTICA_MIN_ENDPOINT_OUTPUTS,
   DOMOTICA_OUTPUT_SPACING,
@@ -192,6 +193,8 @@ export interface HitZone {
   outputGroup?: 'control' | 'endpoint'
   outputIndex?: number
   outputExpands?: boolean
+  /** Drop region for chaining an existing Domotica child endpoint. */
+  domoticaChildDropIntent?: 'insertBefore' | 'insertAfter'
   converterDcConnection?: { converterId: string; connectionIndex: number }
   /** Electrical domain immediately at this wire hit zone. */
   wireDomain?: 'AC' | 'DC'
@@ -290,6 +293,8 @@ export interface LayoutNode {
   horizontalMirrorAxisX?: number
   /** Whole detached frame or only the supply assembly of an ordinary panel. */
   horizontalMirrorScope?: 'panel' | 'supply'
+  /** The empty split bus is mirrored with its inline supply risers. */
+  horizontalMirrorInlineSplitBus?: boolean
 }
 
 /** Stable semantic identity for reconciliation and React scene keys. */
@@ -924,6 +929,24 @@ export function mirrorSupplyAssemblyLayoutNodesHorizontally(
   )
 }
 
+/** Mirror only the empty split rails and their panel-side drop targets. */
+export function mirrorInlineSplitBusLayoutNodesHorizontally(
+  panelNode: LayoutNode,
+  axisX: number
+): void {
+  const bus = panelNode.children.find((node) => node.type === 'busBar')
+  if (!bus) return
+  mirrorLayoutNodeSelfHorizontally(bus, axisX)
+  bus.children.forEach((node) => {
+    if (
+      node.id.startsWith('main-bus-segment-') ||
+      node.id.startsWith('supply-wire-feed-stub-')
+    ) {
+      mirrorLayoutNodeHorizontally(node, axisX)
+    }
+  })
+}
+
 function buildPanelNodeForVisualDirection(panelLayout: BottomUpPanelLayout): LayoutNode {
   if (panelLayout.supplyFlowDirection !== 'left-to-right') {
     const panelNode = buildPanelNode(panelLayout)
@@ -943,7 +966,13 @@ function buildPanelNodeForVisualDirection(panelLayout: BottomUpPanelLayout): Lay
   try {
     const panelNode = buildPanelNode(panelLayout)
     if (scope === 'panel') mirrorLayoutNodeHorizontally(panelNode, axisX)
-    else mirrorSupplyAssemblyLayoutNodesHorizontally(panelNode, axisX)
+    else {
+      mirrorSupplyAssemblyLayoutNodesHorizontally(panelNode, axisX)
+      if (panelLayout.inlineEmptySplitRails) {
+        mirrorInlineSplitBusLayoutNodesHorizontally(panelNode, axisX)
+        panelNode.horizontalMirrorInlineSplitBus = true
+      }
+    }
     normalizeSupplyConverterGrowth(panelNode)
     normalizeNestedSupplyDcConverterGrowth(panelNode)
     normalizeSupplyDcBusGrowth(panelNode)
@@ -3894,7 +3923,10 @@ function buildMcbNode(
           type: 'symbol',
           symbolId: trunkDevice.symbol || 'energy_meter',
           label: trunkDevice.label,
-          rotationDeg: trunkDevice.symbol === 'relay' ? 90 : undefined,
+          // Branch switches sit on horizontal wires; a series trunk switch turns a
+          // quarter counter-clockwise so its lever leans along the rising trunk.
+          rotationDeg:
+            trunkDevice.symbol === 'relay' ? 90 : trunkDevice.type === 'switch' ? -90 : undefined,
           metadataCallout: converterCallout
             ? {
                 x: converterCallout.x,
@@ -4191,7 +4223,7 @@ function buildBranchNode(
         (endpoint.symbol === 'solar_panel' ||
           endpoint.symbol === 'battery' ||
           endpoint.symbol === 'ev')
-      return !isRightLabel && getVisibleEndpointNoteText(endpoint) ? [endpointIndex] : []
+      return endpoint.symbol !== 'domotica' && !isRightLabel && getVisibleEndpointNoteText(endpoint) ? [endpointIndex] : []
     })
   )
 
@@ -4240,6 +4272,7 @@ function buildBranchNode(
         branch.branchX
       )
       const isDomoticaParent = endpoint.symbol === 'domotica'
+      const isDomoticaChild = !!endpoint.domoticaChildProps
       const endpointMetadataCallout = branchMetadataCallouts.get(endpoint.id)
       const domoticaEndpointCount = isDomoticaParent
         ? Math.max(
@@ -4254,7 +4287,7 @@ function buildBranchNode(
         DOMOTICA_BASE_HEIGHT + Math.max(0, domoticaEndpointCount - 1) * DOMOTICA_OUTPUT_SPACING
 
       // Domotica box is drawn with center at position (EndpointSymbol: x = position.x - BOX_WIDTH/2)
-      children.push({
+      const endpointNode: LayoutNode = {
         id: endpointElement.id,
         type: 'endpoint',
         bounds: {
@@ -4273,7 +4306,7 @@ function buildBranchNode(
           label: endpoint.label,
           isEndpointAtBranchEnd: endpointIndex === branch.endpoints.length - 1,
           mirrorHorizontally: endpointElement.mirrorEndpointHorizontally,
-          bottomLabelMinimumLeftX: constrainSingleEndpointLabel
+          bottomLabelMinimumLeftX: constrainSingleEndpointLabel || isDomoticaParent
             ? getEndpointNoteMinimumLeftX(endpointElement.position.x, branch.branchX)
             : bottomNoteEndpointIndexes.has(endpointIndex)
               ? (crowdedNoteLabelBounds?.minimumLeftX ??
@@ -4299,16 +4332,73 @@ function buildBranchNode(
               type: 'endpoint',
               padding: 4,
             }
-          : {
+          : isDomoticaChild
+            ? {
+                type: 'endpoint',
+                // The symbol body owns the center zone. Before/after have
+                // narrow wire-aligned zones of their own below.
+                padding: 0,
+              }
+            : {
               type: 'endpoint',
               // Generous padding for regular endpoints so dropping ON the socket (and nearby) reliably targets it.
               padding: 15,
             },
         children: [],
-      })
+      }
+
+      if (isDomoticaChild || isDomoticaParent) {
+        const symbolLeft = endpointElement.position.x - DOMOTICA_CHILD_ON_DROP_ZONE_SIZE / 2
+        const symbolRight = endpointElement.position.x + DOMOTICA_CHILD_ON_DROP_ZONE_SIZE / 2
+        const sideZoneWidth = 15
+        const sideZoneHeight = 20
+        const previousEndpointId = branch.endpoints[endpointIndex - 1]?.id ?? null
+        const sideZone = (
+          id: string,
+          x: number,
+          intent: 'insertBefore' | 'insertAfter',
+          insertAfterEndpointId: string | null
+        ): LayoutNode => ({
+          id,
+          type: 'wire',
+          bounds: {
+            x,
+            y: endpointElement.position.y - sideZoneHeight / 2,
+            width: sideZoneWidth,
+            height: sideZoneHeight,
+          },
+          domainId: endpoint.id,
+          domainRef: endpoint,
+          hitZone: {
+            type: 'endpoint',
+            padding: 0,
+            domoticaChildDropIntent: intent,
+            branchInsertAfterEndpointId: insertAfterEndpointId,
+          },
+          children: [],
+        })
+
+        endpointNode.children.push(
+          sideZone(
+            `${endpointElement.id}-drop-before`,
+            symbolLeft - sideZoneWidth,
+            'insertBefore',
+            previousEndpointId
+          )
+        )
+        if (isDomoticaChild) endpointNode.children.push(
+          sideZone(
+            `${endpointElement.id}-drop-after`,
+            symbolRight,
+            'insertAfter',
+            endpoint.id
+          )
+        )
+      }
+
+      children.push(endpointNode)
 
       // Domotica child endpoints: label to the right of the symbol (A1.1, A1.2, …)
-      const isDomoticaChild = !!endpoint.domoticaChildProps
       if (isDomoticaChild && endpoint.label) {
         const ref = endpoint.domoticaChildProps!
         const rowEndpoints = branch.endpoints.filter(

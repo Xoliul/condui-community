@@ -23,6 +23,7 @@ function CanvasForType({ type }: { type: CanvasType }) {
     case 'panel':
       return <PanelCanvas />
     case 'structure':
+    case 'documents':
       return null
   }
 }

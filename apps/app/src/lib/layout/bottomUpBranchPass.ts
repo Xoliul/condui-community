@@ -1,7 +1,10 @@
-import type { Circuit, Endpoint, Panel } from '@/types/schema'
+import type { Circuit, Endpoint, Panel, ProtectionDevice, TrunkDevice } from '@/types/schema'
+import { DOMOTICA_MIN_ENDPOINT_OUTPUTS, DOMOTICA_MAX_ENDPOINT_OUTPUTS, DOMOTICA_OUTPUT_SPACING } from '@/lib/domoticaLayout'
 import { getCircuitBranches } from './endpointChains'
 import type { BranchLayout, TrunkLayout } from './wireSegments'
-import { calculateBranchWidth } from './bottomUpBranchWidths'
+import { calculateBranchWidth, getEndpointLayoutOffsets } from './bottomUpBranchWidths'
+import { getDomoticaNoteBounds } from '@/lib/eendraad/domoticaNotes'
+import { getProtectionOneWireAnchorLineIndex, getProtectionOneWireLabelLines } from '@/lib/protectionLabels'
 import { getVisibleConversionLabelParts, getVisibleEndpointNoteText } from '@/lib/conversionLabels'
 import { getVisibleCertificationLabelParts } from '@/lib/certificationLabels'
 import { countSymbolLabelVisualLines } from '@/lib/symbolLabelMetrics'
@@ -19,6 +22,8 @@ import {
 import {
   getProtectionToTrunkDeviceCenterGap,
   getTrunkDeviceToFirstBranchExtraGap,
+  getTrunkDeviceVerticalPaintHeight,
+  TRUNK_DEVICE_BRANCH_CLEARANCE,
 } from './trunkDeviceSpacing'
 import { getBranchConverterMetadataCalloutHeight } from './circuitConverterMetadataCallouts'
 
@@ -42,6 +47,7 @@ export interface BranchPassConstants {
 
 export interface CircuitLayoutForBranches {
   circuit: Circuit
+  protection?: ProtectionDevice | null
   parentRcd: { id: string } | null
   parentCircuit: Circuit | null
   x: number
@@ -73,6 +79,8 @@ export function getBranchBottomLabelHeight(branchEndpoints: Circuit['endpoints']
   let maximumVisualLines = 0
 
   branchEndpoints.forEach((endpoint, index) => {
+    // Domotica notes use their actual bottom-row paint extent below.
+    if (endpoint.symbol === 'domotica') return
     if (endpointUsesRightSideLabel(endpoint, index === branchEndpoints.length - 1)) return
 
     const texts = [
@@ -259,13 +267,74 @@ function getDomoticaExtraRows(
   return visit(domotica, 0, new Set())
 }
 
+type TrunkPlacementConstants = Pick<BranchPassConstants, 'SYMBOL_SIZE' | 'BRANCH_START_OFFSET' | 'TRUNK_DEVICE_SPACING'> &
+  Partial<Pick<BranchPassConstants, 'DOMOTICA_MIN_ENDPOINT_OUTPUTS' | 'DOMOTICA_MAX_ENDPOINT_OUTPUTS' | 'DOMOTICA_OUTPUT_SPACING'>>
+
+function getDomoticaBranchBottomExtent(endpoints: Endpoint[], symbolSize: number): number {
+  const offsets = getEndpointLayoutOffsets(endpoints, 20, 30, 0, symbolSize)
+  return endpoints.reduce((bottom, endpoint, index) => {
+    const offset = offsets[index]!
+    return Math.max(bottom, getDomoticaNoteBounds(endpoint, offset.x, offset.y, 0)?.bottom ?? bottom)
+  }, symbolSize / 2)
+}
+
+function getFirstBranchObstacleHalfHeight(circuit: Circuit, protection: ProtectionDevice | null | undefined, symbolSize: number): number {
+  const device = circuit.trunkDevices?.filter((device) => device.trunkPosition === 0 &&
+    device.type !== 'dc_bus' && !device.converterDcConnection).at(-1)
+  if (device) return getTrunkDeviceVerticalPaintHeight(device, symbolSize) / 2
+  if (!protection) return symbolSize / 2
+  const lines = getProtectionOneWireLabelLines(protection)
+  const position = protection.symbolLabelDisplay?.position ?? 'right'
+  const labelTop = position === 'top'
+    ? symbolSize / 2 + 5 + lines.reduce((height, line) => height + countSymbolLabelVisualLines(line.text) * 12, 0)
+    : position === 'bottom'
+      ? 0
+      : getProtectionOneWireAnchorLineIndex(lines) * 12 + 6
+  return Math.max(symbolSize / 2, labelTop)
+}
+
+/** Place serial devices in the clear band above a branch's upward-growing modules. */
+export function getTrunkDeviceBranchGapY(
+  device: TrunkDevice,
+  devices: TrunkDevice[],
+  branches: BranchLayout[],
+  constants: TrunkPlacementConstants
+): number | undefined {
+  if (device.trunkPosition <= 0) return undefined
+  const precedingBranch = branches[device.trunkPosition - 1]
+  if (!precedingBranch) return undefined
+  const followingBranch = branches[device.trunkPosition]
+  const growth = getDomoticaExtraRows(precedingBranch.endpoints, {
+    DOMOTICA_MIN_ENDPOINT_OUTPUTS: constants.DOMOTICA_MIN_ENDPOINT_OUTPUTS ?? DOMOTICA_MIN_ENDPOINT_OUTPUTS,
+    DOMOTICA_MAX_ENDPOINT_OUTPUTS: constants.DOMOTICA_MAX_ENDPOINT_OUTPUTS ?? DOMOTICA_MAX_ENDPOINT_OUTPUTS,
+  }) * (constants.DOMOTICA_OUTPUT_SPACING ?? DOMOTICA_OUTPUT_SPACING)
+  const peers = devices.filter((candidate) => candidate.trunkPosition === device.trunkPosition && !candidate.converterDcConnection)
+  const index = peers.indexOf(device)
+  if (index < 0) return undefined
+  const heights = peers.map((peer) => getTrunkDeviceVerticalPaintHeight(peer, constants.SYMBOL_SIZE))
+  if (!followingBranch) {
+    if (device.type === 'dc_bus' && precedingBranch.endpoints.length === 0) return precedingBranch.branchY
+    const firstGap = Math.max(constants.BRANCH_START_OFFSET,
+      constants.SYMBOL_SIZE / 2 + heights[0]! / 2 + TRUNK_DEVICE_BRANCH_CLEARANCE)
+    return precedingBranch.branchY - growth - firstGap -
+      heights.slice(0, index).reduce((offset, height, peerIndex) =>
+        offset + constants.TRUNK_DEVICE_SPACING + (height + heights[peerIndex + 1]!) / 2, 0)
+  }
+  const lowerEdge = precedingBranch.branchY - growth - constants.SYMBOL_SIZE / 2
+  const upperEdge = followingBranch.branchY + getDomoticaBranchBottomExtent(followingBranch.endpoints, constants.SYMBOL_SIZE)
+  const clearance = (lowerEdge - upperEdge - heights.reduce((sum, height) => sum + height, 0)) / (peers.length + 1)
+  return lowerEdge - clearance * (index + 1) -
+    heights.slice(0, index).reduce((sum, height) => sum + height, 0) - heights[index]! / 2
+}
+
 function createEndpointBranchRows(
   circuit: Circuit,
   startX: number,
   startY: number,
   firstBranchY: number,
   constants: BranchPassConstants,
-  nestedBranchLabelClearance: number
+  nestedBranchLabelClearance: number,
+  protection?: ProtectionDevice | null
 ): BranchLayout[] {
   const endpointBranches = getStandardCircuitBranches(circuit)
   const storedBranches = (circuit.branches ?? []).filter((branch) => !branch.dcBusId)
@@ -307,11 +376,34 @@ function createEndpointBranchRows(
       metadataVerticalReserve -
       nestedBranchGroupOffset
 
-    // A detached card sits above its owning endpoint. If the next branch is
-    // close enough to enter that card's vertical band, increase the row gap
-    // instead of allowing the renderer to escape sideways into the next trunk.
+    // Bottom notes grow toward the preceding branch/protection. Raise this row
+    // until both painted blocks have a clear gap.
     const previousBranch = result.at(-1)
+    const bottomExtent = getDomoticaBranchBottomExtent(branchEndpoints, constants.SYMBOL_SIZE)
+    if (bottomExtent > constants.SYMBOL_SIZE / 2) {
+      const precedingTop = previousBranch
+        ? previousBranch.branchY - getDomoticaExtraRows(previousBranch.endpoints, constants) * constants.DOMOTICA_OUTPUT_SPACING
+        : firstBranchY + constants.BRANCH_START_OFFSET
+      const precedingHalfHeight = previousBranch ? constants.SYMBOL_SIZE / 2 :
+        getFirstBranchObstacleHalfHeight(circuit, protection, constants.SYMBOL_SIZE)
+      const requiredGap = bottomExtent + precedingHalfHeight + TRUNK_DEVICE_BRANCH_CLEARANCE
+      const additionalReserve = Math.max(0, requiredGap - (precedingTop - branchY))
+      metadataVerticalReserve += additionalReserve
+      branchY -= additionalReserve
+    }
     if (previousBranch) {
+      const gapDevices = (circuit.trunkDevices ?? []).filter((device) =>
+        device.trunkPosition === branchIndex && !device.converterDcConnection)
+      if (gapDevices.length > 0) {
+        const requiredGap = getDomoticaExtraRows(previousBranch.endpoints, constants) * constants.DOMOTICA_OUTPUT_SPACING +
+          constants.SYMBOL_SIZE / 2 + bottomExtent +
+          gapDevices.reduce((height, device) => height + getTrunkDeviceVerticalPaintHeight(device, constants.SYMBOL_SIZE), 0) +
+          TRUNK_DEVICE_BRANCH_CLEARANCE * (gapDevices.length + 1)
+        const additionalReserve = Math.max(0, requiredGap - (previousBranch.branchY - branchY))
+        metadataVerticalReserve += additionalReserve
+        branchY -= additionalReserve
+      }
+      // Detached converter cards occupy the band above the preceding branch.
       const previousCardHeight = Math.max(
         ...previousBranch.endpoints.map(getBranchConverterMetadataCalloutHeight),
         0
@@ -463,9 +555,11 @@ function processNestedCircuitBranches(
         : nestedCircuitLayout
           ? getBranchStartX(nestedCircuitLayout, constants)
           : immediateParentAnchorX
+    // Measure from the nested protection itself so the cable caption beside it
+    // gets the same protection-to-first-branch span as a top-level circuit.
     const nestedFirstBranchY = calculateFirstBranchY(
-      nestedCircuitLayout ?? { circuit: nestedCircuit, parentRcd: null },
-      parentWireEndY,
+      { circuit: nestedCircuit, parentRcd: null },
+      nestedMcbY,
       constants
     )
 
@@ -479,7 +573,8 @@ function processNestedCircuitBranches(
           nestedMcbY,
           nestedFirstBranchY,
           constants,
-          NESTED_BRANCH_LABEL_CLEARANCE
+          NESTED_BRANCH_LABEL_CLEARANCE,
+          nestedCircuitLayout?.protection
         )
       )
     }
@@ -540,7 +635,7 @@ export function calculateBranchLayoutPass(
     const circuitBranchRows =
       getNonPanelEndpoints(circuit).length === 0
         ? [createEmptyBranch(circuit, startX, startY, firstBranchY)]
-        : createEndpointBranchRows(circuit, startX, startY, firstBranchY, constants, 0)
+        : createEndpointBranchRows(circuit, startX, startY, firstBranchY, constants, 0, circuitLayout.protection)
     branches.push(...circuitBranchRows)
 
     if (nestedCircuits.length === 0) continue

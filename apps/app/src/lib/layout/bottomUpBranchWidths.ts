@@ -11,6 +11,7 @@ import { DOMOTICA_CHILD_LABEL_GAP } from '@/lib/domoticaLayout'
 import { getVisibleCertificationLabelParts } from '@/lib/certificationLabels'
 import { getVisibleConversionLabelParts, getVisibleEndpointNoteText } from '@/lib/conversionLabels'
 import { getEndpointNoteMinimumLeftX } from '@/lib/eendraad/endpointNoteLabelCollision'
+import { getDomoticaNoteBounds } from '@/lib/eendraad/domoticaNotes'
 import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
 import type { Endpoint } from '@/types/schema'
 
@@ -149,18 +150,19 @@ export function getEndpointLayoutOffsets(
           : x + symbolSize / 2 + DOMOTICA_CHILD_LABEL_GAP + measuredLabelWidth
       )
     }
+    const note = getDomoticaNoteBounds(endpoint, x, y, 0)
     paintedRects.push({
       id: endpoint.id,
       left: x - (isModule ? DOMOTICA_BOX_WIDTH / 2 : symbolSize / 2),
-      right,
+      right: Math.max(right, note?.right ?? right),
       top: y - variableHeight - (isModule ? DOMOTICA_BASE_HEIGHT / 2 : symbolSize / 2),
-      bottom:
+      bottom: Math.max(note?.bottom ?? -Infinity,
         y +
         (isModule && includeLabel && endpoint.domoticaChildProps
           ? DOMOTICA_BASE_HEIGHT / 2 + 23
           : isModule
             ? DOMOTICA_BASE_HEIGHT / 2
-            : symbolSize / 2),
+            : symbolSize / 2)),
     })
   }
 
@@ -208,7 +210,11 @@ export function getEndpointLayoutOffsets(
       const nestedVariableHeight =
         Math.max(0, getDomoticaEndpointCount(nested) - 1) * DOMOTICA_OUTPUT_SPACING
       const top = initial.y - nestedVariableHeight - DOMOTICA_BASE_HEIGHT / 2
-      const bottom = initial.y + DOMOTICA_BASE_HEIGHT / 2
+      const nestedNote = getDomoticaNoteBounds(nested, initial.x, initial.y, 0)
+      const bottom = Math.max(initial.y + DOMOTICA_BASE_HEIGHT / 2,
+        nestedNote?.bottom ?? -Infinity)
+      const leftExtent = Math.max(DOMOTICA_BOX_WIDTH / 2,
+        nestedNote ? (nestedNote.right - nestedNote.left) / 2 : 0)
       const obstacleRight = paintedRects.reduce(
         (right, rect) =>
           rect.id !== nested.id && rect.bottom >= top && rect.top <= bottom
@@ -219,7 +225,7 @@ export function getEndpointLayoutOffsets(
       const nestedX = Number.isFinite(obstacleRight)
         ? Math.max(
             initial.x,
-            obstacleRight + DOMOTICA_NESTED_CLEARANCE + DOMOTICA_BOX_WIDTH / 2
+            obstacleRight + DOMOTICA_NESTED_CLEARANCE + leftExtent
           )
         : initial.x
       result[nestedIndex] = { x: nestedX, y: initial.y }
@@ -285,7 +291,8 @@ export function calculateBranchWidth(
             measureSymbolLabelTextWidth(endpoint.label.trim(), 'Figtree', DOMOTICA_LABEL_FONT_SIZE) +
             DOMOTICA_LABEL_SAFETY
         : symbolRight
-      return Math.max(right, symbolRight, labelRight)
+      const noteRight = getDomoticaNoteBounds(endpoint, offset, layoutOffsets[index]?.y ?? 0, 0)?.right ?? symbolRight
+      return Math.max(right, symbolRight, labelRight, noteRight)
     }, leadIn)
     const outputStackHeight =
       DOMOTICA_BASE_HEIGHT + Math.max(0, endpointCount - 1) * DOMOTICA_OUTPUT_SPACING

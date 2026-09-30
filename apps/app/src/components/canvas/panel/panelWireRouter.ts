@@ -45,14 +45,19 @@ export type WirePathOptions = {
   pathwayRegions?: PanelWirePathRegion[]
   /** Explicit links between board ladders, normally derived from hierarchy scene connectors. */
   pathwayLinks?: WirePathSegment[]
+  /** Split row corridors into directed lanes, including when a wire turns back along a row. */
+  separateHorizontalLanes?: boolean
 }
 
 type Rect = { left: number; top: number; right: number; bottom: number }
 type Direction = 'horizontal' | 'vertical' | 'start'
 type GraphNode = WirePathPoint & { id: number; xi: number; yi: number }
 type QueueEntry = { stateKey: string; nodeId: number; direction: Direction; cost: number }
+type PathwaySegment = WirePathSegment & { horizontalDirection?: number }
+type HorizontalLane = { centerY: number; y: number; direction: number }
 
 const CLEARANCE = 4
+const DIRECTIONAL_LANE_OFFSET = 3
 const BEND_COST = 22
 const GUIDE_DISTANCE_WEIGHT = 0.08
 const CROSSING_COST = 90
@@ -123,6 +128,79 @@ function isClearSegment(from: WirePathPoint, to: WirePathPoint, obstacles: Rect[
 
 function manhattan(from: WirePathPoint, to: WirePathPoint): number {
   return Math.abs(from.x - to.x) + Math.abs(from.y - to.y)
+}
+
+function directionalPanelLinks(
+  links: WirePathSegment[],
+  regions: PanelWirePathRegion[],
+  source: WirePathPoint,
+  target: WirePathPoint
+): WirePathSegment[] {
+  const nearestSurface = (point: WirePathPoint) => {
+    let nearest: PanelWirePathRegion | undefined
+    let distance = Infinity
+    for (const region of regions) {
+      if (!region.surfaceId || region.horizontalYs.length === 0) continue
+      const candidateDistance = manhattan(point, {
+        x: Math.max(region.left, Math.min(region.right, point.x)),
+        y: Math.max(
+          Math.min(...region.horizontalYs),
+          Math.min(Math.max(...region.horizontalYs), point.y)
+        ),
+      })
+      if (candidateDistance < distance) {
+        nearest = region
+        distance = candidateDistance
+      }
+    }
+    return nearest?.surfaceId
+  }
+  const sourceSurface = nearestSurface(source)
+  const targetSurface = nearestSurface(target)
+  if (!sourceSurface || !targetSurface || sourceSurface === targetSurface) return links
+
+  // Stable surface ordering gives reversed electrical connections opposite lanes,
+  // even when routed independently for selection and hover. Offset perpendicular
+  // to each connector leg and join the lanes at bends, without crossing there.
+  const offset = sourceSurface < targetSurface ? DIRECTIONAL_LANE_OFFSET : -DIRECTIONAL_LANE_OFFSET
+  const normals: WirePathPoint[] = []
+  for (let start = 0; start < links.length;) {
+    let end = start
+    while (end + 1 < links.length && !links[end]!.toPortal && !links[end + 1]!.fromPortal &&
+      pointKey(links[end]!.to) === pointKey(links[end + 1]!.from)) end += 1
+    const first = links[start]!.from
+    const last = links[end]!.to
+    // Reciprocal scene connectors may declare the same corridor in reverse.
+    // Normalize their orientation so both still describe the same chosen lane.
+    const direction = first.x < last.x || (first.x === last.x && first.y < last.y) ? 1 : -1
+    for (let index = start; index <= end; index += 1) {
+      const { from, to } = links[index]!
+      normals.push({
+        x: -Math.sign(to.y - from.y) * offset * direction,
+        y: Math.sign(to.x - from.x) * offset * direction,
+      })
+    }
+    start = end + 1
+  }
+  return links.map((link, index) => {
+    const normal = normals[index]!
+    const shift = (point: WirePathPoint, neighborIndex: number, portal?: boolean) => {
+      const neighbor = links[neighborIndex]
+      const neighborNormal = normals[neighborIndex]
+      const sharedPoint = neighborIndex < index ? neighbor?.to : neighbor?.from
+      const join = !portal && sharedPoint && pointKey(sharedPoint) === pointKey(point) &&
+        neighborNormal && (normal.x === 0) !== (neighborNormal.x === 0)
+      return {
+        x: point.x + normal.x + (join ? neighborNormal.x : 0),
+        y: point.y + normal.y + (join ? neighborNormal.y : 0),
+      }
+    }
+    return {
+      ...link,
+      from: shift(link.from, index - 1, link.fromPortal),
+      to: shift(link.to, index + 1, link.toPortal),
+    }
+  })
 }
 
 function distanceToSegment(point: WirePathPoint, segment: WirePathSegment): number {
@@ -310,6 +388,7 @@ export function routePanelWire(
         pathwayGuidePoints: guidePoints,
         pathwayRegions: options.pathwayRegions,
         pathwayLinks: options.pathwayLinks,
+        separateHorizontalLanes: options.separateHorizontalLanes,
       })
       const legPoints = toPoints(leg.points)
       combinedPoints.push(...(index === 1 ? legPoints : legPoints.slice(1)))
@@ -427,7 +506,35 @@ export function routePanelWire(
       )
       .map((segment) => segment.from.x),
   ])
-  const regions = options.pathwayRegions?.filter((region) => region.horizontalYs.length >= 1) ?? []
+  const originalRegions = options.pathwayRegions?.filter((region) => region.horizontalYs.length >= 1) ?? []
+  const lanesByRegion = new Map<string, HorizontalLane[]>()
+  const regions = originalRegions.map((region) => {
+    const lanes = region.horizontalYs.flatMap((centerY) =>
+      (options.separateHorizontalLanes ? [-1, 1] : [0]).map((direction) => {
+        const shiftedY = centerY + direction * DIRECTIONAL_LANE_OFFSET
+        // Keep narrow corridors usable if a directional lane would hit a module.
+        const y = isClearSegment({ x: region.left, y: shiftedY },
+          { x: region.right, y: shiftedY }, obstacles) ? shiftedY : centerY
+        return { centerY, y, direction }
+      })
+    )
+    lanesByRegion.set(region.id, lanes)
+    return { ...region, horizontalYs: uniqueSorted(lanes.map((lane) => lane.y)) }
+  })
+  const links = directionalPanelLinks(options.pathwayLinks ?? [], originalRegions, source, target)
+  const nearestRegionLanePoints = (point: WirePathPoint, surfaceId?: string) => {
+    const nearest = originalRegions
+      .filter((region) => surfaceId != null ? region.surfaceId === surfaceId :
+        point.x >= region.left - EPSILON && point.x <= region.right + EPSILON)
+      .flatMap((region) => region.horizontalYs.map((y) => ({
+        region, x: Math.max(region.left, Math.min(region.right, point.x)), y,
+      })))
+      .sort((a, b) => manhattan(point, a) - manhattan(point, b))[0]
+    if (!nearest) return []
+    return uniqueSorted(lanesByRegion.get(nearest.region.id)!
+      .filter((lane) => lane.centerY === nearest.y).map((lane) => lane.y))
+      .map((y) => ({ x: nearest.x, y }))
+  }
   const horizontalLaneYs =
     regions.length > 0
       ? uniqueSorted(regions.flatMap((region) => region.horizontalYs))
@@ -457,7 +564,7 @@ export function routePanelWire(
     ...pathwayGuidePointsList.map((point) => point.y)
   )
 
-  const basePathways: WirePathSegment[] =
+  const basePathways: PathwaySegment[] =
     regions.length > 0
       ? regions
           .flatMap((region) => {
@@ -465,12 +572,15 @@ export function routePanelWire(
             const top = ys[0]!
             const bottom = ys[ys.length - 1]!
             return [
-              ...ys.map((y) => ({ from: { x: region.left, y }, to: { x: region.right, y } })),
+              ...lanesByRegion.get(region.id)!.map(({ y, direction }) => ({
+                from: { x: region.left, y }, to: { x: region.right, y },
+                horizontalDirection: direction,
+              })),
               { from: { x: region.left, y: top }, to: { x: region.left, y: bottom } },
               { from: { x: region.right, y: top }, to: { x: region.right, y: bottom } },
             ]
           })
-          .concat(options.pathwayLinks ?? [])
+          .concat(links)
       : [
           ...horizontalLaneYs.map((y) => ({ from: { x: minPathX, y }, to: { x: maxPathX, y } })),
           ...inferredSideCorridorXs.map((x) => ({
@@ -499,17 +609,13 @@ export function routePanelWire(
     }
   }
   const addShortAccess = (point: WirePathPoint) => {
-    const localLaneYs =
-      regions.length > 0
-        ? uniqueSorted(
-            regions
-              .filter(
-                (region) => point.x >= region.left - EPSILON && point.x <= region.right + EPSILON
-              )
-              .flatMap((region) => region.horizontalYs)
-          )
-        : horizontalLaneYs
-    const nearestLaneY = localLaneYs.reduce<number | null>((nearest, y) => {
+    if (regions.length > 0) {
+      for (const lanePoint of nearestRegionLanePoints(point)) {
+        basePathways.push({ from: point, to: lanePoint })
+      }
+      return
+    }
+    const nearestLaneY = horizontalLaneYs.reduce<number | null>((nearest, y) => {
       if (nearest == null) return y
       return Math.abs(y - point.y) < Math.abs(nearest - point.y) ? y : nearest
     }, null)
@@ -527,25 +633,13 @@ export function routePanelWire(
   // without opening an unrestricted vertical lane through the whole scene.
   if (regions.length > 0) {
     const addNearestPathwayAccess = (point: WirePathPoint, surfaceId?: string) => {
-      const nearest = regions
-        .filter((region) => surfaceId != null ? region.surfaceId === surfaceId :
-          point.x >= region.left - EPSILON && point.x <= region.right + EPSILON)
-        .flatMap((region) => region.horizontalYs.map((y) => ({
-          x: Math.max(region.left, Math.min(region.right, point.x)), y,
-        })))
-        .sort((a, b) => manhattan(point, a) - manhattan(point, b))[0]
-      if (!nearest) return
+      const lanePoints = nearestRegionLanePoints(point, surfaceId)
       // Side portals enter horizontally, then follow the board's side corridor.
-      const approach = { x: nearest.x, y: point.y }
-      basePathways.push({
-        from: point,
-        to: approach,
-      }, {
-        from: approach,
-        to: nearest,
-      })
+      for (const lanePoint of lanePoints) {
+        const approach = { x: lanePoint.x, y: point.y }
+        basePathways.push({ from: point, to: approach }, { from: approach, to: lanePoint })
+      }
     }
-    const links = options.pathwayLinks ?? []
     const hasExplicitPortals = links.some((link) => link.fromPortal || link.toPortal)
     for (const link of links) {
       // Legacy callers have no endpoint metadata; only unshared chain ends are portals.
@@ -602,13 +696,16 @@ export function routePanelWire(
     number,
     Array<{ nodeId: number; direction: Exclude<Direction, 'start'> }>
   >()
-  const addEdge = (from: GraphNode, to: GraphNode, direction: Exclude<Direction, 'start'>) => {
+  const addEdge = (
+    from: GraphNode, to: GraphNode, direction: Exclude<Direction, 'start'>,
+    horizontalDirection = 0
+  ) => {
     if (!isClearSegment(from, to, obstacles)) return
     const fromEdges = adjacency.get(from.id) ?? []
-    fromEdges.push({ nodeId: to.id, direction })
+    if (horizontalDirection >= 0) fromEdges.push({ nodeId: to.id, direction })
     adjacency.set(from.id, fromEdges)
     const toEdges = adjacency.get(to.id) ?? []
-    toEdges.push({ nodeId: from.id, direction })
+    if (horizontalDirection <= 0) toEdges.push({ nodeId: from.id, direction })
     adjacency.set(to.id, toEdges)
     if (pathwayEdges.length < MAX_DEBUG_EDGES) pathwayEdges.push({ from, to })
   }
@@ -629,7 +726,8 @@ export function routePanelWire(
       addEdge(
         getNode(sorted[index - 1]!),
         getNode(sorted[index]!),
-        vertical ? 'vertical' : 'horizontal'
+        vertical ? 'vertical' : 'horizontal',
+        segment.horizontalDirection
       )
     }
   }

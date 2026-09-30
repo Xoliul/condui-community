@@ -292,6 +292,15 @@ export function flushPendingProjectHistory(): void {
 }
 
 /**
+ * Start a fresh undo history. Used after actions that must not be undone, such as
+ * importing a plan: undo would otherwise silently remove the imported floors.
+ */
+export function clearProjectHistory(): void {
+  projectHistory.clearPending()
+  getProjectStoreApi().setState({ undoStack: [], redoStack: [] })
+}
+
+/**
  * Merge consecutive undo snapshots from `startIndex` onward into a single step.
  * Used when a picker records exploratory edits that should undo atomically on exit.
  */

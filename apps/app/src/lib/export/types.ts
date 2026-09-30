@@ -6,6 +6,7 @@ import type Konva from 'konva'
 import type { ProjectAddress, ProjectPartyContact, WireSegment } from '@/types/schema'
 import type { BottomUpLayoutResult } from '@/lib/layout/bottomUpLayout'
 
+import type { ExportPaperSize } from '@/lib/export/pageSizes'
 import type { PlanGraphicExportDescriptor } from '@/lib/export/planGraphicSvgInject'
 import type { SymbolExportDescriptor } from '@/lib/export/symbolSvgInject'
 import type { AnnotationProject } from '@/lib/projectV2/annotations'
@@ -24,9 +25,15 @@ export interface ExportOptions {
   includeEendraad: boolean
   includePanel: boolean
   includeSitplan: boolean
+  /** Merge multi-panel sitplan exports into one page per floor. */
+  mergePlanPages: boolean
   includeInstallDates: boolean
+  /** Paper format of the one-wire pages. Other page types stay A4. Defaults to A4. */
+  eendraadPaperSize?: ExportPaperSize
   /** Include the effective installer signature in PDF info blocks. */
   includeSignature: boolean
+  /** Append attached documents marked for export (hosted Documents feature). */
+  includeDocuments?: boolean
   theme: ExportTheme // Always required, no optional
   
 }
@@ -45,6 +52,7 @@ export function normalizeExportOptions(
   const includeEendraad = options.includeEendraad === true
   const includePanel = options.includePanel === true
   const includeSitplan = options.includeSitplan === true
+  const mergePlanPages = options.mergePlanPages === true
 
   
 
@@ -52,8 +60,11 @@ export function normalizeExportOptions(
     includeEendraad,
     includePanel,
     includeSitplan,
+    mergePlanPages,
     includeInstallDates: options.includeInstallDates ?? false,
+    eendraadPaperSize: options.eendraadPaperSize === 'A3' ? 'A3' : 'A4',
     includeSignature: options.includeSignature ?? true,
+    includeDocuments: options.includeDocuments === true,
     theme: options.theme,
     
   }
@@ -127,7 +138,7 @@ export interface ComposedPagePlacement {
 export interface ExportPage {
   id: string
   scene: ExportScene
-  pageSize: 'A4'
+  pageSize: ExportPaperSize
   orientation: 'portrait' | 'landscape'
 }
 
@@ -144,6 +155,7 @@ export interface ExportDiagnostic {
     | 'SVG_RENDER_FAILED'
     | 'PDF_COMPOSE_FAILED'
     | 'THEME_SWITCH_FAILED'
+    | 'DOCUMENT_APPEND_FAILED'
   pageId?: string
   canvasKind?: 'eendraad' | 'panel' | 'sitplan'
   message: string

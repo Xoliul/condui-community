@@ -27,7 +27,9 @@ export function formatWireLengthMeters(lengthM: number, t?: WireTranslateFn): st
 
 export function getWireLengthLabel(wire: WireSegment, t?: WireTranslateFn): string | undefined {
   if (wire.wireLengthM == null || wire.wireLengthM <= 0) return undefined
-  return formatWireLengthMeters(wire.wireLengthM, t)
+  const label = formatWireLengthMeters(wire.wireLengthM, t)
+  // An accepted plan estimate must never read as a measured length on a drawing.
+  return wire.wireLengthEstimated ? `≈ ${label}` : label
 }
 
 export function isHardwareTallyWireSegment(segment: WireSegment): boolean {

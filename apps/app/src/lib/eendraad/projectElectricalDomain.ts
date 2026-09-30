@@ -1295,9 +1295,10 @@ export function rewriteRelocatedCircuitTrunkDeviceGridRef(
   project: ElectricalDomainProject,
   deviceId: string,
   sourceCircuitId: string,
-  targetCircuitId: string
+  targetCircuitId: string,
+  targetKind: 'trunkDevice' | 'endpoint' = 'trunkDevice'
 ): void {
-  if (sourceCircuitId === targetCircuitId) return
+  if (sourceCircuitId === targetCircuitId && targetKind === 'trunkDevice') return
 
   const panels = getProjectElectricalPanels(project)
   const sourcePanel = panels
@@ -1314,7 +1315,9 @@ export function rewriteRelocatedCircuitTrunkDeviceGridRef(
     scope: 'circuit',
     circuitId: sourceCircuitId,
   }
-  const newRef: PanelGridModuleRef = { ...oldRef, circuitId: targetCircuitId }
+  const newRef: PanelGridModuleRef = targetKind === 'endpoint'
+    ? { kind: 'domotica', endpointId: deviceId, circuitId: targetCircuitId }
+    : { ...oldRef, circuitId: targetCircuitId }
   const oldKey = panelGridModuleRefKey(oldRef)
   const newKey = panelGridModuleRefKey(newRef)
   const wasShown = sourcePanel.gridView.shownModuleKeys?.includes(oldKey) ?? false

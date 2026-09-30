@@ -1,5 +1,8 @@
 import type { BottomUpCircuitLayout, BottomUpPanelLayout } from '@/lib/layout/bottomUpLayout'
-import { LAYOUT_CONSTANTS } from '@/lib/layout/bottomUpLayout'
+import {
+  LAYOUT_CONSTANTS,
+  MAIN_BUS_RENDER_STROKE_WIDTH,
+} from '@/lib/layout/bottomUpLayout'
 import {
   CIRCUIT_NOTES_HORIZONTAL_SLICE_CLEARANCE,
   CIRCUIT_NOTES_VERTICAL_SLICE_CLEARANCE,
@@ -175,11 +178,19 @@ export function getPanelPackedPaintBounds(
   if (mainBus && Number.isFinite(mainBus.x) && Number.isFinite(mainBus.width) && mainBus.width > 0) {
     includeRect(
       bounds,
-      mainBus.x,
-      mainBus.y - LAYOUT_CONSTANTS.BUS_THICKNESS / 2,
-      mainBus.width,
-      LAYOUT_CONSTANTS.BUS_THICKNESS,
+      mainBus.x - MAIN_BUS_RENDER_STROKE_WIDTH / 2,
+      mainBus.y - MAIN_BUS_RENDER_STROKE_WIDTH / 2,
+      mainBus.width + MAIN_BUS_RENDER_STROKE_WIDTH,
+      MAIN_BUS_RENDER_STROKE_WIDTH,
     )
+  }
+
+  // These are the same visible boxes shown by the trunk-layout debug overlay.
+  // Collision-only reserves and the document info block must not define the
+  // PDF viewBox: neither is painted electrical content.
+  for (const block of panelLayout.layoutBlocks ?? []) {
+    if (block.debugVisible === false || block.kind === 'info-block') continue
+    includeRect(bounds, block.x, block.y, block.width, block.height)
   }
 
   const supply = panelLayout.supply

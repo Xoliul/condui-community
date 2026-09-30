@@ -7,14 +7,16 @@ import {
   cumulativeLengths,
   getWallTotalLengthFromPoints,
   preserveOpeningPositionsAfterPointChange,
+  preserveOpeningWorldPositionsAfterPointChange,
   recomputeOpeningLocalFromNormalized,
+  removeDuplicateConsecutivePoints,
   resizeOpeningTowardFreeSpace,
   sanitizeWallOpeningPositions,
 } from '@/lib/plan/constraints'
 import { ensureElectricalLayerOnFloor } from '@/lib/plan/floorLayers'
 import { resolvePlanWiringVisibility } from '@/lib/plan/planWiring'
 import {
-  isInverterSituationPlanPlacement,
+  hasIndependentSituationPlanVisibility,
   showSituationPlanPlacementInPanel,
   showSituationPlanPlacementOnPlan,
 } from '@/lib/plan/panelPlanPlacementVisibility'
@@ -35,10 +37,24 @@ import {
   selectProjectPlanWiringVisibility,
   replacePlanWiringVisibilityForProject,
 } from '@/lib/projectV2/planWiring'
-import type { PlanGraphicElement, Point2, Wall } from '@/types/schema'
+import type { Floor, PlanGraphicElement, Point2, Wall } from '@/types/schema'
+import type { FloorV2 } from '@/types/projectV2'
+import { getUnusedFloorPlanAssetIds } from '@/lib/projectV2/floorPlanAssets'
 import { generateId } from '@/utils/project'
 import { useUIStore } from '@/stores/uiStore'
 import { isCurvedWall } from '@/lib/plan/wallCurve'
+import { preserveOtherFloorsOnScaleChange, editPlanPlacements, rescalePlanFloorExtras, invalidatePlanLengthEstimates } from '@/lib/plan/rescalePlan'
+import { resolvePlanPxPerMeter } from '@/lib/plan/planScale'
+
+/** True when an update deliberately removes the floor's plan image. */
+function clearsPlanImage(updates: Partial<Floor>): boolean {
+  return (
+    Object.prototype.hasOwnProperty.call(updates, 'planAsset') &&
+    Object.prototype.hasOwnProperty.call(updates, 'planImportAsset') &&
+    !updates.planAsset &&
+    !updates.planImportAsset
+  )
+}
 
 export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
   // Floor actions
@@ -46,8 +62,12 @@ export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
     set((state) => {
       if (state.currentProject) {
         const sharedScale = selectProjectPlanScale(state.currentProject)
+        if (floor.scale && resolvePlanPxPerMeter(floor.scale) == null) return
         if (floor.scale) {
+          preserveOtherFloorsOnScaleChange(state.currentProject, floor.id, floor.scale)
+          if (floor.scale.reference) floor.scale = { ...floor.scale, reference: { ...floor.scale.reference, floorId: floor.id } }
           setPlanScaleForProject(state.currentProject, floor.scale)
+          floor.scale = selectProjectPlanScale(state.currentProject)
         } else if (sharedScale) {
           floor.scale = sharedScale
         }
@@ -57,6 +77,25 @@ export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
       }
     }),
 
+  removeFloorPlan: ({ planAssetId, floorIds }) => {
+    get().withSingleUndoEntry(() => {
+      for (const floorId of floorIds) {
+        get().updateFloor(floorId, {
+          planAsset: undefined,
+          planAssetProcessed: undefined,
+          planAssetHasWhiteBackground: undefined,
+          planImportAsset: undefined,
+        })
+      }
+      const project = get().currentProject
+      if (project && planAssetId) {
+        const unused = getUnusedFloorPlanAssetIds(project.assets, project.building.floors, planAssetId)
+        if (unused.length > 0) get().removeProjectAssets(unused)
+      }
+      return true
+    })
+  },
+
   updateFloor: (id, updates) =>
     set((state) => {
       if (state.currentProject) {
@@ -64,26 +103,44 @@ export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
           (f) => f.id === id
         )
         if (floor) {
+          if (updates.scale && resolvePlanPxPerMeter(updates.scale) == null) return
+          if (updates.planScaleNeedsCalibration === true) invalidatePlanLengthEstimates(state.currentProject)
+          if (updates.scale) {
+            preserveOtherFloorsOnScaleChange(state.currentProject, id, updates.scale)
+            if (updates.scale.reference) {
+              updates = { ...updates, scale: { ...updates.scale, reference: { ...updates.scale.reference, floorId: id } }, planScaleNeedsCalibration: false }
+            }
+          }
           const previouslyHidden = new Set(floor.hiddenSitplanPlacementIds ?? [])
           Object.assign(floor, updates)
+          if (clearsPlanImage(updates)) {
+            // The floor view also carries the canonical plan ids; left in place they would
+            // re-attach the plan when the view is committed.
+            const view = floor as Floor & Partial<Pick<FloorV2, 'planAssetId' | 'processedPlanAssetId'>>
+            view.planAssetId = undefined
+            view.processedPlanAssetId = undefined
+          }
           if (Object.prototype.hasOwnProperty.call(updates, 'hiddenSitplanPlacementIds')) {
             const nextHiddenIds = updates.hiddenSitplanPlacementIds ?? []
             const nextHidden = new Set(nextHiddenIds)
             const preferredPanelId = useUIStore.getState().activePanelId
             for (const placementId of nextHiddenIds) {
               if (previouslyHidden.has(placementId)) continue
-              if (!isInverterSituationPlanPlacement(state.currentProject, placementId)) {
+              if (!hasIndependentSituationPlanVisibility(state.currentProject, placementId)) {
                 showSituationPlanPlacementInPanel(state.currentProject, placementId, preferredPanelId)
               }
             }
             for (const placementId of previouslyHidden) {
               if (nextHidden.has(placementId)) continue
-              if (!isInverterSituationPlanPlacement(state.currentProject, placementId)) {
+              if (!hasIndependentSituationPlanVisibility(state.currentProject, placementId)) {
                 showSituationPlanPlacementOnPlan(state.currentProject, placementId)
               }
             }
           }
-          if (updates.scale) setPlanScaleForProject(state.currentProject, updates.scale)
+          if (updates.scale) {
+            setPlanScaleForProject(state.currentProject, updates.scale)
+            floor.scale = selectProjectPlanScale(state.currentProject)
+          }
           ensureElectricalLayerOnFloor(floor)
           commitBuildingFloorView(state.currentProject, id, floor)
           state.isDirty = true
@@ -110,24 +167,36 @@ export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
         (f) => f.id === floorId
       )
       if (floor) {
+        if (floorUpdates.scale && resolvePlanPxPerMeter(floorUpdates.scale) == null) return
+        const before = resolvePlanPxPerMeter(floor.scale) ?? 100
+        const after = resolvePlanPxPerMeter(floorUpdates.scale)
+        if (floorUpdates.scale) {
+          preserveOtherFloorsOnScaleChange(state.currentProject, floorId, floorUpdates.scale)
+          if (floorUpdates.scale.reference) floorUpdates = { ...floorUpdates, planScaleNeedsCalibration: false }
+        }
+        if (floorUpdates.floorPlan && after && Math.abs(after / before - 1) > 1e-9) {
+          const points = floor.floorPlan?.walls.flatMap((wall) => wall.points) ?? []
+          const center = points.length ? { x: points.reduce((sum, p) => sum + p.x, 0) / points.length, y: points.reduce((sum, p) => sum + p.y, 0) / points.length } : { x: 0, y: 0 }
+          editPlanPlacements(state.currentProject, (placement) => {
+            if (placement.floorId === floorId) placement.pos = {
+              x: center.x + (placement.pos.x - center.x) * (after / before),
+              y: center.y + (placement.pos.y - center.y) * (after / before),
+            }
+          })
+          rescalePlanFloorExtras(state.currentProject, floorId, after / before, center)
+          invalidatePlanLengthEstimates(state.currentProject)
+        }
         Object.assign(floor, floorUpdates)
-        if (floorUpdates.scale) setPlanScaleForProject(state.currentProject, floorUpdates.scale)
+        if (floorUpdates.scale) {
+          setPlanScaleForProject(state.currentProject, floorUpdates.scale)
+          floor.scale = selectProjectPlanScale(state.currentProject)
+        }
         commitBuildingFloorView(state.currentProject, floorId, floor)
         state.isDirty = true
       }
       if (placementUpdates.length === 0) return
       const idToPos = new Map<string, Point2>(placementUpdates.map((u) => [u.id, u.pos]))
-      for (const panel of editProjectElectricalPanels(state.currentProject)) {
-        const endpoints = getAllEndpoints(panel)
-        for (const endpoint of endpoints) {
-          for (const placement of endpoint.placements) {
-            const newPos = idToPos.get(placement.id)
-            if (newPos) {
-              placement.pos = newPos
-            }
-          }
-        }
-      }
+      editPlanPlacements(state.currentProject, (placement) => { const pos = idToPos.get(placement.id); if (pos) placement.pos = pos })
     }),
 
   deleteFloor: (id) =>
@@ -282,8 +351,18 @@ export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
               const passedDoorUpdates = payload.doorUpdates
               const passedWindowUpdates = payload.windowUpdates
               const { doorUpdates: _du, windowUpdates: _wu, ...wallUpdates } = payload
+              // Never persist zero-length segments (duplicate consecutive points) on straight walls.
+              if (wallUpdates.points && !wallUpdates.curve && !wall.curve) {
+                wallUpdates.points = removeDuplicateConsecutivePoints(wallUpdates.points)
+              }
               const hadPointsUpdate = wallUpdates.points != null && wallUpdates.points.length >= 2
-              const oldPoints = hadPointsUpdate ? wall.points : null
+              // Map openings from the de-duplicated old path so segment indices line up with the
+              // de-duplicated new points (zero-length segments add no length, so positions hold).
+              const oldPoints = hadPointsUpdate
+                ? wall.curve
+                  ? wall.points
+                  : removeDuplicateConsecutivePoints(wall.points)
+                : null
               const doorsBefore = floor.floorPlan.doors
                 .filter((d) => d.wallId === wallId)
                 .map((d) => ({ id: d.id, position: d.position }))
@@ -292,9 +371,9 @@ export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
                 .map((w) => ({ id: w.id, position: w.position }))
               Object.assign(wall, wallUpdates)
               if (hadPointsUpdate && wall.points.length >= 2 && oldPoints) {
-                // Only recompute opening positions when the caller explicitly passed door/window updates
-                // (e.g. vertex drag with constraints). Whole-shape move only sends { points } – openings
-                // are relative to the path, so we leave them unchanged.
+                // Callers with constraint-computed door/window updates (e.g. vertex drag) keep those.
+                // Points-only updates keep every opening at its world position (a translated or
+                // rotated segment carries its openings along) and then fit it inside its segment.
                 const callerSentOpeningUpdates =
                   (passedDoorUpdates?.length ?? 0) > 0 || (passedWindowUpdates?.length ?? 0) > 0
                 logger.info('[updateWall]', {
@@ -305,7 +384,7 @@ export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
                   doorsBefore,
                   windowsBefore,
                 })
-                if (callerSentOpeningUpdates) {
+                if (oldPoints) {
                   const wallDoors = floor.floorPlan.doors.filter((d) => d.wallId === wallId)
                   const wallWindows = floor.floorPlan.windows.filter((w) => w.wallId === wallId)
                   for (const u of passedDoorUpdates ?? []) {
@@ -321,7 +400,9 @@ export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
                     ...(passedWindowUpdates ?? []).map((u) => u.id),
                   ])
                   const { doorUpdates: preservedDoors, windowUpdates: preservedWindows } =
-                    preserveOpeningPositionsAfterPointChange(
+                    (callerSentOpeningUpdates
+                      ? preserveOpeningPositionsAfterPointChange
+                      : preserveOpeningWorldPositionsAfterPointChange)(
                       oldPoints,
                       wall.points,
                       wallDoors,
@@ -340,6 +421,22 @@ export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
                   const finalWallWindows = floor.floorPlan.windows.filter(
                     (w) => w.wallId === wallId
                   )
+                  if (!callerSentOpeningUpdates) {
+                    // Fit openings inside their segment so they never overlap wall ends/junctions.
+                    const sanitized = sanitizeWallOpeningPositions(
+                      wall.points,
+                      finalWallDoors,
+                      finalWallWindows
+                    )
+                    for (const u of sanitized.doorUpdates) {
+                      const d = finalWallDoors.find((x) => x.id === u.id)
+                      if (d) d.position = u.position
+                    }
+                    for (const u of sanitized.windowUpdates) {
+                      const w = finalWallWindows.find((x) => x.id === u.id)
+                      if (w) w.position = u.position
+                    }
+                  }
                   recomputeOpeningLocalFromNormalized(wall.points, finalWallDoors, finalWallWindows)
                 }
               }

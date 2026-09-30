@@ -88,6 +88,10 @@ function SymbolItem({
   compact = false,
 }: SymbolItemProps) {
   const setLibraryDragSymbol = useUIStore((state) => state.setLibraryDragSymbol)
+  const isArmed = useUIStore((state) => state.armedLibrarySymbol?.id === symbol.id)
+  const setArmedLibrarySymbol = useUIStore((state) => state.setArmedLibrarySymbol)
+  // Touch keeps drag-only placement; arming needs a hovering pointer to preview under.
+  const lastPointerTypeRef = useRef<string>('mouse')
   const iconRef = useRef<HTMLDivElement>(null)
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [showTooltip, setShowTooltip] = useState(false)
@@ -195,6 +199,52 @@ function SymbolItem({
       setLibraryDragSymbol(null)
     },
     [setLibraryDragSymbol, symbol.id]
+  )
+
+  // After each armed placement, bring the armed tile back if the library was scrolled away
+  // from it entirely; a partly visible tile stays put.
+  const armedPlacementCount = useUIStore((state) =>
+    state.armedLibrarySymbol?.id === symbol.id ? state.armedPlacementCount : 0
+  )
+  useEffect(() => {
+    if (!isArmed || armedPlacementCount === 0) return
+    const item = itemRef.current
+    const scrollContainer = item?.closest<HTMLElement>('[data-library-scroll="true"]')
+    if (!item || !scrollContainer) return
+    // The same symbol can be listed twice (recent + category); the first copy decides.
+    const armedTiles = Array.from(scrollContainer.querySelectorAll<HTMLElement>('[data-armed]'))
+    if (armedTiles[0] !== item) return
+    const viewRect = scrollContainer.getBoundingClientRect()
+    const isVisible = (tile: HTMLElement) => {
+      const rect = tile.getBoundingClientRect()
+      return (
+        rect.bottom > viewRect.top &&
+        rect.top < viewRect.bottom &&
+        rect.right > viewRect.left &&
+        rect.left < viewRect.right
+      )
+    }
+    if (armedTiles.some(isVisible)) return
+    item.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+  }, [armedPlacementCount, isArmed])
+
+  const toggleArmed = useCallback(() => {
+    setArmedLibrarySymbol(isArmed ? null : symbol)
+  }, [isArmed, setArmedLibrarySymbol, symbol])
+
+  const handleClick = useCallback(() => {
+    if (lastPointerTypeRef.current === 'touch') return
+    toggleArmed()
+  }, [toggleArmed])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.target !== e.currentTarget) return
+      if (e.key !== 'Enter' && e.key !== ' ') return
+      e.preventDefault()
+      toggleArmed()
+    },
+    [toggleArmed]
   )
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
@@ -343,12 +393,25 @@ function SymbolItem({
     [cleanupGesture, compact, onDragStart, setLibraryDragSymbol, symbol],
   )
 
+  const armedClass = isArmed
+    ? 'bg-sky-50 ring-2 ring-inset ring-sky-500 dark:bg-sky-900/40'
+    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+
   return (
     <>
       <div
         ref={itemRef}
         data-testid={`library-symbol-${symbol.id}`}
+        role="button"
+        tabIndex={0}
+        aria-pressed={isArmed}
+        data-armed={isArmed || undefined}
         draggable
+        onPointerDown={(e) => {
+          lastPointerTypeRef.current = e.pointerType
+        }}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onTouchStart={handleTouchStart}
@@ -356,14 +419,18 @@ function SymbolItem({
         onMouseLeave={handleMouseLeave}
         className={
           compact
-            ? 'flex h-full w-24 flex-shrink-0 cursor-move select-none flex-col items-center justify-start gap-1 rounded px-2 py-1.5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 group relative'
-            : 'flex items-center gap-3 px-3 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded cursor-move transition-colors group relative select-none'
+            ? `flex h-full w-24 flex-shrink-0 cursor-pointer select-none flex-col items-center justify-start gap-1 rounded px-2 py-1.5 transition-colors group relative outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${armedClass}`
+            : `flex items-center gap-3 px-3 py-1 rounded cursor-pointer transition-colors group relative select-none outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${armedClass}`
         }
       >
       {/* Symbol Icon */}
       <div 
         ref={iconRef}
-        className={`${compact ? 'h-10 w-10' : 'h-9 w-9'} flex flex-shrink-0 items-center justify-center rounded border border-gray-200 bg-gray-100 dark:border-gray-600 dark:bg-gray-700`}
+        className={`${compact ? 'h-10 w-10' : 'h-9 w-9'} flex flex-shrink-0 items-center justify-center rounded border ${
+          isArmed
+            ? 'border-sky-500 bg-white dark:border-sky-400 dark:bg-gray-800'
+            : 'border-gray-200 bg-gray-100 dark:border-gray-600 dark:bg-gray-700'
+        }`}
       >
         <SymbolPreview svgPath={symbol.svgPath} symbolId={symbol.id} />
       </div>
@@ -540,7 +607,7 @@ const LIBRARY_ICON_CUSTOM: Record<string, () => ReactNode> = {
   modular_socket: () => <ModularSocketLibraryIcon />,
 }
 
-function SymbolPreview({ svgPath, symbolId }: SymbolPreviewProps) {
+export function SymbolPreview({ svgPath, symbolId }: SymbolPreviewProps) {
   const customIcon = symbolId ? LIBRARY_ICON_CUSTOM[symbolId] : undefined
   if (customIcon) {
     return <>{customIcon()}</>

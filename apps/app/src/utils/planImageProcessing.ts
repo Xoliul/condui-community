@@ -572,6 +572,34 @@ export function svgContentToDataUrl(svgContent: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`
 }
 
+/**
+ * Crops an image to a PNG data URL. `crop` is expressed in `sourceSize` units and
+ * scaled to the image's natural pixels, matching the import cropper's output.
+ */
+export async function cropImageDataUrl(
+  dataUrl: string,
+  crop: { x: number; y: number; width: number; height: number },
+  sourceSize: { width: number; height: number },
+): Promise<string> {
+  const img = new Image()
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve()
+    img.onerror = () => reject(new Error('image load error'))
+    img.src = dataUrl
+  })
+  const scaleX = img.naturalWidth / sourceSize.width
+  const scaleY = img.naturalHeight / sourceSize.height
+  const width = Math.max(1, Math.round(crop.width * scaleX))
+  const height = Math.max(1, Math.round(crop.height * scaleY))
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('canvas unavailable')
+  ctx.drawImage(img, crop.x * scaleX, crop.y * scaleY, width, height, 0, 0, width, height)
+  return canvas.toDataURL('image/png')
+}
+
 export async function getVectorSvgThemePreviewUrl(
   svgContent: string,
   isDarkMode: boolean,

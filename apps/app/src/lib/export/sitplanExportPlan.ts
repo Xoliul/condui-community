@@ -6,7 +6,8 @@ import {
   selectProjectElectricalPanels,
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
-import type { Endpoint, Panel } from '@/types/schema'
+import { collectPlacementsOnFloor } from '@/utils/project'
+import type { Endpoint, Floor, Panel } from '@/types/schema'
 import { endpointSymbolVisibleOnSitplan } from '@/lib/plan/planSymbolVisibility'
 
 type SitplanExportProject = ProjectWithOptionalV2Building & ProjectWithOptionalV2Electrical
@@ -16,6 +17,26 @@ export interface SitplanExportTarget {
   floorId: string
   panelId: string | null
   title: string | null
+}
+
+function hasFloorPlanContent(floor: Floor): boolean {
+  if (floor.planAsset || floor.planImportAsset) return true
+  const floorPlan = floor.floorPlan
+  if (!floorPlan) return false
+  return Boolean(
+    floorPlan.walls.length > 0 ||
+      floorPlan.doors.length > 0 ||
+      floorPlan.windows.length > 0 ||
+      (floorPlan.stairs?.length ?? 0) > 0 ||
+      (floorPlan.graphicElements?.length ?? 0) > 0
+  )
+}
+
+function hasSitplanExportContent(
+  project: SitplanExportProject,
+  floor: Floor,
+): boolean {
+  return hasFloorPlanContent(floor) || collectPlacementsOnFloor(project, floor.id).length > 0
 }
 
 interface SitplanPlacementRecord {
@@ -119,36 +140,36 @@ function collectSitplanPlacements(project: SitplanExportProject): SitplanPlaceme
   return placements
 }
 
-/** True when the same endpoint label appears on endpoints owned by different panels. */
+/** True when the same circuit or endpoint label appears on different panels. */
 export function hasDuplicateSitplanEndpointLabels(project: SitplanExportProject): boolean {
   const labelPanelIds = new Map<string, Set<string>>()
 
+  const addLabel = (label: string, panelId: string): boolean => {
+    const normalizedLabel = label.trim()
+    if (!normalizedLabel || normalizedLabel.toUpperCase() === 'PANEL') return false
+    let panelsForLabel = labelPanelIds.get(normalizedLabel)
+    if (!panelsForLabel) {
+      panelsForLabel = new Set<string>()
+      labelPanelIds.set(normalizedLabel, panelsForLabel)
+    }
+    panelsForLabel.add(panelId)
+    return panelsForLabel.size > 1
+  }
+
   const visitPanel = (panel: Panel): boolean => {
     for (const circuit of panel.circuits) {
+      if (addLabel(circuit.code, panel.id)) return true
       for (const endpoint of circuit.endpoints) {
         if (!shouldCountEndpointForDuplicateLabels(endpoint)) continue
-        const label = endpoint.label.trim()
-        let panelsForLabel = labelPanelIds.get(label)
-        if (!panelsForLabel) {
-          panelsForLabel = new Set<string>()
-          labelPanelIds.set(label, panelsForLabel)
-        }
-        panelsForLabel.add(panel.id)
-        if (panelsForLabel.size > 1) return true
+        if (addLabel(endpoint.label, panel.id)) return true
       }
     }
     for (const protection of panel.protections) {
       for (const circuit of protection.circuits ?? []) {
+        if (addLabel(circuit.code, panel.id)) return true
         for (const endpoint of circuit.endpoints) {
           if (!shouldCountEndpointForDuplicateLabels(endpoint)) continue
-          const label = endpoint.label.trim()
-          let panelsForLabel = labelPanelIds.get(label)
-          if (!panelsForLabel) {
-            panelsForLabel = new Set<string>()
-            labelPanelIds.set(label, panelsForLabel)
-          }
-          panelsForLabel.add(panel.id)
-          if (panelsForLabel.size > 1) return true
+          if (addLabel(endpoint.label, panel.id)) return true
         }
       }
     }
@@ -180,15 +201,21 @@ export function hasMultipleSitplanPanelsOnSameFloor(project: SitplanExportProjec
   return false
 }
 
-export function buildSitplanExportTargets(project: SitplanExportProject): SitplanExportTarget[] {
-  const floors = selectProjectBuildingFloors(project)
+export function buildSitplanExportTargets(
+  project: SitplanExportProject,
+  mergePlanPages = false,
+): SitplanExportTarget[] {
+  const floors = selectProjectBuildingFloors(project).filter((floor) =>
+    hasSitplanExportContent(project, floor),
+  )
 
-  if (!hasMultipleSitplanPanelsOnSameFloor(project)) {
+  if (mergePlanPages || !hasMultipleSitplanPanelsOnSameFloor(project)) {
     return floors.map((floor) => ({
       id: `sitplan-${floor.id}`,
       floorId: floor.id,
       panelId: null,
-      title: null,
+      // Print the floor name on its page so floors are recognisable on paper.
+      title: floor.name?.trim() || null,
     }))
   }
 

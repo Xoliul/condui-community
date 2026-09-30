@@ -12,13 +12,15 @@ import {
   DEFAULT_SYMBOL_SIZE_CM,
 } from '@/constants/planConstants'
 import type { PlanVisibilityState } from '@/types/ui'
-import type { Placement, PlanWireRouteStyle, SymbolKey, PlanWiringVisibility } from '@/types/schema'
+import type { Placement, SymbolKey, PlanWiringVisibility } from '@/types/schema'
 import { resolvePlanWiringVisibility } from '@/lib/plan/planWiring'
 import { selectProjectPlanWiringProjection } from '@/lib/projectV2/planWiring'
 import { selectProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { getPanelDisplayName } from '@/utils/panelNames'
 import { clamp } from '@/lib/geometry'
 import { openHiddenSituationPlanDialogForFloor } from '@/components/plan/openHiddenSituationPlanDialog'
+import { isCableRoutesEnabled } from '@/lib/cableRouting/availability'
+import { PlanWireStyleButtons } from '@/components/cableRouting/PlanWireStyleButtons'
 
 /** Symbol category for visibility and hover-highlight */
 export type SitplanSymbolCategory = 'sockets' | 'lights' | 'switches' | 'panels' | 'fixedAppliances'
@@ -499,6 +501,26 @@ export default function SitplanVisibilityPanel({ readOnly = false }: { readOnly?
                 key: 'otherVisible' as const,
                 label: t('sitplanVisibility.wiresOther'),
               },
+              ...(isCableRoutesEnabled()
+                ? [
+                    {
+                      key: 'homeRunsVisible' as const,
+                      label: t('sitplanVisibility.wiresHomeRuns', 'From board'),
+                    },
+                    {
+                      key: 'branchFeedsVisible' as const,
+                      label: t('sitplanVisibility.wiresBranchFeeds', 'Between branches'),
+                    },
+                    {
+                      key: 'supplyVisible' as const,
+                      label: t('sitplanVisibility.wiresSupply', 'Supply and earthing'),
+                    },
+                    {
+                      key: 'colorCoded' as const,
+                      label: t('sitplanVisibility.wiresColorCoded', 'Colour by group'),
+                    },
+                  ]
+                : []),
             ].map((item) => (
               <label
                 key={item.key}
@@ -508,7 +530,11 @@ export default function SitplanVisibilityPanel({ readOnly = false }: { readOnly?
               >
                 <input
                   type="checkbox"
-                  checked={planWiringVisibility[item.key]}
+                  checked={
+                    item.key === 'supplyVisible'
+                      ? planWiringVisibility.supplyVisible !== false
+                      : planWiringVisibility[item.key]
+                  }
                   disabled={readOnly || wiresDisabled}
                   onChange={(e) => setPlanWiringVisibility({ [item.key]: e.target.checked })}
                   className="rounded border-gray-400"
@@ -519,35 +545,11 @@ export default function SitplanVisibilityPanel({ readOnly = false }: { readOnly?
           </div>
           <div className={`mt-2 pl-6 ${wiresDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className={`mb-1 text-xs ${muted}`}>{t('sitplanVisibility.wireStyle')}</div>
-            <div className="grid grid-cols-2 gap-1">
-              {[
-                {
-                  value: 'spline' as PlanWireRouteStyle,
-                  label: t('sitplanVisibility.wireStyleSpline'),
-                },
-                {
-                  value: 'orthogonal' as PlanWireRouteStyle,
-                  label: t('sitplanVisibility.wireStyleOrthogonal'),
-                },
-              ].map((option) => {
-                const selected = planWiringVisibility.defaultStyle === option.value
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    disabled={readOnly}
-                    onClick={() => setPlanWiringVisibility({ defaultStyle: option.value })}
-                    className={`rounded border px-2 py-1 text-xs font-medium ${
-                      selected
-                        ? 'border-sky-500 bg-sky-100 text-sky-900 dark:bg-sky-900/60 dark:text-sky-50'
-                        : 'border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                )
-              })}
-            </div>
+            <PlanWireStyleButtons
+              value={planWiringVisibility.defaultStyle}
+              disabled={readOnly}
+              onChange={(style) => setPlanWiringVisibility({ defaultStyle: style })}
+            />
           </div>
         </div>
       </div>

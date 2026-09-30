@@ -2,6 +2,7 @@ import type { Circuit, Panel, ProtectionDevice } from '@/types/schema'
 import { IS_DEV, logger } from '@/lib/logger'
 import {
   getEffectiveInstallYear,
+  getExplicitInstallYear,
   type ProjectWithOptionalInstallYear,
 } from '@/lib/installDates'
 import {
@@ -239,94 +240,162 @@ function pushUnique(targets: InstallDateTarget[], target: InstallDateTarget): vo
   targets.push(target)
 }
 
+export interface InstallDateInheritance {
+  year: number
+  /** Nearest ancestor with an explicit date, or undefined when the project year applies. */
+  source: Pick<InstallDateTarget, 'id' | 'type'> | undefined
+}
+
+/** Inherited date per entity, keyed by `installDateTargetKey`. */
+export type InstallDateInheritanceIndex = Map<string, InstallDateInheritance>
+
+export function installDateTargetKey(target: Pick<InstallDateTarget, 'id' | 'type'>): string {
+  return `${target.type}:${target.id}`
+}
+
+function sameInheritanceFeeds(
+  a: Map<string, InstallDateInheritance>,
+  b: Map<string, InstallDateInheritance>
+): boolean {
+  if (a.size !== b.size) return false
+  for (const [key, value] of a) {
+    const other = b.get(key)
+    if (
+      !other ||
+      other.year !== value.year ||
+      other.source?.id !== value.source?.id ||
+      other.source?.type !== value.source?.type
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+/**
+ * Resolves what every panel, protection, circuit, consumer and circuit trunk device
+ * inherits. This is the single source for both the date overlay and date editing.
+ *
+ * Protections fed by another circuit and panels fed by a panel symbol are only
+ * discovered while walking, and the fed entity can be stored before its feeder.
+ * The walk therefore repeats with the previous pass's feeds until they are stable.
+ */
+export function buildInstallDateInheritanceIndex(
+  project: InstallDateProject
+): InstallDateInheritanceIndex {
+  const graph = buildCircuitGraphIndex(project)
+  const projectInheritance: InstallDateInheritance = {
+    year: getEffectiveInstallYear(project, null),
+    source: undefined,
+  }
+  const panels = getProjectElectricalPanels(project)
+  let protectionFeeds = new Map<string, InstallDateInheritance>()
+  let panelFeeds = new Map<string, InstallDateInheritance>()
+  let index: InstallDateInheritanceIndex = new Map()
+  const maxPasses = graph.protectionsById.size + graph.panelsById.size + 1
+
+  for (let pass = 0; pass < maxPasses; pass += 1) {
+    const nextProtectionFeeds = new Map<string, InstallDateInheritance>()
+    const nextPanelFeeds = new Map<string, InstallDateInheritance>()
+    const passIndex: InstallDateInheritanceIndex = new Map()
+    const record = (
+      target: Pick<InstallDateTarget, 'id' | 'type'>,
+      inherited: InstallDateInheritance
+    ) => {
+      const key = installDateTargetKey(target)
+      if (!passIndex.has(key)) passIndex.set(key, inherited)
+    }
+    const own = (
+      entity: Parameters<typeof getExplicitInstallYear>[0],
+      target: Pick<InstallDateTarget, 'id' | 'type'>,
+      inherited: InstallDateInheritance
+    ): InstallDateInheritance =>
+      getExplicitInstallYear(entity) != null
+        ? { year: getEffectiveInstallYear(project, entity, inherited.year), source: target }
+        : inherited
+
+    const visitCircuit = (
+      circuit: Circuit,
+      inherited: InstallDateInheritance,
+      visited: Set<string>
+    ) => {
+      if (visited.has(circuit.id)) return
+      visited.add(circuit.id)
+      const circuitTarget = { id: circuit.id, type: 'circuit' as const }
+      record(circuitTarget, inherited)
+      const circuitDate = own(circuit, circuitTarget, inherited)
+      for (const trunkDevice of circuit.trunkDevices ?? []) {
+        record({ id: trunkDevice.id, type: 'trunkDevice' }, circuitDate)
+      }
+      for (const endpoint of circuit.endpoints) {
+        const endpointTarget = { id: endpoint.id, type: 'endpoint' as const }
+        record(endpointTarget, circuitDate)
+        if (
+          endpoint.symbol === 'panel_distribution' &&
+          endpoint.panelId &&
+          !nextPanelFeeds.has(endpoint.panelId)
+        ) {
+          nextPanelFeeds.set(endpoint.panelId, own(endpoint, endpointTarget, circuitDate))
+        }
+      }
+      for (const subCircuitId of circuit.subCircuitIds ?? []) {
+        const referenceTarget = resolveCircuitReference(graph, subCircuitId)
+        if (referenceTarget.kind === 'protection') {
+          if (!nextProtectionFeeds.has(referenceTarget.protection.id)) {
+            nextProtectionFeeds.set(referenceTarget.protection.id, circuitDate)
+          }
+        } else if (referenceTarget.kind === 'circuit') {
+          visitCircuit(referenceTarget.circuit, circuitDate, visited)
+        }
+      }
+    }
+
+    const visitPanel = (panel: Panel, parentInherited: InstallDateInheritance) => {
+      const panelTarget = { id: panel.id, type: 'panel' as const }
+      const inherited =
+        nextPanelFeeds.get(panel.id) ?? panelFeeds.get(panel.id) ?? parentInherited
+      record(panelTarget, inherited)
+      const panelDate = own(panel, panelTarget, inherited)
+      for (const protection of panel.protections) {
+        const protectionTarget = { id: protection.id, type: 'protection' as const }
+        const protectionInherited =
+          nextProtectionFeeds.get(protection.id) ?? protectionFeeds.get(protection.id) ?? panelDate
+        record(protectionTarget, protectionInherited)
+        const protectionDate = own(protection, protectionTarget, protectionInherited)
+        for (const circuit of protection.circuits ?? []) {
+          visitCircuit(circuit, protectionDate, new Set())
+        }
+      }
+      for (const circuit of panel.circuits) {
+        if (graph.subCircuitIds.has(circuit.id)) continue
+        visitCircuit(circuit, panelDate, new Set())
+      }
+      for (const subPanel of panel.subPanels) visitPanel(subPanel, panelDate)
+    }
+
+    for (const panel of panels) visitPanel(panel, projectInheritance)
+
+    index = passIndex
+    const stable =
+      sameInheritanceFeeds(protectionFeeds, nextProtectionFeeds) &&
+      sameInheritanceFeeds(panelFeeds, nextPanelFeeds)
+    protectionFeeds = nextProtectionFeeds
+    panelFeeds = nextPanelFeeds
+    if (stable) break
+  }
+
+  return index
+}
+
 export function getInstallDateTargetInheritedYear(
   project: InstallDateProject,
-  target: Pick<InstallDateTarget, 'id' | 'type'>
+  target: Pick<InstallDateTarget, 'id' | 'type'>,
+  inheritanceIndex: InstallDateInheritanceIndex = buildInstallDateInheritanceIndex(project)
 ): number {
-  const graph = buildCircuitGraphIndex(project)
-  const projectYear = getEffectiveInstallYear(project, null)
-  const panelFeedYears = new Map<string, number>()
-  const protectionFeedYears = new Map<string, number>()
-
-  const visitCircuit = (
-    circuit: Circuit,
-    inheritedYear: number,
-    visited = new Set<string>()
-  ): number | undefined => {
-    if (visited.has(circuit.id)) return undefined
-    visited.add(circuit.id)
-    if (target.type === 'circuit' && circuit.id === target.id) return inheritedYear
-    const circuitYear = getEffectiveInstallYear(project, circuit, inheritedYear)
-    if (
-      target.type === 'endpoint' &&
-      circuit.endpoints.some((endpoint) => endpoint.id === target.id)
-    ) {
-      return circuitYear
-    }
-    if (
-      target.type === 'trunkDevice' &&
-      (circuit.trunkDevices ?? []).some((device) => device.id === target.id)
-    ) {
-      return circuitYear
-    }
-    for (const endpoint of circuit.endpoints) {
-      if (endpoint.symbol === 'panel_distribution' && endpoint.panelId) {
-        const endpointYear = getEffectiveInstallYear(project, endpoint, circuitYear)
-        panelFeedYears.set(endpoint.panelId, endpointYear)
-      }
-    }
-    for (const subCircuitId of circuit.subCircuitIds ?? []) {
-      const referenceTarget = resolveCircuitReference(graph, subCircuitId)
-      if (referenceTarget.kind === 'protection') {
-        protectionFeedYears.set(referenceTarget.protection.id, circuitYear)
-      } else if (referenceTarget.kind === 'circuit') {
-        const found = visitCircuit(referenceTarget.circuit, circuitYear, visited)
-        if (found != null) return found
-      }
-    }
-    return undefined
-  }
-
-  const visitProtection = (
-    protection: ProtectionDevice,
-    inheritedYear: number
-  ): number | undefined => {
-    inheritedYear = protectionFeedYears.get(protection.id) ?? inheritedYear
-    if (target.type === 'protection' && protection.id === target.id) return inheritedYear
-    const protectionYear = getEffectiveInstallYear(project, protection, inheritedYear)
-    for (const circuit of protection.circuits ?? []) {
-      const found = visitCircuit(circuit, protectionYear)
-      if (found != null) return found
-    }
-    return undefined
-  }
-
-  const visitPanel = (panel: Panel, inheritedYear: number): number | undefined => {
-    inheritedYear = panelFeedYears.get(panel.id) ?? inheritedYear
-    if (target.type === 'panel' && panel.id === target.id) return inheritedYear
-    const panelYear = getEffectiveInstallYear(project, panel, inheritedYear)
-    for (const protection of panel.protections) {
-      const found = visitProtection(protection, panelYear)
-      if (found != null) return found
-    }
-    for (const circuit of panel.circuits) {
-      if (graph.subCircuitIds.has(circuit.id)) continue
-      const found = visitCircuit(circuit, panelYear)
-      if (found != null) return found
-    }
-    for (const subPanel of panel.subPanels) {
-      const found = visitPanel(subPanel, panelYear)
-      if (found != null) return found
-    }
-    return undefined
-  }
-
-  for (const panel of getProjectElectricalPanels(project)) {
-    const found = visitPanel(panel, projectYear)
-    if (found != null) return found
-  }
-
-  return projectYear
+  return (
+    inheritanceIndex.get(installDateTargetKey(target))?.year ??
+    getEffectiveInstallYear(project, null)
+  )
 }
 
 function traceInstallDateTargetInheritedYear(

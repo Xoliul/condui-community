@@ -9,6 +9,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { useUIStore } from '@/stores/uiStore'
 import ViewLayout from '@/components/ViewLayout'
 import { FloatingLibraryPanel, LibraryPanel } from '@/components/library'
+import ArmedPlacementController from '@/components/library/ArmedPlacementController'
 import PropertiesPanel from '@/components/properties/PropertiesPanel'
 import { ExportCanvasPool } from '@/components/export/ExportCanvasPool'
 import { ExportProgress } from '@/components/export/ExportProgress'
@@ -452,6 +453,7 @@ export default function CommunityLayout({ demoMode = false }: { demoMode?: boole
             rightInsetPx={effectiveRightPanelWidth}
             resizePreviewActive={leftDockResizePreviewWidth != null}
           />
+          <ArmedPlacementController enabled />
           <ExportCanvasPool />
           {libraryWindowOpen ? <FloatingLibraryPanel /> : null}
           {tallyWindowOpen ? <HardwareTallyPanel /> : null}

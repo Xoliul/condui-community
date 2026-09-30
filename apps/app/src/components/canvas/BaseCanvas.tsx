@@ -1,6 +1,8 @@
 import { logger } from '@/lib/logger'
+import ArmedSymbolCanvasBanner from '@/components/library/ArmedSymbolCanvasBanner'
 import {
   useRef,
+  useId,
   useEffect,
   useState,
   useCallback,
@@ -39,6 +41,7 @@ import { useViewportResizePreviewActive } from '@/components/layout/ViewportResi
 import { resolveKonvaElementId } from './baseCanvasElementId'
 import { clamp } from '@/lib/geometry'
 import { mirrorLayerCameraTransform } from '@/lib/canvas/layerCameraTransform'
+import { hasCanvasPrimaryAction, resolveCanvasCursor } from '@/lib/canvas/canvasCursor'
 import {
   isPotentialSecondTap,
   longPressTargetIsSelectionBackground,
@@ -229,6 +232,15 @@ interface BaseCanvasProps {
   backgroundColor?: string
   gridInTransformedLayer?: boolean // If true, grid moves with pan/zoom (for Plan canvas)
   gridOpacity?: number // Grid opacity (0-1), default 1
+  /**
+   * Lets a canvas take over a finished drag rectangle (canvas coordinates) before it becomes an
+   * app selection, e.g. to select things the app selection has no type for. Returning true
+   * skips the default selection handling.
+   */
+  onCaptureRectangle?: (
+    rect: { x: number; y: number; width: number; height: number },
+    modifiers: { shiftKey: boolean; altKey: boolean }
+  ) => boolean
   // Callback to find selectable elements that intersect with a rectangle (in canvas coordinates)
   // Returns array of { id: string, type: Selection['type'] }
   onFindElementsInRectangle?: (rect: {
@@ -303,7 +315,7 @@ interface BaseCanvasProps {
 }
 
 export interface BaseCanvasHandle {
-  fitToView: () => boolean
+  fitToView: (options?: { ignoreSelection?: boolean }) => boolean
   getStage: () => Konva.Stage | null
   /** Current camera transform, including an in-progress gesture before React state commits. */
   getLiveViewTransform: () => { pan: Point; zoom: number }
@@ -336,6 +348,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
     gridInTransformedLayer = false,
     gridOpacity = 1,
     onFindElementsInRectangle,
+    onCaptureRectangle,
     onGetContextMenuItems,
     onGetSelectionBounds,
     onDragOver,
@@ -376,6 +389,8 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
   const setSelection = useCommitSelection()
   const clearSelection = useCommitClearSelection()
   const libraryDragSymbol = useUIStore((state) => state.libraryDragSymbol)
+  const armedLibrarySymbol = useUIStore((state) => state.armedLibrarySymbol)
+  const armedPlacementActive = !!armedLibrarySymbol && !!onDrop
   const containerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
   const contentLayerRef = useRef<Konva.Layer>(null)
@@ -401,6 +416,9 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
   const [isDragOver, setIsDragOver] = useState(false)
   // Immediate ref avoids a stale React state value swallowing the first context-menu event.
   const rightClickDragOccurredRef = useRef(false)
+  // Button that owns the current deferred/active mouse pan; only a right-button drag may
+  // suppress the next context menu (a left-drag pan must not eat the following right-click).
+  const mousePanButtonRef = useRef<number | null>(null)
   // Track if any drag occurred (to prevent selection after drag)
   const [dragOccurred, setDragOccurred] = useState(false)
   const [pointerFollowerPosition, setPointerFollowerPosition] = useState<Point | null>(null)
@@ -438,6 +456,8 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
   const previewSelectionSignatureRef = useRef<string>('')
   const onFindElementsInRectangleRef = useRef(onFindElementsInRectangle)
   onFindElementsInRectangleRef.current = onFindElementsInRectangle
+  const onCaptureRectangleRef = useRef(onCaptureRectangle)
+  onCaptureRectangleRef.current = onCaptureRectangle
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -497,7 +517,60 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
   } | null>(null)
   const suppressNextContextMenuRef = useRef(false)
 
-  // Keep Konva stage container cursor in sync with canvas cursor
+  const hoveredCursorNodeRef = useRef<Konva.Node | null>(null)
+  const cursorShiftKeyRef = useRef(false)
+  const idleCanvasCursor = resolveCanvasCursor({
+    panning: isPanningForUI,
+    toolCursor: cursorProp ?? (pointerFollower || armedPlacementActive ? 'crosshair' : undefined),
+    primaryAction: false,
+    emptyBackground: true,
+    leftDragPansCanvas,
+    primaryClickTool: !!onCanvasPrimaryClick,
+  })
+  const updateCanvasCursor = useCallback((preserveResize = false) => {
+    const stage = stageRef.current
+    if (!stage) return
+    const container = stage.container()
+    // Child hover handlers and Konva Transformer own their directional resize cursors.
+    if (preserveResize && !isPanningForUI && container.style.cursor.endsWith('-resize')) return
+    const node = hoveredCursorNodeRef.current
+    container.style.cursor = resolveCanvasCursor({
+      panning: isPanningForUI,
+      toolCursor: cursorProp ?? (pointerFollower || armedPlacementActive ? 'crosshair' : undefined),
+      primaryAction: !!node && hasCanvasPrimaryAction(node, stage),
+      emptyBackground: !node || node === stage,
+      leftDragPansCanvas,
+      shiftKey: cursorShiftKeyRef.current,
+      primaryClickTool: !!onCanvasPrimaryClick,
+    })
+  }, [
+    isPanningForUI,
+    cursorProp,
+    pointerFollower,
+    armedPlacementActive,
+    leftDragPansCanvas,
+    onCanvasPrimaryClick,
+  ])
+  const updateCanvasCursorRef = useRef(updateCanvasCursor)
+  updateCanvasCursorRef.current = updateCanvasCursor
+
+  useEffect(() => {
+    updateCanvasCursor(true)
+  }, [updateCanvasCursor])
+
+  useEffect(() => {
+    const handleModifiers = (event: KeyboardEvent) => {
+      cursorShiftKeyRef.current = event.shiftKey
+      if (canvasHoverRef.current) updateCanvasCursor(true)
+    }
+    window.addEventListener('keydown', handleModifiers)
+    window.addEventListener('keyup', handleModifiers)
+    return () => {
+      window.removeEventListener('keydown', handleModifiers)
+      window.removeEventListener('keyup', handleModifiers)
+    }
+  }, [updateCanvasCursor])
+
   
 
   // 3/4-finger swipe: ref so we can read last position in touchEnd when touches may be empty
@@ -1708,7 +1781,9 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
 
       // Trackpad pinch-to-zoom: browsers fire wheel with ctrlKey=true
       // Discrete mouse wheel: no ctrlKey (unless user is holding ctrl)
-      const isTrackpadPinch = evt.ctrlKey
+      // Cmd + wheel zooms like Ctrl + wheel: macOS mouse wheels emit small pixel deltas
+      // that are otherwise classified as trackpad panning.
+      const isTrackpadPinch = evt.ctrlKey || evt.metaKey
 
       if (!isTrackpadPinch && evt.deltaMode === 0) {
         // Precision trackpads emit pixel wheel deltas for both pan and pinch.
@@ -1821,6 +1896,9 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
         mousePanWindowCleanupRef.current()
         mousePanWindowCleanupRef.current = null
       }
+      mousePanButtonRef.current = button
+      // A fresh right press starts a new gesture; never inherit a flag from an earlier pan.
+      if (button === 2) rightClickDragOccurredRef.current = false
       pendingMouseButtonPanRef.current = {
         startX: clientX,
         startY: clientY,
@@ -1849,8 +1927,8 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
         const dy = evt.clientY - lastPanPointRef.current.y
 
         if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+          if (mousePanButtonRef.current === 2) rightClickDragOccurredRef.current = true
           if (!dragOccurredRef.current) {
-            rightClickDragOccurredRef.current = true
             setDragOccurred(true)
           }
           dragOccurredRef.current = true
@@ -1998,6 +2076,10 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
       const stage = e.target.getStage()
       if (!stage) return
 
+      hoveredCursorNodeRef.current = e.target
+      cursorShiftKeyRef.current = e.evt.shiftKey
+      updateCanvasCursor(true)
+
       // Update selection rectangle (coalesced to rAF in scheduleSelectionDragFrame)
       if (rectSelectActiveRef.current && selectionRectLiveRef.current) {
         const pointer = stage.getPointerPosition()
@@ -2022,7 +2104,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
         return
       }
     },
-    [pointerFollower, scheduleSelectionDragFrame]
+    [pointerFollower, scheduleSelectionDragFrame, updateCanvasCursor]
   )
 
   // Handle mouse up (stop panning or finalize selection)
@@ -2110,8 +2192,15 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
           const rectWidth = Math.abs(endCanvasX - startCanvasX)
           const rectHeight = Math.abs(endCanvasY - startCanvasY)
 
-          // Only select if rectangle is large enough (avoid accidental clicks)
-          if (rectWidth > 5 && rectHeight > 5) {
+          const captured = onCaptureRectangleRef.current?.(
+            { x: rectX, y: rectY, width: rectWidth, height: rectHeight },
+            { shiftKey: e?.evt.shiftKey || false, altKey: e?.evt.altKey || false }
+          )
+          if (captured) {
+            // The canvas handled it; keep the synthetic tap from clearing the selection.
+            ignoreNextTapClearRef.current = true
+          } else if (rectWidth > 5 && rectHeight > 5) {
+            // Only select if rectangle is large enough (avoid accidental clicks)
             // Find elements in rectangle
             const elements = onFindElementsInRectangle({
               x: rectX,
@@ -2607,7 +2696,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
   }, [gridInTransformedLayer, getNodeBounds])
 
   // Handle fit to view — returns true when content bounds were found and applied.
-  const handleFitToView = useCallback((): boolean => {
+  const handleFitToView = useCallback((options?: { ignoreSelection?: boolean }): boolean => {
     const stage = stageRef.current
     if (!stage) return false
     const liveRect = containerRef.current?.getBoundingClientRect()
@@ -2629,7 +2718,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
     let boundsForFit: { minX: number; minY: number; maxX: number; maxY: number } | null = null
     const selection = useUIStore.getState().selection
 
-    if (selection.ids && selection.ids.length > 0) {
+    if (!options?.ignoreSelection && selection.ids && selection.ids.length > 0) {
       onPrepareFitToView?.()
       const cbBounds = onGetSelectionBounds?.()
       if (cbBounds) {
@@ -3800,6 +3889,197 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
     }
   }, [onDrop, onDragOver, getLiveViewTransform])
 
+  // Armed library symbol: hover previews through onDragOver and each left click drops a
+  // copy through onDrop, exactly like a library drag. Left/right button events on the stage
+  // are swallowed in the capture phase so Konva selection, marquee and element drags never
+  // start. A left press that moves becomes a pan (like the middle button); a still one places.
+  const armedLibraryCanvasId = useUIStore((state) => state.armedLibraryCanvasId)
+  const armedCanvasInstanceId = useId()
+  const armedPlacementRef = useRef({ symbol: armedLibrarySymbol, onDrop, onDragOver })
+  armedPlacementRef.current = { symbol: armedLibrarySymbol, onDrop, onDragOver }
+  const armedPointerClientRef = useRef<{ x: number; y: number } | null>(null)
+  const beginDeferredMousePanRef = useRef(beginDeferredMousePan)
+  beginDeferredMousePanRef.current = beginDeferredMousePan
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!armedPlacementActive || !container) return
+
+    let previewFrame: number | null = null
+    let swallowPointerSequence = false
+    let pendingRightClickDisarm = false
+    let leftPress: { x: number; y: number } | null = null
+
+    const getStageContainer = () => stageRef.current?.container() ?? null
+    const isOnStage = (target: EventTarget | null) => {
+      const stageContainer = getStageContainer()
+      return !!stageContainer && target instanceof Node && stageContainer.contains(target)
+    }
+    const toCanvasPoint = (clientX: number, clientY: number): Point => {
+      const rect = container.getBoundingClientRect()
+      const { pan: livePan, zoom: liveZoom } = getLiveViewTransform()
+      return {
+        x: (clientX - rect.left - livePan.x) / liveZoom,
+        y: (clientY - rect.top - livePan.y) / liveZoom,
+      }
+    }
+    const clearPreview = () => {
+      armedPlacementRef.current.onDragOver?.({ x: -Infinity, y: -Infinity }, null)
+    }
+    const renderPreview = () => {
+      previewFrame = null
+      const client = armedPointerClientRef.current
+      const { symbol, onDragOver: preview } = armedPlacementRef.current
+      if (!client || !symbol || !preview) return
+      preview(toCanvasPoint(client.x, client.y), symbol)
+    }
+    const schedulePreview = () => {
+      if (previewFrame == null) previewFrame = requestAnimationFrame(renderPreview)
+    }
+
+    const hidePreview = () => {
+      if (previewFrame != null) {
+        cancelAnimationFrame(previewFrame)
+        previewFrame = null
+      }
+      if (armedPointerClientRef.current) {
+        armedPointerClientRef.current = null
+        clearPreview()
+      }
+    }
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return
+      // A held button means a pan is running: drop-target previews are expensive on the
+      // one-wire and panel canvases, so hide the ghost until the button is released.
+      if (event.buttons !== 0 || !isOnStage(event.target)) {
+        hidePreview()
+        return
+      }
+      armedPointerClientRef.current = { x: event.clientX, y: event.clientY }
+      const stageContainer = getStageContainer()
+      if (stageContainer) stageContainer.style.cursor = 'crosshair'
+      const ui = useUIStore.getState()
+      if (ui.armedLibraryCanvasId !== armedCanvasInstanceId) {
+        ui.setArmedLibraryCanvasId(armedCanvasInstanceId)
+      }
+      schedulePreview()
+      // Keep Konva hover effects quiet while armed.
+      event.stopPropagation()
+    }
+    const handleMouseMove = (event: MouseEvent) => {
+      if (event.buttons === 0 && isOnStage(event.target)) event.stopPropagation()
+    }
+    const handlePointerLeave = () => {
+      armedPointerClientRef.current = null
+      clearPreview()
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      // A pan can end off-canvas without a click; never let that sequence swallow later UI clicks.
+      swallowPointerSequence = false
+      leftPress = null
+      if (event.pointerType === 'touch' || !isOnStage(event.target)) return
+      if (event.button !== 0 && event.button !== 2) return
+      event.stopPropagation()
+      swallowPointerSequence = true
+      if (event.button === 2) {
+        event.preventDefault()
+        // Disarm once the menu event is swallowed; on platforms that fire contextmenu
+        // after pointerup (Windows), the stage's own suppression flag catches it instead.
+        pendingRightClickDisarm = true
+        suppressNextContextMenuRef.current = true
+        return
+      }
+      // Not preventDefault: the deferred pan listens to the compatibility mouse events.
+      // Button 1 semantics: a press that never moves must not clear the selection.
+      leftPress = { x: event.clientX, y: event.clientY }
+      beginDeferredMousePanRef.current(event.clientX, event.clientY, 1)
+    }
+    const placeAt = (clientX: number, clientY: number) => {
+      const { symbol, onDrop: drop } = armedPlacementRef.current
+      if (!symbol || !drop) return
+      armedPointerClientRef.current = { x: clientX, y: clientY }
+      drop(toCanvasPoint(clientX, clientY), symbol, { clientX, clientY })
+      useUIStore.getState().noteArmedPlacement()
+      // Drops clear the canvas preview; bring the ghost back for the next placement.
+      schedulePreview()
+    }
+    const handleLeftPointerUp = (event: PointerEvent) => {
+      if (event.button !== 0 || !leftPress) return
+      const press = leftPress
+      leftPress = null
+      const moved =
+        Math.abs(event.clientX - press.x) > DEFERRED_MOUSE_PAN_THRESHOLD_PX ||
+        Math.abs(event.clientY - press.y) > DEFERRED_MOUSE_PAN_THRESHOLD_PX
+      if (!moved) placeAt(press.x, press.y)
+    }
+    const disarm = () => {
+      pendingRightClickDisarm = false
+      useUIStore.getState().setArmedLibrarySymbol(null)
+    }
+    const swallowButtonEvent = (event: MouseEvent) => {
+      if (event.button !== 0 && event.button !== 2) return
+      if (!swallowPointerSequence && !isOnStage(event.target)) return
+      event.preventDefault()
+      event.stopPropagation()
+      if (event.type === 'click' || event.type === 'contextmenu') swallowPointerSequence = false
+      if (event.type === 'contextmenu' && pendingRightClickDisarm) {
+        suppressNextContextMenuRef.current = false
+        disarm()
+      } else if (event.type === 'pointerup' && event.button === 0) {
+        handleLeftPointerUp(event as PointerEvent)
+      } else if (event.type === 'pointerup' && pendingRightClickDisarm) {
+        window.setTimeout(() => {
+          if (pendingRightClickDisarm) disarm()
+        }, 0)
+      }
+    }
+    const handleWheel = () => {
+      if (armedPointerClientRef.current) schedulePreview()
+    }
+
+    const captureOptions = { capture: true }
+    const passiveCaptureOptions = { capture: true, passive: true }
+    container.addEventListener('pointermove', handlePointerMove, captureOptions)
+    container.addEventListener('mousemove', handleMouseMove, captureOptions)
+    container.addEventListener('pointerleave', handlePointerLeave)
+    container.addEventListener('pointerdown', handlePointerDown, captureOptions)
+    container.addEventListener('mousedown', swallowButtonEvent, captureOptions)
+    container.addEventListener('pointerup', swallowButtonEvent, captureOptions)
+    container.addEventListener('mouseup', swallowButtonEvent, captureOptions)
+    container.addEventListener('click', swallowButtonEvent, captureOptions)
+    container.addEventListener('dblclick', swallowButtonEvent, captureOptions)
+    container.addEventListener('contextmenu', swallowButtonEvent, captureOptions)
+    container.addEventListener('wheel', handleWheel, passiveCaptureOptions)
+
+    // A canvas remount while the pointer rests on it (e.g. after a drop) keeps the ghost.
+    schedulePreview()
+
+    return () => {
+      if (previewFrame != null) cancelAnimationFrame(previewFrame)
+      container.removeEventListener('pointermove', handlePointerMove, captureOptions)
+      container.removeEventListener('mousemove', handleMouseMove, captureOptions)
+      container.removeEventListener('pointerleave', handlePointerLeave)
+      container.removeEventListener('pointerdown', handlePointerDown, captureOptions)
+      container.removeEventListener('mousedown', swallowButtonEvent, captureOptions)
+      container.removeEventListener('pointerup', swallowButtonEvent, captureOptions)
+      container.removeEventListener('mouseup', swallowButtonEvent, captureOptions)
+      container.removeEventListener('click', swallowButtonEvent, captureOptions)
+      container.removeEventListener('dblclick', swallowButtonEvent, captureOptions)
+      container.removeEventListener('contextmenu', swallowButtonEvent, captureOptions)
+      container.removeEventListener('wheel', handleWheel, passiveCaptureOptions)
+      const stageContainer = getStageContainer()
+      if (stageContainer) updateCanvasCursorRef.current()
+    }
+  }, [armedPlacementActive, armedCanvasInstanceId, getLiveViewTransform])
+
+  // Disarming (Esc, right click, another tool) removes the ghost from this canvas.
+  useEffect(() => {
+    if (armedPlacementActive) return
+    if (!armedPointerClientRef.current) return
+    armedPointerClientRef.current = null
+    onDragOver?.({ x: -Infinity, y: -Infinity }, null)
+  }, [armedPlacementActive, onDragOver])
+
   // Cleanup long-press timers on unmount
   useEffect(() => {
     const lp = longPress.current
@@ -3999,7 +4279,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
       className="w-full h-full"
       style={{
         backgroundColor: actualBackgroundColor,
-        cursor: isPanningForUI ? 'grabbing' : (cursorProp ?? 'default'),
+        cursor: idleCanvasCursor,
         outline: isDragOver ? '2px dashed #0284c7' : 'none',
         outlineOffset: '-2px',
         touchAction: 'none', // Disable browser touch gestures
@@ -4022,6 +4302,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
       }}
       onPointerLeave={() => {
         canvasHoverRef.current = false
+        hoveredCursorNodeRef.current = null
         setPointerFollowerPosition(null)
       }}
       onDragOver={handleDragOver}
@@ -4052,6 +4333,11 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
+        onMouseOver={(event) => {
+          hoveredCursorNodeRef.current = event.target
+          cursorShiftKeyRef.current = event.evt.shiftKey
+          updateCanvasCursor()
+        }}
         onMouseUp={handleMouseUp}
         onTap={(e) => handleStageTap(e as unknown as KonvaEventObject<PointerEvent>)}
         onContextMenu={(e) => {
@@ -4279,6 +4565,9 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
         >
           {pointerFollower}
         </div>
+      ) : null}
+      {armedPlacementActive && armedLibrarySymbol && armedLibraryCanvasId === armedCanvasInstanceId ? (
+        <ArmedSymbolCanvasBanner symbol={armedLibrarySymbol} />
       ) : null}
     </div>
   )

@@ -10,6 +10,7 @@ import {
 } from '@/handlers/eendraad/dropBehaviors'
 import { PROTECTION_SYMBOL_IDS } from '@/lib/protectionKind'
 import { getCircuitBranches } from '@/lib/layout/endpointChains'
+import { getDomoticaEndpointInputDomain } from '@/lib/eendraad/domoticaOutputOrdering'
 import { getEndpointTypeFromSymbol } from '@/utils'
 import {
   resolveSymbolPortsForWire,
@@ -37,6 +38,11 @@ import { getPanelFeedOrganization } from '@/lib/panel/panelFeedOrganization'
 import { canCreateSupplyTopologyFromDrop } from '@/lib/supplyTopologyFeature'
 import { findSameSymbolAddMoreLayoutTargets } from '@/lib/eendraad/sameSymbolAddMore'
 import { isPanelAttachmentDropTargetTerminal } from '@/lib/eendraad/panelAttachmentMove'
+import {
+  circuitAcceptsTrunkSwitch,
+  circuitHasBranchContent,
+  isCircuitTrunkSwitchSymbol,
+} from '@/lib/eendraad/circuitTrunkSwitch'
 import {
   findOrdinaryCircuitDcBusForOutput,
   getCircuitConverterDcConnectionCount,
@@ -378,7 +384,11 @@ function getHintWireDomain(
   if (!circuit) return 'AC'
 
   let domain: 'AC' | 'DC' = circuit.dcBusSource ? 'DC' : 'AC'
-  const trunkDevices = [...(circuit.trunkDevices ?? [])].sort(
+  const branchIndex = getCircuitBranches(circuit).findIndex((branch) =>
+    branch.some((endpoint) => endpoint.id === node.domainId ||
+      (node.type === 'branch' && node.children.some((child) => child.domainId === endpoint.id))))
+  const trunkDevices = (circuit.trunkDevices ?? []).filter((device) =>
+    branchIndex < 0 || (device.trunkPosition ?? 0) <= branchIndex).sort(
     (left, right) => (left.trunkPosition ?? 0) - (right.trunkPosition ?? 0)
   )
   for (const device of trunkDevices) {
@@ -401,6 +411,14 @@ function getHintWireDomain(
   // A branch-level hit zone represents the end of that branch; include all of
   // its endpoint symbols so a DC-only drop remains available after an inline
   // inverter/rectifier instead of being hidden as an AC target.
+  const domoticaEndpoint = circuit.endpoints.find((endpoint) => endpoint.id === node.domainId)
+  if (domoticaEndpoint && (domoticaEndpoint.domoticaChildProps || node.hitZone?.outputGroup)) {
+    const input = getDomoticaEndpointInputDomain(circuit, domoticaEndpoint.id, domain)
+    if (node.hitZone?.outputGroup || node.hitZone?.domoticaChildDropIntent === 'insertBefore') return input
+    if (!domoticaEndpoint.symbol) return input
+    const resolved = resolveSymbolPortsForWire(domoticaEndpoint.symbol, input)
+    return resolved.matched ? (resolved.oppositePortDomain ?? input) : input
+  }
   const branchEndpointIds =
     node.type === 'branch'
       ? new Set(
@@ -553,6 +571,7 @@ function appendTrunkTopSlotHints(
     if (segmentCount <= 0) continue
     const circuit = findCircuitInProject(project, circuitId)
     if (circuitFeedsSubPanel(project, circuitId)) continue
+    if (hints.some((hint) => hint.match?.circuitId === circuitId && hint.match.insertAfterCircuitContent)) continue
 
     const slotCount = trunkInsertionSlotCount(circuit)
     const last = lastSegmentByCircuit.get(circuitId)
@@ -998,7 +1017,10 @@ function shouldIncludeHintNode(
         node.hitZone?.supplyFeedScope === 'root'
       )
     }
-    if (node.id?.startsWith('circuit-nest-')) return false
+    if (node.id?.startsWith('circuit-nest-')) {
+      const circuit = ctx.circuitId ? findCircuitInProject(project, ctx.circuitId) : undefined
+      return !!circuit && !(circuit.subCircuitIds?.length) && !circuitFeedsSubPanel(project, circuit.id)
+    }
     if (node.id?.startsWith('circuit-trunk-') && hitType === 'circuit') return true
   }
 
@@ -1055,6 +1077,25 @@ function shouldIncludeHintNode(
       }
       return false
     }
+  }
+
+  if (
+    isCircuitTrunkSwitchSymbol(symbol.id) &&
+    hitType === 'circuit' &&
+    ctx.circuitId &&
+    !node.hitZone.dcBusId &&
+    !node.hitZone.converterDcConnection &&
+    (node.id?.startsWith('circuit-trunk-') || node.id === `circuit-nest-${ctx.circuitId}`) &&
+    circuitAcceptsTrunkSwitch(findCircuitInProject(project, ctx.circuitId)) &&
+    !circuitFeedsSubPanel(project, ctx.circuitId)
+  ) {
+    // Low on the trunk wire: series trunk device. Nest zone above the
+    // branches: a new branch, as for every other endpoint. An empty circuit
+    // already shows its empty-branch marker for that, so skip the duplicate.
+    return (
+      node.id?.startsWith('circuit-trunk-') === true ||
+      circuitHasBranchContent(findCircuitInProject(project, ctx.circuitId))
+    )
   }
 
   if (isEndpointDragSymbol(symbol)) {
@@ -1267,10 +1308,16 @@ function visitForHints(
       )
     ) {
       let { x, y } = hintAnchor(node)
+      if (CIRCUIT_TRUNK_INSERTABLE_SYMBOLS.has(symbol.id) && node.id?.startsWith('circuit-nest-')) {
+        // Put the continuation marker above the branch tap, away from its
+        // incoming/output markers. It stays inside the nest's padded hit zone.
+        y = node.bounds.y - 8
+      }
       const trunkParsed = node.id ? parseCircuitTrunkSegmentId(node.id) : null
       if (
-        (isProtectionDragSymbol(symbol) || symbol.id === 'terminal_strip') &&
-        trunkParsed?.segmentIndex === 0 &&
+        (((isProtectionDragSymbol(symbol) || symbol.id === 'terminal_strip' || ENERGY_CONVERSION_SYMBOLS.has(symbol.id)) &&
+          trunkParsed?.segmentIndex === 0) ||
+          (isCircuitTrunkSwitchSymbol(symbol.id) && trunkParsed != null)) &&
         nextCtx.circuitId
       ) {
         // The lower protection ball sits just above the owning protection, well
@@ -1378,6 +1425,8 @@ export function isDropZoneHintActive(
   matchedNodeId: string | null
 ): boolean {
   if (!dropTarget || dropTarget.type !== hint.targetType) return false
+  if (dropTarget.type === 'circuit' &&
+      !!hint.match?.insertAfterCircuitContent !== !!dropTarget.insertAfterCircuitContent) return false
   if (matchedNodeId && matchedNodeId === hint.nodeId) return true
 
   if (dropTarget.type === 'supplyWire' && hint.match) {
@@ -1439,6 +1488,8 @@ function isHintCompatibleWithDropTarget(hint: DropZoneHint, dropTarget: DropTarg
 
   const match = hint.match
   if (!match) return true
+  if (dropTarget.type === 'circuit' &&
+      !!match.insertAfterCircuitContent !== !!dropTarget.insertAfterCircuitContent) return false
   if (match.panelId && dropTarget.panelId && match.panelId !== dropTarget.panelId) return false
   if (match.circuitId && dropTarget.circuitId && match.circuitId !== dropTarget.circuitId) {
     return false
@@ -1574,8 +1625,8 @@ export function collectDropZoneHints(
     (target) => ({
       nodeId: `same-symbol-add-more-${target.nodeId}`,
       sameSymbolTargetId: target.target.endpoint?.id ?? target.target.trunkDevice?.id,
-      x: target.badgePosition.x,
-      y: target.badgePosition.y,
+      x: target.center.x,
+      y: target.center.y,
       targetType: 'endpoint' as const,
       outline: target.outline,
     })

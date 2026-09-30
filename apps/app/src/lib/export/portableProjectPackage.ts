@@ -10,8 +10,15 @@ import {
   type LegacyProjectDocument,
 } from '@/lib/projectV2/migration'
 import { sanitizeLegacyV2Project } from '@/lib/projectV2/sanitizeLegacyV2Project'
+import {
+  isProjectDocumentAsset,
+  withoutProjectDocumentAssets,
+} from '@/lib/projectV2/documentAssets'
 import { repairDanglingSupplyAssemblyReferences } from '@/lib/supplyAssembly/repairDanglingReferences'
 import { validateProjectStructure } from '@/utils/project'
+/* @project-documents-strip-start */
+
+/* @project-documents-strip-end */
 
 export const PROJECT_JSON_FILENAME = 'project.json'
 export const EXPORT_VERSION = '1'
@@ -21,6 +28,7 @@ export const VERSION_HISTORY_JSON_FILENAME =
 
 const IMPORT_SOURCES_SUBFOLDER = 'sources'
 const INSTALLER_SUBFOLDER = 'installer'
+const DOCUMENTS_SUBFOLDER = 'documents'
 const MAX_PROJECT_JSON_BYTES = 20 * 1024 * 1024
 const MAX_LEGACY_BLOATED_PROJECT_JSON_BYTES = 160 * 1024 * 1024
 const MAX_ZIP_ENTRIES = 5000
@@ -48,6 +56,8 @@ export type PortableProjectExportOptions = {
   versionHistory?: PortableVersionHistory | null
   format?: string
   allowInvalidForDiagnostics?: boolean
+  /** Leave attached documents out, keeping only what the drawings need. */
+  excludeProjectDocuments?: boolean
 }
 
 export class ProjectExportValidationError extends Error {
@@ -200,6 +210,20 @@ function externalizeAssets(project: ProjectV2): { project: ProjectV2; files: Ass
     asset.legacy.svgContent = undefined
   }
 
+  for (const asset of nextProject.assets) {
+    if (!isProjectDocumentAsset(asset) || !asset.dataUrl?.startsWith('data:')) continue
+    const bytes = decodeDataUrl(asset.dataUrl)
+    if (!bytes) continue
+    const mimeType = asset.dataUrl.slice(5, asset.dataUrl.search(/[;,]/)).toLowerCase() || 'application/octet-stream'
+    const baseName = (asset.document?.name || asset.sourceName || '').replace(/\.[a-z0-9]+$/i, '')
+    const fileStem = [sanitizePathSegment(asset.id), baseName && sanitizePathSegment(baseName)]
+      .filter(Boolean)
+      .join('-')
+    const path = `${ASSETS_FOLDER}/project-${sanitizePathSegment(projectId)}/${DOCUMENTS_SUBFOLDER}/${fileStem}.${mimeToExtension(mimeType)}`
+    files.push({ path, bytes })
+    asset.dataUrl = path
+  }
+
   const importSources = nextProject.project.importSources
   for (const kind of ['trik', 'schematicals'] as const) {
     const source = importSources?.[kind]
@@ -231,6 +255,10 @@ function externalizeAssets(project: ProjectV2): { project: ProjectV2; files: Ass
   return { project: nextProject, files }
 }
 
+/* @project-documents-strip-start */
+
+/* @project-documents-strip-end */
+
 function stripImportedVersionHistory(project: ProjectV2): ProjectV2 {
   const next = JSON.parse(JSON.stringify(project)) as ProjectV2
   delete (next.project as unknown as Record<string, unknown>).importedVersionHistory
@@ -253,8 +281,15 @@ export async function exportPortableProjectToZip(
     )
   }
 
-  const exportProject = stripImportedVersionHistory(normalizedProject)
+  const exportProject = stripImportedVersionHistory(
+    options.excludeProjectDocuments === true
+      ? withoutProjectDocumentAssets(normalizedProject)
+      : normalizedProject,
+  )
   const { project: projectWithAssets, files } = externalizeAssets(exportProject)
+  /* @project-documents-strip-start */
+  
+  /* @project-documents-strip-end */
   const zip = new JSZip()
 
   for (const file of files) {

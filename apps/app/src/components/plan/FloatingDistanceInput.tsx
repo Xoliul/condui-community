@@ -1,13 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Point2 } from '@/types/schema'
-
-const MIN_METERS = 0.01
-
-function normalizeMetersInput(value: string): number {
-  const parsed = Number(value.trim())
-  if (!Number.isFinite(parsed) || parsed <= 0) return 1
-  return Math.max(MIN_METERS, parsed)
-}
+import { parsePlanMeters } from '@/lib/plan/planScale'
 
 interface FloatingDistanceInputProps {
   startPoint: Point2
@@ -39,7 +32,8 @@ function FloatingDistanceInput({
   }, [meters, isEditing])
 
   const commitDraftValue = () => {
-    const normalized = normalizeMetersInput(draftValue)
+    const normalized = parsePlanMeters(draftValue)
+    if (normalized == null) { onMetersChange(Number.NaN); return }
     setDraftValue(String(normalized))
     setIsEditing(false)
     onMetersChange(normalized)
@@ -105,23 +99,18 @@ function FloatingDistanceInput({
       <div className="bg-white dark:bg-gray-800 border-2 border-sky-500 rounded-md shadow-lg px-2 py-1 flex items-center gap-1">
         <input
           ref={inputRef}
-          type="number"
-          min={MIN_METERS}
-          step="0.01"
+          type="text"
+          inputMode="decimal"
           value={draftValue}
           onFocus={() => setIsEditing(true)}
           onChange={(e) => {
             const nextValue = e.target.value
             setIsEditing(true)
             setDraftValue(nextValue)
-            if (nextValue.trim() === '') return
-
-            const parsed = Number(nextValue)
-            if (Number.isFinite(parsed) && parsed > 0) {
-              onMetersChange(parsed)
-            }
+            onMetersChange(parsePlanMeters(nextValue) ?? Number.NaN)
           }}
           onBlur={commitDraftValue}
+          aria-invalid={parsePlanMeters(draftValue) == null}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.currentTarget.blur()

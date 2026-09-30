@@ -1,9 +1,18 @@
 import { INFO_BLOCK_HEIGHT, INFO_BLOCK_TOTAL_WIDTH } from '@/lib/infoBlockLayout'
 import { layoutRectsOverlap } from '@/lib/layout/oneWireBlockLayout'
-import { A4_LANDSCAPE, A4_PORTRAIT, PAGE_MARGIN } from './pageSizes'
+import {
+  A4_LANDSCAPE,
+  A4_PORTRAIT,
+  getChromeScale,
+  getPageDimensions,
+  PAGE_MARGIN,
+  type ExportPaperSize,
+} from './pageSizes'
 
 export const INFO_BLOCK_GAP_MM = 2
 export const PANEL_TITLE_HEIGHT_MM = 10
+/** QR image edge length in the top-right reference link. */
+export const REFERENCE_IMAGE_SIZE_MM = 12.75
 /** QR + hostname under it, top-right. Keep in sync with pdfComposer reference link. */
 export const EENDRAAD_QR_STACK_HEIGHT_MM = 12.75 + 1.2 + 5
 export const EENDRAAD_TOP_CHROME_HEIGHT_MM = Math.max(
@@ -14,12 +23,26 @@ export const EENDRAAD_TOP_CHROME_HEIGHT_MM = Math.max(
 /** Keep the info box secondary to the schematic; do not stretch it to half the sheet. */
 const INFO_BLOCK_MAX_WIDTH_MM = 96
 
+/** Title band height for the paper size (chrome shrinks on A3). */
+export function getPanelTitleHeightMm(paperSize: ExportPaperSize = 'A4'): number {
+  return PANEL_TITLE_HEIGHT_MM * getChromeScale(paperSize)
+}
+
+/** Top band (title and QR) that the one-wire schematic starts below. */
+export function getEendraadTopChromeHeightMm(paperSize: ExportPaperSize = 'A4'): number {
+  return EENDRAAD_TOP_CHROME_HEIGHT_MM * getChromeScale(paperSize)
+}
+
 export function getInfoBlockReservedZoneMm(
   orientation: 'landscape' | 'portrait',
-  nativeWidth = INFO_BLOCK_TOTAL_WIDTH
+  nativeWidth = INFO_BLOCK_TOTAL_WIDTH,
+  paperSize: ExportPaperSize = 'A4'
 ): { widthMm: number; heightMm: number } {
+  // The info box has the same absolute width cap on every sheet; A3 shrinks it
+  // so it takes a smaller share of the larger page.
   const landscapeUsableWidth = A4_LANDSCAPE.width - PAGE_MARGIN * 2
-  const reservedWidthMm = Math.min(landscapeUsableWidth * 0.36, INFO_BLOCK_MAX_WIDTH_MM)
+  const reservedWidthMm =
+    Math.min(landscapeUsableWidth * 0.36, INFO_BLOCK_MAX_WIDTH_MM) * getChromeScale(paperSize)
   const aspect = INFO_BLOCK_HEIGHT / nativeWidth
   if (orientation === 'landscape') {
     return { widthMm: reservedWidthMm, heightMm: reservedWidthMm * aspect }
@@ -31,14 +54,20 @@ export function getInfoBlockReservedZoneMm(
 
 export function getPdfContentHeightMm(
   orientation: 'landscape' | 'portrait',
-  options: { hasInfoBlock: boolean; hasPanelTitle: boolean; infoBlockNativeWidth?: number }
+  options: {
+    hasInfoBlock: boolean
+    hasPanelTitle: boolean
+    infoBlockNativeWidth?: number
+    paperSize?: ExportPaperSize
+  }
 ): number {
-  const page = orientation === 'landscape' ? A4_LANDSCAPE : A4_PORTRAIT
+  const paperSize = options.paperSize ?? 'A4'
+  const page = getPageDimensions(orientation, paperSize)
   const usableHeight = page.height - PAGE_MARGIN * 2
-  let height = usableHeight - (options.hasPanelTitle ? PANEL_TITLE_HEIGHT_MM : 0)
+  let height = usableHeight - (options.hasPanelTitle ? getPanelTitleHeightMm(paperSize) : 0)
   if (options.hasInfoBlock) {
     height -=
-      getInfoBlockReservedZoneMm(orientation, options.infoBlockNativeWidth).heightMm +
+      getInfoBlockReservedZoneMm(orientation, options.infoBlockNativeWidth, paperSize).heightMm +
       INFO_BLOCK_GAP_MM
   }
   return Math.max(20, height)
@@ -49,28 +78,35 @@ export function getPdfContentHeightMm(
  * bottom-right obstacle; scale must clear it via
  * `limitEendraadScaleToInfoBlockCollision`.
  */
-export function getEendraadSchematicAreaMm(orientation: 'landscape' | 'portrait'): {
+export function getEendraadSchematicAreaMm(
+  orientation: 'landscape' | 'portrait',
+  paperSize: ExportPaperSize = 'A4'
+): {
   widthMm: number
   heightMm: number
 } {
-  const page = orientation === 'landscape' ? A4_LANDSCAPE : A4_PORTRAIT
+  const page = getPageDimensions(orientation, paperSize)
   return {
     widthMm: page.width - PAGE_MARGIN * 2,
-    heightMm: Math.max(20, page.height - PAGE_MARGIN * 2 - EENDRAAD_TOP_CHROME_HEIGHT_MM),
+    heightMm: Math.max(
+      20,
+      page.height - PAGE_MARGIN * 2 - getEendraadTopChromeHeightMm(paperSize)
+    ),
   }
 }
 
-export function getEendraadSchematicTopMm(): number {
-  return PAGE_MARGIN + EENDRAAD_TOP_CHROME_HEIGHT_MM
+export function getEendraadSchematicTopMm(paperSize: ExportPaperSize = 'A4'): number {
+  return PAGE_MARGIN + getEendraadTopChromeHeightMm(paperSize)
 }
 
 /** PDF info-box rectangle used as a one-wire collision obstacle. */
 export function getEendraadInfoBlockObstacleMm(
   orientation: 'landscape' | 'portrait' = 'landscape',
-  nativeWidth?: number
+  nativeWidth?: number,
+  paperSize: ExportPaperSize = 'A4'
 ): { x: number; y: number; width: number; height: number } {
-  const page = orientation === 'landscape' ? A4_LANDSCAPE : A4_PORTRAIT
-  const reserved = getInfoBlockReservedZoneMm(orientation, nativeWidth)
+  const page = getPageDimensions(orientation, paperSize)
+  const reserved = getInfoBlockReservedZoneMm(orientation, nativeWidth, paperSize)
   return {
     x: page.width - PAGE_MARGIN - reserved.widthMm,
     y: page.height - PAGE_MARGIN - reserved.heightMm,
@@ -87,12 +123,13 @@ export function getEendraadInfoBlockObstacleMm(
 export function limitEendraadScaleToInfoBlockCollision(
   packHeightPx: number,
   scale: number,
-  nativeWidth?: number
+  nativeWidth?: number,
+  paperSize: ExportPaperSize = 'A4'
 ): number {
   const height = Math.max(packHeightPx, 1)
-  const area = getEendraadSchematicAreaMm('landscape')
-  const obstacle = getEendraadInfoBlockObstacleMm('landscape', nativeWidth)
-  const topMm = getEendraadSchematicTopMm()
+  const area = getEendraadSchematicAreaMm('landscape', paperSize)
+  const obstacle = getEendraadInfoBlockObstacleMm('landscape', nativeWidth, paperSize)
+  const topMm = getEendraadSchematicTopMm(paperSize)
   let next = scale
   const schematicRect = () => ({
     x: PAGE_MARGIN,

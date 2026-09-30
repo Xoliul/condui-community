@@ -1,10 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { Point } from '@/types/ui'
 import {
   useFloorPlanDrawDimensionEditor,
   type FloorPlanDrawDimensionEditor,
   type FloorPlanDrawDimensionField,
 } from './floorPlanDrawDimensionEditorStore'
+
+function isValidDimensionText(text: string): boolean {
+  return /^\d*(?:[.,]\d*)?$/.test(text)
+}
 
 interface FloorPlanDrawDimensionInputProps {
   pan: Point
@@ -29,6 +33,36 @@ function FloorPlanDrawDimensionFieldInput({
     input.focus({ preventScroll: true })
     input.select()
   }, [field.active, field.id])
+
+  // A live (untyped) value follows the pointer, and every re-render would make the
+  // browser drop the selection and park the caret at the end. Re-select it so the
+  // first typed character replaces the measurement instead of being appended to it.
+  useLayoutEffect(() => {
+    if (!field.active || !field.live) return
+    const input = inputRef.current
+    if (!input || input.ownerDocument.activeElement !== input) return
+    input.select()
+  }, [field.active, field.live, field.value])
+
+  // The selection alone is not reliable: typing right after a pointer move can land
+  // before the re-select. While the value is live, replace it outright instead.
+  const liveRef = useRef(field.live)
+  liveRef.current = field.live
+  const replaceLiveValueRef = useRef<(text: string) => void>(() => undefined)
+  replaceLiveValueRef.current = (text) => {
+    if (isValidDimensionText(text)) editor.onChange(field.id, text)
+  }
+  useEffect(() => {
+    const input = inputRef.current
+    if (!input) return
+    const handleBeforeInput = (event: InputEvent) => {
+      if (!liveRef.current || event.inputType !== 'insertText' || event.data == null) return
+      event.preventDefault()
+      replaceLiveValueRef.current(event.data)
+    }
+    input.addEventListener('beforeinput', handleBeforeInput)
+    return () => input.removeEventListener('beforeinput', handleBeforeInput)
+  }, [])
 
   const transform =
     field.placement === 'above'
@@ -62,7 +96,7 @@ function FloorPlanDrawDimensionFieldInput({
         onFocus={() => editor.onActivate(field.id)}
         onChange={(event) => {
           const next = event.target.value
-          if (!/^\d*(?:[.,]\d*)?$/.test(next)) return
+          if (!isValidDimensionText(next)) return
           editor.onChange(field.id, next)
         }}
         onKeyDown={(event) => {

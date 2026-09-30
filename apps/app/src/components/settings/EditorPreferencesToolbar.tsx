@@ -1,3 +1,4 @@
+import { LANGUAGE_OPTIONS } from '@/utils/languageRouting'
 import { startTransition } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/i18n'
@@ -9,11 +10,7 @@ import {
 } from '@/utils/languageRouting'
 import { ThemeToggleButton } from './ThemeToggleButton'
 
-const LANGUAGE_OPTIONS = [
-  { code: 'en', label: 'EN' },
-  { code: 'nl-BE', label: 'NL' },
-  { code: 'fr-BE', label: 'FR' },
-] as const
+
 
 export function EditorPreferencesToolbar() {
   const { t } = useTranslation()

@@ -206,9 +206,11 @@ export function getSelectedPlacementTarget(
   | { type: 'ground' }
   | { type: 'endpoint'; endpointId: string; endpoint: Endpoint }
   | { type: 'trunkDevice'; deviceId: string; device: TrunkDevice }
+  | { type: 'auxiliaryEnclosure'; enclosureId: string }
   | { type: 'unresolved' } {
   const placement = getPlacementById(placementId)
   if (placement?.isEarthing) return { type: 'ground' }
+  if (placement?.enclosureId) return { type: 'auxiliaryEnclosure', enclosureId: placement.enclosureId }
   const endpointId = placement?.endpointId
   const endpoint = endpointId ? getEndpointById(endpointId) : undefined
   if (endpointId && endpoint) return { type: 'endpoint', endpointId, endpoint }
@@ -428,6 +430,8 @@ export function getPropertiesPanelTitle({
     }
     case 'note':
       return pt('notes.title', 'Note / Label')
+    case 'document':
+      return pt('projectDocuments.propertiesTitle', 'Document')
     case 'frame':
       return pt('frames.title', 'Frame')
     case 'stair':

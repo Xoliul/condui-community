@@ -33,6 +33,9 @@ import { exportLog } from './exportLogger'
 import conduiLogoSvg from '../../../public/logos/Condui_logo.svg?raw'
 
 export const BROTHER_TAPE_WIDTHS_MM = [12, 18, 24, 36] as const
+/** Handheld PT-E models stop at 24 mm (PT-E310BT at 18 mm). */
+export const BROTHER_PT_E24_TAPE_WIDTHS_MM = [12, 18, 24] as const
+export const BROTHER_PT_E18_TAPE_WIDTHS_MM = [12, 18] as const
 export const BROTHER_QL_TAPE_WIDTHS_MM = [12, 29, 38, 50] as const
 export type BrotherPrinter =
   | 'pt-p900-family'
@@ -40,6 +43,9 @@ export type BrotherPrinter =
   | 'pt-p910bt'
   | 'pt-e800w'
   | 'pt-d800w'
+  | 'pt-e550w'
+  | 'pt-e560bt'
+  | 'pt-e310bt'
   | 'ql-810w'
   | 'ql-820nwb'
 export type BrotherLbxMode = 'sheets' | 'single-strip'
@@ -48,13 +54,17 @@ export type BrotherTapeWidthMm =
   | (typeof BROTHER_QL_TAPE_WIDTHS_MM)[number]
 
 export function getBrotherTapeWidthsMm(printer: BrotherPrinter): readonly BrotherTapeWidthMm[] {
-  return printer === 'ql-810w' || printer === 'ql-820nwb'
-    ? BROTHER_QL_TAPE_WIDTHS_MM
-    : BROTHER_TAPE_WIDTHS_MM
+  if (printer === 'ql-810w' || printer === 'ql-820nwb') return BROTHER_QL_TAPE_WIDTHS_MM
+  if (printer === 'pt-e550w' || printer === 'pt-e560bt') return BROTHER_PT_E24_TAPE_WIDTHS_MM
+  if (printer === 'pt-e310bt') return BROTHER_PT_E18_TAPE_WIDTHS_MM
+  return BROTHER_TAPE_WIDTHS_MM
 }
 
 export function getDefaultBrotherTapeWidthMm(printer: BrotherPrinter): BrotherTapeWidthMm {
-  return printer === 'ql-810w' || printer === 'ql-820nwb' ? 29 : 36
+  if (printer === 'ql-810w' || printer === 'ql-820nwb') return 29
+  if (printer === 'pt-e550w' || printer === 'pt-e560bt') return 24
+  if (printer === 'pt-e310bt') return 18
+  return 36
 }
 
 export function getDefaultBrotherLbxMode(printer: BrotherPrinter): BrotherLbxMode {

@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { Theme, FontFamily } from '@/types/ui'
 import { getThemeColor } from '@/lib/theme/colors'
 import { clearSymbolCache, warmSymbolSvgCache } from '@/lib/symbolImage'
+import { setManualPlanPlacement } from '@/lib/plan/manualPlanPlacementPreference'
 import {
   persistLanguagePreference,
   persistThemePreference,
@@ -25,10 +26,14 @@ interface Settings {
   eendraadTrunkLayoutDebug: boolean
   /** Debug: visualize sitplan placement centers, bounds, label positions and wall orientation helpers */
   planPlacementDebug: boolean
+  /** Debug: draw estimated physical cable routes and lengths on the sitplan */
+  planCableRouteDebug: boolean
   /** Debug: color-code panel relation routing and module role overlays */
   panelRelationDebug: boolean
   /** Desktop/laptop: left-drag on empty canvas pans (Shift+left-drag = marquee select). */
   leftDragPansCanvas: boolean
+  /** New symbols wait off the situation plan until the user places them (Quick Placer, drag). */
+  placePlanSymbolsManually: boolean
 }
 
 const getDefaultLanguage = (): string => {
@@ -58,8 +63,10 @@ interface SettingsState extends Settings {
   setEendraadHitboxDebug: (enabled: boolean) => void
   setEendraadTrunkLayoutDebug: (enabled: boolean) => void
   setPlanPlacementDebug: (enabled: boolean) => void
+  setPlanCableRouteDebug: (enabled: boolean) => void
   setPanelRelationDebug: (enabled: boolean) => void
   setLeftDragPansCanvas: (enabled: boolean) => void
+  setPlacePlanSymbolsManually: (enabled: boolean) => void
   reset: () => void
 }
 
@@ -86,8 +93,10 @@ const defaultSettings: Settings = {
   eendraadHitboxDebug: false,
   eendraadTrunkLayoutDebug: false,
   planPlacementDebug: false,
+  planCableRouteDebug: false,
   panelRelationDebug: false,
-  leftDragPansCanvas: false,
+  leftDragPansCanvas: true,
+  placePlanSymbolsManually: false,
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -113,8 +122,10 @@ export const useSettingsStore = create<SettingsState>()(
       setEendraadHitboxDebug: (enabled) => set({ eendraadHitboxDebug: enabled }),
       setEendraadTrunkLayoutDebug: (enabled) => set({ eendraadTrunkLayoutDebug: enabled }),
       setPlanPlacementDebug: (enabled) => set({ planPlacementDebug: enabled }),
+      setPlanCableRouteDebug: (enabled) => set({ planCableRouteDebug: enabled }),
       setPanelRelationDebug: (enabled) => set({ panelRelationDebug: enabled }),
       setLeftDragPansCanvas: (enabled) => set({ leftDragPansCanvas: enabled }),
+      setPlacePlanSymbolsManually: (enabled) => set({ placePlanSymbolsManually: enabled }),
       reset: () => set(defaultSettings),
     }),
     {
@@ -134,3 +145,6 @@ export const useSettingsStore = create<SettingsState>()(
     }
   )
 )
+
+setManualPlanPlacement(useSettingsStore.getState().placePlanSymbolsManually)
+useSettingsStore.subscribe((state) => setManualPlanPlacement(state.placePlanSymbolsManually))

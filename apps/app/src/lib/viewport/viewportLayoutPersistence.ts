@@ -2,16 +2,11 @@ import { VIEWPORT_RATIO_MAX, VIEWPORT_RATIO_MIN } from '@/constants/layoutConsta
 import { getResponsiveEditorMode } from '@/hooks/useResponsiveEditorMode'
 import { DEFAULT_LAYOUTS } from '@/stores/uiStore'
 import type { CanvasType, LayoutPreset, ViewportLayout, ViewportPanel } from '@/types/ui'
-import { isStructuralCanvasEnabled } from '@/lib/structuralCanvas/availability'
+import { isAvailableCanvasType } from '@/lib/viewport/availableCanvasTypes'
 import { clamp } from '@/lib/geometry'
 
-const CANVAS_TYPES: CanvasType[] = ['eendraad', 'plan', 'panel', 'structure']
-
 function isCanvasType(value: string): value is CanvasType {
-  return (
-    (CANVAS_TYPES as readonly string[]).includes(value) &&
-    (value !== 'structure' || isStructuralCanvasEnabled())
-  )
+  return isAvailableCanvasType(value)
 }
 
 function isLayoutPreset(value: string): value is LayoutPreset {
@@ -20,13 +15,15 @@ function isLayoutPreset(value: string): value is LayoutPreset {
     value === 'sideBySide' ||
     value === 'stacked' ||
     value === 'topPairBottomWide' ||
-    value === 'topWideBottomPair'
+    value === 'topWideBottomPair' ||
+    value === 'grid'
   )
 }
 
 function expectedPanelCount(preset: LayoutPreset): number {
   if (preset === 'single') return 1
   if (preset === 'sideBySide' || preset === 'stacked') return 2
+  if (preset === 'grid') return 4
   return 3
 }
 

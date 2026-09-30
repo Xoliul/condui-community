@@ -1,5 +1,5 @@
 import { readLanguageCookie, writeLanguageCookie } from './language'
-import { getPathLanguagePrefix, resolveDomainDefaultLanguage } from './languageRouting'
+import { getPathLanguagePrefix, normalizeSupportedLanguage, resolveDomainDefaultLanguage } from './languageRouting'
 
 export type ThemeMode = 'light' | 'dark'
 export type TutorialOnboardingVariant = 'desktop' | 'mobile' | 'tablet'
@@ -93,15 +93,15 @@ export const resolveInitialLanguagePreference = (hostname: string): string => {
     if (pathLanguage) return pathLanguage
   }
 
-  const cookieLanguage = readLanguageCookie()
+  const cookieLanguage = normalizeSupportedLanguage(readLanguageCookie())
   if (cookieLanguage) return cookieLanguage
 
   try {
     const settings = window.localStorage.getItem('eendra-settings')
     if (settings) {
       const parsed = JSON.parse(settings)
-      const storedLanguage = parsed?.state?.language
-      if (typeof storedLanguage === 'string' && storedLanguage.length > 0) {
+      const storedLanguage = normalizeSupportedLanguage(parsed?.state?.language)
+      if (storedLanguage) {
         return storedLanguage
       }
     }
@@ -109,7 +109,7 @@ export const resolveInitialLanguagePreference = (hostname: string): string => {
     // Ignore malformed persisted data and continue with fallback sources.
   }
 
-  const legacyLanguage = readLocalStorage(['eendra-language'])
+  const legacyLanguage = normalizeSupportedLanguage(readLocalStorage(['eendra-language']))
   if (legacyLanguage) return legacyLanguage
 
   return resolveDomainDefaultLanguage(hostname)

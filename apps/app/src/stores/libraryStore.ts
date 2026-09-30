@@ -1,3 +1,4 @@
+import { getLocalizedSymbolName } from '@/lib/symbolNames'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { symbols, type SymbolMetadata } from '@/lib/symbols'
@@ -19,7 +20,7 @@ interface LibraryState {
   setSearchQuery: (query: string) => void
   setSelectedCategory: (category: string | null) => void
   getSymbolById: (id: string) => SymbolMetadata | undefined
-  getFilteredSymbols: () => SymbolMetadata[]
+  getFilteredSymbols: (locale?: string) => SymbolMetadata[]
   getSymbolsByCategory: (category: string) => SymbolMetadata[]
   getSymbolsByScope: (scope: 'eendraad' | 'situatieplan' | 'both') => SymbolMetadata[]
 }
@@ -59,7 +60,7 @@ export const useLibraryStore = create<LibraryState>()(
 
       getSymbolById: (id) => get().symbols.find((s) => s.id === id && isSymbolAvailableInLibrary(s)),
 
-      getFilteredSymbols: () => {
+      getFilteredSymbols: (locale = 'en') => {
         const { symbols, searchQuery, selectedCategory } = get()
         let filtered = symbols.filter(isSymbolAvailableInLibrary)
 
@@ -70,10 +71,23 @@ export const useLibraryStore = create<LibraryState>()(
 
         // Filter by search query with fuzzy matching and synonyms
         if (searchQuery) {
+          const normalizedQuery = normalizeLibrarySearchText(searchQuery)
+          const isShortPrefixQuery =
+            normalizedQuery.length > 0 &&
+            normalizedQuery.length <= 2 &&
+            !normalizedQuery.includes(' ')
+
+          if (isShortPrefixQuery) {
+            return filtered.filter((symbol) =>
+              normalizeLibrarySearchText(getLocalizedSymbolName(symbol, locale)).startsWith(normalizedQuery)
+            )
+          }
+
           filtered = filterBySearchRelevance(filtered, searchQuery, (s) => {
             // Check all name variations and tags, preferring literal matches.
             return [
               s.name,
+              getLocalizedSymbolName(s, locale),
               s.nameNL,
               s.nameFR,
               ...s.tags,
@@ -108,3 +122,13 @@ export const useLibraryStore = create<LibraryState>()(
     }
   )
 )
+
+function normalizeLibrarySearchText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+}

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import type { Floor } from '@/types/schema'
 import { useUIStore } from '@/stores/uiStore'
 import { clamp } from '@/lib/geometry'
+import { resolvePlanPxPerMeter } from '@/lib/plan/planScale'
 import {
   DEFAULT_SYMBOL_SIZE_CM,
   MIN_SYMBOL_SIZE_CM,
@@ -25,14 +26,7 @@ function getLabelScaleFactor(symbolSizeCm: number): number {
  * Shared helper so all plan scale consumers stay in sync.
  */
 export function calculatePxPerMeter(floor: Floor | null): number | null {
-  if (!floor?.scale) return null
-  if (floor.scale.pxPerMeter) return floor.scale.pxPerMeter
-  if (floor.scale.reference) {
-    const { p1, p2, meters } = floor.scale.reference
-    const referenceDistance = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2)
-    if (referenceDistance > 0) return referenceDistance / meters
-  }
-  return null
+  return resolvePlanPxPerMeter(floor?.scale)
 }
 
 /**

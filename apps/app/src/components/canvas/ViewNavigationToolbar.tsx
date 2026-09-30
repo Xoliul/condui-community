@@ -5,11 +5,7 @@ import { ZOOM_MIN, ZOOM_MAX, zoomToDisplayPercent } from '@/constants/canvasCons
 import { preventCanvasToolbarMouseFocus } from '@/lib/ui/preventCanvasToolbarMouseFocus'
 import { useCanvasOverlayScale } from '@/contexts/CanvasOverlayScaleContext'
 import { useUIStore } from '@/stores/uiStore'
-import {
-  FindFocusIcon,
-  MaximizeCanvasIcon,
-  RestoreLayoutIcon,
-} from '@/components/icons/UiIcons'
+import { FindFocusIcon, MaximizeCanvasIcon, RestoreLayoutIcon } from '@/components/icons/UiIcons'
 
 interface ViewNavigationToolbarProps {
   zoom: number
@@ -20,6 +16,8 @@ interface ViewNavigationToolbarProps {
   isMaximized?: boolean
   canvasType?: CanvasType
   position?: 'bottom-right' | 'top-right'
+  /** Only the maximize/restore button, for views without zoom (e.g. a document overview). */
+  maximizeOnly?: boolean
 }
 
 function ViewNavigationToolbar({
@@ -30,6 +28,7 @@ function ViewNavigationToolbar({
   isMaximized: isMaximizedProp,
   canvasType,
   position = 'bottom-right',
+  maximizeOnly = false,
 }: ViewNavigationToolbarProps) {
   const { t } = useTranslation()
   const { scale: overlayScale } = useCanvasOverlayScale()
@@ -76,6 +75,33 @@ function ViewNavigationToolbar({
   const canToggleMaximize = Boolean(onToggleMaximize || canvasType)
   const isMaximized = isMaximizedProp ?? toolbarCanvasMaximized
 
+  if (maximizeOnly && !isTouchDevice) {
+    if (!canToggleMaximize) return null
+    return (
+      <div
+        data-canvas-overlay-anchor="right"
+        data-canvas-overlay-position={position}
+        className={`absolute ${positionClasses[position]} z-10 flex items-center gap-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-md shadow-lg px-2 py-1 border border-gray-200 dark:border-gray-700`}
+        style={{ transform: `scale(${overlayScale})`, transformOrigin }}
+      >
+        <button
+          type="button"
+          onPointerDown={preventCanvasToolbarMouseFocus}
+          onClick={handleToggleMaximize}
+          className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+          title={isMaximized ? restoreLabel : maximizeLabel}
+          aria-label={isMaximized ? restoreLabel : maximizeLabel}
+        >
+          {isMaximized ? (
+            <RestoreLayoutIcon className="h-5 w-5" />
+          ) : (
+            <MaximizeCanvasIcon className="h-5 w-5" />
+          )}
+        </button>
+      </div>
+    )
+  }
+
   if (isTouchDevice) {
     return (
       <div
@@ -84,16 +110,18 @@ function ViewNavigationToolbar({
         className={`absolute ${positionClasses[position]} z-10 flex items-center gap-2`}
         style={{ transform: `scale(${overlayScale})`, transformOrigin }}
       >
-        <button
-          type="button"
-          onPointerDown={preventCanvasToolbarMouseFocus}
-          onClick={onFitToView}
-          className="flex h-12 w-12 items-center justify-center rounded-md border border-gray-300 bg-white/90 text-gray-700 shadow-lg backdrop-blur-sm transition-colors hover:bg-gray-100/90 dark:border-gray-500 dark:bg-gray-700/90 dark:text-gray-300 dark:hover:bg-gray-600/90"
-          title={`${t('canvas.fitToView')} (F)`}
-          aria-label={t('canvas.fitToView')}
-        >
-          <FindFocusIcon />
-        </button>
+        {!maximizeOnly && (
+          <button
+            type="button"
+            onPointerDown={preventCanvasToolbarMouseFocus}
+            onClick={onFitToView}
+            className="flex h-12 w-12 items-center justify-center rounded-md border border-gray-300 bg-white/90 text-gray-700 shadow-lg backdrop-blur-sm transition-colors hover:bg-gray-100/90 dark:border-gray-500 dark:bg-gray-700/90 dark:text-gray-300 dark:hover:bg-gray-600/90"
+            title={`${t('canvas.fitToView')} (F)`}
+            aria-label={t('canvas.fitToView')}
+          >
+            <FindFocusIcon />
+          </button>
+        )}
 
         {canToggleMaximize && (
           <button

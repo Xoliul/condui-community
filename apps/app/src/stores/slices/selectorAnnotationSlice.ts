@@ -1,4 +1,5 @@
 import { editWireRunAtAnchor } from '@/lib/wires/editWireRun'
+import { estimateCableRoutes } from '@/lib/cableRouting/estimateCableRoutes'
 import { getProjectStoreApi } from './projectStoreHistory'
 import type { ProjectSliceCreator } from './projectStoreTypes'
 import { syncDerivedEndpointFlags } from '@/lib/eendraad/endpointInsertAfter'
@@ -56,6 +57,7 @@ import {
   healProjectFloorsElectricalLayers,
 } from '@/lib/plan/floorLayers'
 import { resolvePanelForDistributionEndpoint } from '@/lib/plan/panelDistributionEndpoint'
+import { duplicateJunctionOccurrenceIds } from '@/lib/plan/sharedJunctionPlacements'
 import { resolveSitplanTargetFloorId } from '@/lib/plan/sitplanTargetFloor'
 import {
   queryOneWireFrames,
@@ -74,9 +76,11 @@ import {
   mutateBuildingFloorView,
 } from '@/lib/projectV2/buildingFloors'
 import {
+  selectProjectAuxiliaryElectricalEnclosures,
   selectProjectElectricalInstallation,
   selectProjectElectricalPanels,
   editProjectElectricalPanels,
+  getEditableProjectElectricalInstallation,
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import { getElectricalLookupIndex } from '@/lib/projectV2/electricalLookupIndex'
@@ -268,6 +272,10 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
     for (const device of getAllSupplyTrunkDevices(currentProject)) {
       const placement = device.placements?.find((candidate) => candidate.id === id)
       if (placement) return { ...placement, trunkDeviceId: device.id }
+    }
+    for (const enclosure of selectProjectAuxiliaryElectricalEnclosures(currentProject)) {
+      const placement = enclosure.placements?.find((candidate) => candidate.id === id)
+      if (placement) return { ...placement, enclosureId: enclosure.id }
     }
     for (const panel of selectProjectElectricalPanels(currentProject)) {
       for (const endpoint of getAllEndpoints(panel)) {
@@ -656,13 +664,18 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
       Placement & {
         endpointId?: string
         trunkDeviceId?: string
+        enclosureId?: string
+        planLabel?: string
         junctionPanelLabel?: string
         isEarthing?: boolean
       }
     > = []
+    // A junction box drawn several times on the one-wire is one box on the plan.
+    const duplicateJunctions = duplicateJunctionOccurrenceIds(currentProject)
     for (const panel of selectProjectElectricalPanels(currentProject)) {
       const endpoints = getAllEndpoints(panel)
       for (const endpoint of endpoints) {
+        if (duplicateJunctions.has(endpoint.id)) continue
         for (const placement of endpoint.placements) {
           if (placement.floorId === floorId) {
             result.push({ ...placement, endpointId: endpoint.id })
@@ -671,6 +684,7 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
       }
       for (const circuit of getAllCircuits(panel)) {
         for (const device of circuit.trunkDevices ?? []) {
+          if (duplicateJunctions.has(device.id)) continue
           for (const placement of device.placements ?? []) {
             if (placement.floorId === floorId) {
               result.push({ ...placement, trunkDeviceId: device.id })
@@ -681,6 +695,7 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
     }
     const installation = selectProjectElectricalInstallation(currentProject)
     for (const device of getAllSupplyTrunkDevices(currentProject)) {
+      if (duplicateJunctions.has(device.id)) continue
       for (const placement of device.placements ?? []) {
         if (placement.floorId === floorId) {
           result.push({ ...placement, trunkDeviceId: device.id })
@@ -691,9 +706,17 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
       selectProjectElectricalPanels(currentProject),
       installation
     )) {
+      if (duplicateJunctions.has(device.id)) continue
       for (const placement of device.placements ?? []) {
         if (placement.floorId === floorId) {
           result.push({ ...placement, trunkDeviceId: device.id })
+        }
+      }
+    }
+    for (const enclosure of selectProjectAuxiliaryElectricalEnclosures(currentProject)) {
+      for (const placement of enclosure.placements ?? []) {
+        if (placement.floorId === floorId) {
+          result.push({ ...placement, enclosureId: enclosure.id, planLabel: enclosure.name })
         }
       }
     }
@@ -1267,7 +1290,37 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
   updateWireRunAtAnchor: (anchor, cable, changes) =>
     set((state) => {
       if (!state.currentProject) return
+      if (changes.lengthSource === 'estimated' && !estimateCableRoutes(state.currentProject).routes.some((route) =>
+        (route.anchor === anchor || route.aliasAnchors?.includes(anchor)) && route.scaleCalibrated !== false && route.highM > 0,
+      )) return
       editWireRunAtAnchor(state.currentProject, anchor, cable, changes)
+      state.isDirty = true
+    }),
+
+  acceptWireLengthEstimates: (entries) =>
+    set((state) => {
+      if (!state.currentProject || entries.length === 0) return
+      const calibratedAnchors = new Set(estimateCableRoutes(state.currentProject).routes
+        .filter((route) => route.scaleCalibrated !== false && route.highM > 0)
+        .flatMap((route) => [route.anchor, ...(route.aliasAnchors ?? [])]))
+      for (const entry of entries) {
+        if (!calibratedAnchors.has(entry.anchor)) continue
+        editWireRunAtAnchor(state.currentProject, entry.anchor, entry.cable, {
+          lengthM: entry.lengthM,
+          lengthSource: 'estimated',
+        })
+      }
+      state.isDirty = true
+    }),
+
+  makeWireCableProjectDefault: (anchor, cable) =>
+    set((state) => {
+      const installation = state.currentProject
+        ? getEditableProjectElectricalInstallation(state.currentProject)
+        : undefined
+      if (!state.currentProject || !installation) return
+      installation.defaultCableKind = cable.kind
+      editWireRunAtAnchor(state.currentProject, anchor, cable, { followsDefaultCable: true })
       state.isDirty = true
     }),
 

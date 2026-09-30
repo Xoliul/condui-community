@@ -49,5 +49,13 @@ export function buildWireBusIndex(panels: Panel[]) {
     panel.subPanels?.forEach(visit)
   }
   panels.forEach(visit)
-  return { protectionByCircuit, groupByProtection, membersByGroup, cableByGroup, cableByProtection }
+  const groupByAnchor = new Map<string, string>()
+  for (const [group, members] of membersByGroup) {
+    if (group.startsWith('circuit-bus:')) {
+      const circuitId = group.slice('circuit-bus:'.length)
+      members.push(`circuit:${circuitId}:into:bus-section:secondary-bus:${circuitId}:AC`)
+    }
+    for (const member of members) groupByAnchor.set(member, group)
+  }
+  return { protectionByCircuit, groupByProtection, membersByGroup, cableByGroup, cableByProtection, groupByAnchor }
 }

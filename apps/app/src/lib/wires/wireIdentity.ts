@@ -1,8 +1,19 @@
 import { buildWireBusIndex } from './wireBusIndex'
-import type { Circuit, Installation, Panel, WireSegment } from '@/types/schema'
+import { asRailCable, isSecondaryBusFeederAnchor, railRunByGroup } from './railWireRuns'
+import {
+  isProjectDefaultCableAnchor,
+  resolveDerivedCircuitCable,
+  SEEDED_AC_CIRCUIT_CABLE_KIND,
+  withProjectDefaultCableKind,
+} from './circuitWireDefaults'
+import type { CableSpec, Circuit, Installation, Panel, WireSegment } from '@/types/schema'
 import type { WireRun } from '@/types/projectV2'
 import type { OffGridSupplyAssembly } from '@/types/supplyAssembly'
-import { deriveWireAnchorKey, findWireRunForAnchor } from '@/lib/projectV2/wireRuns'
+import {
+  deriveWireAnchorKey,
+  findWireRunForAnchor,
+  fromWireRunRoute,
+} from '@/lib/projectV2/wireRuns'
 
 function splitBusFeedAnchor(
   segment: WireSegment,
@@ -275,24 +286,74 @@ export function stampWireSegmentAnchors(
 }
 
 /** Authored run values apply to every visual piece of the connection, including export. */
-export function applyWireRunsToSegments(segments: WireSegment[], runs: readonly WireRun[]): void {
+export function applyWireRunsToSegments(
+  segments: WireSegment[],
+  runs: readonly WireRun[],
+  defaultCableKind?: CableSpec['kind'],
+  panels: Panel[] = []
+): void {
+  const buses = buildWireBusIndex(panels)
+  const rails = railRunByGroup(buses, runs)
   for (const segment of segments) {
-    const anchors = segment.wireAnchor
+    let anchors = segment.wireAnchor
       ? [segment.wireAnchor]
       : segment.wireAnchors ?? []
+    // Cable taps no longer author the horizontal rail's specification.
+    if (segment.type === 'mainBus' && segment.wireBusGroup)
+      anchors = anchors.filter((anchor) => findWireRunForAnchor(runs, anchor)?.medium !== 'cable')
     if (!anchors.length) continue
+    const group = buses.groupByAnchor.get(anchors[0]!) ?? segment.wireBusGroup
+    const owner = findWireRunForAnchor(runs, anchors[0]!)
+    if (group && (segment.type === 'mainBus' || owner?.medium !== 'cable')) {
+      const railCable = rails.get(group)?.cable ?? buses.cableByGroup.get(group)
+      if (railCable) {
+        segment.cable = asRailCable(railCable)
+        const rail = rails.get(group)
+        if (segment.wireAnchor) {
+          const lengthRun = owner?.segmentLengths?.[segment.wireAnchor] !== undefined ? owner : rail
+          segment.wireLengthM = lengthRun?.segmentLengthSources?.[segment.wireAnchor] === 'estimated-stale'
+            ? undefined : lengthRun?.segmentLengths?.[segment.wireAnchor]
+        }
+        hideRailDecorations(segment)
+        continue
+      }
+    }
+    const followsDefault = anchors.every(isProjectDefaultCableAnchor)
     const run = findWireRunForAnchor(runs, anchors[0]!)
-    if (!run || !anchors.every((anchor) => findWireRunForAnchor(runs, anchor)?.id === run.id))
+    if (!run || !anchors.every((anchor) => findWireRunForAnchor(runs, anchor)?.id === run.id)) {
+      if (followsDefault) segment.cable = resolveDerivedCircuitCable(segment.cable, defaultCableKind)
+      if (anchors.every(isSecondaryBusFeederAnchor)) {
+        segment.cable = asRailCable(segment.cable)
+        hideRailDecorations(segment)
+      }
       continue
-    segment.cable = { ...run.cable }
-    segment.wireRoute = run.route
+    }
+    segment.cable = run.followsDefaultCable && followsDefault
+      ? withProjectDefaultCableKind(run.cable, defaultCableKind ?? SEEDED_AC_CIRCUIT_CABLE_KIND)
+      : { ...run.cable }
+    const { wireRoute, inWall } = fromWireRunRoute(run.route)
+    segment.wireRoute = wireRoute
     segment.inTube = run.inTube
-    segment.inWall = run.route === 'wall'
-    segment.wireLengthM = segment.wireAnchor ? run.segmentLengths?.[segment.wireAnchor] : undefined
+    segment.inWall = inWall
+    segment.wireLengthM = segment.wireAnchor && run.segmentLengthSources?.[segment.wireAnchor] !== 'estimated-stale' ? run.segmentLengths?.[segment.wireAnchor] : undefined
+    segment.wireLengthEstimated =
+      segment.wireAnchor && run.segmentLengthSources?.[segment.wireAnchor] === 'estimated'
+        ? true
+        : undefined
     if (run.labels?.hideWireLabel !== undefined) segment.hideWireLabel = run.labels.hideWireLabel
     if (run.labels?.showFireClassLabel !== undefined)
       segment.showFireClassLabel = run.labels.showFireClassLabel
     if (run.labels?.showWireLengthLabel !== undefined)
       segment.showWireLengthLabel = run.labels.showWireLengthLabel
+    if (run.medium === 'busbar') hideRailDecorations(segment)
   }
+}
+
+function hideRailDecorations(segment: WireSegment): void {
+  segment.hideWireLabel = true
+  segment.showFireClassLabel = false
+  segment.showWireLengthLabel = false
+  segment.wireRoute = undefined
+  segment.inWall = undefined
+  segment.inTube = undefined
 }

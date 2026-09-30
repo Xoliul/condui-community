@@ -86,6 +86,7 @@ import {
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import { getPlanPanelBodyGeometry } from './panelPlanSymbolGeometry'
+import { ImpulseSwitchCountMarker } from '../shared/ImpulseSwitchCountMarker'
 import { INTERACTIVE_OVERLAY_EXPORT_NAME } from '@/lib/export/interactiveOverlayExport'
 
 /** Avoid flooding the console when many placements fail the same asset fetch (e.g. bad imports). */
@@ -353,6 +354,7 @@ function PlacementSymbolInner({
   const placementRow = placement as Placement & {
     endpointId?: string
     trunkDeviceId?: string
+    enclosureId?: string
     junctionPanelLabel?: string
     isEarthing?: boolean
   }
@@ -369,9 +371,26 @@ function PlacementSymbolInner({
       : placementRow.trunkDeviceId
         ? (projectState.getTrunkDeviceById(placementRow.trunkDeviceId)?.device ?? null)
         : null
+  // A supply enclosure (virtual panel) is drawn as a board carrying its name.
+  const enclosureName = useProjectStore((state: ProjectState) =>
+    placementRow.enclosureId
+      ? (state.currentProject?.disciplines?.electrical?.auxiliaryEnclosures?.find(
+          (candidate) => candidate.id === placementRow.enclosureId
+        )?.name ?? '')
+      : null
+  )
   const endpoint = useMemo<Endpoint | null>(
     () =>
       sourceEndpoint ??
+      (placementRow.enclosureId && enclosureName !== null
+        ? {
+            id: placementRow.enclosureId,
+            type: 'fixed_appliance',
+            label: enclosureName,
+            symbol: 'panel_distribution',
+            placements: [],
+          }
+        : null) ??
       (trunkDevice
         ? {
             id: trunkDevice.id,
@@ -384,7 +403,7 @@ function PlacementSymbolInner({
             solarPanelProps: trunkDevice.solarPanelProps,
           }
         : null),
-    [sourceEndpoint, trunkDevice]
+    [enclosureName, placementRow.enclosureId, sourceEndpoint, trunkDevice]
   )
   const isEarthing = placementRow.isEarthing === true
   const isJunctionPanel = placementRow.junctionPanelLabel != null
@@ -1414,6 +1433,14 @@ function PlacementSymbolInner({
               offsetX={outlineWidth / 2}
               offsetY={outlineHeight / 2}
               listening={false}
+            />
+          )}
+          {endpoint?.symbol === 'switch_impulse' && (
+            <ImpulseSwitchCountMarker
+              count={endpoint.switchProps?.switchingCount ?? 1}
+              size={outlineWidth}
+              color={symbolColor}
+              fontFamily={fontFamily}
             />
           )}
           {/* Light point overlays (safety, switch 1p); no onWall on sitplan */}

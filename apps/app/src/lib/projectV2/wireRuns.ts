@@ -11,6 +11,24 @@ export type ProjectWithOptionalV2WireRuns = {
  */
 export const WIRE_RUN_REF_PROPERTY = 'wireRef'
 
+/** Map the legacy `wireRoute` + `inWall` pair onto a {@link WireRun} route. */
+export function toWireRunRoute(
+  wireRoute: 'wall' | 'ground' | 'air' | undefined,
+  inWall: boolean | undefined
+): WireRun['route'] {
+  return wireRoute === 'wall' && !inWall ? 'on-wall' : wireRoute
+}
+
+/** Map a {@link WireRun} route back onto the legacy `wireRoute` + `inWall` pair. */
+export function fromWireRunRoute(route: WireRun['route']): {
+  wireRoute: 'wall' | 'ground' | 'air' | undefined
+  inWall: boolean
+} {
+  return route === 'on-wall'
+    ? { wireRoute: 'wall', inWall: false }
+    : { wireRoute: route, inWall: route === 'wall' }
+}
+
 /** Canonical wire-run collection query. Legacy inputs must normalize before calling this API. */
 export function selectProjectWireRuns(document: ProjectWithOptionalV2WireRuns): WireRun[] {
   return document.disciplines?.electrical?.wireRuns ?? []

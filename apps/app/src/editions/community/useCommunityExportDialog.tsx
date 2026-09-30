@@ -98,7 +98,7 @@ export function useExportDialog() {
           onCancel={() => useDialogStore.getState().closeDialog()}
         />
       ),
-      size: 'md',
+      size: 'lg',
     })
   }
 

@@ -1,3 +1,4 @@
+import { getLocalizedSymbolName } from '@/lib/symbolNames'
 import { memo, useEffect, useState, useMemo, type FocusEvent, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, ChevronDown, ChevronRight, Star, Clock, X } from 'lucide-react'
@@ -83,7 +84,8 @@ function LibrarySearchField({
         onFocus={handleFocus}
         enterKeyHint="search"
         placeholder={placeholder}
-        className={inputClassName}
+        // Hide the native WebKit clear button; the X button below already clears the query.
+        className={`${inputClassName} [&::-webkit-search-cancel-button]:appearance-none`}
       />
       {draft && (
         <button type="button" onClick={clear} className={clearButtonClassName}>
@@ -135,9 +137,7 @@ function LibraryPanel({
 
   const getLocalizedName = (symbol: SymbolMetadata) => {
     const locale = i18n.language
-    if (locale === 'nl-BE') return symbol.nameNL
-    if (locale === 'fr-BE') return symbol.nameFR
-    return symbol.name
+    return getLocalizedSymbolName(symbol, locale)
   }
 
   const getRecentSymbolsList = () => {
@@ -190,7 +190,7 @@ function LibraryPanel({
     />
   )
 
-  const visibleSymbols = filterByScope(getFilteredSymbols())
+  const visibleSymbols = filterByScope(getFilteredSymbols(i18n.language))
 
   if (compact) {
     const compactSymbols = searchQuery

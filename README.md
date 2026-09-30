@@ -1,5 +1,9 @@
 # Condui Community
 
+![Condui, Belgian electrical diagrams](apps/app/public/social/condui-app-preview.png)
+
+**Explore Condui:** [Website](https://condui.be/en/) · [Try the browser demo](https://app.condui.be/demo) · [About Community](https://condui.be/en/open-source/) · [Community setup guide](https://docs.condui.be/en/community-edition/) · [Pricing](https://condui.be/en/pricing) · [Belgian electrical rules guide](https://arei.condui.be/en/knowledge/)
+
 Condui Community is the local, self-hosted edition of Condui, a tool for creating and maintaining
 Belgian electrical installation diagrams. It is intended for people who want to keep their project
 files and working environment under their own control.
@@ -134,8 +138,13 @@ Studio Oplos VOF if you need permission beyond those terms.
 
 ## Contributions and support
 
-Contribution and support processes will be documented when the Community repository is published.
-For now, use the private Condui development workflow for testing and review.
+Report bugs, suggest improvements, and submit pull requests in the
+[Community repository](https://github.com/Xoliul/condui-community). Read
+[CONTRIBUTING.md](CONTRIBUTING.md) before submitting a contribution, including the contribution
+licence terms and the required acknowledgement for pull requests.
+
+Accepted changes are integrated into Condui's canonical development repository and included in a
+subsequent Community snapshot. Community support is provided on a best-effort basis.
 
 Condui Community can assist with drawing and documenting an installation, but it does not guarantee
 regulatory compliance or acceptance by an inspection body. The installer and project owner remain

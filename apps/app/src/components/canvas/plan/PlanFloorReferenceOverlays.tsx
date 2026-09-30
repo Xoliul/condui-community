@@ -68,7 +68,12 @@ const PlanFloorOverlaySingle = memo(function PlanFloorOverlaySingle({
       listening={false}
     >
       {showImage && bitmap && (
-        <Group x={offset.x} y={offset.y} listening={false}>
+        <Group
+          x={offset.x}
+          y={offset.y}
+          rotation={floor.planImageRotationDeg ?? 0}
+          listening={false}
+        >
           <Image
             image={bitmap}
             width={bitmap.width}

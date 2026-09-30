@@ -10,18 +10,36 @@ import { DockablePanelShell } from '@/components/panels/DockablePanelShell'
 import { trackGoogleAnalyticsEvent } from '@/lib/analytics/googleAnalytics'
 import { focusSelectionOnCanvas } from '@/lib/ui/focusSelectionOnCanvas'
 import type { Selection } from '@/types/ui'
+import { useCableRouteEstimation } from '@/components/cableRouting/useCableRouteEstimation'
+import { isCableRoutesEnabled } from '@/lib/cableRouting/availability'
 
 function useTallyData(): TallyData {
   const { t } = useTranslation()
   const currentProject = useProjectStore((s) => s.currentProject)
+  const cableRoutes = useCableRouteEstimation(isCableRoutesEnabled())
+  const estimatedLengthByAnchor = useMemo(
+    () =>
+      cableRoutes
+        ? new Map(
+            cableRoutes.routes
+              .filter((route) => route.highM > 0)
+              .map((route) => [route.anchor, route.highM] as const)
+          )
+        : undefined,
+    [cableRoutes]
+  )
   return useMemo(
     () =>
-      buildHardwareTally(currentProject, (key, options) => {
-        if (typeof options === 'string') return t(key, options)
-        if (options) return t(key, options)
-        return t(key)
-      }),
-    [currentProject, t]
+      buildHardwareTally(
+        currentProject,
+        (key, options) => {
+          if (typeof options === 'string') return t(key, options)
+          if (options) return t(key, options)
+          return t(key)
+        },
+        { estimatedLengthByAnchor }
+      ),
+    [currentProject, t, estimatedLengthByAnchor]
   )
 }
 
@@ -43,7 +61,9 @@ function CategoryHeader({
     >
       <span className="text-gray-900 dark:text-gray-100">{t(category.labelKey)}</span>
       <span className="text-sm text-gray-500 dark:text-gray-400">
-        {category.totalDevices} {t('tally.devicesCount')} · {category.typeCount} {t('tally.typesCount')}
+        {category.lengthsOnly
+          ? `${category.typeCount} ${t('tally.typesCount')}`
+          : `${category.totalDevices} ${t('tally.devicesCount')} · ${category.typeCount} ${t('tally.typesCount')}`}
       </span>
       <span className="text-gray-500 dark:text-gray-400" aria-hidden>
         {collapsed ? '▼' : '▲'}
@@ -82,6 +102,24 @@ function DetailRow({ detail, onSelect }: { detail: TallyDetail; onSelect: (detai
         </button>
       )}
     </li>
+  )
+}
+
+/** A cable type and the total length to order; nothing to expand or select. */
+function LengthRow({ group }: { group: TallyGroup }) {
+  const { t } = useTranslation()
+  return (
+    <div
+      className={`flex items-center justify-between gap-3 border-b border-gray-100 px-3 py-2 text-sm text-gray-800 last:border-b-0 dark:border-gray-700/80 dark:text-gray-100 ${group.hasSupply ? 'italic opacity-75' : ''}`}
+      title={group.summaryLabel}
+    >
+      <span className="min-w-0 flex-1 truncate">{group.summaryLabel}</span>
+      <span className="flex-shrink-0 font-semibold tabular-nums text-gray-700 dark:text-gray-300">
+        {group.totalLengthM != null && group.totalLengthM > 0
+          ? `${group.lengthIncludesEstimates ? '≈ ' : ''}${formatWireLengthMeters(group.totalLengthM, t as WireTranslateFn)}`
+          : '–'}
+      </span>
+    </div>
   )
 }
 
@@ -126,7 +164,8 @@ function GroupRow({
           {group.count}
           {group.totalLengthM != null && group.totalLengthM > 0 ? (
             <span className="ml-2 font-normal text-gray-500 dark:text-gray-400">
-              · {formatWireLengthMeters(group.totalLengthM, t as WireTranslateFn)}
+              · {group.lengthIncludesEstimates ? '≈ ' : ''}
+              {formatWireLengthMeters(group.totalLengthM, t as WireTranslateFn)}
             </span>
           ) : null}
         </span>
@@ -248,7 +287,7 @@ export function HardwareTallyPanelContent() {
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col" data-no-window-drag>
       <div
         className="min-h-0 flex-1 overflow-y-auto p-2 space-y-2"
         data-tally-scroll="true"
@@ -270,14 +309,18 @@ export function HardwareTallyPanelContent() {
               />
               {!(collapsed[category.id] ?? false) && (
                 <div className="bg-white dark:bg-gray-800">
-                  {category.groups.map((group, idx) => (
-                    <GroupRow
-                      key={idx}
-                      group={group}
-                      defaultExpanded={false}
-                      onSelectDetail={handleSelectDetail}
-                    />
-                  ))}
+                  {category.groups.map((group, idx) =>
+                    category.lengthsOnly ? (
+                      <LengthRow key={idx} group={group} />
+                    ) : (
+                      <GroupRow
+                        key={idx}
+                        group={group}
+                        defaultExpanded={false}
+                        onSelectDetail={handleSelectDetail}
+                      />
+                    )
+                  )}
                 </div>
               )}
             </div>
@@ -340,9 +383,11 @@ export function HardwareTallyPanel() {
         onHeaderPointerDown={onHeaderPointerDown}
         onWindowPointerDown={onWindowPointerDown}
         onResizeHandlePointerDown={onResizeHandlePointerDown}
+        bodyClassName="overflow-hidden"
         panelStyle={{
           position: 'fixed',
           width: `min(420px, calc(100vw - ${rightOffsetPx}px - 2rem))`,
+          height: collapsed ? undefined : 'min(78vh, calc(100vh - 6rem), 42rem)',
           ...windowStyle,
         }}
       >

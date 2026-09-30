@@ -557,8 +557,10 @@ export function useKeyboardShortcuts(options?: { capabilities?: EditorCapabiliti
             }
           }
           if (targetPanel) {
+            // Fit the canvas under the pointer; without a hovered panel (touch), fit them all.
+            const hoveredPanelIdx = findPanelIndexAtPoint(mousePos.current.x, mousePos.current.y)
             const canvasesToFit =
-              layout.panels.length === 1
+              layout.panels.length === 1 || hoveredPanelIdx != null
                 ? [targetPanel.canvas]
                 : Array.from(new Set(layout.panels.map((panel) => panel.canvas)))
             requestFitToView(canvasesToFit)

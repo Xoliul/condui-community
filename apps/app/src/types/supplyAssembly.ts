@@ -5,6 +5,7 @@ import type {
   ElectricalDomain,
   Installation,
   PanelGridConfig,
+  Placement,
   Point2,
   ProtectionDevice,
   SolarPanelDeviceProps,
@@ -282,6 +283,11 @@ export interface AuxiliaryElectricalEnclosure {
   gridView: PanelGridConfig
   panelViewPosition?: Point2
   hidden?: boolean
+  /**
+   * Where the enclosure hangs on the situation plan, so supply cables can be routed through it.
+   * Hiding the placement on the plan also hides the cables that end at it.
+   */
+  placements?: Placement[]
 }
 
 export interface DerivedPhaseSupplyPath {

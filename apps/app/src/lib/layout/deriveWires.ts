@@ -11,6 +11,7 @@ import { logger } from '@/lib/logger'
 
 import { generateId } from '@/utils'
 import {
+  mirrorInlineSplitBusLayoutNodesHorizontally,
   mirrorLayoutNodeHorizontally,
   mirrorSupplyAssemblyLayoutNodesHorizontally,
   type LayoutNode,
@@ -18,6 +19,7 @@ import {
 } from './layoutTree'
 import type {
   WireSegment,
+  Point2,
   Circuit,
   Panel,
   Installation,
@@ -28,9 +30,11 @@ import type {
   CircuitPhaseAssignment,
 } from '@/types/schema'
 import { resolveSymbolPortsForWire, DEFAULT_ELECTRICAL_DOMAIN } from '@/lib/symbols'
+import { getDomoticaEndpointInputDomain } from '@/lib/eendraad/domoticaOutputOrdering'
 import {
   createDefaultAcCircuitCable,
   ensurePanelBusCableMinimum,
+  resolveDerivedCircuitCable,
   resolveShowFireClassLabel,
   resolveShowWireLengthLabel,
 } from '@/lib/wires/circuitWireDefaults'
@@ -57,7 +61,7 @@ import {
 } from './bottomUpLayout'
 import { applyWireInset } from './wireInsets'
 import { applyRotatedWireInset } from './rotatedWireInsets'
-import { TERMINAL_STRIP_WIRE_LABEL_SPAN } from './trunkDeviceSpacing'
+import { CIRCUIT_WIRE_LABEL_BASE_SPAN, TERMINAL_STRIP_WIRE_LABEL_SPAN } from './trunkDeviceSpacing'
 import { isSharedJunctionSymbol } from '@/lib/junctionIdentity'
 import {
   DOMOTICA_BRANCH_LEAD,
@@ -420,7 +424,12 @@ export function deriveWires(
     const mirrorPanelNode = () => {
       if (mirrorAxisX == null) return
       if (mirrorScope === 'panel') mirrorLayoutNodeHorizontally(panelNode, mirrorAxisX, true)
-      else mirrorSupplyAssemblyLayoutNodesHorizontally(panelNode, mirrorAxisX, undefined, true)
+      else {
+        mirrorSupplyAssemblyLayoutNodesHorizontally(panelNode, mirrorAxisX, undefined, true)
+        if (panelNode.horizontalMirrorInlineSplitBus) {
+          mirrorInlineSplitBusLayoutNodesHorizontally(panelNode, mirrorAxisX)
+        }
+      }
     }
     mirrorPanelNode()
     let panelSegments: WireSegment[]
@@ -449,7 +458,14 @@ export function deriveWires(
           segment.supplyAssemblyId != null ||
           segment.supplyWireRole != null ||
           (segment.circuitId != null && converterBackupCircuitIds.has(segment.circuitId))
-        if (mirrorScope === 'panel' || (belongsToSupplyAssembly && !isPanelFeedStub)) {
+        const belongsToInlineSplitBus =
+          panelNode.horizontalMirrorInlineSplitBus === true &&
+          (segment.type === 'mainBus' || segment.id.startsWith('bus-feed-stub-'))
+        if (
+          mirrorScope === 'panel' ||
+          belongsToInlineSplitBus ||
+          (belongsToSupplyAssembly && !isPanelFeedStub)
+        ) {
           mirrorWireSegmentHorizontally(segment, mirrorAxisX)
         }
       })
@@ -464,7 +480,7 @@ export function deriveWires(
   }
 
   stampWireSegmentAnchors(segments, panels, installation, supplyAssemblies)
-  applyWireRunsToSegments(segments, wireRuns)
+  applyWireRunsToSegments(segments, wireRuns, installation?.defaultCableKind, panels)
   return segments
 }
 
@@ -592,6 +608,12 @@ function mirrorWireSegmentHorizontally(segment: WireSegment, axisX: number): voi
     segment.phaseLabelAnchor = {
       ...segment.phaseLabelAnchor,
       x: mirrorX(segment.phaseLabelAnchor.x),
+    }
+  }
+  if (segment.wireLabelBaseEndPoint) {
+    segment.wireLabelBaseEndPoint = {
+      ...segment.wireLabelBaseEndPoint,
+      x: mirrorX(segment.wireLabelBaseEndPoint.x),
     }
   }
   if (segment.wireLabelEndPoint) {
@@ -1064,7 +1086,9 @@ function derivePanelWires(
   }
 
   // 2. Main bus wire (horizontal), split into sections between each protection/circuit
-  const defaultCable = ensurePanelBusCableMinimum(panel.protections[0]?.circuits?.[0]?.cable)
+  const defaultCable = ensurePanelBusCableMinimum(
+    resolveDerivedCircuitCable(panel.protections[0]?.circuits?.[0]?.cable, installation?.defaultCableKind)
+  )
 
   // Collect X positions of all RCDs/MCBs attached to the main bus.
   const connectionEntries = mainBusNode.children
@@ -1147,14 +1171,14 @@ function derivePanelWires(
         cable: defaultCable,
         panelId: panel.id,
         busSectionId: entry.busSectionId,
-        busFeedKind: isSupplyDiagram
+        busFeedKind: isSupplyDiagram || usesInlineEmptySplitAssembly
           ? panel.busSections?.find((section) => section.id === entry.busSectionId)?.role ===
             'backup'
             ? 'backup'
             : 'grid'
           : undefined,
-        showBusFeedMarker: isSupplyDiagram,
-        busFeedMarkerSide: isSupplyDiagram
+        showBusFeedMarker: isSupplyDiagram || usesInlineEmptySplitAssembly,
+        busFeedMarkerSide: isSupplyDiagram || usesInlineEmptySplitAssembly
           ? panel.busSections?.find((section) => section.id === entry.busSectionId)?.role ===
             'backup'
             ? 'below-right'
@@ -1196,13 +1220,13 @@ function derivePanelWires(
         cable: defaultCable,
         panelId: panel.id,
         busSectionId: section.id,
-        busFeedKind: isSupplyDiagram
+        busFeedKind: isSupplyDiagram || usesInlineEmptySplitAssembly
           ? section.role === 'backup'
             ? 'backup'
             : 'grid'
           : undefined,
-        showBusFeedMarker: isSupplyDiagram,
-        busFeedMarkerSide: isSupplyDiagram
+        showBusFeedMarker: isSupplyDiagram || usesInlineEmptySplitAssembly,
+        busFeedMarkerSide: isSupplyDiagram || usesInlineEmptySplitAssembly
           ? section.role === 'backup'
             ? 'below-right'
             : 'below-left'
@@ -1358,7 +1382,7 @@ function derivePanelWires(
         panelId: panel.id,
         busSectionId: run.busSectionId,
         busFeedKind: section?.role === 'backup' ? 'backup' : 'grid',
-        showBusFeedMarker: true,
+        showBusFeedMarker: !usesInlineEmptySplitAssembly,
         domain: DEFAULT_ELECTRICAL_DOMAIN,
         phaseAssignment: run.phaseAssignment,
         forcePhaseLabel: forceStubPhaseLabel,
@@ -1479,6 +1503,9 @@ function derivePanelWires(
         fromElementId: from.deviceId ?? parentProtection?.id,
         toElementType: to.deviceId ? 'protection' : undefined,
         toElementId: to.deviceId,
+        // Anchors follow the structure snapshot: the run into the first local supply device is
+        // the physical feeder cable (the edge the situation plan draws); the run into the bus is
+        // the internal wire between the last device and the busbar.
         wireAnchor: deriveWireAnchorKey({ kind: 'panel-input', panelId: panel.id, deviceId: to.deviceId }),
         isSubPanelSupply: true,
         feederProtectionId: parentProtection?.id,
@@ -2237,7 +2264,7 @@ function derivePanelWires(
         : resolvedSupplyBendX
       const portOffset = (LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_RENDER_SIZE * 7) / 24
       const rightPortX = changeoverX + LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_RENDER_SIZE / 2
-      const elbowX = rightPortX + LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_ELBOW_LEAD
+      let elbowX = rightPortX + LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_ELBOW_LEAD
       const backupConverterNode = supplyTrunkDeviceNodes.find(
         (node) => (node.domainRef as TrunkDevice | undefined)?.supplyPath === 'backup'
       )
@@ -2263,6 +2290,14 @@ function derivePanelWires(
             (node.domainRef as TrunkDevice | undefined)?.converterGridPlacement === 'input-leg'
         )
         .sort((a, b) => a.bounds.y - b.bounds.y)
+      // The layout can widen this riser to clear the protection's side text.
+      // Derive the conductor from that positioned leg instead of the fixed lead.
+      elbowX =
+        supplyTrunkDeviceNodes.find(
+          (node) =>
+            (node.domainRef as TrunkDevice | undefined)?.supplyPath === 'changeover-grid' &&
+            (node.domainRef as TrunkDevice | undefined)?.changeoverGridPlacement === 'input-leg'
+        )?.bounds.x ?? elbowX
       const upperY =
         backupConverterNode?.bounds.y ??
         changeoverY - LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_LANE_OFFSET
@@ -4346,6 +4381,14 @@ function deriveMcbWires(
         : topmostContentY
     }
 
+    const branchSymbolBottomY = Math.max(-Infinity, ...branchNodes.flatMap((branch) =>
+      branch.children.filter((node) => node.type === 'endpoint')
+        .map((node) => node.bounds.y + node.bounds.height / 2)))
+    const baseWireLabelEndPoint = (start: Point2, end: Point2): Point2 => ({
+      x: start.x,
+      y: Math.min(start.y, Math.max(end.y, start.y - CIRCUIT_WIRE_LABEL_BASE_SPAN, branchSymbolBottomY + 8)),
+    })
+
     // Build vertical wire segments — wire passes THROUGH the trunk device center.
     // The device symbol renders on top and visually covers the wire.
     if (trunkDeviceNodes.length > 0) {
@@ -4427,7 +4470,9 @@ function deriveMcbWires(
           inTube: segmentWireProps.inTube,
           wireRoute: segmentWireProps.wireRoute,
           inWall: segmentWireProps.inWall,
-          ...(terminalStripDirectlyAfterProtection && i === 1
+          ...(i === 0
+            ? { wireLabelBaseEndPoint: baseWireLabelEndPoint(adjustedStart, adjustedEnd) }
+            : terminalStripDirectlyAfterProtection && i === 1
             ? {
                 wireLabelEndPoint: {
                   x: adjustedStart.x,
@@ -4518,6 +4563,10 @@ function deriveMcbWires(
         wireRoute: noTrunkWireProps.wireRoute,
         inWall: noTrunkWireProps.inWall,
         wireLabelEndPoint: { x: mcbX, y: firstBranchWireY },
+        wireLabelBaseEndPoint: baseWireLabelEndPoint(
+          directDcBusFeeder ? mcbToBranchStart : applyNodeWireInset(mcbToBranchStart, mcbToBranchEnd, mcbNode),
+          { x: mcbX, y: firstBranchWireY }
+        ),
         // This vertical is directly above the protection; by default its label
         // is shown (hideWireLabel undefined/false). When the user explicitly
         // hides labels on the circuit, we respect that here too.
@@ -4568,6 +4617,7 @@ function deriveMcbWires(
           wireRoute: directEndpointWireProps.wireRoute,
           inWall: directEndpointWireProps.inWall,
           hideWireLabel: directEndpointWireProps.hideWireLabel,
+          ...(emptyOutputAnchor ? { wireAnchor: emptyOutputAnchor } : {}),
         })
       } else if (mergePanelOnlyFeederBusToEndpoint) {
         const mergedEndpointRef: CircuitSectionRef = {
@@ -4606,6 +4656,7 @@ function deriveMcbWires(
           inWall: mergedWireProps.inWall,
           hideWireLabel: mergedWireProps.hideWireLabel,
           feederProtectionId: protection?.id,
+          ...(emptyOutputAnchor ? { wireAnchor: emptyOutputAnchor } : {}),
         })
       } else {
         const mcbToEpStart = { x: mcbX, y: mcbY }
@@ -4631,6 +4682,7 @@ function deriveMcbWires(
           wireRoute: directEndpointWireProps.wireRoute,
           inWall: directEndpointWireProps.inWall,
           hideWireLabel: directEndpointWireProps.hideWireLabel,
+          ...(emptyOutputAnchor ? { wireAnchor: emptyOutputAnchor } : {}),
         })
       }
     }
@@ -4644,32 +4696,6 @@ function deriveMcbWires(
       segments.push(...deriveOrdinaryDcBusEndpointBranchWires(dcBusNode, circuit, panel))
     }
 
-    // Domain at trunk/branch junction (output of last conversion device or MCB)
-    let trunkDomainAtBranch: typeof DEFAULT_ELECTRICAL_DOMAIN = circuitBaseDomain
-    if (trunkDeviceNodes.length > 0) {
-      // Walk trunk devices in order from MCB upwards, applying only conversion devices
-      for (const td of trunkDeviceNodes) {
-        trunkDomainAtBranch = getTrunkDomainAfterNode(trunkDomainAtBranch, td)
-      }
-    }
-    const trunkExitSectionRef: CircuitSectionRef =
-      trunkDeviceNodes.length > 0
-        ? {
-            fromElementType: 'endpoint',
-            fromElementId: trunkDeviceNodes[trunkDeviceNodes.length - 1]?.domainId,
-            domain: trunkDomainAtBranch,
-          }
-        : {
-            fromElementType: 'protection',
-            fromElementId: protection?.id,
-            domain: trunkDomainAtBranch,
-          }
-    const trunkOriginWireProps = getCircuitWirePropertiesForDomain(
-      circuit,
-      trunkDomainAtBranch,
-      trunkExitSectionRef
-    )
-
     // Horizontal branch wires
     // Determine which branch is visually the last one (top-most on screen, smallest Y).
     const lastBranchNode =
@@ -4681,6 +4707,19 @@ function deriveMcbWires(
         : null
 
     for (const branchNode of branchNodes) {
+      // A converter above this tap only converts the continuation of the trunk.
+      // Earlier branches keep the domain and section of their actual feed.
+      const upstreamDevices = trunkDeviceNodes.filter((node) => node.bounds.y > branchNode.bounds.y)
+      let trunkDomainAtBranch: typeof DEFAULT_ELECTRICAL_DOMAIN = circuitBaseDomain
+      for (const device of upstreamDevices) {
+        trunkDomainAtBranch = getTrunkDomainAfterNode(trunkDomainAtBranch, device)
+      }
+      const trunkExitSectionRef: CircuitSectionRef = {
+        fromElementType: upstreamDevices.length ? 'endpoint' : 'protection',
+        fromElementId: upstreamDevices.at(-1)?.domainId ?? protection?.id,
+        domain: trunkDomainAtBranch,
+      }
+      const trunkOriginWireProps = getCircuitWirePropertiesForDomain(circuit, trunkDomainAtBranch, trunkExitSectionRef)
       const branchSegments = deriveBranchWires(
         branchNode,
         circuit,
@@ -4888,7 +4927,8 @@ function deriveBranchWires(
   trunkDomainAtBranch: typeof DEFAULT_ELECTRICAL_DOMAIN = DEFAULT_ELECTRICAL_DOMAIN,
   trunkOriginWireProps?: ReturnType<typeof getCircuitWirePropertiesForDomain>,
   trunkOriginSectionRef?: CircuitSectionRef,
-  isLastBranchOnCircuit = false
+  isLastBranchOnCircuit = false,
+  includeDomoticaOutputs = true
 ): WireSegment[] {
   const segments: WireSegment[] = []
   const inheritedBranchWireProps =
@@ -4908,7 +4948,7 @@ function deriveBranchWires(
     )
 
   if (endpointNodes.length === 0) return segments
-  const domoticaNode = endpointNodes.find((node) => {
+  const domoticaNode = includeDomoticaOutputs && endpointNodes.find((node) => {
     const endpoint = node.domainRef as Endpoint | undefined
     return endpoint?.symbol === 'domotica' && !endpoint?.domoticaChildProps
   })
@@ -4922,10 +4962,6 @@ function deriveBranchWires(
       )
     )
     const endpointOutputWires = domotica?.domoticaProps?.endpointOutputWires ?? []
-    // Layout bounds.x is the center of the domotica symbol; the 1-draad box is drawn from
-    // center - width/2 (left edge) to center + width/2 (right edge).
-    const boxCenterX = domoticaNode.bounds.x
-    const boxLeftX = boxCenterX - DOMOTICA_BOX_WIDTH / 2
     const domoticaHeight = Math.max(0, endpointCount - 1) * DOMOTICA_OUTPUT_SPACING
     const firstOutputY = branchY - domoticaHeight
 
@@ -5000,9 +5036,13 @@ function deriveBranchWires(
         domoticaOutputIndex: index,
       })
 
+      let currentDomain = domain
       for (let childIndex = 0; childIndex < childrenOnRow.length - 1; childIndex++) {
         const fromNode = childrenOnRow[childIndex]!
         const toNode = childrenOnRow[childIndex + 1]!
+        const fromEndpoint = fromNode.domainRef as Endpoint | undefined
+        const resolved = fromEndpoint?.symbol ? resolveSymbolPortsForWire(fromEndpoint.symbol, currentDomain) : null
+        if (resolved?.matched && resolved.oppositePortDomain) currentDomain = resolved.oppositePortDomain
         const fromPt = { x: fromNode.bounds.x, y: outputY }
         const toPt = { x: toNode.bounds.x, y: outputY }
         segments.push({
@@ -5012,7 +5052,7 @@ function deriveBranchWires(
           endPoint: applyNodeWireInset(toPt, fromPt, toNode),
           cable: segmentCable,
           panelId: panel.id,
-          domain,
+          domain: currentDomain,
           circuitId: circuit.id,
           fromElementId: fromNode.domainId,
           fromElementType: 'endpoint',
@@ -5031,36 +5071,17 @@ function deriveBranchWires(
       }
     }
 
-    // Main branch segment to domotica body.
-    // Match normal last-branch corners: nudge the horizontal start half a stroke into the
-    // vertical trunk so butt-capped ends form a filled square knee.
-    const trunkToDomoticaStartX = isLastBranchOnCircuit
-      ? trunkX + ((isHorizontalConverterBackup ? 1 : -1) * LAYOUT_CONSTANTS.BRANCH_LINE_WIDTH) / 2
-      : trunkX
-    const trunkToDomoticaStart = { x: trunkToDomoticaStartX, y: branchY }
-    // Trunk wire ends exactly on the LEFT edge of the domotica box.
-    const trunkToDomoticaEnd = { x: boxLeftX, y: branchY }
-    const branchEntryWireProps = inheritedBranchWireProps
-    segments.push({
-      id: generateId(),
-      type: 'branch',
-      startPoint: trunkToDomoticaStart,
-      // This point is already the box edge. Applying the generic node inset a
-      // second time would pull the feed away from the Domotica body.
-      endPoint: trunkToDomoticaEnd,
-      cable: branchEntryWireProps.cable,
-      panelId: panel.id,
-      domain: trunkDomainAtBranch,
-      circuitId: circuit.id,
-      fromElementId: trunkOriginSectionRef?.fromElementId,
-      fromElementType: trunkOriginSectionRef?.fromElementType,
-      toElementId: domoticaNode.domainId,
-      toElementType: 'endpoint',
-      inTube: branchEntryWireProps.inTube,
-      wireRoute: branchEntryWireProps.wireRoute,
-      inWall: branchEntryWireProps.inWall,
-      hideWireLabel: branchEntryWireProps.hideWireLabel,
-    })
+    // The module's input remains an ordinary serial branch. Reuse its wire
+    // derivation so inline converters before the module retain their domains,
+    // section overrides and symbol insets.
+    const inputNodes = endpointNodes.slice(0, endpointNodes.indexOf(domoticaNode))
+      .filter((node) => !(node.domainRef as Endpoint | undefined)?.domoticaChildProps)
+    segments.push(...deriveBranchWires(
+      { ...branchNode, children: [...inputNodes, domoticaNode] },
+      circuit, panel, trunkX, trunkDomainAtBranch, trunkOriginWireProps,
+      trunkOriginSectionRef, isLastBranchOnCircuit, false
+    ))
+    const moduleInputDomain = getDomoticaEndpointInputDomain(circuit, domoticaNode.domainId!, trunkDomainAtBranch)
 
     for (let i = 0; i < endpointCount; i++) {
       const outputY = firstOutputY + i * DOMOTICA_OUTPUT_SPACING
@@ -5072,7 +5093,7 @@ function deriveBranchWires(
         DOMOTICA_BRANCH_LEAD,
         endpointOutputWires[i],
         inheritedBranchWireProps,
-        trunkDomainAtBranch
+        moduleInputDomain
       )
     }
 
@@ -5104,7 +5125,7 @@ function deriveBranchWires(
           DOMOTICA_BRANCH_LEAD,
           nestedOutputWires[index],
           inheritedBranchWireProps,
-          trunkDomainAtBranch
+          getDomoticaEndpointInputDomain(circuit, sourceId, trunkDomainAtBranch)
         )
       }
 

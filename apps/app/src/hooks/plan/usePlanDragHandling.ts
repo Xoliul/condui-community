@@ -61,6 +61,7 @@ interface UsePlanDragHandlingResult {
 type PlacementRow = Placement & {
   endpointId?: string
   trunkDeviceId?: string
+  enclosureId?: string
   junctionPanelLabel?: string
   isEarthing?: boolean
 }
@@ -644,6 +645,8 @@ export function usePlanDragHandling(
                 )
               })
             }
+          } else if (placementRow.enclosureId) {
+            candidateIds.push(placementRow.id, placementRow.enclosureId)
           } else if (placementRow.endpointId || placementRow.trunkDeviceId) {
             candidateIds.push(...getPlanPlacementSelectionIds(placementRow))
 

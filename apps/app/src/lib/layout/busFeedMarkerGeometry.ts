@@ -22,6 +22,10 @@ const FEED_MARKER_LONG_LABEL_WIDTH = 70
 /** Caption baseline relative to the feed symbol centre. */
 export const BUS_FEED_MARKER_LABEL_Y = 10
 const BUS_FEED_MARKER_LABEL_BOTTOM = BUS_FEED_MARKER_LABEL_Y + 9
+const BUS_FEED_MARKER_STUB_OFFSET_Y = 11
+/** Painted caption bottom relative to the end of a vertical supply stub. */
+export const BUS_FEED_MARKER_STUB_BOTTOM =
+  BUS_FEED_MARKER_STUB_OFFSET_Y + BUS_FEED_MARKER_LABEL_BOTTOM
 
 export interface BusFeedMarkerLabelLayout {
   x: number
@@ -55,14 +59,20 @@ export function getBusFeedMarkerPosition(wireSegment: WireSegment): BusFeedMarke
     case 'below-right':
       return { x: stubX + distance, y: wireSegment.startPoint.y + FEED_MARKER_RAIL_OFFSET_Y }
     case 'stub-center':
-      return { x: wireSegment.startPoint.x, y: wireSegment.endPoint.y + 11 }
+      return {
+        x: wireSegment.startPoint.x,
+        y: wireSegment.endPoint.y + BUS_FEED_MARKER_STUB_OFFSET_Y,
+      }
     case 'below':
       return {
         x: (wireSegment.startPoint.x + wireSegment.endPoint.x) / 2 - 10,
         y: wireSegment.startPoint.y + 10,
       }
     default:
-      return { x: wireSegment.endPoint.x, y: wireSegment.endPoint.y + 11 }
+      return {
+        x: wireSegment.endPoint.x,
+        y: wireSegment.endPoint.y + BUS_FEED_MARKER_STUB_OFFSET_Y,
+      }
   }
 }
 

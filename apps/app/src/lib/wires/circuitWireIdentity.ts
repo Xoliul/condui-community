@@ -1,5 +1,6 @@
 import type { Circuit, ElectricalDomain, Panel, TrunkDevice } from '@/types/schema'
 import { resolveSymbolPortsForWire } from '@/lib/symbols'
+import { getDomoticaEndpointInputDomain } from '@/lib/eendraad/domoticaOutputOrdering'
 import {
   getCircuitConverterDcConnectionCount,
   getCircuitConverterPrimaryBranch,
@@ -116,25 +117,33 @@ export function circuitWireDomains(panels: Panel[]): Map<string, ElectricalDomai
     ]) {
       const converterEndpoints = circuitConverterEndpointConnections(circuit)
       const converterDevices = circuitConverterDeviceConnections(circuit)
+      const orderedTrunks = [...(circuit.trunkDevices ?? [])].sort(
+        (a, b) => (a.trunkPosition ?? 0) - (b.trunkPosition ?? 0))
       let domain: ElectricalDomain = circuit.dcBusSource ? 'DC' : 'AC'
       // The stored array breaks equal-position ties, as it does in one-wire.
-      for (const device of [...(circuit.trunkDevices ?? [])].sort(
-        (a, b) => (a.trunkPosition ?? 0) - (b.trunkPosition ?? 0)
-      )) {
+      for (const device of orderedTrunks) {
         result.set(`${circuit.id}:${device.id}`, converterDevices.has(device.id) ? 'DC' : domain)
         if (!converterDevices.has(device.id)) domain = domainAfterWireDevice(domain, device)
       }
       result.set(`${circuit.id}:secondary-bus:${circuit.id}`, domain)
       for (const endpoint of circuit.endpoints)
         result.set(`${circuit.id}:${endpoint.id}`, converterEndpoints.has(endpoint.id) ? 'DC' : domain)
-      for (const branch of circuit.branches ?? []) {
-        let branchDomain: ElectricalDomain = branch.dcBusId ? 'DC' : domain
+      for (const [branchIndex, branch] of (circuit.branches ?? []).entries()) {
+        let branchDomain: ElectricalDomain = circuit.dcBusSource ? 'DC' : 'AC'
+        for (const device of orderedTrunks) {
+          if ((device.trunkPosition ?? 0) <= branchIndex && !converterDevices.has(device.id)) {
+            branchDomain = domainAfterWireDevice(branchDomain, device)
+          }
+        }
+        if (branch.dcBusId) branchDomain = 'DC'
         for (const device of branch.branchDevices ?? []) {
           result.set(`${circuit.id}:${device.id}`, converterDevices.has(device.id) ? 'DC' : branchDomain)
           if (!converterDevices.has(device.id)) branchDomain = domainAfterWireDevice(branchDomain, device)
         }
         for (const id of branch.endpointIds) {
-          result.set(`${circuit.id}:${id}`, converterEndpoints.has(id) ? 'DC' : branchDomain)
+          result.set(`${circuit.id}:${id}`, converterEndpoints.has(id)
+            ? 'DC'
+            : getDomoticaEndpointInputDomain(circuit, id, branchDomain))
         }
       }
     }

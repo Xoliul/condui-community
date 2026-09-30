@@ -64,6 +64,7 @@ function PropertiesPanelContent({
 
 export function PropertiesPanelFrame({
   title,
+  titleAccessory,
   panelVisible,
   embedded,
   panelWidth,
@@ -76,6 +77,8 @@ export function PropertiesPanelFrame({
   children,
 }: {
   title: string
+  /** Small status icons shown right after the title. */
+  titleAccessory?: React.ReactNode
   panelVisible: boolean
   embedded: boolean
   panelWidth: number
@@ -122,6 +125,7 @@ export function PropertiesPanelFrame({
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
               {title}
             </h3>
+            {titleAccessory}
           </div>
         </div>
       )}

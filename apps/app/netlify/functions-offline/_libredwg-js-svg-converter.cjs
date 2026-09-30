@@ -19,7 +19,9 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // ../../node_modules/@mlightcad/libredwg-web/lib/svg/svgConverter.js
 var svgConverter_exports = {};
 __export(svgConverter_exports, {
-  SvgConverter: () => SvgConverter
+  SvgConverter: () => SvgConverter,
+  Box2D: () => Box2D,
+  interpolatePolyline: () => interpolatePolyline
 });
 module.exports = __toCommonJS(svgConverter_exports);
 

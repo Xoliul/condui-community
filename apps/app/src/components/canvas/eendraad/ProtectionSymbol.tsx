@@ -42,6 +42,9 @@ import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { getSecondaryBusOrderForCircuit } from '@/lib/eendraad/protectionDragEligibility'
 import type { Circuit, ProtectionDevice } from '@/types/schema'
 import type { Point } from '@/types/ui'
+import type { LayoutNode } from '@/lib/layout/layoutTree'
+import { getLayoutSubtreeSelectionIds } from '@/lib/eendraad/downstreamSelection'
+import { registerActivation } from '@/utils/repeatActivation'
 
 type EendraadPointerEvent = {
   cancelBubble: boolean
@@ -67,6 +70,8 @@ interface ProtectionSymbolProps {
   onDragMove?: (newPos: Point) => void
   onDragStart?: (altKey: boolean, nativeEvt: MouseEvent) => boolean
   shouldSuppressKonvaDragEnd?: () => boolean
+  /** Layout subtree selected by a double click/tap (everything fed by this protection). */
+  downstreamNode?: LayoutNode
 }
 
 export function ProtectionSymbol({
@@ -79,6 +84,7 @@ export function ProtectionSymbol({
   onDragMove,
   onDragStart,
   shouldSuppressKonvaDragEnd,
+  downstreamNode,
 }: ProtectionSymbolProps) {
   const setSelection = useSetSelection()
   const isSelected = useIsIdSelected(protection.id)
@@ -286,9 +292,15 @@ export function ProtectionSymbol({
         return
       }
 
+      const activation = registerActivation(`protection:${protection.id}`)
+      if (activation === 'absorbed') return
+      if (activation === 'double' && downstreamNode) {
+        setSelection({ type: 'protection', ids: getLayoutSubtreeSelectionIds(downstreamNode) })
+        return
+      }
       setSelection({ type: 'protection', ids: [protection.id] })
     },
-    [protection.id, setSelection]
+    [downstreamNode, protection.id, setSelection]
   )
 
   const isDark = theme.mode === 'dark'

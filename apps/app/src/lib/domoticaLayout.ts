@@ -4,6 +4,8 @@
  */
 
 export const DOMOTICA_BOX_WIDTH = 20
+/** Compact center drop target around the 20-unit Domotica child symbol. */
+export const DOMOTICA_CHILD_ON_DROP_ZONE_SIZE = 24
 export const DOMOTICA_BASE_HEIGHT = 26
 export const DOMOTICA_OUTPUT_SPACING = 20
 export const DOMOTICA_BRANCH_LEAD = 25

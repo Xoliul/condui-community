@@ -324,7 +324,7 @@ const LocalizedWireTextLabel = memo(function LocalizedWireTextLabel({
           : undefined
       }
       startPoint={wireSegment.startPoint}
-      endPoint={wireSegment.wireLabelEndPoint ?? wireSegment.endPoint}
+      endPoint={wireSegment.wireLabelBaseEndPoint ?? wireSegment.wireLabelEndPoint ?? wireSegment.endPoint}
       config={{
         orientation: getWireLabelOrientationForSegment(wireSegment),
         align: getWireLabelAlignForSegment(wireSegment),

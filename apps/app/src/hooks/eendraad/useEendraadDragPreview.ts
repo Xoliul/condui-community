@@ -10,6 +10,7 @@ import type { ElectricalEnclosureRef } from '@/types/supplyAssembly'
 import { normalizeProtectionPlacementDropTarget } from '@/lib/eendraad/protectionPlacementDropTarget'
 import { canCreateSupplyTopologyFromDrop } from '@/lib/supplyTopologyFeature'
 import type { SameSymbolAddMoreLayoutTarget } from '@/lib/eendraad/sameSymbolAddMore'
+import type { CircuitTrunkBranchSlot } from '@/lib/layout/circuitTrunkBranchSlots'
 
 const SUPPLY_ASSEMBLY_DROP_TARGETS = new Set<NonNullable<DropTarget['type']>>([
   'supplyWire',
@@ -42,6 +43,8 @@ export interface DragPreviewState {
   movingProtection?: { protectionId: string; circuitId: string }
   /** Existing matching symbol that will be incremented instead of inserting a new entity. */
   sameSymbolAddMore?: SameSymbolAddMoreLayoutTarget
+  /** Branch gap on a circuit trunk while moving whole endpoint branches. */
+  trunkBranchSlot?: CircuitTrunkBranchSlot
 }
 
 export function shouldPreferMainBusOverSupplyWire(): boolean {
@@ -73,6 +76,8 @@ export function useEendraadDragPreview(
   }
 ) {
   const [dragPreview, setDragPreview] = useState<DragPreviewState | null>(null)
+  /** Last pointer position during a drag, kept even where there is no valid drop target. */
+  const [dragPointer, setDragPointer] = useState<Point | null>(null)
   const resolveSameSymbolAddMore = options?.resolveSameSymbolAddMore
   const isBlockedDropPosition = options?.isBlockedDropPosition
 
@@ -80,8 +85,10 @@ export function useEendraadDragPreview(
     (position: Point, symbolData: unknown | null) => {
       if (position.x === -Infinity || position.y === -Infinity) {
         setDragPreview(null)
+        setDragPointer(null)
         return
       }
+      setDragPointer(position)
 
       const symbol = symbolData as SymbolMetadata | null
       if (!symbol) {
@@ -274,6 +281,7 @@ export function useEendraadDragPreview(
   return {
     dragPreview,
     setDragPreview,
+    dragPointer,
     handleDragOver,
   }
 }

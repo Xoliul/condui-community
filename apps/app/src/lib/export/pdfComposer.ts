@@ -14,27 +14,31 @@ import type {
   ExportPageReference,
   ExportTheme,
 } from './types'
-import { A4_LANDSCAPE, A4_PORTRAIT, PAGE_MARGIN } from './pageSizes'
+import { getChromeScale, getPageDimensions, PAGE_MARGIN, type ExportPaperSize } from './pageSizes'
 import { getExportFontFamily } from './fontPostProcessor'
 import { INFO_BLOCK_HEIGHT } from '@/lib/infoBlockLayout'
 import { exportLog } from './exportLogger'
 import {
+  getEendraadInfoBlockObstacleMm,
   getEendraadSchematicAreaMm,
+  INFO_BLOCK_GAP_MM,
+  getPanelTitleHeightMm,
+  REFERENCE_IMAGE_SIZE_MM,
   getEendraadSchematicTopMm,
   getInfoBlockReservedZoneMm,
   getPdfContentHeightMm,
   limitEendraadScaleToInfoBlockCollision,
-  PANEL_TITLE_HEIGHT_MM,
 } from './pdfPageLayout'
 import { getThemeColors } from '@/lib/theme/colors'
+import { drawLimitedWatermark, LIMITED_RASTER_JPEG_QUALITY } from './limitedWatermark'
 
-const REFERENCE_IMAGE_SIZE_MM = 12.75
 const REFERENCE_LABEL_GAP_MM = 1.2
 const REFERENCE_URL_FONT_SIZE_PT = 5
 
 function getEendraadSchematicPlacement(
   bounds: { x: number; y: number; width: number; height: number; space?: 'scene' },
   globalScale: number,
+  paperSize: ExportPaperSize = 'A4',
 ): {
   scale: number
   viewBox: string
@@ -44,21 +48,28 @@ function getEendraadSchematicPlacement(
   y: number
   fitBounds: { x: number; y: number; width: number; height: number; space: 'scene' }
 } {
-  const { widthMm: contentWidth } = getEendraadSchematicAreaMm('landscape')
+  const { widthMm: contentWidth } = getEendraadSchematicAreaMm('landscape', paperSize)
   // Never shrink to fit a wide leftover. Clip horizontally instead so symbols
   // stay large relative to the title and QR. Vertical scale must still clear
   // the info-box obstacle because the bus occupies the bottom of every page.
-  const scale = limitEendraadScaleToInfoBlockCollision(bounds.height, globalScale)
+  const scale = limitEendraadScaleToInfoBlockCollision(bounds.height, globalScale, undefined, paperSize)
   const viewWidth = Math.min(bounds.width, contentWidth / Math.max(scale, 0.01))
   const scaledWidth = viewWidth * scale
   const scaledHeight = bounds.height * scale
+  // Center a short schematic in the sheet instead of pinning it under the title,
+  // but never let it slide down into the info box.
+  const topMm = getEendraadSchematicTopMm(paperSize)
+  const area = getEendraadSchematicAreaMm('landscape', paperSize)
+  const obstacleTop = getEendraadInfoBlockObstacleMm('landscape', undefined, paperSize).y
+  const clearance = Math.max(0, obstacleTop - INFO_BLOCK_GAP_MM - topMm - scaledHeight)
+  const offsetY = Math.min(Math.max(0, (area.heightMm - scaledHeight) / 2), clearance)
   return {
     scale,
     viewBox: `${bounds.x} ${bounds.y} ${viewWidth} ${bounds.height}`,
     scaledWidth,
     scaledHeight,
     x: PAGE_MARGIN + (contentWidth - scaledWidth) / 2,
-    y: getEendraadSchematicTopMm(),
+    y: topMm + offsetY,
     fitBounds: {
       x: bounds.x,
       y: bounds.y,
@@ -69,8 +80,6 @@ function getEendraadSchematicPlacement(
   }
 }
 const LIMITED_RASTER_DPI = 174
-const LIMITED_RASTER_WATERMARK_OPACITY = 0.1
-const LIMITED_RASTER_JPEG_QUALITY = 0.62
 
 /**
  * When provided, the info block is drawn in the bottom-right of the page and
@@ -87,31 +96,34 @@ function addReferenceLinkToPdf(
   pdf: jsPDF,
   referenceLink: ExportPageReference,
   pageWidth: number,
-  exportTheme: ExportTheme
+  exportTheme: ExportTheme,
+  paperSize: ExportPaperSize = 'A4'
 ): void {
+  const chrome = getChromeScale(paperSize)
+  const imageSize = REFERENCE_IMAGE_SIZE_MM * chrome
   const colors = getThemeColors(exportTheme)
-  const imageX = pageWidth - PAGE_MARGIN - REFERENCE_IMAGE_SIZE_MM
+  const imageX = pageWidth - PAGE_MARGIN - imageSize
   const imageY = PAGE_MARGIN
-  const labelX = imageX + REFERENCE_IMAGE_SIZE_MM / 2
-  const labelY = imageY + REFERENCE_IMAGE_SIZE_MM + REFERENCE_LABEL_GAP_MM + 1.8
+  const labelX = imageX + imageSize / 2
+  const labelY = imageY + imageSize + (REFERENCE_LABEL_GAP_MM + 1.8) * chrome
 
   pdf.addImage(
     referenceLink.imageDataUrl,
     'PNG',
     imageX,
     imageY,
-    REFERENCE_IMAGE_SIZE_MM,
-    REFERENCE_IMAGE_SIZE_MM
+    imageSize,
+    imageSize
   )
-  pdf.link(imageX, imageY, REFERENCE_IMAGE_SIZE_MM, REFERENCE_IMAGE_SIZE_MM, {
+  pdf.link(imageX, imageY, imageSize, imageSize, {
     url: referenceLink.url,
   })
   pdf.setFont(getExportFontFamily(), 'normal')
-  pdf.setFontSize(REFERENCE_URL_FONT_SIZE_PT)
+  pdf.setFontSize(REFERENCE_URL_FONT_SIZE_PT * chrome)
   pdf.setTextColor(colors.secondaryText)
   pdf.text(referenceLink.displayHost, labelX, labelY, {
     align: 'center',
-    maxWidth: REFERENCE_IMAGE_SIZE_MM + 4,
+    maxWidth: imageSize + 4 * chrome,
   })
   pdf.setTextColor(colors.textColor)
 }
@@ -161,8 +173,8 @@ export async function composePdfPage(
       page.orientation ||
       (page.scene.bounds.width > page.scene.bounds.height ? 'landscape' : 'portrait')
 
-    const pageWidth = orientation === 'landscape' ? A4_LANDSCAPE.width : A4_PORTRAIT.width
-    const pageHeight = orientation === 'landscape' ? A4_LANDSCAPE.height : A4_PORTRAIT.height
+    const paperSize: ExportPaperSize = page.pageSize ?? 'A4'
+    const { width: pageWidth, height: pageHeight } = getPageDimensions(orientation, paperSize)
     const themeColors = getThemeColors(exportTheme)
     paintPdfPageBackground(pdf, pageWidth, pageHeight, exportTheme)
     const usableWidth = pageWidth - PAGE_MARGIN * 2
@@ -171,18 +183,19 @@ export async function composePdfPage(
       hasInfoBlock: !!infoBlock?.svgString,
       hasPanelTitle: !!panelTitle,
       infoBlockNativeWidth: infoBlock?.nativeWidth,
+      paperSize,
     })
     const contentX = PAGE_MARGIN
     let contentY = PAGE_MARGIN
 
     if (panelTitle) {
-      contentY = PAGE_MARGIN + PANEL_TITLE_HEIGHT_MM
+      contentY = PAGE_MARGIN + getPanelTitleHeightMm(paperSize)
     }
 
     const bounds = page.scene.bounds
     const isEendraadSlice = !!page.scene.eendraadSlice
     const eendraadPlacement = isEendraadSlice
-      ? getEendraadSchematicPlacement(bounds, page.scene.eendraadSlice!.globalScale)
+      ? getEendraadSchematicPlacement(bounds, page.scene.eendraadSlice!.globalScale, paperSize)
       : null
     const scale = eendraadPlacement
       ? eendraadPlacement.scale
@@ -214,8 +227,8 @@ export async function composePdfPage(
     if (panelTitle) {
       const titleText = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'text')
       titleText.setAttribute('x', String(PAGE_MARGIN))
-      titleText.setAttribute('y', String(PAGE_MARGIN + 4))
-      titleText.setAttribute('font-size', '3.5')
+      titleText.setAttribute('y', String(PAGE_MARGIN + 4 * getChromeScale(paperSize)))
+      titleText.setAttribute('font-size', String(3.5 * getChromeScale(paperSize)))
       titleText.setAttribute('font-weight', 'bold')
       titleText.setAttribute('font-family', 'sans-serif')
       titleText.setAttribute('fill', themeColors.textColor)
@@ -284,7 +297,8 @@ export async function composePdfPage(
     if (infoBlock?.svgString) {
       const { widthMm: boxW, heightMm: boxH } = getInfoBlockReservedZoneMm(
         orientation,
-        infoBlock.nativeWidth
+        infoBlock.nativeWidth,
+        paperSize
       )
       const boxX = pageWidth - PAGE_MARGIN - boxW
       const boxY = pageHeight - PAGE_MARGIN - boxH
@@ -315,7 +329,7 @@ export async function composePdfPage(
     })
 
     if (referenceLink) {
-      addReferenceLinkToPdf(pdf, referenceLink, pageWidth, exportTheme)
+      addReferenceLinkToPdf(pdf, referenceLink, pageWidth, exportTheme, paperSize)
     }
 
     return {
@@ -374,38 +388,12 @@ async function addLimitedWatermark(
 ): Promise<void> {
   const context = canvas.getContext('2d')
   if (!context) return
-
-  context.save()
-  context.globalAlpha = LIMITED_RASTER_WATERMARK_OPACITY
-  context.translate(canvas.width / 2, canvas.height / 2)
-  context.rotate(-Math.PI / 8)
-
-  try {
-    const logo = await loadImage('/logos/Condui_logo.svg')
-    const targetWidth = canvas.width * 0.48
-    const aspect = logo.naturalHeight > 0 ? logo.naturalWidth / logo.naturalHeight : 4
-    const targetHeight = targetWidth / aspect
-    const suffixFontSize = Math.round(targetHeight * 0.58)
-    context.font = `800 ${suffixFontSize}px sans-serif`
-    const suffix = '.BE'
-    const suffixWidth = context.measureText(suffix).width
-    const gap = targetHeight * 0.12
-    const totalWidth = targetWidth + gap + suffixWidth
-    const logoX = -totalWidth / 2
-    context.drawImage(logo, logoX, -targetHeight / 2, targetWidth, targetHeight)
-    context.fillStyle = getThemeColors(exportTheme).textColor
-    context.textAlign = 'left'
-    context.textBaseline = 'middle'
-    context.fillText(suffix, logoX + targetWidth + gap, 0)
-  } catch {
-    context.fillStyle = getThemeColors(exportTheme).textColor
-    context.font = `700 ${Math.round(canvas.width * 0.11)}px sans-serif`
-    context.textAlign = 'center'
-    context.textBaseline = 'middle'
-    context.fillText('Condui.BE', 0, 0)
-  } finally {
-    context.restore()
-  }
+  await drawLimitedWatermark(
+    context,
+    canvas.width,
+    canvas.height,
+    getThemeColors(exportTheme).textColor
+  )
 }
 
 async function rasterizeSvgPageToDataUrl(
@@ -459,8 +447,8 @@ export async function composeLimitedRasterPdfPage(
       page.orientation ||
       (page.scene.bounds.width > page.scene.bounds.height ? 'landscape' : 'portrait')
 
-    const pageWidth = orientation === 'landscape' ? A4_LANDSCAPE.width : A4_PORTRAIT.width
-    const pageHeight = orientation === 'landscape' ? A4_LANDSCAPE.height : A4_PORTRAIT.height
+    const paperSize: ExportPaperSize = page.pageSize ?? 'A4'
+    const { width: pageWidth, height: pageHeight } = getPageDimensions(orientation, paperSize)
     const themeColors = getThemeColors(exportTheme)
     const usableWidth = pageWidth - PAGE_MARGIN * 2
     const contentWidth = usableWidth
@@ -468,18 +456,19 @@ export async function composeLimitedRasterPdfPage(
       hasInfoBlock: !!infoBlock?.svgString,
       hasPanelTitle: !!panelTitle,
       infoBlockNativeWidth: infoBlock?.nativeWidth,
+      paperSize,
     })
     const contentX = PAGE_MARGIN
     let contentY = PAGE_MARGIN
 
     if (panelTitle) {
-      contentY = PAGE_MARGIN + PANEL_TITLE_HEIGHT_MM
+      contentY = PAGE_MARGIN + getPanelTitleHeightMm(paperSize)
     }
 
     const bounds = page.scene.bounds
     const isEendraadSlice = !!page.scene.eendraadSlice
     const eendraadPlacement = isEendraadSlice
-      ? getEendraadSchematicPlacement(bounds, page.scene.eendraadSlice!.globalScale)
+      ? getEendraadSchematicPlacement(bounds, page.scene.eendraadSlice!.globalScale, paperSize)
       : null
     const scale = eendraadPlacement
       ? eendraadPlacement.scale
@@ -506,8 +495,8 @@ export async function composeLimitedRasterPdfPage(
     if (panelTitle) {
       const titleText = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'text')
       titleText.setAttribute('x', String(PAGE_MARGIN))
-      titleText.setAttribute('y', String(PAGE_MARGIN + 4))
-      titleText.setAttribute('font-size', '3.5')
+      titleText.setAttribute('y', String(PAGE_MARGIN + 4 * getChromeScale(paperSize)))
+      titleText.setAttribute('font-size', String(3.5 * getChromeScale(paperSize)))
       titleText.setAttribute('font-weight', 'bold')
       titleText.setAttribute('font-family', 'sans-serif')
       titleText.setAttribute('fill', themeColors.textColor)
@@ -556,7 +545,8 @@ export async function composeLimitedRasterPdfPage(
     if (infoBlock?.svgString) {
       const { widthMm: boxW, heightMm: boxH } = getInfoBlockReservedZoneMm(
         orientation,
-        infoBlock.nativeWidth
+        infoBlock.nativeWidth,
+        paperSize
       )
       const boxX = pageWidth - PAGE_MARGIN - boxW
       const boxY = pageHeight - PAGE_MARGIN - boxH
@@ -613,8 +603,7 @@ export async function composeFullSvgPage(
   exportTheme: ExportTheme = 'light'
 ): Promise<void> {
   try {
-    const pageWidth = orientation === 'landscape' ? A4_LANDSCAPE.width : A4_PORTRAIT.width
-    const pageHeight = orientation === 'landscape' ? A4_LANDSCAPE.height : A4_PORTRAIT.height
+    const { width: pageWidth, height: pageHeight } = getPageDimensions(orientation)
     paintPdfPageBackground(pdf, pageWidth, pageHeight, exportTheme)
 
     const parser = new DOMParser()

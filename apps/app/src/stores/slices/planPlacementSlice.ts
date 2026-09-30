@@ -70,6 +70,7 @@ import { findPanelById } from '@/lib/panel/panelTree'
 import { getAllSupplyTrunkDevices } from '@/lib/feedTopology'
 import { removeSupplyDevicePlacements } from '@/lib/supplyAssembly/inverterMultipliers'
 import { isModularSocket, normalizeModularSocketProps } from '@/lib/socket/modularSocket'
+import { setAuxiliaryEnclosureShownOnPlan } from '@/lib/plan/auxiliaryEnclosurePlanPlacement'
 
 type MutablePlacementOwner = {
   placement: Placement
@@ -88,6 +89,10 @@ function findMutablePlacementOwner(
   ]
   for (const device of installationTrunkDevices) {
     const placement = device.placements?.find((candidate) => candidate.id === placementId)
+    if (placement) return { placement }
+  }
+  for (const enclosure of project.disciplines?.electrical?.auxiliaryEnclosures ?? []) {
+    const placement = enclosure.placements?.find((candidate) => candidate.id === placementId)
     if (placement) return { placement }
   }
 
@@ -288,6 +293,14 @@ export const createPlanPlacementSlice: ProjectSliceCreator = (set, get) => ({
           installation.earthingPlacements = []
         }
         installation.earthingPlacements.push(placement)
+        state.isDirty = true
+      }
+    }),
+
+  setAuxiliaryEnclosureShownOnPlan: (enclosureId, shown) =>
+    set((state) => {
+      if (!state.currentProject) return
+      if (setAuxiliaryEnclosureShownOnPlan(state.currentProject, enclosureId, shown)) {
         state.isDirty = true
       }
     }),

@@ -26,6 +26,7 @@ import {
   getProjectElectricalPanels,
 } from '@/lib/projectV2/electrical'
 import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
+import { PanelGridDimensionInput } from '../shared/PanelGridDimensionInput'
 // Panel Properties Component
 export function PanelProperties({
   panelId,
@@ -332,40 +333,20 @@ export function PanelProperties({
           />
           <span>{t('panelCanvas.topTerminalStripRail', 'Top clamp rail')}</span>
         </button>
-        <div className="flex items-center gap-2">
-          <span className="w-16 text-sm text-gray-700 dark:text-gray-300">
-            {t('panelCanvas.rows')}
-          </span>
-          <input
-            type="number"
-            min={1}
-            max={32}
-            value={panel.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS}
-            onChange={(e) =>
-              updatePanelGrid(panelId, {
-                rows: Math.max(1, Math.min(32, Number(e.target.value) || 1)),
-              })
-            }
-            className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-16 text-sm text-gray-700 dark:text-gray-300">
-            {t('panelCanvas.columns')}
-          </span>
-          <input
-            type="number"
-            min={1}
-            max={48}
-            value={panel.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS}
-            onChange={(e) =>
-              updatePanelGrid(panelId, {
-                columns: Math.max(1, Math.min(48, Number(e.target.value) || 1)),
-              })
-            }
-            className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          />
-        </div>
+        <PanelGridDimensionInput
+          label={t('panelCanvas.rows')}
+          value={panel.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS}
+          min={1}
+          max={32}
+          onChange={(rows) => updatePanelGrid(panelId, { rows })}
+        />
+        <PanelGridDimensionInput
+          label={t('panelCanvas.columns')}
+          value={panel.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS}
+          min={1}
+          max={48}
+          onChange={(columns) => updatePanelGrid(panelId, { columns })}
+        />
         <button
           type="button"
           aria-pressed={panel.gridView?.terminalStripBottomRail ?? false}

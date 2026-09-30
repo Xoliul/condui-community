@@ -28,7 +28,7 @@ import {
 } from '@/lib/analytics/validationPanelAnalytics'
 
 import { getResponsiveEditorMode } from '@/hooks/useResponsiveEditorMode'
-import { isStructuralCanvasEnabled } from '@/lib/structuralCanvas/availability'
+import { getAvailableCanvasTypes } from '@/lib/viewport/availableCanvasTypes'
 
 /** Plan canvas view state (zoom, pan, grid) — alias for ViewState */
 export type PlanView = ViewState
@@ -39,6 +39,7 @@ export type LeftDockPanel =
   | 'tally'
   | 'validation'
   | 'quickPlacer'
+  | 'schematicAssistant'
   
 export type ProjectVersionsWindowTab = 'timeline' | 'qr' | 'sharing'
 export interface FloatingPanelDragSeed {
@@ -95,11 +96,29 @@ export const DEFAULT_LAYOUTS: Record<LayoutPreset, () => ViewportLayout> = {
     secondaryRatio: 0.5,
     focusReturnLayout: null,
   }),
+  grid: () => {
+    const canvases = getAvailableCanvasTypes()
+    return {
+      preset: 'grid',
+      panels: [
+        { canvas: 'eendraad' },
+        { canvas: 'plan' },
+        { canvas: 'panel' },
+        { canvas: canvases[3] ?? 'eendraad' },
+      ],
+      primaryRatio: 0.5,
+      secondaryRatio: 0.5,
+      focusReturnLayout: null,
+    }
+  },
 }
 
-const CANVAS_TYPES: CanvasType[] = isStructuralCanvasEnabled()
-  ? ['eendraad', 'plan', 'panel', 'structure']
-  : ['eendraad', 'plan', 'panel']
+/** A two-by-two layout needs four distinct canvases. */
+export function isLayoutPresetAvailable(preset: LayoutPreset): boolean {
+  return preset !== 'grid' || getAvailableCanvasTypes().length >= 4
+}
+
+const CANVAS_TYPES: CanvasType[] = getAvailableCanvasTypes()
 
 function cloneLayoutForFocusReturn(layout: ViewportLayout): ViewportLayout {
   const cloned = JSON.parse(JSON.stringify(layout)) as ViewportLayout
@@ -125,7 +144,8 @@ function ensureUniquePanelCanvases(panels: ViewportPanel[]): void {
 
 /** Derive the old ViewMode from viewport layout for backward compat */
 function deriveViewMode(layout: ViewportLayout): ViewMode {
-  const types = layout.panels.map((p) => p.canvas)
+  // Documents is not a drawing view; the legacy view mode follows the drawing canvases beside it.
+  const types = layout.panels.map((p) => p.canvas).filter((canvas) => canvas !== 'documents')
   if (types.length === 1) return types[0] as ViewMode
   if (types.length === 2 && types.includes('eendraad') && types.includes('plan')) return 'both'
   if (types.length === 2 && types.includes('panel') && types.includes('plan')) return 'panelAndPlan'
@@ -137,6 +157,10 @@ export interface UIState {
   /** @deprecated — kept for backward compat, derived from viewportLayout */
   viewMode: ViewMode
   viewportLayout: ViewportLayout
+  /** Session-only canvas receiving the most recent pointer, focus, or wheel interaction. */
+  lastInteractedCanvas: CanvasType | null
+  /** Session-only surfaces actually rendered, including compact layout fallback. */
+  renderedCanvases: CanvasType[] | null
   selection: Selection
   hover: Selection
   eendraadView: ViewState
@@ -175,6 +199,9 @@ export interface UIState {
   libraryWindowOpen: boolean
   /** Quick placer panel visible in floating mode */
   quickPlacerWindowOpen: boolean
+  /** Development assistant session survives switching dock surfaces. Never persisted. */
+  schematicAssistantOpen: boolean
+  schematicAssistantWindowOpen: boolean
   
   /** Which dockable panel is currently shown in the left sidebar */
   leftDockPanel: LeftDockPanel
@@ -186,6 +213,12 @@ export interface UIState {
   orphanInspectorOpen: boolean
   /** Active symbol dragged from the library; used as a dragover/drop fallback when DataTransfer payloads are unavailable. */
   libraryDragSymbol: SymbolMetadata | null
+  /** Library symbol armed by a click: canvases preview it under the cursor and place a copy per click until disarmed. */
+  armedLibrarySymbol: SymbolMetadata | null
+  /** Canvas instance last hovered while armed; only that canvas shows the armed-symbol banner. */
+  armedLibraryCanvasId: string | null
+  /** Increments per armed placement so the library can bring the armed symbol back into view. */
+  armedPlacementCount: number
   /** Pointer state handed from a docked panel tear-out to a floating window. */
   floatingPanelDragSeed: FloatingPanelDragSeed | null
   /** 1draad copy/paste: copied element type and ids (for paste-at-position) */
@@ -204,6 +237,8 @@ export interface UIState {
   /** @deprecated — use setViewportLayout instead */
   setViewMode: (mode: ViewMode) => void
   setViewportLayout: (layout: ViewportLayout) => void
+  setLastInteractedCanvas: (canvas: CanvasType | null) => void
+  setRenderedCanvases: (canvases: CanvasType[] | null) => void
   setLayoutPreset: (preset: LayoutPreset, options?: { sourcePanelIndex?: number }) => void
   setPanelCanvas: (panelIndex: number, canvas: CanvasType) => void
   setLayoutPrimaryRatio: (ratio: number) => void
@@ -247,6 +282,8 @@ export interface UIState {
   setLibraryWindowOpen: (open: boolean) => void
   setQuickPlacerWindowOpen: (open: boolean) => void
   toggleQuickPlacerWindow: () => void
+  setSchematicAssistantWindowOpen: (open: boolean) => void
+  closeSchematicAssistant: () => void
   
   closeFloatingWindows: () => boolean
   setLeftDockPanel: (panel: LeftDockPanel) => void
@@ -257,6 +294,9 @@ export interface UIState {
   setOrphanInspectorOpen: (open: boolean) => void
   toggleOrphanInspector: () => void
   setLibraryDragSymbol: (symbol: SymbolMetadata | null) => void
+  setArmedLibrarySymbol: (symbol: SymbolMetadata | null) => void
+  setArmedLibraryCanvasId: (canvasId: string | null) => void
+  noteArmedPlacement: () => void
   /** Set 1draad clipboard for paste (type + ids). Null to clear. */
   setEendraadClipboard: (
     data: { type: 'endpoint' | 'trunkDevice' | 'protection' | 'panel'; ids: string[] } | null
@@ -275,6 +315,8 @@ const defaultViewportLayout = DEFAULT_LAYOUTS.sideBySide()
 const initialState = {
   viewMode: 'both' as ViewMode,
   viewportLayout: defaultViewportLayout,
+  lastInteractedCanvas: null as CanvasType | null,
+  renderedCanvases: null as CanvasType[] | null,
   selection: { type: null, ids: [] } as Selection,
   hover: { type: null, ids: [] } as Selection,
   eendraadView: {
@@ -301,6 +343,7 @@ const initialState = {
     plan: null,
     panel: null,
     structure: null,
+    documents: null,
   },
   panelView: {
     zoom: 2,
@@ -352,19 +395,24 @@ const initialState = {
   eendraadDateMarkingMode: false,
   eendraadLayoutOverrides: new Map<string, Point>(),
   planCanvasViewportPx: null as { width: number; height: number } | null,
-  fitToViewTrigger: { eendraad: 0, plan: 0, panel: 0, structure: 0 } as Record<CanvasType, number>,
+  fitToViewTrigger: { eendraad: 0, plan: 0, panel: 0, structure: 0, documents: 0 } as Record<CanvasType, number>,
   cancelPlanResetScaleTrigger: 0,
   isExporting: false,
   tallyWindowOpen: false,
   validationWindowOpen: false,
   libraryWindowOpen: false,
   quickPlacerWindowOpen: false,
+  schematicAssistantOpen: false,
+  schematicAssistantWindowOpen: false,
   
   leftDockPanel: 'library' as LeftDockPanel,
   leftDockPreviewPanel: null as LeftDockPanel | null,
   leftDockCollapsed: false,
   orphanInspectorOpen: false,
   libraryDragSymbol: null,
+  armedLibrarySymbol: null,
+  armedLibraryCanvasId: null,
+  armedPlacementCount: 0,
   floatingPanelDragSeed: null,
   eendraadClipboard: null,
   lastExportOptions: null,
@@ -412,6 +460,28 @@ export const useUIStore = create<UIState>()(
   persist(
     immer((set) => ({
       ...initialState,
+
+      setLastInteractedCanvas: (canvas) => {
+        if (useUIStore.getState().lastInteractedCanvas === canvas) return
+        set((state) => {
+          state.lastInteractedCanvas = canvas
+        })
+      },
+
+      setRenderedCanvases: (canvases) => {
+        const previous = useUIStore.getState().renderedCanvases
+        const next = canvases === null ? null : [...new Set(canvases)]
+        if (
+          previous === next ||
+          (previous &&
+            next &&
+            previous.length === next.length &&
+            previous.every((canvas, index) => canvas === next[index]))
+        ) return
+        set((state) => {
+          state.renderedCanvases = next
+        })
+      },
 
       setViewMode: (mode) =>
         set((state) => {
@@ -877,6 +947,26 @@ export const useUIStore = create<UIState>()(
           })
         }),
 
+      setSchematicAssistantWindowOpen: (open) =>
+        set((state) => {
+          state.schematicAssistantWindowOpen = open
+          if (open) {
+            state.schematicAssistantOpen = true
+            if (state.leftDockPanel === 'schematicAssistant') {
+              state.leftDockPanel = 'library'
+              state.leftDockCollapsed = true
+            }
+          }
+        }),
+
+      closeSchematicAssistant: () =>
+        set((state) => {
+          state.schematicAssistantOpen = false
+          state.schematicAssistantWindowOpen = false
+          if (state.leftDockPanel === 'schematicAssistant') state.leftDockPanel = 'library'
+          if (state.leftDockPreviewPanel === 'schematicAssistant') state.leftDockPreviewPanel = null
+        }),
+
       closeFloatingWindows: () => {
         const state = useUIStore.getState()
         const hasFloatingWindows = [
@@ -884,6 +974,7 @@ export const useUIStore = create<UIState>()(
           state.tallyWindowOpen,
           state.validationWindowOpen,
           state.quickPlacerWindowOpen,
+          state.schematicAssistantWindowOpen,
           
         ].some(Boolean)
         if (!hasFloatingWindows) return false
@@ -893,6 +984,7 @@ export const useUIStore = create<UIState>()(
           draft.tallyWindowOpen = false
           draft.validationWindowOpen = false
           draft.quickPlacerWindowOpen = false
+          draft.schematicAssistantWindowOpen = false
           
         })
         return true
@@ -907,6 +999,10 @@ export const useUIStore = create<UIState>()(
           if (panel === 'tally') state.tallyWindowOpen = false
           if (panel === 'validation') state.validationWindowOpen = false
           if (panel === 'quickPlacer') state.quickPlacerWindowOpen = false
+          if (panel === 'schematicAssistant') {
+            state.schematicAssistantOpen = true
+            state.schematicAssistantWindowOpen = false
+          }
           if (previousPanel !== panel) {
             trackGoogleAnalyticsEvent('left_dock_panel_change', {
               from_panel: previousPanel,
@@ -937,7 +1033,8 @@ export const useUIStore = create<UIState>()(
             state.libraryWindowOpen ||
             state.tallyWindowOpen ||
             state.validationWindowOpen ||
-            state.quickPlacerWindowOpen
+            state.quickPlacerWindowOpen ||
+            state.schematicAssistantWindowOpen
 
           if (hasFloatingLeftPanel) {
             state.leftDockCollapsed = true
@@ -969,6 +1066,19 @@ export const useUIStore = create<UIState>()(
       setLibraryDragSymbol: (symbol) =>
         set((state) => {
           state.libraryDragSymbol = symbol
+        }),
+      setArmedLibrarySymbol: (symbol) =>
+        set((state) => {
+          state.armedLibrarySymbol = symbol
+          if (!symbol) state.armedLibraryCanvasId = null
+        }),
+      setArmedLibraryCanvasId: (canvasId) =>
+        set((state) => {
+          state.armedLibraryCanvasId = canvasId
+        }),
+      noteArmedPlacement: () =>
+        set((state) => {
+          state.armedPlacementCount += 1
         }),
       setEendraadClipboard: (data) =>
         set((state) => {
@@ -1028,7 +1138,8 @@ export const useUIStore = create<UIState>()(
         planWallDrawingThicknessCm: state.planWallDrawingThicknessCm,
         activePanelId: state.activePanelId,
         panelCanvasMode: state.panelCanvasMode,
-        leftDockPanel: state.leftDockPanel,
+        // The development-only assistant must not leave an unavailable production dock preference.
+        leftDockPanel: state.leftDockPanel === 'schematicAssistant' ? 'library' : state.leftDockPanel,
         leftDockCollapsed: state.leftDockCollapsed,
         lastExportOptions: state.lastExportOptions,
         planDropLastPanelId: state.planDropLastPanelId,

@@ -1,3 +1,4 @@
+import { LANGUAGE_PREFIXES, normalizeSupportedLanguage } from './languageRouting'
 const LOCALHOST_MAIN_APP_PORT_FALLBACK = '3002'
 const LOCALHOST_DOCS_PORT_FALLBACK = '3004'
 const LOCALHOST_AREI_PORT_FALLBACK = '3003'
@@ -62,12 +63,7 @@ const toCompanionSubdomain = (hostname: string, site: CompanionSite): string => 
   return normalized
 }
 
-const languagePath = (language: string): string => {
-  const normalized = language.toLowerCase()
-  if (normalized.startsWith('fr')) return 'fr'
-  if (normalized.startsWith('en')) return 'en'
-  return 'nl'
-}
+const languagePath = (language: string): string => LANGUAGE_PREFIXES[normalizeSupportedLanguage(language) ?? 'nl-BE']
 
 export const resolveCompanionSiteUrl = ({
   site,

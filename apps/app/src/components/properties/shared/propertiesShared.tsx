@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff } from 'lucide-react'
 import { DebouncedTextInput } from '@/components/forms'
@@ -131,11 +131,17 @@ export function WireLengthField({
   wireLengthM,
   showWireLengthLabel,
   onChange,
+  placeholder,
+  hint,
   t,
 }: {
   wireLengthM?: number
   showWireLengthLabel?: boolean
   onChange: (updates: { wireLengthM?: number; showWireLengthLabel?: boolean }) => void
+  /** Replaces the default placeholder, e.g. with a plan-based estimate. */
+  placeholder?: string
+  /** Quiet status or action shown under the field. */
+  hint?: ReactNode
   t: (key: string, defaultValue?: string) => string
 }) {
   const hasLength = wireLengthM != null && wireLengthM > 0
@@ -186,9 +192,10 @@ export function WireLengthField({
             onChange({ wireLengthM: parsed })
           }
         }}
-        placeholder={t('wires.lengthPlaceholder', 'Length in meters')}
+        placeholder={placeholder ?? t('wires.lengthPlaceholder', 'Length in meters')}
         className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
       />
+      {hint && <div className="mt-1">{hint}</div>}
     </div>
   )
 }
@@ -197,6 +204,7 @@ export function WireRouteAndCableForm({
   showLength = true,
   groundConductor = false,
   busbar = false,
+  onMediumChange,
   state,
   onChange,
   isDC,
@@ -204,9 +212,13 @@ export function WireRouteAndCableForm({
   showPhaseAssignment = false,
   phaseOnly = false,
   phaseLocked = false,
+  cableHint,
+  lengthPlaceholder,
+  lengthHint,
   t,
 }: {
   busbar?: boolean
+  onMediumChange?: (medium: 'cable' | 'busbar', cable: CableSpec) => void
   groundConductor?: boolean
   showLength?: boolean
   state: WireRouteFormState
@@ -218,6 +230,11 @@ export function WireRouteAndCableForm({
   phaseOnly?: boolean
   /** Render the effective phase without an editable choice. */
   phaseLocked?: boolean
+  /** Quiet status or action shown directly under the cable fields. */
+  cableHint?: ReactNode
+  /** Length field placeholder and hint, e.g. a plan-based estimate with an accept action. */
+  lengthPlaceholder?: string
+  lengthHint?: ReactNode
   t: (key: string, defaultValue?: string) => string
 }) {
   const phaseFeatureEnabled =
@@ -250,11 +267,23 @@ export function WireRouteAndCableForm({
     ? String(state.cable.conductors)
     : resolveConductorDropdownValue(state.cable, isDC)
 
-  const wireTypes = busbar ? [{ value: 'other', label: t('structure.busbar', 'Busbar') }] : isDC
+  const cableTypes = isDC
     ? getDcWireTypeOptions(t('wires.other', 'Other'), {
         batteryCable: t('wires.batteryCable', 'Battery cable'),
       })
     : getAcWireTypeOptions(t('wires.other', 'Other'))
+  const wireTypes = onMediumChange
+    ? [...cableTypes, { value: 'busbar', label: t('structure.busbar', 'Busbar') }]
+    : busbar ? [{ value: 'busbar', label: t('structure.busbar', 'Busbar') }] : cableTypes
+  const changeCableType = (value: string) => {
+    if (value === 'busbar') {
+      onMediumChange?.('busbar', { ...state.cable, kind: 'other', customKind: 'busbar' })
+    } else {
+      const cable = applyCableKindChange(state.cable, value as CableSpec['kind'])
+      if (onMediumChange) onMediumChange('cable', cable)
+      else onChange({ cable })
+    }
+  }
   const thicknessOptions = busbar
     ? [...new Set([...COMB_BUSBAR_SECTION_OPTIONS, state.cable.sectionMm2])].sort((a, b) => a - b)
     : getWireSectionOptions(isDC)
@@ -319,7 +348,11 @@ export function WireRouteAndCableForm({
         <div>{t('wires.thickness', 'Dikte')}</div>
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <div className="px-2 py-2 text-sm text-gray-900 dark:text-white">{t('structure.busbar', 'Busbar')}</div>
+        <CustomDropdown
+          value="busbar"
+          onChange={changeCableType}
+          options={wireTypes}
+        />
         <CustomDropdown
           value={selectedConductorValue}
           onChange={(value) => onChange({ cable: {
@@ -546,10 +579,7 @@ export function WireRouteAndCableForm({
         <div className="grid grid-cols-3 gap-2">
           <CustomDropdown
             value={state.cable.kind}
-            onChange={(nextValue) => {
-              const kind = nextValue as CableSpec['kind']
-              onChange({ cable: applyCableKindChange(state.cable, kind) })
-            }}
+            onChange={changeCableType}
             options={wireTypes.map((type) => ({ value: type.value, label: type.label }))}
             className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
           />
@@ -595,6 +625,7 @@ export function WireRouteAndCableForm({
             className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
           />
         )}
+        {cableHint}
       </div>
 
       <div>
@@ -652,6 +683,8 @@ export function WireRouteAndCableForm({
         wireLengthM={state.wireLengthM}
         showWireLengthLabel={state.showWireLengthLabel}
         onChange={onChange}
+        placeholder={lengthPlaceholder}
+        hint={lengthHint}
         t={t}
       />}
     </div>

@@ -1,5 +1,6 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useUIStore } from '@/stores/uiStore'
+import { useProjectStore } from '@/stores/projectStore'
 import { EendraadCanvas, PlanCanvas, PanelCanvas } from '@/components/canvas'
 import { CanvasSwitcher } from '@/components/viewport/CanvasSwitcher'
 import { ResizableDivider } from '@/components/layout/ResizableDivider'
@@ -12,9 +13,19 @@ import {
   getViewportDividerSpecs,
   getViewportPanelZones,
 } from '@/components/layout/viewportGeometry'
+/* @project-documents-strip-start */
+import { isProjectDocumentsEnabled } from '@/lib/documents/availability'
+/* @project-documents-strip-end */
 
 const StructuralCanvas =
   
+  null
+
+const DocumentsCanvas =
+  /* @project-documents-strip-start */
+  isProjectDocumentsEnabled()
+    ? lazy(() => import('@/components/documents/DocumentsCanvas')) :
+  /* @project-documents-strip-end */
   null
 
 type MultiFingerSwipeHandler = (
@@ -43,6 +54,12 @@ function CanvasForType({
       return StructuralCanvas ? (
         <Suspense fallback={null}>
           <StructuralCanvas onMultiFingerSwipe={onMultiFingerSwipe} />
+        </Suspense>
+      ) : null
+    case 'documents':
+      return DocumentsCanvas ? (
+        <Suspense fallback={null}>
+          <DocumentsCanvas />
         </Suspense>
       ) : null
   }
@@ -117,6 +134,13 @@ function ViewLayout({
   const layout = useUIStore((s) => s.viewportLayout)
   const setLayoutPrimaryRatio = useUIStore((s) => s.setLayoutPrimaryRatio)
   const setLayoutSecondaryRatio = useUIStore((s) => s.setLayoutSecondaryRatio)
+  const setLastInteractedCanvas = useUIStore((s) => s.setLastInteractedCanvas)
+  const setRenderedCanvases = useUIStore((s) => s.setRenderedCanvases)
+  const projectId = useProjectStore((s) => s.currentProject?.project.id ?? null)
+
+  useEffect(() => {
+    setLastInteractedCanvas(null)
+  }, [projectId, setLastInteractedCanvas])
 
   const [previewRatios, setPreviewRatios] = useState<{ primary: number; secondary: number } | null>(
     null
@@ -145,6 +169,12 @@ function ViewLayout({
   }, [compact, compactOrientation, layout, primaryRatio, secondaryRatio])
   const panelZones = useMemo(() => getViewportPanelZones(layoutForRender), [layoutForRender])
   const dividerSpecs = useMemo(() => getViewportDividerSpecs(layoutForRender), [layoutForRender])
+
+  useEffect(() => {
+    setRenderedCanvases(layoutForRender.panels.map((panel) => panel.canvas))
+  }, [layoutForRender.panels, setRenderedCanvases])
+
+  useEffect(() => () => setRenderedCanvases(null), [setRenderedCanvases])
 
   useEffect(() => {
     setPreviewRatios(null)
@@ -189,7 +219,13 @@ function ViewLayout({
                         compactOrientation={compactOrientation}
                       />
                     </div>
-                    <div className="relative h-full w-full" data-canvas-surface={slot.type}>
+                    <div
+                      className="relative h-full w-full"
+                      data-canvas-surface={slot.type}
+                      onPointerDownCapture={() => setLastInteractedCanvas(slot.type)}
+                      onFocusCapture={() => setLastInteractedCanvas(slot.type)}
+                      onWheelCapture={() => setLastInteractedCanvas(slot.type)}
+                    >
                       <ViewportCanvasSurface
                         panelIndex={slot.panelIndex}
                         type={slot.type}

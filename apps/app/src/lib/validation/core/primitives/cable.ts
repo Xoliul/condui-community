@@ -602,6 +602,13 @@ function postMainBusRequiresPeConductor(
     if ((seg.domain ?? DEFAULT_ELECTRICAL_DOMAIN) === 'DC') continue
     if (seg.supplyWireRole === 'upstream') continue
     if (!seg.circuitId) continue
+    // Bus-to-protection links carry active conductors inside the panel; the
+    // circuit's PE runs separately from the PE bar to its outgoing wiring.
+    if (
+      (seg.fromElementType === 'mainBus' || seg.fromElementType === 'secondaryBus') &&
+      seg.toElementType === 'protection'
+    )
+      continue
     if (!cableExplicitlyWithoutPe(seg.cable)) continue
 
     const circuit = query.getCircuitById(seg.circuitId)

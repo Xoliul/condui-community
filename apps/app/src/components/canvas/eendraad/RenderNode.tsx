@@ -338,6 +338,7 @@ const RenderNode = memo(function RenderNodeImpl({
                   ? (newPos) => onElementDragMove(protection.id, 'protection', newPos)
                   : undefined
               }
+              downstreamNode={node}
             />
           )}
           {!renderProtectionSymbol &&

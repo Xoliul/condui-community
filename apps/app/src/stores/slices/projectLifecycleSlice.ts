@@ -22,9 +22,6 @@ import { projectToStoredProjectV2 } from '@/lib/projectV2/migration'
 import { viewportLayoutForPersistence } from '@/lib/viewport/viewportLayoutPersistence'
 import { useUIStore } from '@/stores/uiStore'
 import { logger } from '@/lib/logger'
-import { supportsExtendedInstallationProfiles } from '@/lib/editionInstallationProfileCapabilities'
-import { forceHouseholdInstallationProfile } from '@/lib/installationProfile'
-import { getEditableProjectElectricalInstallation } from '@/lib/projectV2/electrical'
 import { summarizeConverterDcPersistence } from '@/lib/supplyAssembly/persistenceDiagnostics'
 import {
   hasInheritedEendraadLayout,
@@ -44,11 +41,6 @@ export const createProjectLifecycleSlice: ProjectSliceCreator = (set, get) => ({
     projectHistory.resetForProjectSwitch()
     set((state) => {
       const hydratedProject = hydrateProjectForEditor(project)
-      if (!supportsExtendedInstallationProfiles(state.currentProjectStorageMode)) {
-        forceHouseholdInstallationProfile(
-          getEditableProjectElectricalInstallation(hydratedProject.project)
-        )
-      }
       state.currentProject = hydratedProject.project
       resetDisciplineSessionState(state)
       state.isDirty = hydratedProject.isDirty
@@ -63,15 +55,6 @@ export const createProjectLifecycleSlice: ProjectSliceCreator = (set, get) => ({
   setCurrentProjectStorageMode: (mode) =>
     set((state) => {
       state.currentProjectStorageMode = mode
-      if (
-        state.currentProject &&
-        !supportsExtendedInstallationProfiles(mode) &&
-        forceHouseholdInstallationProfile(
-          getEditableProjectElectricalInstallation(state.currentProject)
-        )
-      ) {
-        state.isDirty = true
-      }
     }),
 
   touchProjectUpdatedAt: () =>
@@ -89,6 +72,32 @@ export const createProjectLifecycleSlice: ProjectSliceCreator = (set, get) => ({
       }
     }),
 
+  upsertProjectAssets: (assets) =>
+    set((state) => {
+      if (!state.currentProject || assets.length === 0) return
+      const replacements = new Map(assets.map((asset) => [asset.id, asset]))
+      const current = state.currentProject.assets
+      const kept = current.map((asset) => replacements.get(asset.id) ?? asset)
+      const existingIds = new Set(current.map((asset) => asset.id))
+      state.currentProject.assets = [
+        ...kept,
+        ...assets.filter((asset) => !existingIds.has(asset.id)),
+      ]
+      state.currentProject.project.updatedAt = new Date().toISOString()
+      state.isDirty = true
+    }),
+
+  removeProjectAssets: (ids) =>
+    set((state) => {
+      if (!state.currentProject) return
+      const removed = new Set(ids)
+      const assets = state.currentProject.assets.filter((asset) => !removed.has(asset.id))
+      if (assets.length === state.currentProject.assets.length) return
+      state.currentProject.assets = assets
+      state.currentProject.project.updatedAt = new Date().toISOString()
+      state.isDirty = true
+    }),
+
   saveCurrentProject: (options) =>
     enqueueProjectSave(async () => {
       const saveStartedAt = import.meta.env.VITE_E2E ? performance.now() : 0
@@ -103,11 +112,14 @@ export const createProjectLifecycleSlice: ProjectSliceCreator = (set, get) => ({
       while (projectSnapshot?.project.id === projectId) {
         const currentProject = projectSnapshot
         const { currentProjectStorageMode } = get()
-        prepareProjectForPersistence(currentProject)
+        // Persistence repairs can replace nested V2 collections. The live Zustand
+        // snapshot is frozen by Immer, so prepare a private copy for this save.
+        const preparedProject = structuredClone(currentProject) as Project
+        prepareProjectForPersistence(preparedProject)
         const projectToSave: Project = {
-          ...currentProject,
+          ...preparedProject,
           project: {
-            ...currentProject.project,
+            ...preparedProject.project,
             lastViewportLayout: viewportLayoutForPersistence(useUIStore.getState().viewportLayout),
           },
         }

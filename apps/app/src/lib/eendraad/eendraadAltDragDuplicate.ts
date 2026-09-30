@@ -34,6 +34,16 @@ import { clonePlacementsForDuplicate } from '@/lib/eendraad/duplicateSitplanHelp
 import { cloneDomoticaEndpointGroup } from '@/lib/eendraad/duplicateDomoticaEndpointGroup'
 import { generateId } from '@/utils'
 import {
+  getProjectElectricalPanels,
+  type ProjectWithOptionalV2Electrical,
+} from '@/lib/projectV2/electrical'
+import { walkPanels } from '@/lib/panel/panelTree'
+import { mutateTrunkDeviceRelocation } from '@/lib/layout/eendraadPreviewSimulation'
+import { circuitContainsJunctionPanelIdentity, getJunctionIdentity } from '@/lib/junctionIdentity'
+import { endpointSupportsMultiplier, getEndpointMultiplier } from '@/utils/endpointMultipliers'
+import {
+  endpointMergeSettingsMatchEndpoints,
+  endpointsShareMergeFamily,
   incrementSameSymbolAddMoreTarget,
   canIncrementSameSymbolAddMoreTarget,
   findSameSymbolAddMoreLayoutTargets,
@@ -66,6 +76,60 @@ export interface EendraadAltDragDuplicateDeps {
   getFloorById: (floorId: string) => { id: string; layers?: string[] } | null
   getProtectionById: (protectionId: string) => ProtectionDevice | null
   syncEndpointMultiplierCount: (endpointId: string, count: number) => boolean
+}
+
+/** Copy a circuit trunk symbol to a wire slot, keeping its physical junction identity. */
+export function duplicateCircuitTrunkDeviceAtDropTarget(
+  project: ProjectWithOptionalV2Electrical,
+  sourceCircuitId: string,
+  sourceDeviceId: string,
+  target: DropTarget,
+): string | null {
+  if (target.type !== 'circuit' || !target.circuitId || target.branchEndpoints?.length) return null
+  const circuits = [...walkPanels(getProjectElectricalPanels(project))]
+    .flatMap((panel) => [
+      ...(panel.circuits ?? []),
+      ...(panel.protections ?? []).flatMap((protection) => protection.circuits ?? []),
+    ])
+  const sourceCircuit = circuits.find((circuit) => circuit.id === sourceCircuitId)
+  const sourceDevice = sourceCircuit?.trunkDevices?.find((device) => device.id === sourceDeviceId)
+  const symbol = sourceDevice ? getSymbolById(sourceDevice.symbol) : undefined
+  if (!sourceCircuit || !sourceDevice || !symbol) return null
+  if (sourceDevice.symbol === 'junction_panel') {
+    const targetCircuit = circuits.find((circuit) => circuit.id === target.circuitId)
+    if (
+      !targetCircuit ||
+      targetCircuit.id === sourceCircuitId ||
+      circuitContainsJunctionPanelIdentity(targetCircuit, getJunctionIdentity(sourceDevice))
+    ) return null
+  }
+  const lastTrunkPosition = Math.max(
+    -1,
+    ...(sourceCircuit.trunkDevices ?? []).map((device) => device.trunkPosition ?? 0),
+  )
+
+  const clone: TrunkDevice = {
+    ...JSON.parse(JSON.stringify(sourceDevice)),
+    id: generateId(),
+    // Keep the temporary source insertion after every existing trunk device so
+    // the drop slot retains its original index on same-circuit duplicates.
+    trunkPosition: lastTrunkPosition + 1,
+    placements: sourceDevice.placements?.length
+      ? clonePlacementsForDuplicate(sourceDevice.placements, { symbolType: sourceDevice.symbol })
+      : [],
+  }
+  // A junction panel's displayed ID identifies the shared physical panel;
+  // each symbol occurrence and its terminal still need unique internal IDs.
+  if (clone.junctionPanelTerminal) {
+    clone.junctionPanelTerminal.id = generateId()
+  }
+  const originalDevices = sourceCircuit.trunkDevices
+  sourceCircuit.trunkDevices = [...(originalDevices ?? []), clone]
+  if (!mutateTrunkDeviceRelocation(project, { id: clone.id, sourceCircuitId }, target, symbol)) {
+    sourceCircuit.trunkDevices = originalDevices
+    return null
+  }
+  return clone.id
 }
 
 /**
@@ -234,6 +298,24 @@ export function runEendraadEndpointAltDragDuplicate(
     ? store.getEndpointById(dropTarget.endpointId) ?? null
     : null
 
+  if (
+    sourceEndpoint.domoticaChildProps &&
+    targetEndpoint?.domoticaChildProps &&
+    dropTarget.domoticaChildDropIntent === 'replace' &&
+    endpointsShareMergeFamily(sourceEndpoint, targetEndpoint)
+  ) {
+    if (!endpointMergeSettingsMatchEndpoints(sourceEndpoint, targetEndpoint)) return false
+    if (
+      sourceEndpoint.symbol === targetEndpoint.symbol &&
+      endpointSupportsMultiplier(targetEndpoint)
+    ) {
+      return deps.syncEndpointMultiplierCount(
+        targetEndpoint.id,
+        getEndpointMultiplier(targetEndpoint) + 1
+      )
+    }
+  }
+
   const sourceDomoticaCircuit =
     sourceEndpoint.symbol === 'domotica' && !sourceEndpoint.domoticaChildProps
       ? store.findCircuitForEndpoint(sourceEndpointId)?.circuit
@@ -273,6 +355,20 @@ export function runEendraadEndpointAltDragDuplicate(
     if (domoticaSlotTarget?.domoticaOutput) {
       dropTarget = domoticaSlotTarget
     }
+  }
+
+  if (sourceEndpoint.symbol === 'junction_panel') {
+    const sourceCircuitId = store.findCircuitForEndpoint(sourceEndpointId)?.circuit.id
+    const targetCircuitId = dropTarget.circuitId ??
+      (dropTarget.protectionId
+        ? deps.getProtectionById(dropTarget.protectionId)?.circuits?.[0]?.id
+        : undefined)
+    const targetCircuit = targetCircuitId ? store.getCircuitById(targetCircuitId) : undefined
+    if (
+      !targetCircuit ||
+      targetCircuitId === sourceCircuitId ||
+      circuitContainsJunctionPanelIdentity(targetCircuit, getJunctionIdentity(sourceEndpoint))
+    ) return false
   }
 
   const createdEndpointIds: string[] = []

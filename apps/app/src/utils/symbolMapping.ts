@@ -1,3 +1,4 @@
+import { getLocalizedSymbolName } from '@/lib/symbolNames'
 /**
  * Utility functions for mapping symbol metadata to endpoint types and symbol keys
  */
@@ -33,6 +34,7 @@ export function getEndpointTypeFromSymbol(symbol: SymbolMetadata): EndpointType 
     id === 'switch_dimmer' ||
     id === 'switch_1p_changeover' ||
     id === 'switch_1p_pull' ||
+    id === 'contact' ||
     id === 'switch_impulse' ||
     id === 'switch_cross' ||
     id === 'motion_detector' ||
@@ -159,6 +161,7 @@ export function getSymbolKeyFromSymbol(symbol: SymbolMetadata): SymbolKey | unde
     id === 'switch_dimmer' ||
     id === 'switch_1p_changeover' ||
     id === 'switch_1p_pull' ||
+    id === 'contact' ||
     id === 'switch_impulse' ||
     id === 'switch_cross' ||
     id === 'motion_detector' ||
@@ -252,6 +255,7 @@ export function isSwitchSymbol(symbol: SymbolMetadata): boolean {
     id === 'switch_dimmer' ||
     id === 'switch_1p_changeover' ||
     id === 'switch_1p_pull' ||
+    id === 'contact' ||
     id === 'switch_impulse' ||
     id === 'switch_cross' ||
     id === 'motion_detector' ||
@@ -294,6 +298,7 @@ export function isInBetweenDevice(symbol: SymbolMetadata): boolean {
     id === 'switch_dimmer' ||
     id === 'switch_1p_changeover' ||
     id === 'switch_1p_pull' ||
+    id === 'contact' ||
     id === 'switch_impulse' ||
     id === 'switch_cross' ||
     id === 'motion_detector' ||
@@ -472,9 +477,7 @@ export function isTrunkDeviceType(type: string): boolean {
  * Get a default label for a symbol based on its metadata
  */
 export function getDefaultLabel(symbol: SymbolMetadata, locale: string = 'nl-BE'): string {
-  if (locale === 'nl-BE') return symbol.nameNL
-  if (locale === 'fr-BE') return symbol.nameFR
-  return symbol.name
+  return getLocalizedSymbolName(symbol, locale)
 }
 
 /** Apply library-only preset defaults (e.g. double socket count) after symbol key is resolved. */

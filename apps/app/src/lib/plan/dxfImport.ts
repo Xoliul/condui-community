@@ -5,6 +5,8 @@ import {
   type CadImportPipelineContext,
 } from '@/lib/plan/cadReferenceBuilder'
 import type { CadMetadataHeader } from '@/lib/plan/cadCoordinateTransform'
+import { filterCadSvgLayers, parseCadLayerList, type CadLayerInfo } from '@/lib/plan/cadLayers'
+import { svgContentToDataUrl } from '@/utils/planImageProcessing'
 
 const MAX_VECTOR_SVG_LENGTH = 12_000_000
 const TARGET_LONG_EDGE_PX = 2400
@@ -14,7 +16,16 @@ export interface CadParseResult {
   fileName: string
   pages: PdfImportPageCandidate[]
   warnings: string[]
+  /** Pipeline of the first page; kept for callers that import a single CAD page. */
   cadImportPipeline?: CadImportPipelineContext
+  /** One pipeline per page, keyed by page index. DWG layouts yield one page per viewport. */
+  cadImportPipelinesByPage?: Record<number, CadImportPipelineContext>
+}
+
+interface CadServerView {
+  label?: string | null
+  svgContent: string
+  layers?: unknown
 }
 
 function parseViewBox(svg: SVGSVGElement): { x: number; y: number; width: number; height: number } | null {
@@ -188,59 +199,79 @@ export async function parseCadFile(
     throw new Error(String(message))
   }
 
-  const rawSvgContent = typeof payload?.svgContent === 'string' ? payload.svgContent : ''
-  if (!rawSvgContent) {
-    throw new Error(`${kind.toUpperCase()} conversion returned no SVG content.`)
+  const views: CadServerView[] = Array.isArray(payload?.views)
+    ? payload.views.filter(
+        (view: unknown): view is CadServerView =>
+          !!view && typeof (view as CadServerView).svgContent === 'string' && (view as CadServerView).svgContent.length > 0,
+      )
+    : []
+  if (views.length === 0) {
+    const rawSvgContent = typeof payload?.svgContent === 'string' ? payload.svgContent : ''
+    if (rawSvgContent) views.push({ svgContent: rawSvgContent })
   }
-  if (rawSvgContent.length > MAX_VECTOR_SVG_LENGTH) {
-    throw new Error(`${kind.toUpperCase()} SVG payload too large (${Math.round(rawSvgContent.length / 1024)} KB).`)
+  if (views.length === 0) {
+    throw new Error(`${kind.toUpperCase()} conversion returned no SVG content.`)
   }
 
   const cadMetadata = normalizeCadMetadata(payload?.cadMetadata)
-  const normalized = normalizeCadSvgForImport(rawSvgContent)
-  const warnings = Array.isArray(payload.warnings)
+  const warnings: string[] = Array.isArray(payload.warnings)
     ? payload.warnings.map((warning: unknown) => String(warning))
     : []
-  warnings.push(...normalized.warnings)
-  const svgContent = normalized.svgContent
-  const previewDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`
-  const scaleMetersPerPixel = getCadMetersPerPixel(cadMetadata, normalized.displayScale, normalized)
-  const scaleReference = buildCadScaleReference(
-    normalized.width,
-    normalized.height,
-    scaleMetersPerPixel,
-  )
+  const cadImportSessionId = options?.cadImportSessionId ?? crypto.randomUUID()
+  const pages: PdfImportPageCandidate[] = []
+  const cadImportPipelinesByPage: Record<number, CadImportPipelineContext> = {}
 
-  const cadImportPipeline = buildCadImportPipelineContext({
-    sourceKind: kind,
-    sourceFileName: file.name || `upload.${kind}`,
-    rawSvgContent,
-    normalizedWidth: normalized.width,
-    normalizedHeight: normalized.height,
-    displayScale: normalized.displayScale,
-    cadMetadata,
-    cadImportSessionId: options?.cadImportSessionId ?? crypto.randomUUID(),
-    fileSizeBytes: file.size,
-  }) ?? undefined
+  views.forEach((view, pageIndex) => {
+    const rawSvgContent = view.svgContent
+    if (rawSvgContent.length > MAX_VECTOR_SVG_LENGTH) {
+      throw new Error(`${kind.toUpperCase()} SVG payload too large (${Math.round(rawSvgContent.length / 1024)} KB).`)
+    }
+    const normalized = normalizeCadSvgForImport(rawSvgContent)
+    const pageWarnings = [...warnings, ...normalized.warnings]
+    const cadLayers: CadLayerInfo[] = parseCadLayerList(view.layers)
+    const initiallyHidden = new Set(cadLayers.filter((layer) => !layer.visible).map((layer) => layer.name))
+    const svgContent = filterCadSvgLayers(normalized.svgContent, initiallyHidden)
+    const previewDataUrl = svgContentToDataUrl(svgContent)
+    const scaleMetersPerPixel = getCadMetersPerPixel(cadMetadata, normalized.displayScale, normalized)
+    const scaleReference = buildCadScaleReference(
+      normalized.width,
+      normalized.height,
+      scaleMetersPerPixel,
+    )
+    const pipeline = buildCadImportPipelineContext({
+      sourceKind: kind,
+      sourceFileName: file.name || `upload.${kind}`,
+      rawSvgContent,
+      normalizedWidth: normalized.width,
+      normalizedHeight: normalized.height,
+      displayScale: normalized.displayScale,
+      cadMetadata,
+      cadImportSessionId,
+      fileSizeBytes: file.size,
+    })
+    if (pipeline) cadImportPipelinesByPage[pageIndex] = pipeline
+    pages.push({
+      pageIndex,
+      pageCount: views.length,
+      ...(view.label ? { label: view.label } : {}),
+      width: normalized.width,
+      height: normalized.height,
+      previewDataUrl,
+      rasterDataUrl: previewDataUrl,
+      vectorSvg: svgContent,
+      warnings: pageWarnings,
+      scaleReference,
+      scaleMetersPerPixel: scaleMetersPerPixel ?? undefined,
+      ...(cadLayers.length > 0 ? { cadLayers, cadSourceSvg: normalized.svgContent } : {}),
+    })
+  })
 
   return {
     fileName: file.name,
-    pages: [
-      {
-        pageIndex: 0,
-        pageCount: 1,
-        width: normalized.width,
-        height: normalized.height,
-        previewDataUrl,
-        rasterDataUrl: previewDataUrl,
-        vectorSvg: svgContent,
-        warnings,
-        scaleReference,
-        scaleMetersPerPixel: scaleMetersPerPixel ?? undefined,
-      },
-    ],
-    warnings,
-    cadImportPipeline,
+    pages,
+    warnings: pages[0]?.warnings ?? warnings,
+    cadImportPipeline: cadImportPipelinesByPage[0],
+    cadImportPipelinesByPage,
   }
 }
 

@@ -4,6 +4,7 @@ const { createRequire } = require('module')
 const { gzipSync } = require('zlib')
 const { DOMParser, XMLSerializer } = require('@xmldom/xmldom')
 const { SvgConverter } = require('./_libredwg-js-svg-converter.cjs')
+const { buildDwgViews, readViewportFrozenLayers } = require('./_dwg-layout-views.cjs')
 
 const MAX_UPLOAD_BYTES = Number(process.env.DWG_CONVERT_MAX_UPLOAD_BYTES || 20 * 1024 * 1024)
 const MAX_CROP_AXIS = Number(process.env.DWG_CONVERT_MAX_CROP_AXIS || 100000)
@@ -288,6 +289,18 @@ async function convertDwgToSvg(fileBuffer) {
       extmax: db?.header?.EXTMAX,
     }
     try {
+      const views = buildDwgViews(db, { viewportFrozenLayers: readViewportFrozenLayers(libredwg, dwg, db) })
+        .map(view => ({ ...view, svgContent: normalizeSvgForImageUse(view.svgContent) }))
+      if (views.length > 0) {
+        return { svgContent: views[0].svgContent, views, cadMetadata }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Layout view renderer failed.'
+      lastDwgReadWarning = lastDwgReadWarning
+        ? `${lastDwgReadWarning} ${message}; used model-space renderer.`
+        : `${message}; used model-space renderer.`
+    }
+    try {
       return {
         svgContent: normalizeSvgForImageUse(new SvgConverter().convert(db)),
         cadMetadata,
@@ -356,10 +369,21 @@ exports.handler = async event => {
     if (width <= 0 || height <= 0) {
       warnings.push('SVG dimensions were not explicit; width/height defaulted to 0.')
     }
+    // Crop requests apply to the single legacy SVG; per-viewport views are returned uncropped.
+    const views = !crop && Array.isArray(converted.views) && converted.views.length > 0
+      ? converted.views.map(view => ({
+          id: view.id,
+          label: view.label,
+          svgContent: view.svgContent,
+          layers: view.layers,
+          ...parseSvgDimensions(view.svgContent),
+        }))
+      : undefined
     return jsonResponse(200, {
       svgContent,
       width,
       height,
+      ...(views ? { views } : {}),
       warnings,
       cadMetadata: converted.cadMetadata,
       sourceName: fileName || 'upload.dwg',

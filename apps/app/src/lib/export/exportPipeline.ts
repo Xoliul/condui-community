@@ -34,7 +34,7 @@ import { preparePanelScene } from './sceneProviders/panelSceneProvider'
 import { prepareSitplanScene } from './sceneProviders/sitplanSceneProvider'
 import { prepareEendraadScene } from './sceneProviders/eendraadSceneProvider'
 import { calculateEendraadSlices } from './slicing/eendraadSlicing'
-import { A4_LANDSCAPE, A4_PORTRAIT } from './pageSizes'
+import { A4_LANDSCAPE, A4_PORTRAIT, getPageDimensions, type ExportPaperSize } from './pageSizes'
 import { buildInfoBlockSvg } from './infoBlockSvg'
 import { getInfoBlockTotalWidth, isInspectionAgencyInfoBlockVisible } from '@/lib/infoBlockLayout'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -64,6 +64,24 @@ import { queryOneWireNotes } from '@/lib/projectV2/annotations'
 import { selectProjectBuildingFloors } from '@/lib/projectV2/buildingFloors'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { shouldRasterizePdf } from '@/lib/editionPdfRenderingPolicy'
+/* @project-documents-strip-start */
+import { isCableRoutesEnabled } from '@/lib/cableRouting/availability'
+import { buildCableSchedule } from '@/lib/cableRouting/cableSchedule'
+import {
+  buildCableScheduleSvgPages,
+  getCableSchedulePdfLabels,
+} from '@/lib/cableRouting/cableSchedulePdf'
+import { estimateCableRoutes } from '@/lib/cableRouting/estimateCableRoutes'
+import { isProjectV2 } from '@/lib/projectV2/migration'
+
+import { appendDocumentsToPdf } from '@/lib/documents/appendDocumentsToPdf'
+
+import {
+  cableScheduleDocument,
+  getExportedProjectDocuments,
+  getProjectDocuments,
+} from '@/lib/documents/projectDocuments'
+/* @project-documents-strip-end */
 import { getPanelDiagramId } from '@/lib/layout/bottomUpLayout'
 import { buildPanelExportTargets, orderEendraadLayoutsForExport } from './exportPlan'
 
@@ -85,6 +103,10 @@ function normalizeInstallerProfile(
 /**
  * Build export plan - list of pages to export
  */
+function getEendraadPaperSize(options: Pick<ExportOptions, 'eendraadPaperSize'>): ExportPaperSize {
+  return options.eendraadPaperSize === 'A3' ? 'A3' : 'A4'
+}
+
 function buildExportPlan(options: ExportOptions, context: ExportContext): ExportPage[] {
   const pages: ExportPage[] = []
   const { project, eendraadLayout } = context
@@ -106,14 +128,14 @@ function buildExportPlan(options: ExportOptions, context: ExportContext): Export
           bounds: { x: 0, y: 0, width: 0, height: 0, space: 'scene' }, // Temporary
           preferredOrientation: 'landscape',
         },
-        pageSize: 'A4',
+        pageSize: getEendraadPaperSize(options),
         orientation: 'landscape',
       })
     }
   }
 
   if (options.includeSitplan === true) {
-    for (const target of buildSitplanExportTargets(project)) {
+    for (const target of buildSitplanExportTargets(project, options.mergePlanPages)) {
       pages.push({
         id: target.id,
         scene: {
@@ -201,7 +223,9 @@ async function prepareSceneForPage(
 
       const { slices, globalScale, mainBusY } = await calculateEendraadSlices(
         panelLayout,
-        fullScene
+        fullScene,
+        undefined,
+        getEendraadPaperSize(options)
       )
 
       for (let i = 0; i < slices.length; i++) {
@@ -517,8 +541,12 @@ export async function exportToPDF(
                 (panelLayout) =>
                   getPanelDiagramId(panelLayout) === diagramId && panelLayout.frameRole === 'supply'
               )
+              const panelLayout = context.eendraadLayout?.panels.find(
+                (candidate) => getPanelDiagramId(candidate) === diagramId
+              )
               svgString = fixEendraadWireLineCapsInExportSvg(svgString, {
                 preserveRoundedThickCaps: isSupplyFrame,
+                mainBus: panelLayout?.mainBus,
               })
             }
             svgString = applyPreparedSceneThemeToSvg(svgString, scene, exportTheme, renderTheme)
@@ -564,6 +592,10 @@ export async function exportToPDF(
               `[Export] Rendered SVG (${svgString.length} chars) for scene ${sceneIndex + 1}`
             )
 
+            // Only one-wire pages follow the chosen paper size; everything else stays A4.
+            const scenePaperSize: ExportPaperSize =
+              scene.kind === 'eendraad' ? getEendraadPaperSize(options) : 'A4'
+
             // Create PDF if first page
             if (!pdf) {
               const orientation =
@@ -573,7 +605,7 @@ export async function exportToPDF(
                     ? 'landscape'
                     : 'portrait'
               pdf = createPdfDocument(
-                orientation === 'landscape' ? A4_LANDSCAPE : A4_PORTRAIT,
+                getPageDimensions(orientation, scenePaperSize),
                 orientation
               )
               await addExportFontToPdf(pdf)
@@ -588,11 +620,11 @@ export async function exportToPDF(
                   : scene.bounds.width > scene.bounds.height
                     ? 'landscape'
                     : 'portrait'
-              const pageSize =
-                orientation === 'landscape'
-                  ? [A4_LANDSCAPE.width, A4_LANDSCAPE.height]
-                  : [A4_PORTRAIT.width, A4_PORTRAIT.height]
-              pdf.addPage(pageSize, orientation)
+              const { width: pageWidthMm, height: pageHeightMm } = getPageDimensions(
+                orientation,
+                scenePaperSize
+              )
+              pdf.addPage([pageWidthMm, pageHeightMm], orientation)
               exportLog(`[Export] Added new page (${orientation})`)
             }
 
@@ -600,7 +632,7 @@ export async function exportToPDF(
             const scenePage: ExportPage = {
               id: `${page.id}${scenes.length > 1 ? `-slice-${sceneIndex}` : ''}`,
               scene,
-              pageSize: 'A4',
+              pageSize: scenePaperSize,
               orientation:
                 scene.kind === 'eendraad' || scene.preferredOrientation === 'landscape'
                   ? 'landscape'
@@ -824,6 +856,66 @@ export async function exportToPDF(
         }
       }
 
+      /* @project-documents-strip-start */
+      // Attached documents follow the drawings. Generated tables render as vector pages.
+      if (options.includeDocuments && pdf) {
+        const documentPages: Array<{ id: string; svg: string }> = []
+        if (
+          isCableRoutesEnabled() &&
+          isProjectV2(context.project) &&
+          cableScheduleDocument('', context.project.assets).includeInExport
+        ) {
+          const schedule = buildCableSchedule(estimateCableRoutes(context.project).routes)
+          const schedulePages = buildCableScheduleSvgPages(
+            schedule,
+            getCableSchedulePdfLabels(i18n.t),
+            fontFamily,
+            exportTheme
+          )
+          schedulePages.forEach((svg, index) =>
+            documentPages.push({ id: `document-cable-schedule-${index + 1}`, svg })
+          )
+          exportLog(`[Export] Added the cable schedule (${schedulePages.length} page(s))`)
+        }
+        
+        for (const { id: tablePageId, svg: tableSvg } of documentPages) {
+          const orientation = 'landscape' as const
+          pdf.addPage([A4_LANDSCAPE.width, A4_LANDSCAPE.height], orientation)
+          if (isLimitedRasterExport) {
+            await composeLimitedRasterPdfPage(
+              pdf,
+              tableSvg,
+              {
+                id: tablePageId,
+                scene: {
+                  id: tablePageId,
+                  kind: 'panel',
+                  rootNode: null as unknown as ExportScene['rootNode'],
+                  bounds: {
+                    x: 0,
+                    y: 0,
+                    width: A4_LANDSCAPE.width,
+                    height: A4_LANDSCAPE.height,
+                    space: 'scene',
+                  },
+                  preferredOrientation: orientation,
+                },
+                pageSize: 'A4',
+                orientation,
+              },
+              diagnostics,
+              null,
+              null,
+              exportTheme
+            )
+          } else {
+            await composeFullSvgPage(pdf, tableSvg, tablePageId, diagnostics, orientation, exportTheme)
+          }
+          successfulPages++
+        }
+      }
+      /* @project-documents-strip-end */
+
       if (!pdf) {
         const errorMessage =
           successfulPages === 0
@@ -834,13 +926,46 @@ export async function exportToPDF(
         throw new ExportError('NO_CONTENT', errorMessage)
       }
 
+      let blob = pdf.output('blob')
+      let pageCount = successfulPages
+      /* @project-documents-strip-start */
+      // Uploaded PDFs (selected pages) and images follow, merged into the finished PDF.
+      if (options.includeDocuments) {
+        const uploads = getExportedProjectDocuments(getProjectDocuments(context.project.assets)).filter(
+          (document) => document.kind === 'pdf' || document.kind === 'image'
+        )
+        if (uploads.length > 0) {
+          let renderLimitedPages: Parameters<typeof appendDocumentsToPdf>[3]
+          
+          const merged = await appendDocumentsToPdf(
+            await blob.arrayBuffer(),
+            uploads,
+            undefined,
+            renderLimitedPages
+          )
+          blob = new Blob([merged.bytes], { type: 'application/pdf' })
+          pageCount += merged.addedPages
+          for (const failure of merged.failed) {
+            logger.warn('[Export] Could not add document to PDF', failure)
+            diagnostics.push({
+              level: 'error',
+              code: 'DOCUMENT_APPEND_FAILED',
+              pageId: `document-${failure.id}`,
+              message: i18n.t('projectDocuments.exportFailed', { name: failure.name }),
+            })
+          }
+          exportLog(`[Export] Added ${merged.addedPages} page(s) from ${uploads.length} document(s)`)
+        }
+      }
+      /* @project-documents-strip-end */
+
       // Final progress update
       progressCallbacks?.onProgress?.(1)
 
       return {
-        blob: pdf.output('blob'),
+        blob,
         diagnostics,
-        pageCount: successfulPages,
+        pageCount,
       }
     } finally {
       const ui = useUIStore.getState()

@@ -13,6 +13,14 @@ const MOBILE_MENU_TOP_INSET_PX = 12
 const MOBILE_MENU_BOTTOM_INSET_PX = 12
 const MOBILE_MENU_MIN_HEIGHT_PX = 120
 
+/** The canvas an overlay control sits on: the marked root, else the rail's container. */
+function findCanvasOverlayRoot(element: HTMLElement | null): HTMLElement | null {
+  return (
+    (element?.closest(`[${CANVAS_OVERLAY_ROOT_ATTR}]`) as HTMLElement | null) ??
+    (element?.closest('[data-canvas-overlay-anchor]')?.parentElement ?? null)
+  )
+}
+
 interface FloatingControlProps {
   icon: React.ReactNode
   /** Label shown in the hover bubble (and used for aria-label) */
@@ -75,7 +83,10 @@ export function FloatingControl({
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [mobileMenuLayout, setMobileMenuLayout] = useState({ top: 0, maxHeight: 0 })
   const { isCompact: editorCompact } = useResponsiveEditorMode()
-  const { height: overlayHeight } = useCanvasOverlayScale()
+  const { height: overlayHeight, scale: overlayScale } = useCanvasOverlayScale()
+  const menuContentRef = useRef<HTMLDivElement>(null)
+  // Desktop: keep a tall menu inside the canvas, shifted up and scrollable when needed.
+  const [fitLayout, setFitLayout] = useState<{ top: number; maxHeight: number } | null>(null)
 
   const isControlled = open !== undefined
   const isOpen = isControlled ? open : internalOpen
@@ -153,6 +164,48 @@ export function FloatingControl({
     window.addEventListener('resize', measure)
     return () => window.removeEventListener('resize', measure)
   }, [useMobileMenuLayout, overlayHeight])
+
+  useLayoutEffect(() => {
+    if (!isOpen || !children || useMobileMenuLayout) {
+      setFitLayout(null)
+      return
+    }
+    const measure = () => {
+      const wrapper = wrapperRef.current
+      const menu = menuContentRef.current
+      const canvasRoot = findCanvasOverlayRoot(wrapper)
+      if (!wrapper || !menu || !canvasRoot) return
+      // Menus live inside the scaled overlay rail: convert screen pixels to its units.
+      const scale = overlayScale > 0 ? overlayScale : 1
+      const canvasRect = canvasRoot.getBoundingClientRect()
+      const wrapperTop = (wrapper.getBoundingClientRect().top - canvasRect.top) / scale
+      const canvasHeight = canvasRect.height / scale
+      const maxHeight = Math.max(
+        MOBILE_MENU_MIN_HEIGHT_PX,
+        canvasHeight - MOBILE_MENU_TOP_INSET_PX - MOBILE_MENU_BOTTOM_INSET_PX
+      )
+      const height = Math.min(menu.scrollHeight, maxHeight)
+      const bottomLimit = canvasHeight - MOBILE_MENU_BOTTOM_INSET_PX
+      let top = wrapperTop + height > bottomLimit ? bottomLimit - height - wrapperTop : 0
+      top = Math.max(top, MOBILE_MENU_TOP_INSET_PX - wrapperTop)
+      setFitLayout((current) =>
+        current && current.top === top && current.maxHeight === maxHeight
+          ? current
+          : { top, maxHeight }
+      )
+    }
+    measure()
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    const content = menuContentRef.current?.firstElementChild
+    if (content) observer?.observe(content)
+    const canvasRoot = findCanvasOverlayRoot(wrapperRef.current)
+    if (canvasRoot) observer?.observe(canvasRoot)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [children, isOpen, overlayScale, useMobileMenuLayout])
 
   const bgClasses =
     isOpen && children
@@ -233,11 +286,14 @@ export function FloatingControl({
             style={
               useMobileMenuLayout
                 ? { top: mobileMenuLayout.top }
-                : undefined
+                : fitLayout
+                  ? { top: fitLayout.top }
+                  : undefined
             }
           >
             {useMobileMenuLayout ? (
               <div
+                data-app-scroll="true"
                 className="pointer-events-auto overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
                 style={{
                   maxHeight:
@@ -254,7 +310,14 @@ export function FloatingControl({
                 {children}
               </div>
             ) : (
-              <div className="pointer-events-auto">{children}</div>
+              <div
+                ref={menuContentRef}
+                data-app-scroll="true"
+                className="pointer-events-auto overflow-y-auto overscroll-contain"
+                style={fitLayout ? { maxHeight: fitLayout.maxHeight } : undefined}
+              >
+                {children}
+              </div>
             )}
           </div>
         </>

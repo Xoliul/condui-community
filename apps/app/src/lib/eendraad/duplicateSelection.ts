@@ -260,6 +260,10 @@ export function canDuplicateEendraadSelection(
   if (selection.ids.length === 0) return false
   if (selection.type === 'supply' || selection.type === 'ground') return false
   if (selection.ids.includes('supply') || selection.ids.includes('ground')) return false
+  if (selection.ids.some((id) =>
+    get.getEndpointById(id)?.symbol === 'junction_panel' ||
+    get.getTrunkDeviceById(id)?.device.symbol === 'junction_panel'
+  )) return false
 
   if (protectionIdInSelection(selection, get)) return true
   if (selection.type === 'circuit' && selection.ids.length === 1 && get.getCircuitById(selection.ids[0]!)) {
@@ -319,6 +323,10 @@ export function runEendraadDuplicate(
   withSingleUndoEntry?: (fn: () => boolean, options?: { sessionLabel?: string }) => boolean,
 ): EendraadDuplicateResult {
   if (selection.ids.length === 0) return null
+  if (selection.ids.some((id) =>
+    get.getEndpointById(id)?.symbol === 'junction_panel' ||
+    get.getTrunkDeviceById(id)?.device.symbol === 'junction_panel'
+  )) return null
 
   const protId =
     protectionIdInSelection(selection, get) ??

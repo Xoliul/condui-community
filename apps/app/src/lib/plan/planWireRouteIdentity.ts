@@ -19,6 +19,29 @@ function sameWaypoints(a: Point2[] | undefined, b: Point2[] | undefined): boolea
   return a.every((point, index) => samePoint(point, b[index]!))
 }
 
+function sameOptionalPoint(a: Point2 | undefined, b: Point2 | undefined): boolean {
+  return a === b || (a !== undefined && b !== undefined && samePoint(a, b))
+}
+
+/** Floor passages: a moved riser must reach the plan, on the arrival and the departure floor. */
+function samePassage(a: PlanWireRoute, b: PlanWireRoute): boolean {
+  const riser =
+    a.riser === b.riser ||
+    (a.riser !== undefined &&
+      b.riser !== undefined &&
+      a.riser.fromFloorId === b.riser.fromFloorId &&
+      sameOptionalPoint(a.riser.pos, b.riser.pos))
+  const exit =
+    a.riserExit === b.riserExit ||
+    (a.riserExit !== undefined &&
+      b.riserExit !== undefined &&
+      a.riserExit.toFloorId === b.riserExit.toFloorId &&
+      a.riserExit.arrivalRouteId === b.riserExit.arrivalRouteId &&
+      sameEndpointRef(a.riserExit.arrivalTo, b.riserExit.arrivalTo) &&
+      sameOptionalPoint(a.riserExit.pos, b.riserExit.pos))
+  return riser && exit
+}
+
 function sameRoute(a: PlanWireRoute, b: PlanWireRoute): boolean {
   return (
     a === b ||
@@ -35,7 +58,9 @@ function sameRoute(a: PlanWireRoute, b: PlanWireRoute): boolean {
       a.style === b.style &&
       a.hidden === b.hidden &&
       a.locked === b.locked &&
-      a.notes === b.notes)
+      a.notes === b.notes &&
+      a.wireAnchor === b.wireAnchor &&
+      samePassage(a, b))
   )
 }
 

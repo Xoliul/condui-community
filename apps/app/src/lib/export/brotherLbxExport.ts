@@ -62,6 +62,21 @@ const BROTHER_PROFILES = {
     printerName: 'Brother PT-D800W',
     maxPackedLengthMm: PT_MAX_PACKED_LENGTH_MM,
   },
+  'pt-e550w': {
+    printerId: '26160',
+    printerName: 'Brother PT-E550W',
+    maxPackedLengthMm: PT_MAX_PACKED_LENGTH_MM,
+  },
+  'pt-e560bt': {
+    printerId: '32560',
+    printerName: 'Brother PT-E560BT',
+    maxPackedLengthMm: PT_MAX_PACKED_LENGTH_MM,
+  },
+  'pt-e310bt': {
+    printerId: '32048',
+    printerName: 'Brother PT-E310BT',
+    maxPackedLengthMm: PT_MAX_PACKED_LENGTH_MM,
+  },
   'ql-810w': {
     printerId: '14644',
     printerName: 'Brother QL-810W',

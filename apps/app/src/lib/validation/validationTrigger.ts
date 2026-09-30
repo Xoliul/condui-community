@@ -13,8 +13,10 @@ import {
   selectProjectBuildingFloors,
   type ProjectWithOptionalV2Building,
 } from '@/lib/projectV2/buildingFloors'
+import { selectProjectWireRuns, type ProjectWithOptionalV2WireRuns } from '@/lib/projectV2/wireRuns'
 
 type ValidationSignatureProject = ProjectWithOptionalV2Electrical &
+  ProjectWithOptionalV2WireRuns &
   AnnotationProject & {
     building?: ProjectWithOptionalV2Building['building']
     floors?: ProjectWithOptionalV2Building['floors']
@@ -152,6 +154,7 @@ let lastProjectSlices: {
   panels: ReturnType<typeof getProjectElectricalPanels>
   supplyAssemblies: ReturnType<typeof selectProjectSupplyAssemblies>
   wireSegments: ReturnType<typeof queryOneWireSegments>
+  wireRuns: ReturnType<typeof selectProjectWireRuns>
   frames: ReturnType<typeof queryOneWireFrames>
   floors: ReturnType<typeof selectProjectBuildingFloors>
 } | null = null
@@ -172,6 +175,7 @@ export function getValidationSignature(project: ValidationSignatureProject | nul
     panels: getProjectElectricalPanels(project),
     supplyAssemblies: selectProjectSupplyAssemblies(project),
     wireSegments: queryOneWireSegments(project),
+    wireRuns: selectProjectWireRuns(project),
     frames: queryOneWireFrames(project),
     floors: selectProjectBuildingFloors(project),
   }
@@ -183,6 +187,7 @@ export function getValidationSignature(project: ValidationSignatureProject | nul
     lastProjectSlices.panels === slices.panels &&
     lastProjectSlices.supplyAssemblies === slices.supplyAssemblies &&
     lastProjectSlices.wireSegments === slices.wireSegments &&
+    lastProjectSlices.wireRuns === slices.wireRuns &&
     lastProjectSlices.frames === slices.frames &&
     lastProjectSlices.floors === slices.floors
   ) {
@@ -200,6 +205,7 @@ export function getValidationSignature(project: ValidationSignatureProject | nul
     slice[key] = stripNonValidationFields(raw)
   }
   slice.wireSegments = stripNonValidationFields(slices.wireSegments)
+  slice.wireRuns = stripNonValidationFields(slices.wireRuns)
   slice.supplyAssemblies = stripNonValidationFields(slices.supplyAssemblies)
   slice.oneWireFrames = slices.frames.map((frame) => ({
     id: frame.id,

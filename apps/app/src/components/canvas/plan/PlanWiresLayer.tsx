@@ -1,14 +1,24 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { isKeyboardTypingTarget } from '@/lib/ui/keyboardTypingTarget'
 import { Circle, Group, Line, Path } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { Endpoint, PlanWireRoute, PlanWireRouteStyle, Point2, TrunkDevice } from '@/types/schema'
+import type {
+  Endpoint,
+  Placement,
+  PlanWireRoute,
+  PlanWireRouteStyle,
+  Point2,
+  TrunkDevice,
+} from '@/types/schema'
 import { applyWireInset } from '@/lib/layout/wireInsets'
 import {
+  PLAN_WIRE_ACTIVE_OPACITY,
   PLAN_WIRE_DASH,
   PLAN_WIRE_HIT_STROKE_WIDTH,
+  PLAN_WIRE_SELECTED_STROKE,
   PLAN_WIRE_STATIC_HOVER_OPACITY,
   PLAN_WIRE_STATIC_OPACITY,
-  PLAN_WIRE_STROKE_WIDTH,
+  planWireStrokeWidth,
   planWireActiveStroke,
   planWireSpanSetKey,
   planWireStaticStroke,
@@ -19,6 +29,23 @@ import {
   type RoutePointContext,
 } from '@/lib/plan/planWireOrthogonal'
 import { distanceSq, projectPointToSegment } from '@/lib/geometry'
+import {
+  offsetPolyline,
+  planWireBundleKey,
+  planWireBundleOffsets,
+} from '@/lib/plan/planWireParallel'
+import { planWireRiserPassageKey as riserPassageKey } from '@/lib/plan/planWiringRouteEdits'
+
+/** A wire end placed through its own placement (junction panel, earth electrode, enclosure). */
+export type PlanWireEndPlacement = Placement & { nodeType?: string }
+import {
+  vectorLength,
+  scaledVector,
+  unitVector,
+  splinePath,
+  sampleSpline,
+  flatten,
+} from '@/lib/plan/planWireGeometry'
 
 interface PlanWiresLayerProps {
   routes: PlanWireRoute[]
@@ -27,12 +54,37 @@ interface PlanWiresLayerProps {
   getEndpointById: (id: string) => Endpoint | undefined
   getTrunkDeviceById?: (id: string) => TrunkDevice | undefined
   placementPositionOverrides?: Map<string, Point2>
+  /** Junction panel placements by id: they belong to the installation, not to a device. */
+  junctionPanelPlacements?: ReadonlyMap<string, PlanWireEndPlacement>
   active: boolean
   /** Map viewport client coords to plan space (accounts for pan/zoom on the content layer). */
   clientToPlan: (clientX: number, clientY: number) => Point2 | null
+  /** Plan zoom, so wires keep a minimum on-screen thickness. */
+  zoom?: number
   onInsertWaypoint?: (route: PlanWireRoute, point: Point2, waypointIndex: number) => void
   onMoveWaypoint?: (route: PlanWireRoute, waypointIndex: number, point: Point2) => void
   onRemoveWaypoint?: (route: PlanWireRoute, waypointIndex: number) => void
+  /** Routes drawn in the selection colour (e.g. the cable selected elsewhere). */
+  highlightedRouteIds?: ReadonlySet<string>
+  /** Routes hovered elsewhere (e.g. in the cable list): the selection colour, thinner. */
+  hoveredRouteIds?: ReadonlySet<string>
+  /** Moves the riser a trace arriving from another floor starts at. */
+  onMoveRiser?: (route: PlanWireRoute, point: Point2) => void
+  /** Per-route colour (e.g. by circuit group in wire mode); falls back to the static colour. */
+  routeStrokeFor?: (route: PlanWireRoute) => string | undefined
+  /**
+   * Routes whose floor-passage handle is drawn by a second, raised instance above the plan
+   * symbols (the selected cable), so dragging it wins over rewiring from the symbol below.
+   */
+  raisedRiserRouteIds?: ReadonlySet<string>
+  /** The raised instance: only floor-passage drag handles, no wires. */
+  riserHandlesOnly?: boolean
+  /** Floor-passage drag preview, shared between the wire layer and the raised handles. */
+  riserPreview?: PlanWireRiserPreview | null
+  onRiserPreviewChange?: (preview: PlanWireRiserPreview | null) => void
+  /** Floor passages selected with a drag rectangle; dragging one of them moves them all. */
+  selectedRiserRouteIds?: ReadonlySet<string>
+  onMoveRisers?: (moves: Array<{ route: PlanWireRoute; point: Point2 }>) => void
 }
 
 function resolveEndpointAnchor(
@@ -40,7 +92,8 @@ function resolveEndpointAnchor(
   floorId: string,
   getEndpointById: (id: string) => Endpoint | undefined,
   getTrunkDeviceById?: (id: string) => TrunkDevice | undefined,
-  placementPositionOverrides?: Map<string, Point2>
+  placementPositionOverrides?: Map<string, Point2>,
+  junctionPanelPlacements?: ReadonlyMap<string, PlanWireEndPlacement>
 ): { point: Point2; nodeType: string; symbolId: string | undefined } | null {
   const endpoint = getEndpointById(routeEnd.endpointId)
   const trunkDevice = routeEnd.trunkDeviceId ? getTrunkDeviceById?.(routeEnd.trunkDeviceId) : undefined
@@ -49,7 +102,16 @@ function resolveEndpointAnchor(
     endpoint?.placements.find((candidate) => candidate.floorId === floorId) ??
     trunkDevice?.placements?.find((candidate) => candidate.id === routeEnd.placementId) ??
     trunkDevice?.placements?.find((candidate) => candidate.floorId === floorId)
-  if (!placement) return null
+  if (!placement) {
+    // Junction panels, earth electrodes and supply enclosures: their own plan placement.
+    const panelPlacement = routeEnd.placementId
+      ? junctionPanelPlacements?.get(routeEnd.placementId)
+      : undefined
+    if (!panelPlacement || panelPlacement.floorId !== floorId) return null
+    const point = placementPositionOverrides?.get(panelPlacement.id) ?? panelPlacement.pos
+    const nodeType = panelPlacement.nodeType ?? 'junction_panel'
+    return { point, nodeType, symbolId: nodeType }
+  }
   const nodeType = endpoint?.type ?? trunkDevice?.type ?? 'endpoint'
   const symbolId = endpoint?.symbol ?? trunkDevice?.symbol
   if (placement?.id) {
@@ -98,139 +160,6 @@ function routeBeforePoint(route: { basePoints: Point2[] }): Point2 | undefined {
 
 function routeAfterPoint(route: { basePoints: Point2[] }): Point2 | undefined {
   return route.basePoints[1] ?? route.basePoints[0]
-}
-
-function contextualNeighbor(
-  points: Point2[],
-  index: number,
-  direction: 'previous' | 'next',
-  context?: RoutePointContext
-): Point2 | undefined {
-  if (direction === 'previous')
-    return points[index - 1] ?? (index === 0 ? context?.startPrevious : undefined)
-  return points[index + 1] ?? (index === points.length - 1 ? context?.endNext : undefined)
-}
-
-function cubicPoint(
-  start: Point2,
-  controlA: Point2,
-  controlB: Point2,
-  end: Point2,
-  t: number
-): Point2 {
-  const mt = 1 - t
-  return {
-    x:
-      mt * mt * mt * start.x +
-      3 * mt * mt * t * controlA.x +
-      3 * mt * t * t * controlB.x +
-      t * t * t * end.x,
-    y:
-      mt * mt * mt * start.y +
-      3 * mt * mt * t * controlA.y +
-      3 * mt * t * t * controlB.y +
-      t * t * t * end.y,
-  }
-}
-
-function vectorLength(vector: Point2): number {
-  return Math.hypot(vector.x, vector.y)
-}
-
-function scaledVector(vector: Point2, length: number): Point2 {
-  const currentLength = vectorLength(vector)
-  if (currentLength <= 1e-6) return { x: 0, y: 0 }
-  return { x: (vector.x / currentLength) * length, y: (vector.y / currentLength) * length }
-}
-
-function unitVector(vector: Point2): Point2 {
-  const length = vectorLength(vector)
-  if (length <= 1e-6) return { x: 0, y: 0 }
-  return { x: vector.x / length, y: vector.y / length }
-}
-
-function tangentAt(points: Point2[], index: number, context?: RoutePointContext): Point2 {
-  const point = points[index]!
-  const previous = contextualNeighbor(points, index, 'previous', context)
-  const next = contextualNeighbor(points, index, 'next', context)
-  if (previous && next) {
-    const previousDistance = Math.hypot(point.x - previous.x, point.y - previous.y)
-    const nextDistance = Math.hypot(next.x - point.x, next.y - point.y)
-    const incoming = unitVector({ x: point.x - previous.x, y: point.y - previous.y })
-    const outgoing = unitVector({ x: next.x - point.x, y: next.y - point.y })
-    const tangent = { x: incoming.x + outgoing.x, y: incoming.y + outgoing.y }
-    const fallback = { x: next.x - previous.x, y: next.y - previous.y }
-    return scaledVector(
-      vectorLength(tangent) > 1e-4 ? tangent : fallback,
-      Math.min(previousDistance, nextDistance) * 0.58
-    )
-  }
-  const neighbor = next ?? previous
-  if (!neighbor) return { x: 0, y: 0 }
-  const towardNeighbor = next
-    ? { x: neighbor.x - point.x, y: neighbor.y - point.y }
-    : { x: point.x - neighbor.x, y: point.y - neighbor.y }
-  const direction =
-    Math.abs(towardNeighbor.x) >= Math.abs(towardNeighbor.y)
-      ? { x: Math.sign(towardNeighbor.x) || 1, y: 0 }
-      : { x: 0, y: Math.sign(towardNeighbor.y) || 1 }
-  return scaledVector(direction, Math.min(vectorLength(towardNeighbor) * 0.32, 90))
-}
-
-function limitHandleLength(vector: Point2, maxLength: number): Point2 {
-  const length = vectorLength(vector)
-  if (length <= maxLength) return vector
-  return scaledVector(vector, maxLength)
-}
-
-function splineControls(
-  points: Point2[],
-  index: number,
-  context?: RoutePointContext
-): { controlA: Point2; controlB: Point2 } {
-  const start = points[index]!
-  const end = points[index + 1]!
-  const segmentLength = Math.hypot(end.x - start.x, end.y - start.y)
-  const maxHandle = Math.max(12, segmentLength * 0.46)
-  const startTangent = limitHandleLength(tangentAt(points, index, context), maxHandle)
-  const endTangent = limitHandleLength(tangentAt(points, index + 1, context), maxHandle)
-  return {
-    controlA: { x: start.x + startTangent.x, y: start.y + startTangent.y },
-    controlB: { x: end.x - endTangent.x, y: end.y - endTangent.y },
-  }
-}
-
-function splinePath(points: Point2[], context?: RoutePointContext): string {
-  if (points.length === 0) return ''
-  if (points.length === 1) return `M ${points[0]!.x} ${points[0]!.y}`
-  const parts = [`M ${points[0]!.x} ${points[0]!.y}`]
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const { controlA, controlB } = splineControls(points, index, context)
-    const end = points[index + 1]!
-    parts.push(`C ${controlA.x} ${controlA.y} ${controlB.x} ${controlB.y} ${end.x} ${end.y}`)
-  }
-  return parts.join(' ')
-}
-
-function sampleSpline(points: Point2[], context?: RoutePointContext): Point2[] {
-  if (points.length <= 1) return points
-  const samples: Point2[] = []
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const start = points[index]!
-    const end = points[index + 1]!
-    const { controlA, controlB } = splineControls(points, index, context)
-    if (samples.length === 0) samples.push(start)
-    const segmentDistance = Math.hypot(end.x - start.x, end.y - start.y)
-    const steps = Math.max(8, Math.min(28, Math.ceil(segmentDistance / 16)))
-    for (let step = 1; step <= steps; step += 1) {
-      samples.push(cubicPoint(start, controlA, controlB, end, step / steps))
-    }
-  }
-  return samples
-}
-
-function flatten(points: Point2[]): number[] {
-  return points.flatMap((point) => [point.x, point.y])
 }
 
 function applyEndpointInsets(
@@ -306,6 +235,9 @@ function eventCanvasPoint(event: KonvaEventObject<MouseEvent | TouchEvent>): Poi
   return transform.point(pointer)
 }
 
+/** Floor passages being dragged, by passage key: one, or every selected passage. */
+export type PlanWireRiserPreview = { points: ReadonlyMap<string, Point2> }
+
 type PlacingWaypointSession = {
   route: PlanWireRoute
   waypointIndex: number
@@ -318,13 +250,57 @@ export function PlanWiresLayer({
   getEndpointById,
   getTrunkDeviceById,
   placementPositionOverrides,
+  junctionPanelPlacements,
   active,
   clientToPlan,
+  zoom,
   onInsertWaypoint,
   onMoveWaypoint,
   onRemoveWaypoint,
+  highlightedRouteIds,
+  hoveredRouteIds,
+  onMoveRiser,
+  routeStrokeFor,
+  raisedRiserRouteIds,
+  riserHandlesOnly = false,
+  riserPreview: controlledRiserPreview,
+  onRiserPreviewChange,
+  selectedRiserRouteIds,
+  onMoveRisers,
 }: PlanWiresLayerProps) {
+  const wireWidth = planWireStrokeWidth(zoom)
+  // Grabbable by finger or cursor at any zoom: never narrower than ~14px on screen.
+  const hitWidth = Math.max(PLAN_WIRE_HIT_STROKE_WIDTH, 14 / (zoom && zoom > 0 ? zoom : 1))
   const [hoveredRouteId, setHoveredRouteId] = useState<string | null>(null)
+  // A waypoint picked with a click: shown in the selection colour, removed with Delete.
+  const [selectedWaypoint, setSelectedWaypoint] = useState<{
+    route: PlanWireRoute
+    waypointIndex: number
+  } | null>(null)
+  useEffect(() => {
+    if (!active || !selectedWaypoint) return
+    const clear = () => setSelectedWaypoint(null)
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isKeyboardTypingTarget(event.target)) return
+      if (event.key === 'Escape') {
+        clear()
+        return
+      }
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return
+      // Capture phase: the plan's own Delete (removing selected symbols) must not run too.
+      event.preventDefault()
+      event.stopPropagation()
+      onRemoveWaypoint?.(selectedWaypoint.route, selectedWaypoint.waypointIndex)
+      clear()
+    }
+    // Any other press clears the pick; a click on a waypoint picks again right after.
+    window.addEventListener('pointerdown', clear, true)
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => {
+      window.removeEventListener('pointerdown', clear, true)
+      window.removeEventListener('keydown', onKeyDown, true)
+    }
+  }, [active, onRemoveWaypoint, selectedWaypoint])
   const [hoverInsertPreview, setHoverInsertPreview] = useState<{
     routeId: string
     point: Point2
@@ -335,11 +311,48 @@ export function PlanWiresLayer({
     point: Point2
   } | null>(null)
   const [placingWaypoint, setPlacingWaypoint] = useState<PlacingWaypointSession | null>(null)
+  const [ownRiserPreview, setOwnRiserPreview] = useState<PlanWireRiserPreview | null>(null)
+  const riserPreview =
+    controlledRiserPreview !== undefined ? controlledRiserPreview : ownRiserPreview
+  const setRiserPreview = onRiserPreviewChange ?? setOwnRiserPreview
+
+  // The last pointer position and whether the button is still down. A quick click can release
+  // before the placing effect below has attached its listeners; this is tracked from the start.
+  const pointerRef = useRef<{ down: boolean; x: number; y: number } | null>(null)
+  useEffect(() => {
+    const track = (event: PointerEvent) => {
+      pointerRef.current = {
+        down: event.type === 'pointerup' || event.type === 'pointercancel' ? false : event.buttons !== 0,
+        x: event.clientX,
+        y: event.clientY,
+      }
+    }
+    window.addEventListener('pointerdown', track, true)
+    window.addEventListener('pointermove', track, true)
+    window.addEventListener('pointerup', track, true)
+    window.addEventListener('pointercancel', track, true)
+    return () => {
+      window.removeEventListener('pointerdown', track, true)
+      window.removeEventListener('pointermove', track, true)
+      window.removeEventListener('pointerup', track, true)
+      window.removeEventListener('pointercancel', track, true)
+    }
+  }, [])
 
   useEffect(() => {
     if (!placingWaypoint) return
 
     const { route, waypointIndex } = placingWaypoint
+
+    // Released before we were listening: drop the point where the pointer was released.
+    const last = pointerRef.current
+    if (last && !last.down) {
+      setPlacingWaypoint(null)
+      setDragWaypointPreview(null)
+      const point = clientToPlan(last.x, last.y)
+      if (point) onMoveWaypoint?.(route, waypointIndex, point)
+      return
+    }
 
     const onPointerMove = (event: PointerEvent) => {
       const point = clientToPlan(event.clientX, event.clientY)
@@ -353,12 +366,13 @@ export function PlanWiresLayer({
 
     const finishPlacement = (event: PointerEvent) => {
       if (!isPrimaryMouseEvent(event)) return
+      // End the session first: a failing store update must not leave the point on the cursor.
+      setPlacingWaypoint(null)
+      setDragWaypointPreview(null)
       const point = clientToPlan(event.clientX, event.clientY)
       if (point) {
         onMoveWaypoint?.(route, waypointIndex, point)
       }
-      setPlacingWaypoint(null)
-      setDragWaypointPreview(null)
     }
 
     window.addEventListener('pointermove', onPointerMove)
@@ -384,14 +398,30 @@ export function PlanWiresLayer({
           route.floorId,
           getEndpointById,
           getTrunkDeviceById,
-          placementPositionOverrides
+          placementPositionOverrides,
+          junctionPanelPlacements
         )
+        const passage = riserPassageKey(route)
+        const previewRiser = passage !== undefined ? riserPreview?.points.get(passage) : undefined
+        if (route.riserExit) {
+          // The departure side of a floor passage: a straight run from the symbol to the riser.
+          if (!startAnchor) return null
+          const riser = previewRiser ?? route.riserExit.pos ?? startAnchor.point
+          const start = applyWireInset(
+            startAnchor.point,
+            riser,
+            startAnchor.nodeType,
+            startAnchor.symbolId
+          )
+          return { route, basePoints: [start, riser], style: 'spline' as const }
+        }
         const endAnchor = resolveEndpointAnchor(
           route.to,
           route.floorId,
           getEndpointById,
           getTrunkDeviceById,
-          placementPositionOverrides
+          placementPositionOverrides,
+          junctionPanelPlacements
         )
         if (!startAnchor || !endAnchor) return null
         const style = routeStyle
@@ -399,8 +429,12 @@ export function PlanWiresLayer({
         if (dragWaypointPreview?.routeId === route.id) {
           waypoints[dragWaypointPreview.waypointIndex] = dragWaypointPreview.point
         }
-        const { start, end } = applyEndpointInsets(startAnchor, waypoints, endAnchor)
-        const basePoints = routePoints(start, waypoints, end)
+        const insets = applyEndpointInsets(startAnchor, waypoints, endAnchor)
+        // A trace arriving from another floor starts at its riser, not at a symbol edge.
+        const start = route.riser
+          ? (previewRiser ?? route.riser.pos ?? startAnchor.point)
+          : insets.start
+        const basePoints = routePoints(start, waypoints, insets.end)
         return { route, basePoints, style }
       })
       .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
@@ -409,7 +443,8 @@ export function PlanWiresLayer({
     const outgoingByPlacement = new Map<string, typeof drafts>()
     for (const draft of drafts) {
       const toPlacementId = draft.route.to.placementId
-      const fromPlacementId = draft.route.from.placementId
+      // Departure runs end at a riser, not a symbol: they do not shape neighbouring curves.
+      const fromPlacementId = draft.route.riserExit ? undefined : draft.route.from.placementId
       if (toPlacementId) {
         incomingByPlacement.set(toPlacementId, [
           ...(incomingByPlacement.get(toPlacementId) ?? []),
@@ -463,7 +498,7 @@ export function PlanWiresLayer({
     })
 
     const orthogonalInputs = draftContexts
-      .filter(({ draft }) => draft.style !== 'spline')
+      .filter(({ draft }) => draft.style === 'orthogonal')
       .map(({ draft, context }) => ({
         id: draft.route.id,
         spanSetKey: planWireSpanSetKey(draft.route),
@@ -476,48 +511,195 @@ export function PlanWiresLayer({
       getOutgoingRouteId: (routeId) => outgoingRouteIdByRouteId.get(routeId),
     })
 
-    return draftContexts.map(({ draft, context }) => {
+    // Cables between the same two symbols along the same path share one curve and are drawn
+    // side by side, evenly spaced, instead of on top of each other.
+    const lineOf = (index: number): Point2[] => {
+      const { draft, context } = draftContexts[index]!
       const hasContext = Boolean(context.startPrevious || context.endNext)
-      const points =
-        draft.style === 'spline'
+      return draft.style === 'spline'
+        ? sampleSpline(draft.basePoints, hasContext ? context : undefined)
+        : draft.style === 'straight'
           ? draft.basePoints
           : (orthogonalPolylines.get(draft.route.id) ?? draft.basePoints)
+    }
+    const bundles = new Map<string, Array<{ index: number; reversed: boolean }>>()
+    draftContexts.forEach(({ draft }, index) => {
+      const bundle = planWireBundleKey(draft.route, draft.basePoints)
+      if (!bundle) return
+      bundles.set(bundle.key, [
+        ...(bundles.get(bundle.key) ?? []),
+        { index, reversed: bundle.reversed },
+      ])
+    })
+    const bundledPoints = new Map<number, Point2[]>()
+    for (const members of bundles.values()) {
+      if (members.length < 2) continue
+      const sorted = [...members].sort((a, b) =>
+        draftContexts[a.index]!.draft.route.id.localeCompare(draftContexts[b.index]!.draft.route.id)
+      )
+      const leader = sorted[0]!
+      const leaderLine = lineOf(leader.index)
+      const centre = leader.reversed ? [...leaderLine].reverse() : leaderLine
+      const offsets = planWireBundleOffsets(sorted.length)
+      sorted.forEach((member, position) => {
+        const shifted = offsetPolyline(centre, offsets[position]!)
+        bundledPoints.set(member.index, member.reversed ? shifted.reverse() : shifted)
+      })
+    }
+
+    return draftContexts.map(({ draft, context }, index) => {
+      const hasContext = Boolean(context.startPrevious || context.endNext)
+      const bundled = bundledPoints.get(index)
+      const points =
+        bundled ??
+        (draft.style === 'spline' || draft.style === 'straight'
+          ? draft.basePoints
+          : (orthogonalPolylines.get(draft.route.id) ?? draft.basePoints))
       const hitPoints =
-        draft.style === 'spline'
+        bundled ??
+        (draft.style === 'spline'
           ? sampleSpline(draft.basePoints, hasContext ? context : undefined)
-          : points
+          : points)
       const pathData =
-        draft.style === 'spline' ? splinePath(draft.basePoints, hasContext ? context : undefined) : ''
+        !bundled && draft.style === 'spline'
+          ? splinePath(draft.basePoints, hasContext ? context : undefined)
+          : ''
       return {
         route: draft.route,
         points,
         basePoints: draft.basePoints,
-        style: draft.style,
+        // A bundled wire is drawn as its offset polyline.
+        style: bundled ? ('orthogonal' as const) : draft.style,
         hitPoints,
         pathData,
       }
     })
   }, [
     dragWaypointPreview,
+    riserPreview,
     getEndpointById,
     getTrunkDeviceById,
     placementPositionOverrides,
+    junctionPanelPlacements,
     routeStyle,
     routes,
   ])
+
+  const riserPointOf = (route: PlanWireRoute, basePoints: Point2[]) =>
+    route.riser
+      ? basePoints[0]
+      : route.riserExit
+        ? basePoints[basePoints.length - 1]
+        : undefined
+
+  /** The passages a drag moves: every selected one when the dragged one is selected. */
+  const dragGroup = (route: PlanWireRoute) => {
+    const own = drawableRoutes.find((entry) => entry.route.id === route.id)
+    const origin = own ? riserPointOf(own.route, own.basePoints) : undefined
+    if (!origin) return []
+    if (!selectedRiserRouteIds?.has(route.id)) return [{ route, origin }]
+    return drawableRoutes.flatMap((entry) => {
+      if (!selectedRiserRouteIds.has(entry.route.id)) return []
+      const point = riserPointOf(entry.route, entry.basePoints)
+      return point ? [{ route: entry.route, origin: point }] : []
+    })
+  }
+  // Taken when a drag starts: the preview moves the passages while dragging.
+  const dragGroupRef = useRef<ReturnType<typeof dragGroup> | null>(null)
+  const movedGroup = (route: PlanWireRoute, to: Point2) => {
+    const group = dragGroupRef.current ?? dragGroup(route)
+    const own = group.find((member) => member.route.id === route.id)
+    if (!own) return []
+    const dx = to.x - own.origin.x
+    const dy = to.y - own.origin.y
+    return group.map((member) => ({
+      route: member.route,
+      point: { x: member.origin.x + dx, y: member.origin.y + dy },
+    }))
+  }
+
+  function riserHandle(route: PlanWireRoute, riserPoint: Point2) {
+    if (!active || !onMoveRiser) return null
+    return (
+      <Circle
+        key={`riser-handle-${route.id}`}
+        x={riserPoint.x}
+        y={riserPoint.y}
+        radius={waypointRadius * 1.8}
+        fill="rgba(0,0,0,0.001)"
+        draggable
+        onMouseDown={(event) => {
+          event.cancelBubble = true
+          if (!isPrimaryMouseEvent(event.evt)) event.target.stopDrag()
+        }}
+        onPointerDown={(event) => {
+          // Keep the symbol underneath from starting a rewire.
+          event.cancelBubble = true
+        }}
+        onDragStart={() => {
+          dragGroupRef.current = dragGroup(route)
+        }}
+        onDragMove={(event) => {
+          const moves = movedGroup(route, { x: event.target.x(), y: event.target.y() })
+          setRiserPreview({
+            points: new Map(
+              moves.map((move) => [riserPassageKey(move.route) ?? move.route.id, move.point])
+            ),
+          })
+        }}
+        onDragEnd={(event) => {
+          setRiserPreview(null)
+          const moves = movedGroup(route, { x: event.target.x(), y: event.target.y() })
+          dragGroupRef.current = null
+          if (moves.length > 1 && onMoveRisers) onMoveRisers(moves)
+          else onMoveRiser(route, { x: event.target.x(), y: event.target.y() })
+        }}
+      />
+    )
+  }
+
+  if (riserHandlesOnly) {
+    return (
+      <Group name="plan-wire-riser-handles" listening={active}>
+        {drawableRoutes.map(({ route, basePoints }) => {
+          const riserPoint = riserPointOf(route, basePoints)
+          return riserPoint ? riserHandle(route, riserPoint) : null
+        })}
+      </Group>
+    )
+  }
 
   return (
     <Group name="plan-wires-layer" listening={active}>
       {drawableRoutes.map(({ route, points, basePoints, style, hitPoints, pathData }) => {
         const hovered = hoveredRouteId === route.id
+        const highlighted = highlightedRouteIds?.has(route.id) === true
+        const hoveredElsewhere = !highlighted && hoveredRouteIds?.has(route.id) === true
+        const stroke =
+          highlighted || hoveredElsewhere
+            ? PLAN_WIRE_SELECTED_STROKE
+            : (routeStrokeFor?.(route) ?? staticStroke)
+        const strokeWidth = highlighted
+          ? wireWidth * 2
+          : hoveredElsewhere
+            ? wireWidth * 1.5
+            : wireWidth
+        const riserPoint = riserPointOf(route, basePoints)
+        const passageSelected = selectedRiserRouteIds?.has(route.id) === true
+        const opacity =
+          highlighted || hoveredElsewhere
+          ? PLAN_WIRE_ACTIVE_OPACITY
+          : hovered
+            ? PLAN_WIRE_STATIC_HOVER_OPACITY
+            : PLAN_WIRE_STATIC_OPACITY
         return (
           <React.Fragment key={route.id}>
             {style === 'spline' ? (
               <Path
                 data={pathData}
-                stroke={staticStroke}
-                strokeWidth={PLAN_WIRE_STROKE_WIDTH}
-                opacity={hovered ? PLAN_WIRE_STATIC_HOVER_OPACITY : PLAN_WIRE_STATIC_OPACITY}
+                stroke={stroke}
+                strokeWidth={strokeWidth}
+                opacity={opacity}
                 dash={PLAN_WIRE_DASH}
                 lineCap="round"
                 lineJoin="round"
@@ -526,9 +708,9 @@ export function PlanWiresLayer({
             ) : (
               <Line
                 points={flatten(points)}
-                stroke={staticStroke}
-                strokeWidth={PLAN_WIRE_STROKE_WIDTH}
-                opacity={hovered ? PLAN_WIRE_STATIC_HOVER_OPACITY : PLAN_WIRE_STATIC_OPACITY}
+                stroke={stroke}
+                strokeWidth={strokeWidth}
+                opacity={opacity}
                 dash={PLAN_WIRE_DASH}
                 lineCap="round"
                 lineJoin="round"
@@ -539,12 +721,12 @@ export function PlanWiresLayer({
               points={flatten(hitPoints)}
               stroke="rgba(0,0,0,0.001)"
               strokeWidth={1}
-              hitStrokeWidth={PLAN_WIRE_HIT_STROKE_WIDTH}
+              hitStrokeWidth={hitWidth}
               lineCap="round"
               lineJoin="round"
               onMouseEnter={(event) => {
                 setHoveredRouteId(route.id)
-                if (!active) return
+                if (!active || route.riserExit) return
                 const point = eventCanvasPoint(event)
                 const insertion = point
                   ? nearestVisualInsertion(point, hitPoints, basePoints)
@@ -554,7 +736,7 @@ export function PlanWiresLayer({
                 )
               }}
               onMouseMove={(event) => {
-                if (!active) return
+                if (!active || route.riserExit) return
                 const point = eventCanvasPoint(event)
                 const insertion = point
                   ? nearestVisualInsertion(point, hitPoints, basePoints)
@@ -569,6 +751,8 @@ export function PlanWiresLayer({
               }}
               onMouseDown={(event) => {
                 if (placingWaypoint || !active || !onInsertWaypoint || !onMoveWaypoint) return
+                // A departure run is shaped on the arrival floor; here only its riser moves.
+                if (route.riserExit) return
                 if (!isPrimaryMouseEvent(event.evt)) return
                 event.cancelBubble = true
                 event.evt.preventDefault()
@@ -600,7 +784,7 @@ export function PlanWiresLayer({
                   fill={activeStroke}
                   opacity={0.35}
                   stroke="#ffffff"
-                  strokeWidth={PLAN_WIRE_STROKE_WIDTH}
+                  strokeWidth={wireWidth}
                   listening={false}
                 />
               )}
@@ -613,15 +797,18 @@ export function PlanWiresLayer({
                 const isPlacing =
                   placingWaypoint?.route.id === route.id &&
                   placingWaypoint.waypointIndex === waypointIndex
+                const isPicked =
+                  selectedWaypoint?.route.id === route.id &&
+                  selectedWaypoint.waypointIndex === waypointIndex
                 return (
                   <Circle
                     key={`${route.id}-${index}`}
                     x={point.x}
                     y={point.y}
-                    radius={waypointRadius}
-                    fill={activeStroke}
+                    radius={isPicked ? waypointRadius * 1.4 : waypointRadius}
+                    fill={isPicked ? PLAN_WIRE_SELECTED_STROKE : activeStroke}
                     stroke="#ffffff"
-                    strokeWidth={PLAN_WIRE_STROKE_WIDTH}
+                    strokeWidth={wireWidth}
                     draggable={!isPlacing}
                     listening={!isPlacing}
                     onMouseDown={(event) => {
@@ -638,7 +825,9 @@ export function PlanWiresLayer({
                       event.cancelBubble = true
                       if (event.evt.altKey && onRemoveWaypoint) {
                         onRemoveWaypoint(route, waypointIndex)
+                        return
                       }
+                      setSelectedWaypoint({ route, waypointIndex })
                     }}
                     onContextMenu={(event) => {
                       event.evt.preventDefault()
@@ -664,6 +853,29 @@ export function PlanWiresLayer({
                   />
                 )
               })}
+            {riserPoint && (
+              <Group>
+                <Circle
+                  x={riserPoint.x}
+                  y={riserPoint.y}
+                  radius={waypointRadius * 1.6}
+                  stroke={passageSelected ? PLAN_WIRE_SELECTED_STROKE : stroke}
+                  strokeWidth={passageSelected ? wireWidth * 2 : strokeWidth}
+                  opacity={passageSelected ? PLAN_WIRE_ACTIVE_OPACITY : opacity}
+                  listening={false}
+                />
+                <Circle
+                  x={riserPoint.x}
+                  y={riserPoint.y}
+                  radius={waypointRadius * 0.8}
+                  stroke={passageSelected ? PLAN_WIRE_SELECTED_STROKE : stroke}
+                  strokeWidth={passageSelected ? wireWidth * 2 : strokeWidth}
+                  opacity={passageSelected ? PLAN_WIRE_ACTIVE_OPACITY : opacity}
+                  listening={false}
+                />
+                {!raisedRiserRouteIds?.has(route.id) && riserHandle(route, riserPoint)}
+              </Group>
+            )}
           </React.Fragment>
         )
       })}

@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger'
+import { collectSharedJunctions, sharedJunctionKey } from '@/lib/plan/sharedJunctionPlacements'
 /**
  * Orphan detection for the one-line (eendraad) diagram.
  *
@@ -611,6 +612,16 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
 
   const projectPanels = getProjectElectricalPanels(project)
   const projectInstallation = getProjectElectricalInstallation(project)
+  // A junction box drawn again on the one-wire is placed once, through its first occurrence.
+  const placedJunctionKeys = new Set(
+    [...collectSharedJunctions(project).values()]
+      .filter((junction) => junction.placements.length > 0)
+      .map((junction) => junction.key)
+  )
+  const placedElsewhere = (ep: Circuit['endpoints'][number]) => {
+    const key = sharedJunctionKey(ep)
+    return key != null && placedJunctionKeys.has(key)
+  }
   const panel = findPanelById(projectPanels, panelId)
   if (!panel) return report
   const currentPanel = panel
@@ -991,7 +1002,7 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
           })
         }
       }
-      if (ep.placements.length === 0 && endpointExpectedOnSitplan(ep)) {
+      if (ep.placements.length === 0 && endpointExpectedOnSitplan(ep) && !placedElsewhere(ep)) {
         report.endpointMissingPlanPlacement.push({
           circuitId: circuit.id,
           circuitCode: validationCircuitCode(circuit.code),
@@ -1037,7 +1048,8 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
       if (
         ep.symbol !== 'panel_distribution' &&
         ep.placements.length === 0 &&
-        endpointExpectedOnSitplan(ep)
+        endpointExpectedOnSitplan(ep) &&
+        !placedElsewhere(ep)
       ) {
         report.endpointMissingPlanPlacement.push({
           circuitId: circuit.id,

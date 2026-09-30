@@ -32,6 +32,8 @@ const HITZONE_COLORS: Record<string, string> = {
   supplyConverterBackupWire: '#65a30d', // lime: standalone converter backup output
   supplyConverterDcWire: '#f59e0b', // amber: converter battery/PV DC
   groundWire: '#ca8a04', // amber
+  endpointBefore: '#f97316', // orange: insert before Domotica child
+  endpointAfter: '#a855f7', // purple: insert after Domotica child
 }
 
 function collectDebugNodes(layoutTree: LayoutTree): DebugNodeInfo[] {
@@ -45,7 +47,12 @@ function collectDebugNodes(layoutTree: LayoutTree): DebugNodeInfo[] {
         nodeId: node.id,
         boundsCore,
         boundsPadded,
-        hitZoneType: node.hitZone.type,
+        hitZoneType:
+          node.hitZone.domoticaChildDropIntent === 'insertBefore'
+            ? 'endpointBefore'
+            : node.hitZone.domoticaChildDropIntent === 'insertAfter'
+              ? 'endpointAfter'
+              : node.hitZone.type,
       })
     } else if (
       node.type === 'trunkDevice' &&

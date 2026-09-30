@@ -7,7 +7,7 @@ import {
   selectProjectSupplyAssemblies,
   type ProjectWithOptionalV2Electrical,
 } from './electrical'
-import { deriveWireAnchorKey, type WireAnchor } from './wireRuns'
+import { deriveWireAnchorKey, toWireRunRoute, type WireAnchor } from './wireRuns'
 
 /**
  * Best-effort seed of canonical {@link WireRun}s from the legacy wire owners (Goal 19 / ADR-0002):
@@ -22,35 +22,68 @@ import { deriveWireAnchorKey, type WireAnchor } from './wireRuns'
  */
 export function seedWireRunsFromLegacy(project: ProjectWithOptionalV2Electrical): WireRun[] {
   const acc = makeRunAccumulator()
+  visitLegacyWireSections(project, acc.add)
+  return acc.runs
+}
 
+/**
+ * `2.3.0` repair: the `2.2.0` seed dropped on-wall routes (every wall run became in-wall) and
+ * ignored routes that only `inWall` or a domain override implied. Re-derive the route of each run
+ * that still carries exactly what that seed wrote for all of its members; runs whose route was
+ * changed since, or that gained non-legacy members, are left alone.
+ */
+export function repairSeededWireRunRoutes(
+  project: ProjectWithOptionalV2Electrical,
+  runs: readonly WireRun[]
+): WireRun[] {
+  const legacyRoutes = new Map<string, Pick<SectionSpec, 'route' | 'seededRoute'>>()
+  visitLegacyWireSections(project, (_dedupeScope, anchorKey, spec) => {
+    // First claim wins, as in the seed accumulator.
+    if (!legacyRoutes.has(anchorKey)) legacyRoutes.set(anchorKey, spec)
+  })
+  return runs.map((run) => {
+    const sources = run.members.map((member) => legacyRoutes.get(member))
+    const [first] = sources
+    if (!first || sources.some((source) => !source)) return run
+    if (first.route === first.seededRoute || run.route !== first.seededRoute) return run
+    const agree = sources.every(
+      (source) => source?.route === first.route && source?.seededRoute === first.seededRoute
+    )
+    return agree ? { ...run, route: first.route } : run
+  })
+}
+
+function visitLegacyWireSections(project: ProjectWithOptionalV2Electrical, add: AddSection): void {
   const visitPanel = (panel: Panel) => {
     for (const circuit of [
       ...(panel.circuits ?? []),
       ...panel.protections.flatMap((protection) => protection.circuits ?? []),
     ])
-      seedCircuitWireRuns(circuit, panel.id, acc)
+      seedCircuitWireRuns(circuit, panel.id, add)
     panel.subPanels?.forEach(visitPanel)
   }
   getProjectElectricalPanels(project).forEach(visitPanel)
-  seedFeedWireRuns(project, acc)
-  seedSupplyWireRuns(project, acc)
-
-  return acc.runs
+  seedFeedWireRuns(project, add)
+  seedSupplyWireRuns(project, add)
 }
 
 interface SectionSpec {
   cable: CableSpec
-  route?: 'wall' | 'ground' | 'air'
+  route?: WireRun['route']
+  /** The route the `2.2.0` seed wrote for this section; used only by the `2.3.0` repair. */
+  seededRoute?: WireRun['route']
   inTube?: boolean
   labels?: WireRun['labels']
   lengthM?: number
 }
 
+type AddSection = (dedupeScope: Map<string, WireRun>, anchorKey: string, spec: SectionSpec) => void
+
 function makeRunAccumulator() {
   const runs: WireRun[] = []
   const claimedAnchors = new Set<string>()
   let ordinal = 0
-  const add = (dedupeScope: Map<string, WireRun>, anchorKey: string, spec: SectionSpec): void => {
+  const add: AddSection = (dedupeScope, anchorKey, spec) => {
     // One downstream wire belongs to exactly one run; drop later collisions deterministically.
     if (claimedAnchors.has(anchorKey)) return
     claimedAnchors.add(anchorKey)
@@ -86,8 +119,6 @@ function makeRunAccumulator() {
   return { runs, add }
 }
 
-type RunAccumulator = ReturnType<typeof makeRunAccumulator>
-
 /** Map of circuit id → its default cable, across all panels. Used for transient default runs. */
 export function buildCircuitCableIndex(
   project: ProjectWithOptionalV2Electrical
@@ -111,7 +142,7 @@ function collectCircuitsDeep(panel: Panel): Circuit[] {
   return circuits
 }
 
-function seedCircuitWireRuns(circuit: Circuit, panelId: string, acc: RunAccumulator): void {
+function seedCircuitWireRuns(circuit: Circuit, panelId: string, add: AddSection): void {
   const overrides = circuit.sectionWireOverrides ?? []
   if (overrides.length === 0) return
   const dedupeScope = new Map<string, WireRun>()
@@ -124,9 +155,22 @@ function seedCircuitWireRuns(circuit: Circuit, panelId: string, acc: RunAccumula
       circuit.domainWireOverrides?.[override.domain ?? 'AC']?.cable ??
       circuit.cable
     if (!cable) continue
-    acc.add(dedupeScope, deriveWireAnchorKey(anchor), {
+    // Mirror the drawing's route resolution: a circuit with only `inWall` set still runs in the wall.
+    const domainOverride = circuit.domainWireOverrides?.[override.domain ?? 'AC']
+    const wireRoute =
+      override.wireRoute ??
+      domainOverride?.wireRoute ??
+      circuit.wireRoute ??
+      (circuit.inWall ? 'wall' : undefined)
+    add(dedupeScope, deriveWireAnchorKey(anchor), {
       cable,
-      route: override.wireRoute ?? circuit.wireRoute,
+      route: toWireRunRoute(
+        wireRoute,
+        override.inWall ??
+          domainOverride?.inWall ??
+          (wireRoute === 'wall' ? (circuit.inWall ?? false) : false)
+      ),
+      seededRoute: override.wireRoute ?? circuit.wireRoute,
       inTube: override.inTube ?? circuit.inTube,
       labels: pruneUndefined({
         hideWireLabel: override.hideWireLabel ?? circuit.hideWireLabel,
@@ -138,7 +182,7 @@ function seedCircuitWireRuns(circuit: Circuit, panelId: string, acc: RunAccumula
   }
 }
 
-function seedFeedWireRuns(project: ProjectWithOptionalV2Electrical, acc: RunAccumulator): void {
+function seedFeedWireRuns(project: ProjectWithOptionalV2Electrical, add: AddSection): void {
   const rootFeeds = getProjectElectricalInstallation(project)?.feedTopology?.rootFeeds ?? []
   for (const feed of rootFeeds) {
     const wireSections = feed.wireSections
@@ -147,9 +191,10 @@ function seedFeedWireRuns(project: ProjectWithOptionalV2Electrical, acc: RunAccu
     for (const [runKey, props] of Object.entries(wireSections)) {
       if (!props?.cable) continue
       const anchor: WireAnchor = { kind: 'feed-run', feedPathId: feed.id, runKey }
-      acc.add(dedupeScope, deriveWireAnchorKey(anchor), {
+      add(dedupeScope, deriveWireAnchorKey(anchor), {
         cable: props.cable,
-        route: props.wireRoute,
+        route: toWireRunRoute(props.wireRoute, props.inWall),
+        seededRoute: props.wireRoute,
         inTube: props.inTube,
         labels: pruneUndefined({
           hideWireLabel: props.hideWireLabel,
@@ -162,7 +207,7 @@ function seedFeedWireRuns(project: ProjectWithOptionalV2Electrical, acc: RunAccu
   }
 }
 
-function seedSupplyWireRuns(project: ProjectWithOptionalV2Electrical, acc: RunAccumulator): void {
+function seedSupplyWireRuns(project: ProjectWithOptionalV2Electrical, add: AddSection): void {
   for (const assembly of selectProjectSupplyAssemblies(project)) {
     const dedupeScope = new Map<string, WireRun>()
     for (const connection of assembly.connections ?? []) {
@@ -173,9 +218,10 @@ function seedSupplyWireRuns(project: ProjectWithOptionalV2Electrical, acc: RunAc
         assemblyId: assembly.id,
         connectionId: connection.id,
       }
-      acc.add(dedupeScope, deriveWireAnchorKey(anchor), {
+      add(dedupeScope, deriveWireAnchorKey(anchor), {
         cable: props.cable,
-        route: props.wireRoute,
+        route: toWireRunRoute(props.wireRoute, props.inWall),
+        seededRoute: props.wireRoute,
         inTube: props.inTube,
         labels: pruneUndefined({
           hideWireLabel: props.hideWireLabel,

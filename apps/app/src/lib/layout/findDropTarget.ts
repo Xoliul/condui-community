@@ -21,7 +21,11 @@
 import type { LayoutNode, LayoutTree } from './layoutTree'
 import type { Endpoint, ProtectionDevice } from '@/types/schema'
 import type { Point } from '@/types/ui'
-import { DOMOTICA_MAX_ENDPOINT_OUTPUTS, DOMOTICA_MIN_ENDPOINT_OUTPUTS } from '@/lib/domoticaLayout'
+import {
+  DOMOTICA_CHILD_ON_DROP_ZONE_SIZE,
+  DOMOTICA_MAX_ENDPOINT_OUTPUTS,
+  DOMOTICA_MIN_ENDPOINT_OUTPUTS,
+} from '@/lib/domoticaLayout'
 import { isVerticalSupplyDevice } from './supplyDeviceOrientation'
 
 /** Options for findDropTarget / findDropTargetWithDebug (all optional). */
@@ -92,6 +96,8 @@ export interface DropTarget {
   branchEndpoints?: string[] // Endpoints on the branch that was dropped on
   /** Layout branch id (`branch-{circuitId}-{index}`) when the drop is on a branch wire */
   branchId?: string
+  /** Explicit branch slot on a circuit trunk: moved branches are inserted before this branch index. */
+  branchInsertIndex?: number
   /** Insertion point for a branch-local DC device, measured from the bus. */
   branchDeviceInsertIndex?: number
   /** Insert index for supply trunk devices (used when type === 'supplyWire') */
@@ -137,7 +143,7 @@ export interface DropTarget {
   /** Domotica output details when dropping on a domotica output wire hit zone */
   domoticaOutput?: { group: 'control' | 'endpoint'; index: number; expands?: boolean }
   /** Intent when dropping on/after an existing domotica child endpoint. */
-  domoticaChildDropIntent?: 'replace' | 'insertAfter'
+  domoticaChildDropIntent?: 'replace' | 'insertBefore' | 'insertAfter'
   /** Widened ordinary circuit-trunk converter DC connection under the pointer. */
   converterDcConnection?: { converterId: string; connectionIndex: number }
   /** Selectable DC bus under the pointer. */
@@ -223,15 +229,13 @@ function getEffectiveBounds(node: LayoutNode): HitBounds {
  */
 export function getHitZoneBounds(node: LayoutNode, mode: 'core' | 'padded' = 'core'): HitBounds {
   const eff = getEffectiveBounds(node)
-  if (
-    mode === 'core' &&
-    node.type === 'endpoint' &&
-    (node.domainRef as Endpoint | undefined)?.domoticaChildProps &&
-    node.hitZone?.padding
-  ) {
+  if (node.type === 'endpoint' && (node.domainRef as Endpoint | undefined)?.domoticaChildProps) {
+    const halfSize = DOMOTICA_CHILD_ON_DROP_ZONE_SIZE / 2
     return {
-      ...eff,
-      right: eff.right + node.hitZone.padding,
+      left: node.bounds.x - halfSize,
+      top: node.bounds.y - halfSize,
+      right: node.bounds.x + halfSize,
+      bottom: node.bounds.y + halfSize,
     }
   }
   if (mode === 'core' || !node.hitZone) return eff
@@ -1190,7 +1194,7 @@ function findTarget(
   // For core hits, endpoint symbols should outrank wire hit zones. Domotica
   // output wires can sit underneath child symbols; if the wire wins first,
   // dropping on a child becomes slot insertion instead of branch chaining.
-  const children = getHitTestChildren(node, mode, options)
+  const children = getHitTestChildren(node, mode, position, options)
   for (const child of children) {
     if (!pointCanHitSubtree(child, position)) continue
     const match = findTarget(
@@ -1268,7 +1272,7 @@ function findTargetWithDebug(
   }
 
   // ALWAYS check children first (depth-first: deeper = higher priority)
-  const children = getHitTestChildren(node, mode, options)
+  const children = getHitTestChildren(node, mode, position, options)
   for (const child of children) {
     if (!pointCanHitSubtree(child, position)) continue
     const match = findTargetWithDebug(
@@ -1308,6 +1312,7 @@ function findTargetWithDebug(
 function getHitTestChildren(
   node: LayoutNode,
   mode: 'core' | 'padded',
+  position: Point,
   options?: FindDropTargetOptions
 ): LayoutNode[] {
   if (node.children.length <= 1) return node.children
@@ -1346,8 +1351,19 @@ function getHitTestChildren(
         return -6
       }
       if (child.type === 'mcb') return -5
+      // The explicit input slot of a root domotica can overlap the circuit's
+      // nest zone. Let that slot own its visible marker without changing hits
+      // elsewhere on the branch or trunk.
+      if (child.type === 'branch' && child.children.some((endpoint) =>
+        endpoint.type === 'endpoint' &&
+        !(endpoint.domainRef as Endpoint | undefined)?.domoticaChildProps &&
+        endpoint.children.some((zone) =>
+          zone.hitZone?.domoticaChildDropIntent === 'insertBefore' && isPointInCore(zone, position)))) return -4.5
       if (child.id?.startsWith('circuit-nest-')) return -4
       if (child.id?.startsWith('secondary-bus-segment-')) return -3
+      // Existing output-chain symbols and their before/after zones own the
+      // connection even when a parent's expand-output invitation overlaps it.
+      if (child.type === 'endpoint' && (child.domainRef as Endpoint | undefined)?.domoticaChildProps) return -2
       if (child.type === 'wire' && child.hitZone?.outputExpands) return -1
       if (child.type === 'endpoint') return 0
       if (child.type === 'wire') return 2
@@ -1486,9 +1502,22 @@ function buildDropTarget(node: LayoutNode, ctx: WalkContext, position?: Point): 
             : []
         if (position && endpointRef?.domoticaChildProps) {
           const visualBounds = getEffectiveBounds(node)
-          target.domoticaChildDropIntent =
-            position.x > visualBounds.right ? 'insertAfter' : 'replace'
-          target.insertAfterEndpointId = node.domainId
+          if (position.x < visualBounds.left) {
+            target.domoticaChildDropIntent = 'insertBefore'
+            const childIndex = ctx.branchEndpointPositions?.findIndex(
+              (candidate) => candidate.id === node.domainId
+            )
+            target.insertAfterEndpointId =
+              childIndex != null && childIndex > 0
+                ? ctx.branchEndpointPositions?.[childIndex - 1]?.id ?? null
+                : null
+          } else if (position.x > visualBounds.right) {
+            target.domoticaChildDropIntent = 'insertAfter'
+            target.insertAfterEndpointId = node.domainId
+          } else {
+            target.domoticaChildDropIntent = 'replace'
+            target.insertAfterEndpointId = node.domainId
+          }
         } else if (position && ctx.branchEndpointPositions?.length) {
           // Position-aware insertion: use cursor X to find which wire segment we're on
           const posResult = findInsertAfterByPosition(position.x, ctx.branchEndpointPositions)
@@ -1586,6 +1615,10 @@ function buildDropTarget(node: LayoutNode, ctx: WalkContext, position?: Point): 
       }
       if (ctx.branchId) {
         target.branchId = ctx.branchId
+      }
+      if (node.hitZone?.domoticaChildDropIntent && node.domainId) {
+        target.endpointId = node.domainId
+        target.domoticaChildDropIntent = node.hitZone.domoticaChildDropIntent
       }
       if ('branchInsertAfterEndpointId' in (node.hitZone ?? {})) {
         target.insertAfterEndpointId = node.hitZone?.branchInsertAfterEndpointId

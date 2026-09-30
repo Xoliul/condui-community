@@ -168,7 +168,7 @@
       "mouseWheel": "Molette de souris",
       "twoFingerScroll": "Défilement à deux doigts",
       "pinch": "Pincement",
-      "ctrlWheel": "Ctrl + molette",
+      "ctrlWheel": "Ctrl / Cmd + molette",
       "oneFingerDrag": "Glisser à un doigt",
       "twoFingerDragPinch": "Glisser / pincer à deux doigts",
       "doubleTap": "Double toucher",
@@ -338,6 +338,11 @@
       "fontFigtree": "Figtree",
       "fontOpenSans": "Open Sans"
     },
+    "workflow": {
+      "title": "Méthode de travail",
+      "placePlanSymbolsManually": "Placer moi-même les symboles sur le plan",
+      "placePlanSymbolsManuallyHint": "Les nouveaux symboles n'apparaissent sur le plan de situation qu'une fois placés, par exemple avec PlaceRapide."
+    },
     "navigation": {
       "title": "Navigation du canevas",
       "leftDragPansCanvas": "Glisser à gauche pour déplacer (bureau)",
@@ -351,6 +356,26 @@
       "eendraadTrunkLayoutDebugHint": "Affiche les enveloppes visuelles utilisées pour espacer les troncs de circuits et les jeux de barres secondaires. Uniquement dans l’interface, pas dans l’export.",
       "planPlacementDebug": "Afficher le débogage du plan de situation (sitplan)",
       "planPlacementDebugHint": "Visualise les centres de symboles, les cadres de sélection, les positions d’étiquettes et les aides d’orientation basées sur les murs sur le sitplan. Uniquement dans l’interface, pas dans l’export.",
+      "planCableRouteDebug": "Afficher le débogage des longueurs de câble (sitplan)",
+      "planCableRouteDebugHint": "Dessine le trajet 3D estimé et la longueur de chaque câble de circuit sur le sitplan, avec un tableau du calcul. Uniquement dans l’interface, pas dans l’export.",
+      "cableRoute": {
+        "title": "Débogage des longueurs de câble",
+        "circuit": "Circuit",
+        "from": "De",
+        "to": "Vers",
+        "horizontal": "Horizontal",
+        "vertical": "Vertical",
+        "riser": "Colonne montante",
+        "slack": "Surlongueur",
+        "estimate": "Estimation",
+        "entered": "Saisie",
+        "basis": "Base",
+        "gaps": "Lacunes",
+        "fromBoard": "Depuis le tableau",
+        "onlySelected": "Sélection uniquement",
+        "clear": "Effacer",
+        "beside": "à côté de {{label}}"
+      },
       "panelRelationDebug": "Afficher le débogage du routage des relations panneau (canvas panneau)",
       "panelRelationDebugHint": "Affiche les chemins disponibles, le coût du trajet choisi, les classes de fils et les rôles des modules. Le détail apparaît dans la console de développement. Uniquement dans l’interface, pas dans l’export."
     },
@@ -446,7 +471,9 @@
         "light_point": "points lumineux",
         "fixed_appliance": "appareils",
         "domotica": "domotique"
-      }
+      },
+      "unplaced_few": "{{count}} points ne sont pas associés à un plan.",
+      "unplaced_many": "{{count}} points ne sont pas associés à un plan."
     },
     "pending": {
       "title": "Scan de document",
@@ -511,7 +538,11 @@
       "versions_one": "Nouvelle version créée par quelqu’un d’autre",
       "versions_other": "{{count}} nouvelles versions créées par quelqu’un d’autre",
       "comments_one": "{{count}} nouveau commentaire ajouté",
-      "comments_other": "{{count}} nouveaux commentaires ajoutés"
+      "comments_other": "{{count}} nouveaux commentaires ajoutés",
+      "versions_few": "{{count}} nouvelles versions créées par quelqu’un d’autre",
+      "versions_many": "{{count}} nouvelles versions créées par quelqu’un d’autre",
+      "comments_few": "{{count}} nouveaux commentaires ajoutés",
+      "comments_many": "{{count}} nouveaux commentaires ajoutés"
     },
     "refresh": "Actualiser",
     "noProjects": "Aucun projet pour le moment",
@@ -525,9 +556,19 @@
     "importDownloadedInvalidFile": "Sélectionnez un export de projet .zip ou .pdf.",
     "importFailedTitle": "Échec de l'importation",
     "importFailedMessage": "Impossible d'importer le projet.",
+    "importTrikFile": "Importer un fichier .TRIK",
     "importProjectLoadingTitle": "Importation du projet…",
     "importProjectLoadingBody": "Traitement des images de plan et des données du projet. Les gros fichiers peuvent prendre un moment.",
+    "importTrikInvalidFileTitle": "Fichier invalide",
+    "importTrikInvalidFileMessage": "Sélectionnez un fichier .trik valide.",
+    "importTrikSuccessTitle": "Importation réussie",
+    "importTrikSuccessMessage": "Le projet TRiK « {{name}} » a été importé.",
     "importRepairedSupplyHandoffs": "{{count}} lien(s) d’alimentation obsolète(s) supprimé(s) pour permettre l’importation. Les autres données du projet ont été conservées.",
+    "importTrikImportedLocallyTitle": "Importé en local",
+    "importTrikImportedLocallyMessage": "Le projet TRiK « {{name}} » a été importé en local. La synchronisation cloud a échoué ; il reste en stockage local.",
+    "importTrikFailedTitle": "Échec de l'import TRiK",
+    "importTrikFailedMessage": "Impossible d'importer le projet TRiK : {{error}}",
+    "importTrikImportedNameSuffix": "(Importé)",
     "importSchematicalsArchive": "Importer une archive Schematicals (dev)…",
     "importSchematicalsFolder": "Importer un dossier Schematicals (dev)…",
     "devElectricalImportButton": "Importer JSON (dev)…",
@@ -586,6 +627,7 @@
     }
   },
   "installation": {
+    "defaultCable": "Câble par défaut",
     "title": "Installation",
     "profile": "Profil",
     "profileHousehold": "Domestique",
@@ -682,6 +724,12 @@
     "residualType_F": "F (fréquence mixte)",
     "residualType_B": "B (continu lisse)",
     "description": "Description",
+    "type_MCB": "Disjoncteur",
+    "type_RCD": "Interrupteur différentiel",
+    "type_RCBO": "Disjoncteur différentiel",
+    "MCB": "Disjoncteur",
+    "RCD": "Interrupteur différentiel",
+    "RCBO": "Disjoncteur différentiel",
     "deleteLinkedPanelTitle": "Supprimer la protection ?",
     "deleteLinkedPanelMessage": "Tableau relié : {{panelNames}}",
     "deleteLinkedPanelAction": "Supprimer aussi le tableau",
@@ -771,6 +819,7 @@
     "ventilationCount": "Nombre de ventilateurs",
     "hvacDeviceCount": "Nombre d'appareils",
     "switchPoles": "Pôles",
+    "switchingCount": "Nombre de points de commande",
     "switchPoles1": "1 pôle",
     "switchPoles2": "2 pôles",
     "switchPoles3": "3 pôles",
@@ -945,7 +994,8 @@
     "panel": "Tableau",
     "structure": "Structure",
     "both": "Les deux",
-    "panelAndPlan": "Tableau + Plan"
+    "panelAndPlan": "Tableau + Plan",
+    "documents": "Documents"
   },
   "structure": {
     "traceHidden": "{{count}} étapes masquées",
@@ -997,9 +1047,12 @@
     "resetView": "Réinitialiser la vue structurelle",
     "filtersActive": "filtres actifs",
     "alternativePaths_one": "{{count}} chemin alternatif",
-    "alternativePaths_other": "{{count}} chemins alternatifs"
+    "alternativePaths_other": "{{count}} chemins alternatifs",
+    "alternativePaths_few": "{{count}} chemins alternatifs",
+    "alternativePaths_many": "{{count}} chemins alternatifs"
   },
   "panelCanvas": {
+    "showOnPlan": "Afficher sur le plan",
     "selectPanel": "Sélectionner un tableau",
     "panelOptions": "Options du tableau",
     "visibility": "Visibilité",
@@ -1013,6 +1066,9 @@
     "topTerminalStripRail": "Rail de bornes supérieur",
     "bottomTerminalStripRail": "Rail de bornes inférieur",
     "showDomotica": "Afficher domotique",
+    "modules": "modules",
+    "assignToCircuit": "Assigner au circuit",
+    "assignModeOn": "Cliquez sur un circuit…",
     "moveToSupplyPanel": "Déplacer vers le tableau réseau",
     "moveToMainPanel": "Déplacer vers le tableau principal",
     "hideFromPanel": "Masquer de la vue tableau",
@@ -1048,6 +1104,7 @@
     "labelAlignJustify": "Répartir le texte",
     "panelLayout": "Disposition du tableau"
   },
+  "panelRelationOverview": "Vue d’ensemble des relations entre tableaux",
   "panelFilter": {
     "title": "Filtre tableau",
     "allPanels": "Tous les tableaux",
@@ -1107,6 +1164,16 @@
     }
   },
   "planImport": {
+    "recognizeWalls": "Reconnaître les murs modifiables",
+    "recognizingWalls": "Reconnaissance des murs...",
+    "recognitionFailed": "Impossible de reconnaître les murs.",
+    "signInToRecognize": "Connectez-vous pour reconnaître les murs.",
+    "scanWorkerRequired": "Cette méthode de scan n'est pas disponible sur le service de vision.",
+    "scanMethod": "Méthode de scan",
+    "scanHybrid": "Hybride",
+    "scanYolo": "YOLO",
+    "scanLuna": "Luna",
+    "noWallsFound": "Aucun mur n'a été trouvé sur ce plan.",
     "title": "Importer une image de plan",
     "uploadDescription": "Téléchargez une image de plan de sol à utiliser comme arrière-plan pour placer les éléments électriques.",
     "dragDropOrClick": "Glissez-déposez une image ici, ou cliquez pour sélectionner",
@@ -1152,6 +1219,7 @@
     "cropPage": "Recadrer la page",
     "resetPageCrop": "Réinitialiser le recadrage",
     "croppedBadge": "Recadrée",
+    "cadLayers": "Calques",
     "croppedPages": "Pages recadrées : {{count}}",
     "pdfDestination": "Destination d'import",
     "newFloorPerPage": "Créer un nouvel étage par page sélectionnée",
@@ -1202,11 +1270,13 @@
     "drawMode": "Mode dessin",
     "exitDrawMode": "Quitter le mode dessin",
     "drawWall": "Tracer des murs (libre)",
+    "drawWallHint": "Maintenez Maj pour des murs droits (pas de 45°)",
     "drawWallRect": "Tracer murs (rectangle)",
     "movePoint": "Déplacer un point de mur",
     "insertDoor": "Insérer une porte",
     "insertWindow": "Insérer une fenêtre",
     "drawStair": "Tracer un escalier",
+    "placeNote": "Note",
     "graphicElements": "Éléments graphiques",
     "clipWall": "Couper le mur",
     "insertPoint": "Insérer un point",
@@ -1239,7 +1309,7 @@
     },
     "autoSkip": {
       "short": "Saut auto",
-      "full": "Sauter automatiquement les placements personnalises"
+      "full": "Sauter automatiquement les placements personnalisés"
     },
     "noItems": "Aucun element",
     "itemCount": "{{count}} elements",
@@ -1249,7 +1319,13 @@
     "floor": "Etage",
     "current": "Actuel",
     "emptyState": "Aucun placement de symbole n'est disponible.",
-    "availableWhenPlanOpen": "PlaceRapide est disponible lorsque la vue Plan de situation est ouverte."
+    "availableWhenPlanOpen": "PlaceRapide est disponible lorsque la vue Plan de situation est ouverte.",
+    "unplaced": {
+      "count_one": "{{count}} à placer",
+      "count_other": "{{count}} à placer",
+      "count_few": "{{count}} à placer",
+      "count_many": "{{count}} à placer"
+    }
   },
   "synergrid": {
     "fillButton": "Remplir avec la liste Synergrid",
@@ -1323,9 +1399,14 @@
     "wiresLighting": "Éclairage et interrupteurs",
     "wiresSockets": "Prises",
     "wiresOther": "Autre",
+    "wiresSupply": "Alimentation et terre",
     "wireStyle": "Style",
     "wireStyleSpline": "Courbe",
-    "wireStyleOrthogonal": "90°"
+    "wireStyleOrthogonal": "90°",
+    "wireStyleStraight": "Droit",
+    "wiresColorCoded": "Couleur par groupe",
+    "wiresHomeRuns": "Depuis le tableau",
+    "wiresBranchFeeds": "Entre branches"
   },
   "situationPlan": {
     "bulkDeleteWarning": {
@@ -1338,6 +1419,10 @@
     "library": "Bibliothèque de symboles",
     "recent": "Récent",
     "favorites": "Favoris",
+    "armed": {
+      "placing": "Placement : {{name}}",
+      "stop": "Arrêter le placement"
+    },
     "socket": "Prise de courant",
     "socket_gnd": "Prise de courant avec contact pour conducteur de protection",
     "socket_child": "Prise de courant avec protection enfant",
@@ -1350,6 +1435,7 @@
     "switch_dimmer": "Variateur",
     "switch_1p_changeover": "Interrupteur à bascule",
     "switch_1p_pull": "Interrupteur à tirette",
+    "contact": "Contact",
     "switch_impulse": "Bouton-poussoir",
     "switch_cross": "Interrupteur de croisement",
     "source_changeover": "Inverseur de sources",
@@ -1402,7 +1488,81 @@
     "spd": "Parafoudre",
     "rotating_switch": "Commutateur rotatif",
     "earthing": "Mise à la terre",
-    "earthing_separator": "Séparateur de terre"
+    "earthing_separator": "Séparateur de terre",
+    "names": {
+      "mains": "Raccordement réseau",
+      "backup_feed": "Alimentation de secours",
+      "earthing": "Mise à la terre",
+      "earthing_separator": "Séparateur de terre",
+      "panel_distribution": "Tableau de distribution",
+      "junction_box": "Boîte de jonction",
+      "junction_panel": "Panneau de jonction",
+      "terminal_strip": "Bornier",
+      "mcb": "Disjoncteur",
+      "rcd": "Disjoncteur différentiel",
+      "rcbo": "Disjoncteur différentiel combiné",
+      "fuse": "Fusible",
+      "main_switch": "Interrupteur principal",
+      "spd": "Parafoudre",
+      "rotating_switch": "Commutateur rotatif",
+      "source_changeover": "Inverseur de sources",
+      "socket_gnd_child": "Prise de courant avec contact pour conducteur de protection et protection enfant",
+      "double_socket_gnd_child": "Double prise de courant avec contact pour conducteur de protection et protection enfant",
+      "socket_child": "Prise de courant avec protection enfant",
+      "double_socket_child": "Double prise de courant avec protection enfant",
+      "modular_socket": "Prise modulaire",
+      "socket_gnd": "Prise de courant avec contact pour conducteur de protection",
+      "socket": "Prise de courant",
+      "switch": "Interrupteur",
+      "switch_1p_twoway": "Va-et-vient",
+      "switch_cross": "Interrupteur de croisement",
+      "switch_dimmer": "Variateur",
+      "switch_1p_changeover": "Interrupteur à bascule",
+      "switch_1p_pull": "Interrupteur à tirette",
+      "switch_impulse": "Bouton-poussoir",
+      "motion_detector": "Détecteur de mouvement",
+      "smoke_detector": "Détecteur de fumée",
+      "relay": "Relais",
+      "light_point": "Point lumineux",
+      "light_spot": "Spot",
+      "light_led": "Luminaire LED",
+      "light_fluorescent": "Tube fluorescent",
+      "stove": "Cuisinière",
+      "oven": "Four",
+      "washer": "Machine à laver",
+      "dryer": "Sèche-linge",
+      "dishwasher": "Lave-vaisselle",
+      "boiler": "Chauffe-eau électrique",
+      "freezer": "Congélateur",
+      "fridge": "Réfrigérateur",
+      "microwave": "Four à micro-ondes",
+      "heating": "Chauffage électrique",
+      "ventilation": "Ventilation",
+      "door_lock": "Serrure de porte",
+      "ev": "Borne de recharge véhicule électrique",
+      "motor": "Moteur",
+      "fixed_appliance_generic": "Appareil",
+      "furnace_heatpump": "Pompe à chaleur",
+      "furnace_gas": "Chauffage au gaz",
+      "furnace_oil": "Chaudière au mazout",
+      "furnace_pellets": "Poêle à pellets",
+      "furnace": "Source HVAC",
+      "buzzer": "Buzzer",
+      "bell": "Cloche",
+      "horn": "Corne",
+      "siren": "Sirène",
+      "domotica": "Domotique / appareil domotique",
+      "energy_meter": "Compteur d'énergie",
+      "transformer": "Transformateur",
+      "rectifier": "Redresseur (AC → DC)",
+      "inverter": "Onduleur (DC → AC)",
+      "dc_dc_converter": "Convertisseur DC-DC",
+      "solar_panel": "Panneau solaire",
+      "battery": "Batterie",
+      "dc_bus": "Jeu de barres CC",
+      "note": "Note / Étiquette",
+      "contact": "Contact"
+    }
   },
   "earthing": {
     "deleteConfirmTitle": "Retirer la mise à la terre ?"
@@ -1483,6 +1643,9 @@
     "checking": "Vérification...",
     "errorsFound": "{{count}} erreur(s) trouvée(s)",
     "warningsFound": "{{count}} avertissement(s) trouvé(s)",
+    "revalidate": "Relancer la validation",
+    "revalidateInProgress": "Validation en cours…",
+    "goToIssue": "Aller au problème",
     "readMoreAboutError": "En savoir plus sur cette erreur",
     "readMoreAboutWarning": "En savoir plus sur cet avertissement",
     "readMoreAboutInfo": "En savoir plus sur ce message",
@@ -1510,6 +1673,12 @@
           "details": "Les appareils masqués ne figurent pas sur le plan de position.",
           "remediation": "Ouvrez Afficher les éléments masqués et choisissez les appareils à afficher."
         },
+        "unplaced-situation-plan-symbols": {
+          "shortTitle": "Appareils non placés sur le plan de position",
+          "message": "Des appareils ne sont pas encore placés sur le plan de position",
+          "details": "Les appareils non placés ne figurent pas sur le plan de position.",
+          "remediation": "Placez-les sur le plan, par exemple avec PlaceRapide."
+        },
         "sources-consistency": {
           "shortTitle": "Origine alimentation manquante",
           "message": "L'origine de l'alimentation principale doit être spécifiée",
@@ -1533,6 +1702,24 @@
           "message": "La longueur du câble du circuit n’est pas affichée",
           "details": "La documentation des circuits non domestiques doit indiquer la longueur des canalisations électriques.",
           "remediation": "Sélectionnez le conducteur du circuit, saisissez une longueur positive et activez l’affichage de la longueur sur le schéma unifilaire."
+        },
+        "household-breaking-capacity": {
+          "shortTitle": "Pouvoir de coupure trop faible",
+          "message": "Pouvoir de coupure du disjoncteur inférieur à 3000 A",
+          "details": "Dans les installations domestiques, les dispositifs de protection contre les surintensités après le raccordement doivent avoir un pouvoir de coupure d'au moins 3000 A.",
+          "remediation": "Sélectionnez le disjoncteur et choisissez un pouvoir de coupure d'au moins 3000 A."
+        },
+        "household-supply-breaking-capacity": {
+          "shortTitle": "Pouvoir de coupure de l'alimentation trop faible",
+          "message": "Pouvoir de coupure de la protection d'alimentation trop faible",
+          "details": "Le dispositif de raccordement avant le compteur doit avoir au moins 6000 A. Les disjoncteurs après le compteur doivent avoir au moins 3000 A.",
+          "remediation": "Sélectionnez la protection d'alimentation et augmentez son pouvoir de coupure."
+        },
+        "maximum-protected-length": {
+          "shortTitle": "Câble trop long pour le disjoncteur",
+          "message": "La longueur du câble dépasse la longueur maximale protégée",
+          "details": "Un court-circuit à l'extrémité doit encore déclencher le disjoncteur instantanément.",
+          "remediation": "Choisissez une section plus grande, un trajet plus court ou un calibre ou une courbe inférieurs."
         },
         "overcurrent-upstream": {
           "shortTitle": "Pas de protection en amont",
@@ -1625,6 +1812,7 @@
           "remediation": "Envisagez d'augmenter le calibre et la section du câble du circuit de cuisinière vers ~32 A et 6 mm², ou vérifiez que le dimensionnement actuel correspond à la puissance réelle de la cuisinière."
         },
         "switch-load-reference": {
+          "shortTitle": "Interrupteur sans charge commandée",
           "message": "L'interrupteur n'a pas de charges contrôlées",
           "details": "Chaque interrupteur doit avoir au moins une charge contrôlée (controlledEndpointIds) ou une référence \"controls\" explicite.",
           "remediation": "Ajoutez controlledEndpointIds à l'interrupteur pour spécifier quelles charges il contrôle."
@@ -1636,6 +1824,7 @@
           "remediation": "Utilisez exactement deux va-et-vient : va-et-vient → va-et-vient, ou va-et-vient → croisement → … → croisement → va-et-vient. Supprimez tout va-et-vient en trop ou entre les croisements."
         },
         "electrical-domain": {
+          "shortTitle": "Incompatibilité AC/DC",
           "message": "Incompatibilité de domaine électrique (AC/DC)",
           "details": "Le domaine d'un câble doit correspondre au domaine d'entrée attendu du composant connecté. Seuls les convertisseurs peuvent relier différents domaines.",
           "remediation": "Réglez le domaine du câble sur l'entrée/sortie du composant, ou utilisez un convertisseur (transformateur, redresseur, onduleur, DC-DC) où le domaine change."
@@ -1653,6 +1842,7 @@
           "remediation": "Prévoyez un chemin PE continu avec le câblage AC sortant. Utilisez un câble avec G ou un conducteur PE indépendant correctement dimensionné et installé."
         },
         "main-rcd": {
+          "shortTitle": "Différentiel principal absent ou incorrect",
           "message": "Le disjoncteur différentiel principal sur la ligne d'alimentation doit être présent et correctement dimensionné",
           "details": "Le RGIE (Livre 1) impose un dispositif de protection à courant différentiel-résiduel principal à l'origine de l'installation, typiquement 300 mA de type A avec un courant nominal d'au moins 40 A.",
           "remediation": "Ajoutez un disjoncteur différentiel principal ou un disjoncteur différentiel combiné sur la ligne d'alimentation en amont du tableau principal et vérifiez qu'il est au minimum 40 A, au maximum 300 mA et au moins de type A."
@@ -1721,6 +1911,14 @@
       "branchMultiplierEndpointsSplit": "Circuit {{circuitCode}} : la dérivation « {{branchLabel}} » contient {{absorbCount}} symbole(s) multiplicateur(s) en trop comme points séparés ; fusionnez en un seul point avec plusieurs placements. Utilisez Réparer dans l’inspecteur d’orphelins."
     },
     "primitives": {
+      "cascadeProtectionRatings": {
+        "message": "Le calibre de la protection en aval dépasse celui du disjoncteur en amont",
+        "details": "Le calibre d'un disjoncteur ou disjoncteur différentiel en aval d'un circuit ne peut pas dépasser celui de sa protection en amont."
+      },
+      "supplyHasMainBreaker": {
+        "message": "L'alimentation principale n'a pas de disjoncteur ou d'interrupteur général en amont",
+        "details": "L'alimentation doit comporter un disjoncteur ou un interrupteur général en amont du tableau principal."
+      },
       "supplyModePaths": {
         "message": "Aucun chemin réseau/secours valide pour {{phases}}",
         "details": "La topologie unifilaire ne fournit pas un chemin réseau et secours complet et coordonné pour {{phases}}.",
@@ -1805,7 +2003,16 @@
       "hiddenSituationPlanSymbolsAreVisible": {
         "message_one": "{{count}} appareil est masqué sur le plan de position",
         "message_other": "{{count}} appareils sont masqués sur le plan de position",
-        "details": "Appareils masqués :\n{{devices}}"
+        "details": "Appareils masqués :\n{{devices}}",
+        "message_few": "{{count}} appareils sont masqués sur le plan de position",
+        "message_many": "{{count}} appareils sont masqués sur le plan de position"
+      },
+      "situationPlanSymbolsArePlaced": {
+        "message_one": "{{count}} appareil n'est pas encore placé sur le plan de position",
+        "message_other": "{{count}} appareils ne sont pas encore placés sur le plan de position",
+        "details": "Pas encore placés :\n{{devices}}",
+        "message_few": "{{count}} appareils ne sont pas encore placés sur le plan de position",
+        "message_many": "{{count}} appareils ne sont pas encore placés sur le plan de position"
       },
       "cableHasCrossSection": {
         "message": "Le circuit a des segments de câble sans section transversale",
@@ -1851,6 +2058,18 @@
       "nonHouseholdCircuitShowsCableLength": {
         "message": "Le circuit {{circuitCode}} n’affiche pas de longueur de câble",
         "details": "Les schémas de circuits non domestiques doivent indiquer la longueur des canalisations électriques. Saisissez une longueur positive et rendez-la visible sur le schéma unifilaire."
+      },
+      "householdBoardBreakingCapacity": {
+        "message": "Pouvoir de coupure inférieur à 3000 A : {{labels}}",
+        "details": "Dans les installations domestiques, les dispositifs de protection contre les surintensités après le raccordement doivent avoir un pouvoir de coupure d'au moins 3000 A."
+      },
+      "householdSupplyBreakingCapacity": {
+        "message": "Pouvoir de coupure de l'alimentation trop faible : {{list}}",
+        "details": "Le dispositif de raccordement avant le compteur doit avoir au moins 6000 A. Les dispositifs de surintensité après celui-ci doivent avoir au moins 3000 A."
+      },
+      "circuitWithinMaximumProtectedLength": {
+        "message": "Circuit {{circuitCode}} : {{lengthM}} m de câble dépasse la longueur protégée de {{maxLengthM}} m",
+        "details": "Un court-circuit à l'extrémité doit encore déclencher le {{curve}}{{ratingA}} instantanément ({{tripCurrentA}} A). Avec {{sectionMm2}} mm², cela permet au maximum {{maxLengthM}} m. Choisissez une section plus grande, un trajet plus court ou un calibre ou une courbe inférieurs."
       },
       "rcdHasTooManyCircuits": {
         "message": "Le différentiel a trop de circuits ({{circuitCount}} > {{threshold}})",
@@ -1961,11 +2180,13 @@
       "title": "Exporter en PDF",
       "selectCanvases": "Sélectionner les canevas à exporter",
       "eendraad": "Schéma unifilaire",
-      "eendraadShort": "Schéma unifilaire",
+      "eendraadShort": "Unifilaire",
       "panel": "Tableau (Vue tableau)",
       "panelShort": "Tableau",
       "sitplan": "Sitplan (Plan d'étage)",
       "sitplanShort": "Plan",
+      "mergePlanPages": "Fusionner les plans par niveau",
+      "mergePlanPagesWarning": "Libellés en double détectés ; les pages fusionnées peuvent prêter à confusion.",
       "options": "Options",
       "theme": "Thème",
       "themeLight": "Clair",
@@ -1978,6 +2199,7 @@
       "total": "Total",
       "editablePremiumTooltip": "Déverrouillez ce projet ou passez à Premium pour intégrer les données de projet modifiables.",
       "installDates": "Inclure les dates d'installation",
+      "eendraadPaperSize": "Format papier eendraad",
       "includeSignature": "Inclure la signature",
       "exportButton": "Exporter",
       "cancelButton": "Annuler"
@@ -2014,6 +2236,9 @@
     "brotherP910": "PT-P910BT",
     "brotherE800": "PT-E800W",
     "brotherD800": "PT-D800W",
+    "brotherE550": "PT-E550W",
+    "brotherE560": "PT-E560BT",
+    "brotherE310": "PT-E310BT",
     "brotherQl810w": "QL-810W",
     "brotherQl820": "QL-820NWB",
     "brotherTapeWidth": "Largeur du ruban Brother",
@@ -2085,6 +2310,9 @@
     "spiralSweepDegrees": "Arc de la spirale"
   },
   "contextMenu": {
+    "deletePlanImage": "Supprimer l’image du plan",
+    "deletePlanImageConfirmTitle": "Supprimer l’image du plan ?",
+    "deletePlanImageConfirmMessage": "L’image du plan est retirée de {{floor}}.",
     "addElement": "Ajouter un élément",
     "addNote": "Ajouter une note",
     "addFrame": "Ajouter un cadre",
@@ -2206,6 +2434,9 @@
     "csvDetails": "Détails"
   },
   "wires": {
+    "cableDefault": "Par défaut",
+    "makeCableDefault": "Définir par défaut",
+    "useCableDefault": "Utiliser le défaut",
     "multipleConnections": "Segment partagé. Sélectionnez une connexion individuelle pour modifier son fil.",
     "title": "Propriétés du fil",
     "phase": "Phase",
@@ -2256,7 +2487,12 @@
     "domainMismatchTitle": "Impossible de connecter ici",
     "domainMismatchDrop": "{{component}} nécessite une entrée {{domain}}, mais le fil ici est {{wireDomain}}.",
     "deleteRectifierWithDcDevicesTitle": "Supprimer le redresseur et les appareils DC ?",
-    "deleteRectifierWithDcDevicesMessage": "Ce redresseur alimente {{count}} appareil(s) DC uniquement (panneaux solaires / batteries). En le supprimant, ces appareils seront également supprimés. Voulez-vous continuer ?"
+    "deleteRectifierWithDcDevicesMessage": "Ce redresseur alimente {{count}} appareil(s) DC uniquement (panneaux solaires / batteries). En le supprimant, ces appareils seront également supprimés. Voulez-vous continuer ?",
+    "lengthEstimateRange": "≈ {{low}}–{{high}} m selon le plan",
+    "lengthFromPlan": "Estimée selon le plan",
+    "calibratePlan": "Définissez l’échelle du plan pour estimer les longueurs",
+    "lengthEstimateStale": "Plan modifié. Vérifiez cette longueur.",
+    "useLengthEstimate": "Utiliser ≈ {{value}} m"
   },
   "plan": {
     "doorProperties": "Porte",
@@ -2273,13 +2509,14 @@
     "doorOpeningOut": "Vers l'extérieur",
     "doorOpeningAngle": "Angle d'ouverture (°)",
     "resetScale": {
+      "distance": "Distance (m)",
       "confirmRescaleTitle": "Appliquer la nouvelle échelle de l'image ?",
       "confirmRescaleIntro": "Vous avez modifié l'échelle de l'image du plan (~{{factor}}x). Choisissez l'action :",
-      "optionRescale": "Redimensionner les murs/ouvertures (et les symboles liés) selon la nouvelle échelle.",
-      "optionKeep": "Conserver les murs tels quels, mais appliquer la nouvelle échelle de l'image.",
+      "optionRescale": "Redimensionner les éléments dessinés pour conserver leurs dimensions actuelles en mètres.",
+      "optionKeep": "Laisser les éléments dessinés en place et recalculer leurs dimensions.",
       "optionCancel": "Annuler et ne rien modifier.",
-      "confirmRescaleConfirm": "Redimensionner les murs",
-      "confirmRescaleCancel": "Conserver les murs"
+      "confirmRescaleConfirm": "Conserver les dimensions",
+      "confirmRescaleCancel": "Recalculer les dimensions"
     }
   },
   "junctionPanel": {
@@ -2358,5 +2595,370 @@
     "strokeColor": "Contour du mur",
     "paletteLabel": "Palette rapide",
     "paletteColor": "Appliquer la couleur de la palette"
+  },
+  "projectDocuments": {
+    "planDisplay": {
+      "title": "Affichage du plan",
+      "darkMode": "Adapter au mode sombre",
+      "colour": "Couleur",
+      "greyscale": "Niveaux de gris",
+      "noColour": "Importé en niveaux de gris ; réimportez pour retrouver les couleurs"
+    },
+    "add": "Ajouter des documents",
+    "emptyTitle": "Aucun document",
+    "drop": "Déposez des PDF ou des images",
+    "rejected_one": "{{count}} fichier ignoré : uniquement PDF et images",
+    "rejected_other": "{{count}} fichiers ignorés : uniquement PDF et images",
+    "back": "Tous les documents",
+    "categories": {
+      "inspection": "Contrôle & conformité",
+      "datasheet": "Documentation des appareils",
+      "sourcePlan": "Plans sources",
+      "schematic": "Schémas",
+      "other": "Autres"
+    },
+    "category": "Catégorie",
+    "name": "Nom",
+    "pages_one": "{{count}} page",
+    "pages_other": "{{count}} pages",
+    "includeInExport": "Inclure dans l'export",
+    "inExport": "Dans l'export",
+    "linkedTo": "Lié à",
+    "visibleToViewersHint": "Visible par les lecteurs lorsque le projet est partagé",
+    "notLinked": "Pas encore lié à un appareil.",
+    "linkToDevice": "Lier à un appareil",
+    "noLinkableDevices": "Aucun appareil à lier",
+    "unlink": "Délier",
+    "remove": "Supprimer",
+    "loadFailed": "Impossible d'ouvrir ce document",
+    "attach": "Lier un document",
+    "open": "Ouvrir",
+    "section": "Documents",
+    "exportTile": "Documents",
+    "propertiesTitle": "Document",
+    "uploadFiles": "Téléverser des fichiers",
+    "removeConfirmTitle": "Supprimer le document ?",
+    "removeConfirmMessage": "« {{name}} » sera supprimé de ce projet.",
+    "projectFileHint": "Issu de l’import du plan du projet.",
+    "rejectedTooLarge_one": "{{count}} fichier ignoré : plus de 100 Mo",
+    "rejectedTooLarge_other": "{{count}} fichiers ignorés : plus de 100 Mo",
+    "uploadFailed": "Impossible d’ajouter ces fichiers",
+    "replaceFile": "Remplacer le fichier",
+    "replaceFileShort": "Remplacer",
+    "visibleToViewers": "Visible par les lecteurs",
+    "visibleToViewersShareNote": "Les documents liés à un appareil et les plans placés sur un étage sont visibles par toute personne pouvant consulter ce projet.",
+    "rejectedStorageFull_one": "{{count}} fichier ignoré : stockage des documents plein",
+    "rejectedStorageFull_other": "{{count}} fichiers ignorés : stockage des documents plein",
+    "storageUsage": "{{used}} sur {{limit}}",
+    "storageLabel": "Stockage des documents",
+    "includePage": "Inclure la page dans l’export",
+    "deletePage": "Supprimer la page",
+    "deletePageConfirmTitle": "Supprimer la page ?",
+    "deletePageConfirmMessage": "La page {{page}} sera supprimée de « {{name}} ».",
+    "deletePageFailed": "Ce PDF ne peut pas être modifié",
+    "deletePages": "Suppression multiple",
+    "deletePagesConfirm": "Supprimer {{count}} pages",
+    "pageNumber": "Page {{page}}",
+    "pagesInExport": "{{count}} pages sur {{total}} dans l’export",
+    "removeFloorPlanConfirmMessage": "« {{name}} » est le plan de {{floors}}. Le supprimer le retire aussi du plan de situation.",
+    "exportFailed": "Impossible d’ajouter « {{name}} » au PDF",
+    "moveTo": "Déplacer vers {{category}}",
+    "moveLocked": "Utilisé sur le plan de situation",
+    "reduceSize": "Réduire la taille",
+    "reduceSizeBalanced": "Équilibré : bien lisible",
+    "reduceSizeSmallest": "Le plus petit : qualité réduite",
+    "reduceSizeQuality": "Qualité",
+    "reduceSizeCurrent": "Actuellement {{size}}.",
+    "reduceSizePdfHint": "Les pages deviennent des images : le texte n’est plus sélectionnable.",
+    "reduceSizeDone": "Réduit de {{before}} à {{after}}.",
+    "reduceSizeNoGain": "Ce fichier est déjà aussi petit que possible.",
+    "reduceSizeFailed": "Ce fichier n’a pas pu être réduit.",
+    "reducingSize": "Réduction…",
+    "overBudgetTitle": "Stockage insuffisant",
+    "overBudgetMessage_one": "{{count}} fichier ne tient pas dans les {{free}} restants. Le réduire et l’ajouter ?",
+    "overBudgetMessage_other": "{{count}} fichiers ne tiennent pas dans les {{free}} restants. Les réduire et les ajouter ?",
+    "overBudgetConfirm": "Réduire et ajouter",
+    "builtInHint": "Fait toujours partie du projet",
+    "rejected_few": "{{count}} fichiers ignorés : uniquement PDF et images",
+    "rejected_many": "{{count}} fichiers ignorés : uniquement PDF et images",
+    "pages_few": "{{count}} pages",
+    "pages_many": "{{count}} pages",
+    "rejectedTooLarge_few": "{{count}} fichiers ignorés : plus de 100 Mo",
+    "rejectedTooLarge_many": "{{count}} fichiers ignorés : plus de 100 Mo",
+    "rejectedStorageFull_few": "{{count}} fichiers ignorés : stockage des documents plein",
+    "rejectedStorageFull_many": "{{count}} fichiers ignorés : stockage des documents plein",
+    "overBudgetMessage_few": "{{count}} fichiers ne tiennent pas dans les {{free}} restants. Les réduire et les ajouter ?",
+    "overBudgetMessage_many": "{{count}} fichiers ne tiennent pas dans les {{free}} restants. Les réduire et les ajouter ?"
+  },
+  "schematicAssistant": {
+    "validationReview": {
+      "title": "Vérification",
+      "findings": "Constats",
+      "error": "Erreurs",
+      "warning": "Avertissements",
+      "info": "Informations",
+      "resolved": "Résolus",
+      "introduced": "Nouveaux",
+      "remaining": "Restants",
+      "limitedDetails": "Une liste limitée de constats est affichée.",
+      "unavailable": "Vérification indisponible. Les constats n’ont pas pu être comparés."
+    },
+    "catalogSource": "Synergrid C10/26 · copie du catalogue",
+    "catalogUpdated": "Source mise à jour : {{date}}",
+    "catalogUnavailable": "Catalogue indisponible. Aucune donnée vérifiée.",
+    "catalogNoMatches": "Aucune entrée correspondante dans cette copie du catalogue.",
+    "catalogMoreMatches": "D’autres résultats sont disponibles. Affinez votre recherche.",
+    "dockLeft": "Ancrer à gauche",
+    "conversation": "Conversation",
+    "you": "Vous",
+    "assistant": "Assistant",
+    "applied": "Modifications appliquées.",
+    "declined": "Proposition refusée. Aucune modification appliquée.",
+    "superseded": "La proposition précédente n’a pas été appliquée.",
+    "createAction": "Générer un schéma…",
+    "editAction": "Assistant de schéma…",
+    "createTitle": "Générer un schéma",
+    "editTitle": "Assistant de schéma",
+    "newProjectName": "Nouveau schéma",
+    "scope": "Schéma unifilaire uniquement. Vérifiez chaque modification avant de l’appliquer.",
+    "context": "Contexte",
+    "selected": "Sélection",
+    "noSelection": "Aucune sélection",
+    "moreSelected": "+{{count}} autres",
+    "unresolvedSelection": "{{count}} éléments sélectionnés n’ont pas pu être identifiés",
+    "truncatedSelection": "{{count}} éléments sélectionnés omis",
+    "prompt": "Décrivez vos modifications",
+    "createPlaceholder": "Crée un schéma avec un tableau principal…",
+    "editPlaceholder": "Ajoute quatre prises au circuit A…",
+    "generate": "Envoyer",
+    "generating": "Préparation de la proposition…",
+    "review": "Modifications proposées",
+    "modelNotes": "Notes et hypothèses du modèle",
+    "details": "Proposition complète",
+    "installation": "Installation",
+    "createdSummary": "{{circuits}} circuits, {{endpoints}} points de connexion",
+    "warnings": {
+      "newSymbolsAwaitPlacement": "Les nouveaux symboles attendent d’être placés sur le plan de position.",
+      "inverterDisconnectedBypassRemains": "L’entrée réseau de l’onduleur est déconnectée. L’inverseur manuel conserve l’alimentation directe par le réseau.",
+      "supplyValuesAsSpecified": "Les appareils d’alimentation et les valeurs de protection sont importés tels que renseignés. La conformité électrique n’a pas été vérifiée.",
+      "electricalComplianceNotVerified": "La conformité électrique n’a pas été vérifiée."
+    },
+    "decline": "Refuser",
+    "accept": "Appliquer les modifications",
+    "acceptCreate": "Créer le projet",
+    "stale": "Le projet a changé. Générez une nouvelle proposition avant de l’appliquer.",
+    "noProject": "Ouvrez d’abord un projet.",
+    "requestFailed": "Impossible de préparer une proposition. Réessayez.",
+    "invalidProposal": "La proposition n’a pas pu être validée. Réessayez.",
+    "unsupportedTitle": "Pas encore pris en charge",
+    "alternatives": "Essayez plutôt",
+    "validation": {
+      "unknown_target": "Un élément référencé est introuvable. Sélectionnez l’élément souhaité et réessayez.",
+      "unsupported_topology": "Cette modification n’est pas prise en charge pour ce circuit, tableau ou cette alimentation. Effectuez-la dans l’éditeur.",
+      "socket_limit": "Cette prise ne peut pas avoir autant de points de branchement. Demandez-en moins.",
+      "missing_specification": "Des données électriques manquent. Précisez le code du circuit, le câble et les valeurs requises, puis réessayez.",
+      "duplicate_code": "Ce code de circuit est déjà utilisé. Choisissez un autre code."
+    },
+    "applyFailed": "Impossible d’appliquer ces modifications.",
+    "operations": {
+      "append_sockets": "Ajouter des prises",
+      "update_circuit": "Modifier la description du circuit",
+      "update_endpoint": "Modifier le point de connexion",
+      "add_circuit": "Ajouter un circuit",
+      "create": "Créer le schéma",
+      "update_supply_device": "Modifier l’appareil d’alimentation",
+      "disconnect_supply_grid_input": "Déconnecter l’entrée réseau de l’onduleur",
+      "set_circuit_cable": "Modifier le câble",
+      "update_protection": "Modifier la protection",
+      "rename_circuit": "Renommer le circuit",
+      "move_panel_to_circuit": "Déplacer le tableau vers un circuit",
+      "append_endpoints": "Ajouter des appareils",
+      "add_supply_system": "Ajouter l’alimentation"
+    },
+    "errors": {
+      "configuration": "Configurez d’abord la clé OpenRouter et le modèle sur le serveur.",
+      "local_only": "Ce prototype est disponible uniquement sur localhost.",
+      "invalid_context": "Ce projet ne peut pas être traité par le prototype.",
+      "invalid_response": "Le modèle a renvoyé une proposition invalide. Réessayez.",
+      "provider_auth": "La clé OpenRouter du serveur a été refusée.",
+      "provider_credit": "Le compte OpenRouter n’a pas assez de crédit.",
+      "provider_busy": "Le modèle est occupé. Réessayez dans un instant.",
+      "provider_error": "Le modèle n’a pas pu terminer la demande. Réessayez.",
+      "timeout": "La demande a expiré. Réessayez.",
+      "busy": "Une autre demande est en cours. Réessayez dans un instant.",
+      "unsubmitted_draft": "La proposition est inachevée. Demandez à l’assistant de la terminer ou de l’abandonner.",
+      "tool_budget": "Cette demande nécessite trop d’étapes. Divisez-la en modifications plus petites.",
+      "invalid_session": "Reconnectez l’assistant à cet éditeur."
+    },
+    "supplyUnitScope": "S’applique aux {{count}} unités.",
+    "supplyUnitRatings": "S’applique aux {{count}} unités. Les valeurs sont par unité.",
+    "supplyFields": {
+      "label": "Libellé",
+      "notes": "Description",
+      "brand": "Marque",
+      "model": "Modèle",
+      "powerW": "Puissance par onduleur (W)",
+      "capacityKWh": "Capacité par batterie (kWh)",
+      "wattageW": "Puissance solaire (W)",
+      "ratedCurrentA": "Courant nominal (A)",
+      "ratingA": "Calibre de protection (A)",
+      "curve": "Courbe",
+      "sensitivityMa": "Sensibilité (mA)",
+      "breakingCapacityKa": "Pouvoir de coupure (kA)",
+      "port1Label": "Libellé de l’entrée réseau",
+      "port2Label": "Libellé de l’entrée de secours",
+      "gridInputConnected": "Entrée réseau de l’onduleur",
+      "unspecified": "Non précisé",
+      "connected": "Connectée",
+      "disconnected": "Déconnectée",
+      "before": "Avant",
+      "after": "Après",
+      "kind": "Type de câble",
+      "customKind": "Type de câble personnalisé",
+      "conductors": "Conducteurs",
+      "sectionMm2": "Section (mm²)",
+      "hasPE": "Conducteur de protection",
+      "fireClass": "Classe de réaction au feu",
+      "inTube": "Sous conduit",
+      "route": "Parcours",
+      "residualCurrentType": "Type différentiel",
+      "code": "Code du circuit"
+    },
+    "usingTools": "Exécution des outils de l’éditeur…",
+    "toolsConnected": "Éditeur connecté",
+    "copyMcp": "Copier la connexion MCP",
+    "mcpCopied": "Connexion copiée",
+    "mcpCopyFailed": "Impossible de copier la connexion MCP.",
+    "devTrace": {
+      "work": "Travail",
+      "steps": "étapes",
+      "running": "En cours",
+      "done": "Terminé",
+      "failed": "Échec",
+      "cancelled": "Annulé",
+      "modelText": "Texte du modèle",
+      "modelCall": "Appel du modèle",
+      "arguments": "Arguments",
+      "result": "Résultat"
+    }
+  },
+  "supplyImportReview": {
+    "title": "Alimentation",
+    "unknown": "Inconnu",
+    "yes": "Oui",
+    "no": "Non",
+    "unspecified": "L’alimentation n’est pas renseignée ; aucun appareil d’alimentation ne sera importé.",
+    "incomingCable": "Câble d’alimentation",
+    "connections": "Connexions",
+    "allLoads": "Tous les circuits importés sont alimentés par la sortie principale vers {{panel}}.",
+    "gridInputConnected": "Entrée réseau de l’onduleur connectée",
+    "gridInputDisconnected": "Entrée réseau de l’onduleur déconnectée",
+    "neutralSwitched": "Neutre commuté",
+    "topology": {
+      "manual_changeover": "Commutation manuelle",
+      "direct_backup": "Alimentation directe par l’onduleur"
+    },
+    "devices": {
+      "grid": "Réseau électrique",
+      "energy_meter": "Compteur d’énergie",
+      "protection": "Protection",
+      "inverter": "Onduleur",
+      "dcBus": "Bus DC",
+      "battery": "Batterie",
+      "solar": "Source solaire",
+      "changeover": "Inverseur de source",
+      "mainPanel": "Tableau principal",
+      "inverterGridInput": "Entrée réseau de l’onduleur",
+      "inverterBackupOutput": "Sortie de secours de l’onduleur",
+      "inverterDcInput": "Entrée DC de l’onduleur",
+      "generator": "Générateur",
+      "pv_inverter": "Onduleur photovoltaïque",
+      "unknown": "Source inconnue",
+      "unknownSource": "Source inconnue",
+      "acDistribution": "Distribution AC",
+      "integratedTransfer": "Transfert intégré"
+    },
+    "roles": {
+      "incoming": "Alimentation entrante",
+      "gridInput": "Entrée réseau de l’onduleur",
+      "backupOutput": "Sortie de secours de l’onduleur",
+      "dcSource": "Branche de source DC"
+    },
+    "fields": {
+      "voltageSystem": "Régime de tension",
+      "phases": "Phases",
+      "protectionType": "Type",
+      "current": "Courant nominal",
+      "poles": "Pôles",
+      "sensitivity": "Sensibilité",
+      "residualCurrentType": "Type de différentiel",
+      "curve": "Courbe",
+      "breakingCapacity": "Pouvoir de coupure",
+      "brand": "Marque",
+      "model": "Modèle",
+      "units": "Nombre",
+      "power": "Puissance",
+      "voltage": "Tension",
+      "capacity": "Capacité par batterie",
+      "neutralTreatment": "Neutre",
+      "cableType": "Type de câble",
+      "conductors": "Conducteurs",
+      "section": "Section",
+      "earthConductor": "Conducteur de terre",
+      "fireClass": "Classe de réaction au feu"
+    }
+  },
+  "cableSchedule": {
+    "settings": {
+      "floorHeight": "Hauteur d'étage",
+      "socketHeight": "Prises",
+      "switchHeight": "Interrupteurs",
+      "panelHeight": "Tableaux",
+      "heights": "Hauteurs (m)"
+    },
+    "title": "Liste des câbles",
+    "board": "Tableau",
+    "circuit": "Circuit",
+    "from": "De",
+    "to": "Vers",
+    "cable": "Câble",
+    "length": "Longueur (m)",
+    "estimateLow": "Estimation min (m)",
+    "estimateHigh": "Estimation max (m)",
+    "sourceHeader": "Source",
+    "source": {
+      "entered": "Saisie",
+      "accepted": "Selon le plan",
+      "stale": "Vérifier la longueur",
+      "uncalibrated": "Définir l’échelle",
+      "estimate": "Estimation",
+      "missing": "Inconnue"
+    },
+    "useEstimates": "Utiliser les estimations ({{count}})",
+    "cableCount_one": "{{count}} câble",
+    "cableCount_other": "{{count}} câbles",
+    "collapseCircuit": "Replier le circuit",
+    "expandCircuit": "Déplier le circuit",
+    "use": "Utiliser",
+    "exportCsv": "Exporter en CSV",
+    "empty": "Placez des symboles sur le plan pour lister leurs câbles.",
+    "totals": "Total par câble",
+    "continued": "suite",
+    "point": {
+      "socket": "Prise"
+    },
+    "cableCount_few": "{{count}} câbles",
+    "cableCount_many": "{{count}} câbles"
+  },
+  "wireLegend": {
+    "lighting": "Éclairage",
+    "sockets": "Prises",
+    "devices": "Appareils fixes",
+    "feeders": "Entre tableaux",
+    "supply": "Alimentation",
+    "dc": "CC",
+    "earthing": "Mise à la terre",
+    "other": "Autres",
+    "selected": "Sélectionné"
   }
 }

@@ -2,7 +2,11 @@ import { registerPrimitive } from './registry'
 import type { CheckContext, CheckResult, Issue, Offender, SitplanMapping, Panel } from './common'
 import { i18n, VALIDATION_DEBUG, projectPanels } from './common'
 import { logger } from '@/lib/logger'
-import { getHiddenSituationPlanPlacements } from '@/lib/plan/hiddenSituationPlanPlacements'
+import {
+  getAwaitingSituationPlanPlacements,
+  getHiddenSituationPlanPlacements,
+  type HiddenSituationPlanPlacement,
+} from '@/lib/plan/hiddenSituationPlanPlacements'
 import { getSymbolById } from '@/lib/symbols'
 import { getSituationPlanPlacementIdsHiddenByPanel } from '@/lib/plan/panelPlanPlacementVisibility'
 
@@ -118,17 +122,8 @@ function placementHasValidIdentifier(
 }
 
 /** Report hidden one-wire symbols once for the whole project. */
-function hiddenSituationPlanSymbolsAreVisible(context: CheckContext): CheckResult {
-  const { scope, project } = context
-  if (scope.type !== 'board') return { passed: true }
-
-  const panels = projectPanels(project)
-  const anchorPanel = panels.find((panel) => panel.isMain) ?? panels[0]
-  if (!anchorPanel || scope.id !== anchorPanel.id) return { passed: true }
-
-  const hidden = getHiddenSituationPlanPlacements(project)
-  if (hidden.length === 0) return { passed: true }
-  const hiddenDeviceLines = hidden
+function describeSituationPlanDevices(items: HiddenSituationPlanPlacement[]): string {
+  return items
     .map((item) => {
       const symbol = item.symbol ? getSymbolById(item.symbol) : undefined
       const typeLabel = symbol
@@ -138,6 +133,25 @@ function hiddenSituationPlanSymbolsAreVisible(context: CheckContext): CheckResul
       return `• ${label}${item.circuitLabel ? ` · ${item.circuitLabel}` : ''}`
     })
     .join('\n')
+}
+
+/** Board-level checks report once, on the main (or first) panel. */
+function isSituationPlanAnchorBoard(context: CheckContext): Panel | null {
+  const { scope, project } = context
+  if (scope.type !== 'board') return null
+  const panels = projectPanels(project)
+  const anchorPanel = panels.find((panel) => panel.isMain) ?? panels[0]
+  return anchorPanel && scope.id === anchorPanel.id ? anchorPanel : null
+}
+
+function hiddenSituationPlanSymbolsAreVisible(context: CheckContext): CheckResult {
+  const { project } = context
+  const anchorPanel = isSituationPlanAnchorBoard(context)
+  if (!anchorPanel) return { passed: true }
+
+  const hidden = getHiddenSituationPlanPlacements(project)
+  if (hidden.length === 0) return { passed: true }
+  const hiddenDeviceLines = describeSituationPlanDevices(hidden)
 
   return {
     passed: false,
@@ -155,4 +169,30 @@ function hiddenSituationPlanSymbolsAreVisible(context: CheckContext): CheckResul
 }
 
 registerPrimitive('placementHasValidIdentifier', placementHasValidIdentifier)
+/** Symbols created while placing plan symbols manually and not put on the plan yet. */
+function situationPlanSymbolsArePlaced(context: CheckContext): CheckResult {
+  const { project } = context
+  const anchorPanel = isSituationPlanAnchorBoard(context)
+  if (!anchorPanel) return { passed: true }
+
+  const awaiting = getAwaitingSituationPlanPlacements(project)
+  if (awaiting.length === 0) return { passed: true }
+  const devices = describeSituationPlanDevices(awaiting)
+
+  return {
+    passed: false,
+    offenders: [{ kind: 'board', id: anchorPanel.id, viewHint: 'sitplan' }],
+    message: i18n.t('validation.primitives.situationPlanSymbolsArePlaced.message', {
+      count: awaiting.length,
+      defaultValue: `${awaiting.length} devices are not placed on the situation plan yet`,
+    }),
+    details: i18n.t('validation.primitives.situationPlanSymbolsArePlaced.details', {
+      count: awaiting.length,
+      devices,
+      defaultValue: `Not placed yet:\n${devices}`,
+    }),
+  }
+}
+
 registerPrimitive('hiddenSituationPlanSymbolsAreVisible', hiddenSituationPlanSymbolsAreVisible)
+registerPrimitive('situationPlanSymbolsArePlaced', situationPlanSymbolsArePlaced)

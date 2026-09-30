@@ -17,6 +17,7 @@ import type {
 } from '@/types/schema'
 import { ensurePanelPlacement } from './panelPlacement'
 import { healEarthingSitplanPlacements } from '@/lib/plan/earthingSitplanPlacement'
+import { duplicateJunctionOccurrenceIds } from '@/lib/plan/sharedJunctionPlacements'
 import { healPlanWiring } from '@/lib/plan/planWiring'
 import type { ProjectWithOptionalV2PlanWiring } from '@/lib/projectV2/planWiring'
 import { migrateProjectV1ToV2 } from '@/lib/projectV2/migration'
@@ -766,6 +767,7 @@ export function collectPlacementsOnFloor(
   Placement & {
     endpointId?: string
     trunkDeviceId?: string
+    enclosureId?: string
     junctionPanelLabel?: string
     isEarthing?: boolean
   }
@@ -774,14 +776,18 @@ export function collectPlacementsOnFloor(
     Placement & {
       endpointId?: string
       trunkDeviceId?: string
+      enclosureId?: string
       junctionPanelLabel?: string
       isEarthing?: boolean
     }
   > = []
+  // A junction box drawn several times on the one-wire is one box on the plan.
+  const duplicateJunctions = duplicateJunctionOccurrenceIds(project)
   for (const rootPanel of getProjectElectricalPanels(project)) {
     const circuits = collectAllCircuits([rootPanel])
     for (const circuit of circuits) {
       for (const endpoint of circuit.endpoints) {
+        if (duplicateJunctions.has(endpoint.id)) continue
         for (const placement of endpoint.placements) {
           if (placement.floorId === floorId) {
             result.push({ ...placement, endpointId: endpoint.id })
@@ -789,6 +795,7 @@ export function collectPlacementsOnFloor(
         }
       }
       for (const device of circuit.trunkDevices ?? []) {
+        if (duplicateJunctions.has(device.id)) continue
         for (const placement of device.placements ?? []) {
           if (placement.floorId === floorId) {
             result.push({ ...placement, trunkDeviceId: device.id })
@@ -799,6 +806,7 @@ export function collectPlacementsOnFloor(
   }
   const installation = getProjectElectricalInstallation(project)
   for (const device of getAllSupplyTrunkDevices(project)) {
+    if (duplicateJunctions.has(device.id)) continue
     for (const placement of device.placements ?? []) {
       if (placement.floorId === floorId) {
         result.push({ ...placement, trunkDeviceId: device.id })
@@ -806,6 +814,7 @@ export function collectPlacementsOnFloor(
     }
   }
   for (const device of installation?.groundTrunkDevices ?? []) {
+    if (duplicateJunctions.has(device.id)) continue
     for (const placement of device.placements ?? []) {
       if (placement.floorId === floorId) {
         result.push({ ...placement, trunkDeviceId: device.id })
@@ -814,11 +823,17 @@ export function collectPlacementsOnFloor(
   }
   for (const panel of walkPanels(getProjectElectricalPanels(project))) {
     for (const device of panel.groundTrunkDevices ?? []) {
+      if (duplicateJunctions.has(device.id)) continue
       for (const placement of device.placements ?? []) {
         if (placement.floorId === floorId) {
           result.push({ ...placement, trunkDeviceId: device.id })
         }
       }
+    }
+  }
+  for (const enclosure of project.disciplines?.electrical?.auxiliaryEnclosures ?? []) {
+    for (const placement of enclosure.placements ?? []) {
+      if (placement.floorId === floorId) result.push({ ...placement, enclosureId: enclosure.id })
     }
   }
   const jpPlacements = installation?.junctionPanelPlacements ?? []

@@ -115,6 +115,24 @@ export const beAreiBook1_2025: RulePack = {
       tags: ['consistency', 'sitplan', 'visibility', 'documentation'],
     },
     {
+      id: 'be.areibook1.2025.unplaced-situation-plan-symbols',
+      title: 'Situation-plan symbols not placed yet',
+      severity: 'warning',
+      appliesTo: ['board'],
+      checks: [{ name: 'situationPlanSymbolsArePlaced' }],
+      message: 'validation.rules.be.areibook1.2025.unplaced-situation-plan-symbols.message',
+      details: 'validation.rules.be.areibook1.2025.unplaced-situation-plan-symbols.details',
+      remediation: 'validation.rules.be.areibook1.2025.unplaced-situation-plan-symbols.remediation',
+      citations: [
+        {
+          code: 'AREI',
+          title: 'Algemeen Reglement op de Elektrische Installaties',
+          section: '§ 3.1.2.3',
+        },
+      ],
+      tags: ['consistency', 'sitplan', 'documentation'],
+    },
+    {
       id: 'be.areibook1.2025.sources-consistency',
       title: 'Sources consistency',
       severity: 'warning',
@@ -194,6 +212,61 @@ export const beAreiBook1_2025: RulePack = {
         },
       ],
       tags: ['non-household', 'circuit', 'cable-length', 'documentation'],
+    },
+    {
+      id: 'be.areibook1.2025.household-breaking-capacity',
+      title: 'Household breaking capacity',
+      severity: 'warning',
+      appliesTo: ['board'],
+      checks: [{ name: 'householdBoardBreakingCapacity' }],
+      message: 'validation.rules.be.areibook1.2025.household-breaking-capacity.message',
+      details: 'validation.rules.be.areibook1.2025.household-breaking-capacity.details',
+      remediation: 'validation.rules.be.areibook1.2025.household-breaking-capacity.remediation',
+      citations: [
+        {
+          code: 'AREI',
+          title: 'Algemeen Reglement op de Elektrische Installaties',
+          section: '§ 5.3.5.5(e)',
+        },
+      ],
+      tags: ['household', 'protection', 'short-circuit'],
+    },
+    {
+      id: 'be.areibook1.2025.household-supply-breaking-capacity',
+      title: 'Household supply breaking capacity',
+      severity: 'warning',
+      appliesTo: ['board'],
+      checks: [{ name: 'householdSupplyBreakingCapacity' }],
+      message: 'validation.rules.be.areibook1.2025.household-supply-breaking-capacity.message',
+      details: 'validation.rules.be.areibook1.2025.household-supply-breaking-capacity.details',
+      remediation:
+        'validation.rules.be.areibook1.2025.household-supply-breaking-capacity.remediation',
+      citations: [
+        {
+          code: 'AREI',
+          title: 'Algemeen Reglement op de Elektrische Installaties',
+          section: '§ 5.3.5.5(e)',
+        },
+      ],
+      tags: ['household', 'supply', 'protection', 'short-circuit'],
+    },
+    {
+      id: 'be.areibook1.2025.maximum-protected-length',
+      title: 'Cable within maximum protected length',
+      severity: 'warning',
+      appliesTo: ['circuit'],
+      checks: [{ name: 'circuitWithinMaximumProtectedLength' }],
+      message: 'validation.rules.be.areibook1.2025.maximum-protected-length.message',
+      details: 'validation.rules.be.areibook1.2025.maximum-protected-length.details',
+      remediation: 'validation.rules.be.areibook1.2025.maximum-protected-length.remediation',
+      citations: [
+        {
+          code: 'AREI',
+          title: 'Algemeen Reglement op de Elektrische Installaties',
+          section: '§ 4.4.2.1, § 5.3.5.5(h)',
+        },
+      ],
+      tags: ['circuit', 'cable', 'cable-length', 'short-circuit'],
     },
     {
       id: 'be.areibook1.2025.main-rcd',

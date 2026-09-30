@@ -4,7 +4,11 @@ import { Group, Line, Rect, Text } from 'react-konva'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { BottomUpLayoutResult, BottomUpPanelLayout } from '@/lib/layout/bottomUpLayout'
+import {
+  LAYOUT_CONSTANTS,
+  type BottomUpLayoutResult,
+  type BottomUpPanelLayout,
+} from '@/lib/layout/bottomUpLayout'
 import type { Circuit, Endpoint, Panel, ProtectionDevice, TrunkDevice } from '@/types/schema'
 import {
   formatInstallYearLabel,
@@ -19,7 +23,10 @@ import {
 import type { ResolvedFrameItem } from '@/lib/eendraad/frameContent'
 import { computeEendraadFrameBounds, type EendraadFrameBounds } from '@/lib/eendraad/frameBounds'
 import {
-  getInstallDateTargetInheritedYear,
+  buildInstallDateInheritanceIndex,
+  installDateTargetKey,
+  type InstallDateInheritance,
+  type InstallDateInheritanceIndex,
   type InstallDateTarget,
 } from '@/lib/installDatePropagation'
 import {
@@ -103,6 +110,8 @@ interface DateBlocker {
   year: number
   item: ResolvedFrameItem
   bounds: EendraadFrameBounds
+  // Explicitly unmarked items never belong to any date frame.
+  unmarked?: boolean
 }
 
 interface RectBounds {
@@ -225,6 +234,31 @@ function buildLabelObstacles(panelLayout: BottomUpPanelLayout): RectBounds[] {
     })
 }
 
+const SYMBOL_OBSTACLE_TYPES = new Set(['endpoint', 'protection', 'rcd', 'trunkDevice'])
+
+function buildSymbolObstacles(panelLayout: BottomUpPanelLayout): RectBounds[] {
+  const half = LAYOUT_CONSTANTS.SYMBOL_SIZE / 2
+  const symbolAt = ({ x, y }: { x: number; y: number }) => ({
+    x: x - half,
+    y: y - half,
+    width: half * 2,
+    height: half * 2,
+  })
+  return [
+    ...panelLayout.elements
+      .filter((element) => SYMBOL_OBSTACLE_TYPES.has(element.type))
+      .map((element) => symbolAt(element.position)),
+    ...(panelLayout.supplyDevices ?? []).map(symbolAt),
+    ...(panelLayout.groundDevices ?? []).map(symbolAt),
+  ]
+}
+
+function overlapArea(a: RectBounds, b: RectBounds): number {
+  const width = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
+  const height = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)
+  return width > 0 && height > 0 ? width * height : 0
+}
+
 function shrinkFramePaddingCollisions(frames: DateFrame[]): DateFrame[] {
   const adjusted = frames.map((frame) => ({ ...frame }))
   const fitPaddingBetween = (before: DateFrame, after: DateFrame, axis: 'x' | 'y'): boolean => {
@@ -290,6 +324,7 @@ function shrinkFramePaddingCollisions(frames: DateFrame[]): DateFrame[] {
 
 function placeFrameLabels(frames: DateFrame[], panelLayout: BottomUpPanelLayout): DateFrame[] {
   const obstacles = buildLabelObstacles(panelLayout)
+  const symbolObstacles = buildSymbolObstacles(panelLayout)
   const placedLabels: RectBounds[] = []
   const fontSize = 11
   return frames.map((frame) => {
@@ -365,20 +400,34 @@ function placeFrameLabels(frames: DateFrame[], panelLayout: BottomUpPanelLayout)
         containsBounds(other.relationBounds, frameContent)
       )
     })
+    // The frame's own symbols are expected under or beside its label; any other
+    // symbol under the label makes it read as marking the wrong item.
+    const foreignSymbols = symbolObstacles.filter(
+      (symbol) => !rectsOverlap(symbol, frameContent)
+    )
     const oldSingleLeftShift =
       isSingle && isOldInstallFrame ? estimateOverlayTextWidth('2026', fontSize) : 0
+    const labelRectFor = (candidate: { x: number; y: number }) => ({
+      x: candidate.x - oldSingleLeftShift - 2,
+      y: candidate.y - 2,
+      width: textWidth + 4,
+      height: textHeight + 4,
+    })
+    const blocking = [...obstacles, ...placedLabels, ...neighbouringFrames, ...foreignSymbols]
     const chosen =
-      candidates.find((candidate) => {
-        const rect = {
-          x: candidate.x - oldSingleLeftShift - 2,
-          y: candidate.y - 2,
-          width: textWidth + 4,
-          height: textHeight + 4,
-        }
-        return ![...obstacles, ...placedLabels, ...neighbouringFrames].some((obstacle) =>
-          rectsOverlap(rect, obstacle)
-        )
-      }) ?? candidates[0]!
+      candidates.find(
+        (candidate) =>
+          !blocking.some((obstacle) => rectsOverlap(labelRectFor(candidate), obstacle))
+      ) ??
+      // Nothing is free: take the spot that covers the least, not blindly the first.
+      candidates.reduce(
+        (best, candidate) => {
+          const rect = labelRectFor(candidate)
+          const cost = blocking.reduce((sum, obstacle) => sum + overlapArea(rect, obstacle), 0)
+          return cost < best.cost ? { candidate, cost } : best
+        },
+        { candidate: candidates[0]!, cost: Number.POSITIVE_INFINITY }
+      ).candidate
     const labelX = chosen.x - oldSingleLeftShift
     const labelRect = {
       x: labelX - 2,
@@ -398,8 +447,9 @@ function placeFrameLabels(frames: DateFrame[], panelLayout: BottomUpPanelLayout)
 
 function walkPanelDateEntities(
   graph: CircuitGraphIndex,
+  inheritance: InstallDateInheritanceIndex,
   panel: Panel,
-  inheritedYear: number | undefined,
+  panelInheritedYear: number,
   visit: (
     entity: DateEntity,
     kind: ResolvedFrameItem['kind'] | 'panel',
@@ -407,74 +457,72 @@ function walkPanelDateEntities(
     inheritedSource: InstallDateTarget | undefined
   ) => void
 ) {
-  const protectionFeeds = new Map<
-    string,
-    { year: number; source: InstallDateTarget | undefined }
-  >()
+  // Inherited years come from the shared resolver so the overlay and date editing
+  // always agree; the walk only decides which entities belong to this panel layout.
+  const inherited = (
+    target: Pick<InstallDateTarget, 'id' | 'type'>,
+    fallback: InstallDateInheritance
+  ): InstallDateInheritance => inheritance.get(installDateTargetKey(target)) ?? fallback
+  const ownDate = (
+    entity: DateEntity,
+    target: Pick<InstallDateTarget, 'id' | 'type'>,
+    inheritedDate: InstallDateInheritance
+  ): InstallDateInheritance =>
+    getExplicitInstallYear(entity) != null
+      ? { year: getEffectiveInstallYear(null, entity, inheritedDate.year), source: target }
+      : inheritedDate
   const panelTreeSubCircuitIds = collectPanelTreeSubCircuitIds(panel)
   const visitCircuit = (
     circuit: Circuit,
-    parentYear: number | undefined,
-    parentSource: InstallDateTarget | undefined,
+    parentDate: InstallDateInheritance,
     visited = new Set<string>()
   ) => {
     if (visited.has(circuit.id)) return
     visited.add(circuit.id)
-    visit(circuit, 'endpoint', parentYear, parentSource)
-    const circuitYear = getEffectiveInstallYear(null, circuit, parentYear)
-    const circuitSource =
-      getExplicitInstallYear(circuit) != null
-        ? { id: circuit.id, type: 'circuit' as const }
-        : parentSource
+    const circuitTarget = { id: circuit.id, type: 'circuit' as const }
+    const circuitInherited = inherited(circuitTarget, parentDate)
+    visit(circuit, 'endpoint', circuitInherited.year, circuitInherited.source)
+    const circuitDate = ownDate(circuit, circuitTarget, circuitInherited)
     for (const trunkDevice of circuit.trunkDevices ?? []) {
-      visit(trunkDevice, 'trunkDevice', circuitYear, circuitSource)
+      const trunkInherited = inherited({ id: trunkDevice.id, type: 'trunkDevice' }, circuitDate)
+      visit(trunkDevice, 'trunkDevice', trunkInherited.year, trunkInherited.source)
     }
     for (const endpoint of circuit.endpoints) {
-      visit(endpoint, 'endpoint', circuitYear, circuitSource)
+      const endpointInherited = inherited({ id: endpoint.id, type: 'endpoint' }, circuitDate)
+      visit(endpoint, 'endpoint', endpointInherited.year, endpointInherited.source)
     }
     for (const subCircuitId of circuit.subCircuitIds ?? []) {
       const referenceTarget = resolveCircuitReference(graph, subCircuitId)
-      if (referenceTarget.kind === 'protection') {
-        protectionFeeds.set(referenceTarget.protection.id, {
-          year: circuitYear,
-          source: circuitSource,
-        })
-      } else if (
+      if (
         referenceTarget.kind === 'circuit' &&
         graph.canonicalOwnerByCircuitId.get(referenceTarget.circuit.id)?.panel.id === panel.id
       ) {
-        visitCircuit(referenceTarget.circuit, circuitYear, circuitSource, visited)
+        visitCircuit(referenceTarget.circuit, circuitDate, visited)
       }
     }
   }
 
-  visit(panel, 'panel', inheritedYear, undefined)
-  const panelYear = getEffectiveInstallYear(null, panel, inheritedYear)
-  const panelSource =
-    getExplicitInstallYear(panel) != null
-      ? { id: panel.id, type: 'panel' as const }
-      : undefined
+  const panelTarget = { id: panel.id, type: 'panel' as const }
+  visit(panel, 'panel', panelInheritedYear, undefined)
+  // A panel's own frame is its borderless label; children only cite the panel
+  // as their date source when the panel itself is explicitly dated.
+  const panelDate = ownDate(panel, panelTarget, { year: panelInheritedYear, source: undefined })
 
   for (const protection of panel.protections) {
-    const protectionFeed = protectionFeeds.get(protection.id)
-    const protectionInheritedYear = protectionFeed?.year ?? panelYear
-    const protectionInheritedSource = protectionFeed?.source ?? panelSource
-    visit(protection, 'protection', protectionInheritedYear, protectionInheritedSource)
-    const protectionYear = getEffectiveInstallYear(null, protection, protectionInheritedYear)
-    const protectionSource =
-      getExplicitInstallYear(protection) != null
-        ? { id: protection.id, type: 'protection' as const }
-        : protectionInheritedSource
+    const protectionTarget = { id: protection.id, type: 'protection' as const }
+    const protectionInherited = inherited(protectionTarget, panelDate)
+    visit(protection, 'protection', protectionInherited.year, protectionInherited.source)
+    const protectionDate = ownDate(protection, protectionTarget, protectionInherited)
     for (const circuit of protection.circuits ?? []) {
       if (panelTreeSubCircuitIds.has(circuit.id) && !graph.protectedCircuitIds.has(circuit.id))
         continue
-      visitCircuit(circuit, protectionYear, protectionSource)
+      visitCircuit(circuit, protectionDate)
     }
   }
 
   for (const circuit of panel.circuits) {
     if (panelTreeSubCircuitIds.has(circuit.id)) continue
-    visitCircuit(circuit, panelYear, panelSource)
+    visitCircuit(circuit, panelDate)
   }
 }
 
@@ -533,7 +581,8 @@ export function buildDateFramesForPanel(
   project: InstallDateOverlayProject,
   panelLayout: BottomUpPanelLayout,
   monochrome: boolean,
-  t: TFunction
+  t: TFunction,
+  inheritance: InstallDateInheritanceIndex = buildInstallDateInheritanceIndex(project)
 ): DateFrame[] {
   const graph = buildCircuitGraphIndex(project)
   const candidates: DateCandidate[] = []
@@ -555,10 +604,9 @@ export function buildDateFramesForPanel(
     )
     return panelSymbol ? { id: panelSymbol.id, kind: 'panelSymbol' } : item
   }
-  const panelInheritedYear = getInstallDateTargetInheritedYear(project, {
-    id: panelLayout.panel.id,
-    type: 'panel',
-  })
+  const panelInheritedYear =
+    inheritance.get(installDateTargetKey({ id: panelLayout.panel.id, type: 'panel' }))?.year ??
+    getEffectiveInstallYear(project, null)
   const panelYear = getEffectiveInstallYear(project, panelLayout.panel, panelInheritedYear)
   const pushItem = (
     year: number,
@@ -612,11 +660,14 @@ export function buildDateFramesForPanel(
       expandedFromParent: options?.expandedFromParent,
     })
   }
-  const pushBlocker = (year: number, item: ResolvedFrameItem) => {
-    const alreadyExists = blockers.some(
+  const pushBlocker = (year: number, item: ResolvedFrameItem, unmarked = false) => {
+    const existing = blockers.find(
       (blocker) => blocker.item.id === item.id && blocker.item.kind === item.kind
     )
-    if (alreadyExists) return
+    if (existing) {
+      if (unmarked) existing.unmarked = true
+      return
+    }
     const bounds = computeEendraadFrameBounds({
       items: [item],
       panelLayout,
@@ -625,15 +676,25 @@ export function buildDateFramesForPanel(
       includeEndpointLabels: false,
     })
     if (!bounds) return
-    blockers.push({ year, item, bounds })
+    blockers.push({ year, item, bounds, unmarked })
   }
 
   walkPanelDateEntities(
     graph,
+    inheritance,
     panelLayout.panel,
     panelInheritedYear,
     (entity, kind, inheritedYear, inheritedSource) => {
-      if (isInstallationDateSuppressed(entity)) return
+      if (isInstallationDateSuppressed(entity)) {
+        // Unmarked items must still block neighbouring frames, otherwise a
+        // same-year group grows over them and they look marked again.
+        if (kind === 'protection' || kind === 'trunkDevice') {
+          pushBlocker(inheritedYear ?? panelYear, { id: entity.id, kind }, true)
+        } else if (kind === 'endpoint' && !('endpoints' in entity)) {
+          pushBlocker(inheritedYear ?? panelYear, { id: entity.id, kind: 'endpoint' }, true)
+        }
+        return
+      }
       const explicitYear = getExplicitInstallYear(entity)
       const year = getEffectiveInstallYear(project, entity, inheritedYear)
       const entityTarget: InstallDateTarget =
@@ -663,7 +724,11 @@ export function buildDateFramesForPanel(
             // override. Recording the parent year here made the later endpoint visit
             // look like a conflicting date and fragmented adjacent branch groups.
             const endpointYear = getEffectiveInstallYear(project, endpoint, year)
-            pushBlocker(endpointYear, { id: endpoint.id, kind: 'endpoint' })
+            pushBlocker(
+              endpointYear,
+              { id: endpoint.id, kind: 'endpoint' },
+              isInstallationDateSuppressed(endpoint)
+            )
           }
         } else {
           pushBlocker(year, { id: entity.id, kind: 'endpoint' })
@@ -688,7 +753,9 @@ export function buildDateFramesForPanel(
       }
 
       const inheritedOverrideYear =
-        explicitYear == null && inheritedYear != null && inheritedYear !== panelYear
+        explicitYear == null &&
+        inheritedYear != null &&
+        getInstallYearFrameYear(inheritedYear) !== getInstallYearFrameYear(panelYear)
       const redundantExplicitYear =
         explicitYear != null &&
         inheritedYear != null &&
@@ -802,21 +869,23 @@ export function buildDateFramesForPanel(
           items: proposed,
           panelLayout,
           getEndpointById: getEndpoint,
+          padding: 0,
           includeEndpointLabels: false,
         })
         if (!proposedBounds) return false
+        // Any overlap with a differently dated item rejects the group; requiring full
+        // containment let frames cut through items that are not part of the date.
         return (
           !candidates.some((other) => {
             const otherFrameYear = getInstallYearFrameYear(other.year)
             if (otherFrameYear === year) return false
             if (proposedItemKeys.has(`${other.item.kind}:${other.item.id}`)) return false
-            return containsBounds(proposedBounds, other.relationBounds)
+            return rectsOverlap(proposedBounds, other.relationBounds)
           }) &&
           !blockers.some((blocker) => {
-            const blockerFrameYear = getInstallYearFrameYear(blocker.year)
-            if (blockerFrameYear === year) return false
             if (proposedItemKeys.has(`${blocker.item.kind}:${blocker.item.id}`)) return false
-            return containsBounds(proposedBounds, blocker.bounds)
+            if (!blocker.unmarked && getInstallYearFrameYear(blocker.year) === year) return false
+            return rectsOverlap(proposedBounds, blocker.bounds)
           })
         )
       })
@@ -955,8 +1024,9 @@ const InstallDateOverlay = memo(function InstallDateOverlay({
   const { t } = useTranslation()
   const frames = useMemo(() => {
     if (!visible || !layout) return []
+    const inheritance = buildInstallDateInheritanceIndex(project)
     return layout.panels.flatMap((panelLayout) =>
-      buildDateFramesForPanel(project, panelLayout, monochrome, t)
+      buildDateFramesForPanel(project, panelLayout, monochrome, t, inheritance)
     )
   }, [layout, monochrome, project, t, visible])
 

@@ -35,5 +35,8 @@ export {
   resizeOpeningTowardFreeSpace,
   preserveOpeningPositionsAfterPointChange,
   recomputeOpeningLocalFromNormalized,
+  findSegmentIndexAtDist,
+  preserveOpeningWorldPositionsAfterPointChange,
+  removeDuplicateConsecutivePoints,
 } from './openings'
 export { constrainVertexMove, validateWallOpenings, adjustVerticesAndOpenings } from './vertexMove'

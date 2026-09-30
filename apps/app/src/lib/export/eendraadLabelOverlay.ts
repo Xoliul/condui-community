@@ -416,7 +416,7 @@ export function collectEendraadWireLabelOverlays(
       : undefined
     const offsetAlongWire = getWireLabelOffsetAlongWire(wireSegment)
     const labelAlign = getWireLabelAlignForSegment(wireSegment)
-    const labelEndPoint = wireSegment.wireLabelEndPoint ?? wireSegment.endPoint
+    const labelEndPoint = wireSegment.wireLabelBaseEndPoint ?? wireSegment.wireLabelEndPoint ?? wireSegment.endPoint
     const exportLabelOrigin = getExportWireLabelOrigin(wireSegment, wireSegments)
     const debugWireLabelOrigin = exportLabelOrigin
     const debugWireLabelBase = getWireLabelBasePointForDebug(
@@ -1009,10 +1009,11 @@ function getExportWireLabelOrigin(
     }
   }
 
-  if (wireSegment.wireLabelEndPoint) {
+  const labelEndPoint = wireSegment.wireLabelBaseEndPoint ?? wireSegment.wireLabelEndPoint
+  if (labelEndPoint) {
     return {
       x: wireSegment.startPoint.x,
-      y: (wireSegment.startPoint.y + wireSegment.wireLabelEndPoint.y) / 2,
+      y: (wireSegment.startPoint.y + labelEndPoint.y) / 2,
     }
   }
 

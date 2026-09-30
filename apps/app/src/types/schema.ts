@@ -416,6 +416,7 @@ export type SymbolKey =
   | 'switch_dimmer'
   | 'switch_1p_changeover'
   | 'switch_1p_pull'
+  | 'contact'
   | 'switch_impulse'
   | 'switch_cross'
   | 'motion_detector'
@@ -529,6 +530,7 @@ export interface EnergyMeterDeviceProps {
 export type TrunkDeviceType =
   | 'energy_meter'
   | 'relay'
+  | 'switch'
   | 'protection'
   | 'earthing_separator'
   | 'junction_box'
@@ -772,6 +774,8 @@ export interface SwitchDeviceProps {
   twoPole?: boolean
   /** Draw verklikkerlamp (indicator light) overlay. Only for switch (1p/2p/3p), switch_1p_pull, and switch_impulse. */
   verklikkerlamp?: boolean
+  /** For switch_impulse: number of switching locations. Values above 1 are shown on the symbol. */
+  switchingCount?: number
 }
 
 /** Light point (regular light) overlays: safety, decentral, switch, on wall, waterproof */
@@ -1219,6 +1223,8 @@ export interface ImportedPlanAsset {
   hasWhiteBackground?: boolean
   /** If true, adapt this imported asset for dark mode rendering. */
   darkModeAware?: boolean
+  /** Vector plans: draw in greyscale; the stored SVG keeps its colours. */
+  grayscale?: boolean
   crop?: ImportedPlanAssetCrop
   /** Present on CAD-derived plan assets; required for DXF overlay export. */
   cadReference?: CadReferenceV1
@@ -1229,6 +1235,8 @@ export interface Floor {
   name: string
   /** Persistent plan image offset in canvas coordinates for this floor. */
   planImageOffset?: Point2
+  /** Clockwise plan image rotation in degrees around `planImageOffset` (the image origin). */
+  planImageRotationDeg?: number
   /** Persistent plan image opacity percentage (0-100) for this floor. */
   planImageOpacity?: number
   /**
@@ -1249,8 +1257,12 @@ export interface Floor {
       meters: number
       /** Coordinate system used by ruler points; absent on legacy calibrations. */
       coordinateSpace?: 'asset'
+      /** Floor owning these asset-local ruler points. Absent on older files. */
+      floorId?: string
     }
   }
+  /** Imported plan has not yet been calibrated against a known distance. */
+  planScaleNeedsCalibration?: boolean
   layers?: string[]
   floorPlan?: FloorPlan
   /** Placement IDs that are hidden on the situation plan (sitplan) view for this floor. */
@@ -1276,7 +1288,7 @@ export interface Placement {
 }
 
 export type PlanWireKind = 'lighting-control' | 'sockets' | 'other'
-export type PlanWireRouteStyle = 'spline' | 'orthogonal'
+export type PlanWireRouteStyle = 'spline' | 'orthogonal' | 'straight'
 export type PlanWireSource = 'auto' | 'manual'
 
 export interface PlanWireEndpointRef {
@@ -1305,6 +1317,27 @@ export interface PlanWireRoute {
   hidden?: boolean
   locked?: boolean
   notes?: string
+  /** One-wire wire anchor of the cable this trace draws, when derived from cable routing. */
+  wireAnchor?: string
+  /** Other anchors of the same physical cable (e.g. the feeder's wire on the source board). */
+  wireAnchorAliases?: string[]
+  /**
+   * The cable arrives from another floor: the trace starts at a riser instead of at `from`'s
+   * symbol. `pos` moves the riser; absent, it sits at `from`'s plan position.
+   */
+  riser?: { fromFloorId: string; pos?: Point2 }
+  /**
+   * Derived only: the source-floor part of a cable that leaves for another floor. It runs from
+   * `from` to the riser, the same passage as `riser` on the arrival trace `arrivalRouteId`,
+   * which reaches `arrivalTo`. A floor passage is shared by every cable leaving `from` for the
+   * same floor.
+   */
+  riserExit?: {
+    toFloorId: string
+    arrivalRouteId: string
+    arrivalTo: PlanWireEndpointRef
+    pos?: Point2
+  }
 }
 
 /** Sitplan wire layer visibility and default draw style; stored on the project. */
@@ -1313,7 +1346,25 @@ export interface PlanWiringVisibility {
   lightingVisible?: boolean
   socketsVisible?: boolean
   otherVisible?: boolean
+  /** Cable routing: wires from the board to the first point of a circuit. */
+  homeRunsVisible?: boolean
+  /** Cable routing: wires between lighting branches (live feed looped between switches). */
+  branchFeedsVisible?: boolean
+  /** Cable routing: supply cables (inverter, solar panels, batteries) and earthing; default shown. */
+  supplyVisible?: boolean
+  /** Cable routing: colour wires by group outside wire mode too (wire mode always does). */
+  colorCoded?: boolean
+  /** Cable routing: mounting heights the length estimate assumes, in metres. */
+  cableRouteSettings?: PlanCableRouteSettings
   defaultStyle?: PlanWireRouteStyle
+}
+
+export interface PlanCableRouteSettings {
+  /** Floor-to-floor height, also the ceiling level, for floors without their own height. */
+  floorHeightM?: number
+  socketHeightM?: number
+  switchHeightM?: number
+  panelHeightM?: number
 }
 
 export interface PlanWiringModel {
@@ -1415,6 +1466,11 @@ export interface Installation {
   feedTopology?: FeedTopology
   /** Ground cable specification (separate from supply cable) */
   groundCable?: CableSpec
+  /**
+   * Cable type followed by AC circuit wires nobody has edited. Missing = `XVB`, the seed kind of
+   * new circuits, so older projects render unchanged.
+   */
+  defaultCableKind?: CableSpec['kind']
   hasGround?: boolean // Flag: show the shared earth electrode on main boards (default true). Secondary boards use Panel.hasGround.
   /** Devices on the shared ground wire (earthing separators).
    *  Drawn on the vertical ground wire between ground symbol and main bus. */
@@ -1546,10 +1602,14 @@ export interface WireSegment {
   hideWireLabel?: boolean // Flag: hide wire label on vertical wire
   /** Optional end of the first physical run, used for labels and route decorations when the drawable trunk continues higher. */
   wireLabelEndPoint?: Point2
+  /** Derived label-only boundary near the circuit base; does not limit route decorations. */
+  wireLabelBaseEndPoint?: Point2
   /** When true, show cable fire class below the wire label on the one-wire diagram. */
   showFireClassLabel?: boolean
   /** Wire run length in meters (derived from circuit/section overrides or supply settings). */
   wireLengthM?: number
+  /** True when {@link wireLengthM} is an accepted plan estimate rather than an entered length. */
+  wireLengthEstimated?: boolean
   /** When true, {@link wireLengthM} is drawn below the fire class on the one-wire diagram. */
   showWireLengthLabel?: boolean
   conduitType?: string
@@ -1794,7 +1854,23 @@ export interface Project {
     }
     /** Optional sidecar references for imported source files. */
     importSources?: {
-      
+      trik?: {
+        /** Original filename as provided by the user (e.g. "project.trik"). */
+        originalFilename: string
+        /** ISO timestamp when the import happened. */
+        importedAt: string
+        /** Content hash for dedupe/analytics correlation (sha256 hex). */
+        sha256?: string
+        /** Raw size in bytes of the original payload. */
+        sizeBytes?: number
+        /** MIME type for the original file (typically application/xml). */
+        mimeType: string
+        /**
+         * Data URL containing the original source payload, or an assets/ path when exported as ZIP.
+         * (ZIP import hydrates assets/ paths back into data URLs.)
+         */
+        dataUrl: string
+      }
       /** Parsed Schematicals text export (JSON in a data URL). Dev import pipeline; mapping to native graph is incremental. */
       schematicals?: {
         /** Archive filename, or a placeholder when importing from a folder picker. */

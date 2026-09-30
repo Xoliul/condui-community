@@ -15,7 +15,7 @@ import type {
 import type { ViewportLayout } from './ui'
 import type { AuxiliaryElectricalEnclosure, OffGridSupplyAssembly } from './supplyAssembly'
 
-export const PROJECT_V2_SCHEMA_VERSION = '2.2.0' as const
+export const PROJECT_V2_SCHEMA_VERSION = '2.3.0' as const
 
 export type ProjectV2SchemaVersion = typeof PROJECT_V2_SCHEMA_VERSION
 
@@ -185,7 +185,9 @@ export interface FloorV2 {
   planAssetId?: string
   processedPlanAssetId?: string
   scale?: Floor['scale']
+  planScaleNeedsCalibration?: boolean
   planImageOffset?: Point2
+  planImageRotationDeg?: number
   planImageOpacity?: number
   sitplanSymbolSizeCm?: number
   hiddenSitplanElementIds?: string[]
@@ -359,7 +361,41 @@ export type AssetKindV2 =
   | 'installer-logo'
   | 'installer-signature'
   | 'import-source'
+  | 'document'
   | 'other'
+
+/**
+ * Metadata of an attached project document (`kind: 'document'`). A document either carries its
+ * own payload in `dataUrl`, or annotates another project asset named by `sourceAssetId`.
+ */
+/** One row of a generated external influences table (AREI Book 1, 2.10). */
+export interface ExternalInfluenceRoomV2 {
+  id: string
+  name: string
+  /** Selected class numbers per two-letter parameter code (e.g. `AD: [4]`, `AL: [1, 2]`). */
+  classes: Record<string, number[]>
+  publiclyAccessible: boolean
+}
+
+export interface ProjectDocumentMetadataV2 {
+  name?: string
+  category?: string
+  includeInExport?: boolean
+  /** 1-based pages that go along with the export; all pages when absent. */
+  exportPages?: number[]
+  links?: Array<{ type: string; id: string; label?: string }>
+  addedAt?: string
+  sourceAssetId?: string
+  /** Hosted team projects: the team library document this upload was copied from. */
+  teamDocumentId?: string
+  /** A table created in the editor; such a document has no file payload. */
+  externalInfluences?: { rooms: ExternalInfluenceRoomV2[] }
+  /**
+   * Settings of a document every project derives live (the cable schedule); such an entry has
+   * no payload and only carries the export choice.
+   */
+  builtIn?: 'cableSchedule'
+}
 
 export interface AssetModelV2 {
   id: string
@@ -376,6 +412,10 @@ export interface AssetModelV2 {
   pageCount?: number
   crop?: ImportedPlanAsset['crop']
   darkModeAware?: boolean
+  /** Vector floor plans: draw in greyscale; `svgContent` keeps its colours. */
+  grayscale?: boolean
+  sizeBytes?: number
+  document?: ProjectDocumentMetadataV2
   legacy?: ImportedPlanAsset
 }
 
@@ -429,6 +469,11 @@ export interface WireRun {
   members: string[]
   /** Shared cable spec: kind / sectionMm2 / fireClass / hasPE. */
   cable: CableSpec
+  /**
+   * True when `cable.kind` was never chosen for this AC circuit run and follows
+   * `Installation.defaultCableKind`; the rest of `cable` stays authored. Missing = authored kind.
+   */
+  followsDefaultCable?: boolean
   /** Shared conductor model, default-derived from the branch phase shape, overridable. */
   conductors: WireConductor[]
   /** True when conductors were set manually and must survive a system/phase change unchanged. */
@@ -449,10 +494,17 @@ export interface WireRun {
    * `segmentLengths`, not topology; the difference is typically 30–50 cm.
    */
   busTapLengthMode?: 'from-feeder' | 'chained'
-  route?: 'wall' | 'ground' | 'air'
+  /** `'wall'` is in the wall; `'on-wall'` is surface-mounted on it. */
+  route?: 'wall' | 'on-wall' | 'ground' | 'air'
   inTube?: boolean
   /** Per-member-edge run length in metres, keyed by the same anchor keys as {@link WireRun.members}. */
   segmentLengths?: Record<string, number>
+  /**
+   * Provenance of {@link WireRun.segmentLengths}, keyed the same way. `'estimated'` marks a length
+   * accepted from the plan-based route estimate; 'estimated-stale' requires review after a
+   * calibration change and carries no numerical length. A missing entry means the user entered it.
+   */
+  segmentLengthSources?: Record<string, 'estimated' | 'estimated-stale'>
   labels?: {
     hideWireLabel?: boolean
     showFireClassLabel?: boolean
@@ -473,7 +525,8 @@ export interface ElectricalModelV2 {
    * Canonical per-edge wire runs (Goal 19 / ADR-0002). Optional during the transition: absent on
    * projects written before `2.2.0`; the `2.2.0` migration seeds it best-effort from
    * `Circuit.sectionWireOverrides`, `FeedTopology.wireSections`, and `SupplyConnection.wireProperties`
-   * (unmapped legacy data falls back to a default wire rather than blocking the migration).
+   * (unmapped legacy data falls back to a default wire rather than blocking the migration). The
+   * `2.3.0` migration repairs the routes that seed lost (on-wall vs. in-wall).
    */
   wireRuns?: WireRun[]
 }

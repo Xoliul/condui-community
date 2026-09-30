@@ -9,6 +9,7 @@ import type { Selection } from '@/types/ui'
 import type { Endpoint, TrunkDevice, Circuit, ProtectionDevice, Panel } from '@/types/schema'
 import { generateId } from '@/utils'
 import { clonePlacementsForDuplicate } from '@/lib/eendraad/duplicateSitplanHelpers'
+import { circuitContainsJunctionPanelIdentity, getJunctionIdentity } from '@/lib/junctionIdentity'
 import { useProjectStore } from '@/stores/projectStore'
 import {
   canDuplicateEendraadSelection,
@@ -110,6 +111,7 @@ export function doEendraadPaste(
         .map((id) => get.getTrunkDeviceById(id))
         .filter((r): r is NonNullable<typeof r> => !!r && r.isSupplyDevice === true)
       if (devices.length === 0) return false
+      if (devices.some((entry) => entry.device.symbol === 'junction_panel')) return false
       const insertIndex = target.supplyDeviceInsertIndex ?? 0
       devices.forEach((r, i) => {
         const clone: TrunkDevice = {
@@ -128,6 +130,7 @@ export function doEendraadPaste(
         .map((id) => get.getTrunkDeviceById(id))
         .filter((r): r is NonNullable<typeof r> => !!r && r.isGroundDevice === true)
       if (devices.length === 0) return false
+      if (devices.some((entry) => entry.device.symbol === 'junction_panel')) return false
       const insertIndex = target.groundDeviceInsertIndex ?? 0
       devices.forEach((r, i) => {
         const clone: TrunkDevice = {
@@ -149,6 +152,18 @@ export function doEendraadPaste(
   if (clipboard.type === 'endpoint') {
     const circuit = get.getCircuitById(circuitId)
     if (!circuit) return false
+    const junctionIds = clipboard.ids
+      .map((id) => get.getEndpointById(id))
+      .filter((endpoint) => endpoint?.symbol === 'junction_panel')
+      .map((endpoint) => getJunctionIdentity(endpoint!))
+    if (
+      new Set(junctionIds.map((id) => id.toUpperCase())).size !== junctionIds.length ||
+      clipboard.ids.some((id) =>
+        get.getEndpointById(id)?.symbol === 'junction_panel' &&
+        get.findCircuitForEndpoint(id)?.circuit.id === circuitId
+      ) ||
+      junctionIds.some((id) => circuitContainsJunctionPanelIdentity(circuit, id))
+    ) return false
     let insertAfter = target.insertAfterEndpointId
     const newIds: string[] = []
     for (const eid of clipboard.ids) {
@@ -174,6 +189,16 @@ export function doEendraadPaste(
       .map((id) => get.getTrunkDeviceById(id))
       .filter((r): r is NonNullable<typeof r> => !!r && !r.isSupplyDevice && !r.isGroundDevice)
     if (devices.length === 0) return false
+    const junctionIds = devices
+      .filter((entry) => entry.device.symbol === 'junction_panel')
+      .map((entry) => getJunctionIdentity(entry.device))
+    if (
+      new Set(junctionIds.map((id) => id.toUpperCase())).size !== junctionIds.length ||
+      devices.some((entry) =>
+        entry.device.symbol === 'junction_panel' && entry.circuit?.id === circuitId
+      ) ||
+      junctionIds.some((id) => circuitContainsJunctionPanelIdentity(circuit, id))
+    ) return false
     const sorted = [...devices].sort((a, b) => (a.device.trunkPosition ?? 0) - (b.device.trunkPosition ?? 0))
     const newIds: string[] = []
     sorted.forEach((r, i) => {

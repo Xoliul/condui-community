@@ -186,11 +186,17 @@ function FloorPlanTools({
   }, [showGraphicPicker, updateGraphicPickerPosition])
 
   // Visible floor plan tools; the default select+move tool is implicit and has no bubble.
-  const tools: Array<{ mode: ToolMode; icon: React.ReactNode; title: string }> = [
+  const tools: Array<{
+    mode: ToolMode
+    icon: React.ReactNode
+    title: string
+    description?: string
+  }> = [
     {
       mode: 'drawWall',
       icon: <DrawPencilIcon className="w-6 h-6" />,
       title: t('floorPlanTools.drawWall'),
+      description: t('floorPlanTools.drawWallHint'),
     },
     {
       mode: 'drawWallRect',
@@ -236,6 +242,7 @@ function FloorPlanTools({
       key: tool.mode,
       icon: tool.icon,
       label: tool.title,
+      description: tool.description,
       active: activeTool === tool.mode,
       primary: true,
       onClick: () => {
@@ -337,6 +344,7 @@ function FloorPlanTools({
               key={control.key}
               icon={control.icon}
               label={control.label}
+              tooltipDescription={'description' in control ? control.description : undefined}
               variant="tool"
               side="left"
               active={control.active}

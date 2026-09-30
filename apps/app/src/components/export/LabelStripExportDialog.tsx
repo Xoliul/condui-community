@@ -611,6 +611,9 @@ export function LabelStripExportDialog({
                     { value: 'pt-p910bt', label: t('labelStripExport.brotherP910') },
                     { value: 'pt-e800w', label: t('labelStripExport.brotherE800') },
                     { value: 'pt-d800w', label: t('labelStripExport.brotherD800') },
+                    { value: 'pt-e550w', label: t('labelStripExport.brotherE550') },
+                    { value: 'pt-e560bt', label: t('labelStripExport.brotherE560') },
+                    { value: 'pt-e310bt', label: t('labelStripExport.brotherE310') },
                     { value: 'ql-810w', label: t('labelStripExport.brotherQl810w') },
                     { value: 'ql-820nwb', label: t('labelStripExport.brotherQl820') },
                   ]}

@@ -9,6 +9,7 @@ import {
   validateProjectInWorker,
   validationWorkerSupported,
 } from '@/lib/validation/validationWorkerClient'
+import { validateElectricalProject } from '@/lib/validation/validateElectricalProject'
 
 type ValidatableProject = ValidationProject & {
   project: {
@@ -229,22 +230,9 @@ export const useValidationStore = create<ValidationState>()(
           return
         }
 
-        // Non-browser environments load the fallback only when invoked. Keeping
-        // these imports out of the startup graph prevents the full validator and
-        // rule pack from inflating the interactive editor bundle.
-        const [{ validateProject }, { beAreiBook1_2025 }, { loadRulePack }] = await Promise.all([
-          import('@/lib/validation/core/engine'),
-          import('@/lib/validation/rules/be/be.areibook1.2025'),
-          import('@/lib/validation/core/rulepack-loader'),
-        ])
-        const { setValidationLanguage } = await import('@/lib/validation/validationI18n')
-        setValidationLanguage(
-          typeof document === 'undefined'
-            ? 'nl-BE'
-            : document.documentElement?.lang || 'nl-BE'
-        )
-        const pack = loadRulePack(beAreiBook1_2025)
-        finishValidation(validateProject(project, { packs: [pack] }))
+        // Share the same lazy, read-only rule-pack runner with draft/MCP checks.
+        // The editor's latest-only worker channel above remains independent.
+        finishValidation(await validateElectricalProject(project))
       } catch (error) {
         failValidation(error)
       }

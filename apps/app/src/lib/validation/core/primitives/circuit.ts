@@ -458,10 +458,9 @@ function fixedApplianceDedicatedCircuitHint(
   if (!circuit) return { passed: true }
 
   const endpoints = circuit.endpoints ?? []
-  // Conversion endpoints are static devices when they are placed on a final
-  // branch (for example socket → rectifier). Include them in the same
-  // dedicated-circuit hint as ordinary fixed appliances. Solar/battery
-  // endpoints remain source/storage devices and are intentionally excluded.
+  // Some fixed_appliance symbols are supporting devices, such as a lighting
+  // transformer, and do not warrant a dedicated circuit hint. Other conversion
+  // endpoints on a final branch (for example socket → rectifier) still do.
   const fixedAppliances = endpoints.filter((ep: Endpoint) =>
     ep.type === 'fixed_appliance' &&
     ep.symbol !== 'solar_panel' &&

@@ -4,10 +4,15 @@ import {
   resolvePanelSupplyLinkForPanelInPanels,
 } from '@/lib/eendraad/panelSupplyLink'
 import {
+  findCircuitOwner,
   findProtectionSupplyingPanel,
+  panelContainsDescendant,
   removePanelFromHierarchy,
 } from '@/lib/eendraad/projectElectricalDomain'
 import { findPanelById } from '@/lib/panel/panelTree'
+import { getProjectElectricalInstallation, getProjectElectricalPanels } from '@/lib/projectV2/electrical'
+import { detachPanelInputHandoffs } from '@/lib/supplyAssembly/detachPanelHandoffs'
+import type { ProjectV2 } from '@/types/projectV2'
 import type { Installation, Panel, PanelGridModuleRef, PanelGridSlot } from '@/types/schema'
 
 export interface PromotePanelToRootSupplyResult {
@@ -15,6 +20,53 @@ export interface PromotePanelToRootSupplyResult {
   previousSourcePanelId?: string
   previousFeederProtectionId?: string
   movedIncomingDeviceIds: string[]
+}
+
+/** Reattach an existing board to an unoccupied circuit protection. Mutates only the supplied draft. */
+export function movePanelToCircuitInProject(
+  project: ProjectV2,
+  panelId: string,
+  circuitId: string
+): { ok: true; panelName: string; circuitCode: string; sourcePanelName: string } |
+  { ok: false; code: 'unknown_target' | 'unsupported_topology'; message: string } {
+  const panels = getProjectElectricalPanels(project)
+  const installation = getProjectElectricalInstallation(project)
+  const panel = findPanelById(panels, panelId)
+  const target = findCircuitOwner(panels, circuitId)
+  if (!installation || !panel || !target)
+    return { ok: false, code: 'unknown_target', message: 'Panel or target circuit was not found.' }
+  if (!target.protection)
+    return { ok: false, code: 'unsupported_topology', message: 'The target circuit has no protection that can feed a panel.' }
+  if (target.protection.subPanelId && target.protection.subPanelId !== panelId)
+    return { ok: false, code: 'unsupported_topology', message: 'The target protection already feeds another panel.' }
+  if (target.panel.id === panelId || panelContainsDescendant(panel, target.panel.id))
+    return { ok: false, code: 'unsupported_topology', message: 'A panel cannot be fed from itself or a descendant.' }
+  const previousLink = resolvePanelSupplyLinkForPanelInPanels(panels, panelId)
+  if (previousLink?.protection.id === target.protection.id)
+    return { ok: false, code: 'unsupported_topology', message: 'The panel is already fed by that circuit.' }
+
+  const detachedPanel = removePanelFromHierarchy(panels, panelId)
+  if (!detachedPanel)
+    return { ok: false, code: 'unknown_target', message: 'The panel could not be detached.' }
+  detachPanelInputHandoffs(project, panelId)
+  const previousFeeder = findProtectionSupplyingPanel(panels, panelId)
+  const oldProtection = previousFeeder?.protection ?? previousLink?.protection
+  if (oldProtection) {
+    oldProtection.subPanelId = undefined
+    for (const circuit of oldProtection.circuits ?? [])
+      circuit.endpoints = circuit.endpoints.filter(
+        (endpoint) => !isPanelDistributionEndpointForPanel(endpoint, panel)
+      )
+  }
+  detachedPanel.isMain = false
+  target.panel.subPanels.push(detachedPanel)
+  target.protection.subPanelId = detachedPanel.id
+  const topology = ensureInstallationFeedTopology(installation, panels)
+  topology.rootFeeds = topology.rootFeeds.filter((feed) =>
+    findPanelById(panels, feed.panelId)?.isMain === true
+  )
+  return { ok: true, panelName: panel.name, circuitCode: target.circuit.code,
+    sourcePanelName: target.panel.name }
 }
 
 function rewriteIncomingGridRef(

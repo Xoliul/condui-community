@@ -1,4 +1,4 @@
-import type { Endpoint, SymbolKey, SymbolLabelPosition, TrunkDevice } from '@/types/schema'
+import type { Circuit, Endpoint, SymbolKey, SymbolLabelPosition, TrunkDevice } from '@/types/schema'
 import {
   getTerminalStripDisplayLabel,
   getTerminalStripId,
@@ -35,6 +35,26 @@ export function getJunctionIdentityLabelPosition(
 export function getJunctionIdentity(entity: JunctionEntity): string {
   if (entity.symbol === 'terminal_strip') return getTerminalStripId(entity)
   return (entity.junctionIdentity ?? entity.label ?? '').trim()
+}
+
+/** A circuit may connect to a physical junction panel only once. */
+export function circuitContainsJunctionPanelIdentity(
+  circuit: Circuit,
+  identity: string,
+  excludeId?: string,
+): boolean {
+  const key = identity.trim().toUpperCase()
+  if (!key) return false
+  const devices = [
+    ...(circuit.trunkDevices ?? []),
+    ...(circuit.branches ?? []).flatMap((branch) => branch.branchDevices ?? []),
+    ...circuit.endpoints,
+  ]
+  return devices.some((device) =>
+    device.id !== excludeId &&
+    device.symbol === 'junction_panel' &&
+    getJunctionIdentity(device).toUpperCase() === key
+  )
 }
 
 export function getJunctionIdentityDisplay(

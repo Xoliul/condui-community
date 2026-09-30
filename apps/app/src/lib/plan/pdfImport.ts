@@ -2,6 +2,8 @@ import { APP_SERVER_API_PATHS, fetchAppServerApi } from '@/lib/appServerApi'
 import { inlineSvgEmbeddedImages } from '@/utils/planImageProcessing'
 import { clamp } from '@/lib/geometry'
 import { logger } from '@/lib/logger'
+import { createPlanScaleReference } from './planScale'
+import type { CadLayerInfo } from './cadLayers'
 
 export interface PdfImportCropBox {
   x: number
@@ -13,6 +15,8 @@ export interface PdfImportCropBox {
 export interface PdfImportPageCandidate {
   pageIndex: number
   pageCount: number
+  /** Human-readable page name, e.g. the floor shown by a DWG layout viewport. */
+  label?: string
   width: number
   height: number
   previewDataUrl: string
@@ -22,6 +26,10 @@ export interface PdfImportPageCandidate {
   warnings: string[]
   scaleReference?: { p1: { x: number; y: number }; p2: { x: number; y: number }; meters: number }
   scaleMetersPerPixel?: number
+  /** DWG views: layers present in this view, toggled by rewriting `vectorSvg` from `cadSourceSvg`. */
+  cadLayers?: CadLayerInfo[]
+  /** DWG views: normalized SVG with every layer, before hidden layers are removed. */
+  cadSourceSvg?: string
 }
 
 export interface ParsePdfOptions {
@@ -67,8 +75,10 @@ export function mapPdfScaleReferenceToAsset(
   const pxDistance = Math.hypot(p2.x - p1.x, p2.y - p1.y)
   if (!Number.isFinite(pxDistance) || pxDistance <= 0) return null
 
+  const mappedReference = createPlanScaleReference(p1, p2, reference.meters)
+  if (!mappedReference) return null
   return {
-    reference: { p1, p2, meters: reference.meters, coordinateSpace: 'asset' },
+    reference: mappedReference,
     pxPerMeter: pxDistance / reference.meters,
   }
 }
@@ -187,6 +197,21 @@ interface PdfJsModuleLike {
 let workerInitialized = false
 let backendVectorStatus: 'unknown' | 'available' | 'unavailable' = 'unknown'
 
+/**
+ * Where the app serves pdf.js's WebAssembly decoders (see `createPdfjsWasmPlugin` in the Vite
+ * configs). Absolute, because pdf.js loads them from its worker.
+ */
+function pdfjsWasmUrl(): string | undefined {
+  if (typeof window === 'undefined' || !window.location) return undefined
+  return new URL(`${import.meta.env.BASE_URL}pdfjs-wasm/`, window.location.href).href
+}
+
+let wrappedPdfJs: PdfJsModuleLike | null = null
+
+/**
+ * pdf.js, with every document opened with the WebAssembly decoders available. Without them a
+ * page using a JBIG2/CCITT fax or JPEG 2000 image loses everything drawn after that image.
+ */
 export async function getPdfJs() {
   const pdfjs = (await import('pdfjs-dist/legacy/build/pdf.mjs')) as unknown as PdfJsModuleLike
   if (!workerInitialized) {
@@ -194,7 +219,14 @@ export async function getPdfJs() {
     pdfjs.GlobalWorkerOptions.workerSrc = workerSrc
     workerInitialized = true
   }
-  return pdfjs
+  wrappedPdfJs ??= {
+    ...pdfjs,
+    getDocument: (options) => {
+      const wasmUrl = pdfjsWasmUrl()
+      return pdfjs.getDocument(wasmUrl ? { wasmUrl, ...options } : options)
+    },
+  }
+  return wrappedPdfJs
 }
 
 function normalizeCropBox(crop: PdfImportCropBox, page: { width: number; height: number }): PdfImportCropBox {

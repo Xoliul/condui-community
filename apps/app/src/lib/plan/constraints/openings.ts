@@ -7,6 +7,40 @@ import { MIN_OPENING_WIDTH, DISTANCE_EPS } from './constants'
 import { clamp } from '@/lib/geometry'
 
 /**
+ * Index of the non-degenerate segment that contains `dist` (boundary assigned to the lower
+ * segment). Zero-length segments (duplicate consecutive points) are never selected.
+ */
+export function findSegmentIndexAtDist(
+  segInfos: Array<{ startDist: number; endDist: number; length: number }>,
+  dist: number
+): number {
+  let lastValid = -1
+  for (let i = 0; i < segInfos.length; i++) {
+    const seg = segInfos[i]!
+    if (seg.length < DISTANCE_EPS) continue
+    lastValid = i
+    if (dist <= seg.endDist + 1e-8) return i
+  }
+  return lastValid >= 0 ? lastValid : 0
+}
+
+/**
+ * Drop consecutive duplicate points (zero-length segments). Keeps at least 2 points;
+ * if every point is identical the input is returned unchanged.
+ */
+export function removeDuplicateConsecutivePoints(points: Point2[], eps = 1e-6): Point2[] {
+  if (points.length < 2) return points
+  const out: Point2[] = [points[0]!]
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i]!
+    const prev = out[out.length - 1]!
+    if (Math.abs(p.x - prev.x) <= eps && Math.abs(p.y - prev.y) <= eps) continue
+    out.push(p)
+  }
+  return out.length >= 2 ? out : points
+}
+
+/**
  * Collect all openings on a wall with segment-local geometry.
  */
 export function getOpeningsBySegment(
@@ -317,18 +351,12 @@ export function preserveOpeningPositionsAfterPointChange(
   const process = (id: string, kind: 'door' | 'window', position: number) => {
     if (excludeOpeningIds.has(id)) return
     const centerDist = position * oldTotal
-    let segIndex = 0
-    for (let i = 0; i < oldSegInfos.length; i++) {
-      const seg = oldSegInfos[i]!
-      if (centerDist <= seg.endDist + 1e-8) {
-        segIndex = i
-        break
-      }
-    }
+    const segIndex = findSegmentIndexAtDist(oldSegInfos, centerDist)
     const oldSeg = oldSegInfos[segIndex]
     const newSeg = newSegInfos[segIndex]
     if (!oldSeg || !newSeg) return
-    const centerAlongSegment = centerDist - oldSeg.startDist
+    // Stay on the same segment: never let the opening slip past the new segment's end.
+    const centerAlongSegment = Math.min(Math.max(0, centerDist - oldSeg.startDist), newSeg.length)
     const newCenterDist = newSeg.startDist + centerAlongSegment
     const newPosition = clamp(newCenterDist / newTotal, 0, 1)
     if (kind === 'door') {
@@ -344,6 +372,68 @@ export function preserveOpeningPositionsAfterPointChange(
   for (const w of windows) {
     process(w.id, 'window', w.position)
   }
+  return { doorUpdates, windowUpdates }
+}
+
+/**
+ * World-position-preserving variant of preserveOpeningPositionsAfterPointChange, used when a
+ * wall's points change without explicit opening updates (endpoint/junction drag, merge, ...).
+ *
+ * Per opening segment:
+ * - segment length unchanged (pure translation/rotation of the segment): keep the
+ *   segment-local offset, so the opening travels with the wall;
+ * - segment stretched/shortened/bent: project the opening's old world centre onto the new
+ *   segment so it stays where it was instead of sliding proportionally. Result is clamped to
+ *   the segment; callers should run sanitizeWallOpeningPositions afterwards to fit widths.
+ */
+export function preserveOpeningWorldPositionsAfterPointChange(
+  oldPoints: Point2[],
+  newPoints: Point2[],
+  doors: Door[],
+  windows: Window[],
+  excludeOpeningIds: Set<string> = new Set()
+): {
+  doorUpdates: Array<{ id: string; position: number }>
+  windowUpdates: Array<{ id: string; position: number }>
+} {
+  const doorUpdates: Array<{ id: string; position: number }> = []
+  const windowUpdates: Array<{ id: string; position: number }> = []
+  const oldTotal = getWallTotalLength(oldPoints)
+  const newTotal = getWallTotalLength(newPoints)
+  if (oldTotal < DISTANCE_EPS || newTotal < DISTANCE_EPS) return { doorUpdates, windowUpdates }
+  const oldSegInfos = getSegmentInfos(oldPoints)
+  const newSegInfos = getSegmentInfos(newPoints)
+
+  const process = (id: string, kind: 'door' | 'window', position: number) => {
+    if (excludeOpeningIds.has(id)) return
+    const centerDist = position * oldTotal
+    const segIndex = findSegmentIndexAtDist(oldSegInfos, centerDist)
+    const oldSeg = oldSegInfos[segIndex]
+    const newSeg = newSegInfos[segIndex]
+    const a0 = oldPoints[segIndex]
+    const b0 = oldPoints[segIndex + 1]
+    const a1 = newPoints[segIndex]
+    const b1 = newPoints[segIndex + 1]
+    if (!oldSeg || !newSeg || !a0 || !b0 || !a1 || !b1) return
+    const along = Math.min(Math.max(0, centerDist - oldSeg.startDist), oldSeg.length)
+    let newAlong: number
+    if (Math.abs(newSeg.length - oldSeg.length) <= 1e-6 || newSeg.length < DISTANCE_EPS) {
+      newAlong = Math.min(along, newSeg.length)
+    } else {
+      const u = along / oldSeg.length
+      const cx = a0.x + (b0.x - a0.x) * u
+      const cy = a0.y + (b0.y - a0.y) * u
+      const dx = (b1.x - a1.x) / newSeg.length
+      const dy = (b1.y - a1.y) / newSeg.length
+      newAlong = clamp((cx - a1.x) * dx + (cy - a1.y) * dy, 0, newSeg.length)
+    }
+    const newPosition = clamp((newSeg.startDist + newAlong) / newTotal, 0, 1)
+    if (kind === 'door') doorUpdates.push({ id, position: newPosition })
+    else windowUpdates.push({ id, position: newPosition })
+  }
+
+  for (const d of doors) process(d.id, 'door', d.position)
+  for (const w of windows) process(w.id, 'window', w.position)
   return { doorUpdates, windowUpdates }
 }
 
@@ -365,14 +455,7 @@ export function recomputeOpeningLocalFromNormalized(
 
   const recomputeOne = (position: number) => {
     const centerDist = position * totalLength
-    let segIndex = 0
-    for (let i = 0; i < segInfos.length; i++) {
-      const seg = segInfos[i]!
-      if (centerDist <= seg.endDist + 1e-8) {
-        segIndex = i
-        break
-      }
-    }
+    const segIndex = findSegmentIndexAtDist(segInfos, centerDist)
     const seg = segInfos[segIndex]
     if (!seg) {
       return {

@@ -208,12 +208,13 @@ export const HEAVY_APPLIANCE_SYMBOLS: Set<SymbolKey> = new Set<SymbolKey>([
   'dishwasher',
 ])
 
-/** Signaling / sound fixed appliances — excluded from the dedicated-circuit hint only. */
+/** Devices that do not warrant a dedicated circuit hint by themselves. */
 export const FIXED_APPLIANCE_DEDICATED_HINT_EXCLUDED_SYMBOLS = new Set<SymbolKey>([
   'bell',
   'buzzer',
   'horn',
   'siren',
+  'transformer',
 ])
 
 /** Resolve fixed typed ports for an element (for domain validation) */

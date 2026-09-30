@@ -7,6 +7,8 @@ export interface FloorPlanDrawDimensionField {
   placement: 'center' | 'above' | 'right'
   value: string
   active: boolean
+  /** True while `value` is a live measurement (not user-typed): the first typed character replaces it. */
+  live?: boolean
   rotationDeg?: number
 }
 

@@ -37,6 +37,7 @@ import { isModularSocketLibraryId } from '@/lib/socket/modularSocket'
 import { generateId, getEndpointTypeFromSymbol, getSymbolKeyFromSymbol } from '@/utils'
 import { getNextAvailableCircuitCode, countPanels } from '@/utils/project'
 import { applyLibraryPresetToEndpoint } from '@/utils/symbolMapping'
+import { hideInlineConverterMetadataByDefault } from '@/lib/conversionLabels'
 import { initializeBranchesIfNeeded, getCircuitBranches } from '@/lib/layout/endpointChains'
 import {
   getVoltagePolesConfig,
@@ -69,9 +70,18 @@ import {
 } from '@/lib/wires/circuitWireDefaults'
 import {
   domoticaChildRefForEndpoint,
+  updateDomoticaChainHeadAfterInsert,
+  getDomoticaEndpointInputDomain,
+  resolveDomoticaConversionDropTarget,
   domoticaChildRefForBranchInsert,
   insertDomoticaChildEndpoint,
 } from '@/lib/eendraad/domoticaOutputOrdering'
+import {
+  circuitAcceptsTrunkSwitch,
+  createCircuitTrunkSwitchDevice,
+  isCircuitTrunkSwitchDropTarget,
+  isCircuitTrunkSwitchSymbol,
+} from '@/lib/eendraad/circuitTrunkSwitch'
 import type { SymbolMetadata } from '@/lib/symbols'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
 import type {
@@ -284,6 +294,9 @@ function getSupplyDevicesForDropTarget(
 }
 
 function getCircuitTrunkPositionForDrop(target: DropTarget, circuit: Circuit): number {
+  if (target.insertAfterCircuitContent) {
+    return Math.max(getCircuitBranches(circuit).length, ...(circuit.trunkDevices ?? []).map((device) => device.trunkPosition ?? 0))
+  }
   // Per-segment drop target on vertical trunk wire takes priority.
   if (typeof target.circuitTrunkSegmentIndex === 'number') {
     const ordered = getOrderedTrunkDevices(circuit)
@@ -367,7 +380,7 @@ function getWireDomainAtDropTarget(
     const trunkDevices = getOrderedTrunkDevices(circuit)
 
     // Segment-aware domain check for per-segment vertical trunk hitboxes.
-    if (typeof target.circuitTrunkSegmentIndex === 'number') {
+    if (typeof target.circuitTrunkSegmentIndex === 'number' && !target.insertAfterCircuitContent) {
       const segmentIndex = target.circuitTrunkSegmentIndex
       if (segmentIndex <= 0 || trunkDevices.length === 0) return AC
       let domain: typeof DEFAULT_ELECTRICAL_DOMAIN = AC
@@ -385,7 +398,9 @@ function getWireDomainAtDropTarget(
 
     const trunkPosition = getCircuitTrunkPositionForDrop(target, circuit)
     if (trunkPosition === 0) return AC // MCB output is AC
-    const prevDevices = trunkDevices.filter((d) => (d.trunkPosition ?? 0) < trunkPosition)
+    const prevDevices = target.insertAfterCircuitContent
+      ? trunkDevices
+      : trunkDevices.filter((d) => (d.trunkPosition ?? 0) < trunkPosition)
     let domain: typeof DEFAULT_ELECTRICAL_DOMAIN = AC
     for (const prevDevice of prevDevices) {
       const resolved = resolveSymbolPortsForWire(prevDevice.symbol, domain)
@@ -402,8 +417,11 @@ function getWireDomainAtDropTarget(
     const circuit = callbacks.getCircuitById(circuitId)
     if (!circuit) return AC
 
-    // Base branch domain starts at the circuit trunk output domain.
-    const trunkDevices = circuit.trunkDevices ?? []
+    // Only devices below this branch tap feed its endpoints.
+    const branchIndex = getCircuitBranches(circuit).findIndex((branch) =>
+      branch.some((endpoint) => endpoint.id === target.endpointId || target.branchEndpoints?.includes(endpoint.id)))
+    const trunkDevices = (circuit.trunkDevices ?? []).filter((device) =>
+      branchIndex < 0 || (device.trunkPosition ?? 0) <= branchIndex)
     const sorted = [...trunkDevices].sort((a, b) => (a.trunkPosition ?? 0) - (b.trunkPosition ?? 0))
     let domain: typeof DEFAULT_ELECTRICAL_DOMAIN = AC
     for (const td of sorted) {
@@ -415,6 +433,14 @@ function getWireDomainAtDropTarget(
 
     // If this drop is on a branch wire/endpoint, include upstream in-branch symbols
     // (e.g. rectifier placed on branch) up to the insertion point.
+    const targetEndpoint = circuit.endpoints.find((endpoint) => endpoint.id === target.endpointId)
+    if (targetEndpoint && (targetEndpoint.domoticaChildProps || target.domoticaOutput)) {
+      const input = getDomoticaEndpointInputDomain(circuit, targetEndpoint.id, domain)
+      if (target.domoticaOutput || target.domoticaChildDropIntent === 'insertBefore') return input
+      if (!targetEndpoint.symbol) return input
+      const resolved = resolveSymbolPortsForWire(targetEndpoint.symbol, input)
+      return resolved.matched ? (resolved.oppositePortDomain ?? input) : input
+    }
     const branchIds = target.branchEndpoints ?? []
     if (branchIds.length > 0) {
       let upstreamIds: string[] = []
@@ -458,7 +484,7 @@ function addCircuitTrunkDeviceAtDrop(
   if (currentIdx === -1) return
   list.splice(currentIdx, 1)
   const segIndex =
-    typeof target.circuitTrunkSegmentIndex === 'number'
+    typeof target.circuitTrunkSegmentIndex === 'number' && !target.insertAfterCircuitContent
       ? target.circuitTrunkSegmentIndex
       : list.length
   const insertIdx = clamp(segIndex, 0, list.length)
@@ -882,6 +908,33 @@ function addConverterDcBranchDevice(
   )
 }
 
+/** Place a plain switch or relay in series on an ordinary circuit trunk. */
+function addCircuitTrunkSwitchAtDrop(
+  symbol: SymbolMetadata,
+  target: DropTarget,
+  project: DropBehaviorProject,
+  callbacks: DropBehaviorCallbacks
+): boolean {
+  if (!isCircuitTrunkSwitchSymbol(symbol.id) || !isCircuitTrunkSwitchDropTarget(target)) {
+    return false
+  }
+  const circuitId = target.circuitId!
+  if (circuitFeedsSubPanel(project, circuitId)) return false
+  const circuit = callbacks.getCircuitById(circuitId)
+  if (!circuit || !circuitAcceptsTrunkSwitch(circuit)) return false
+
+  const device = createCircuitTrunkSwitchDevice(
+    symbol.id,
+    generateId(),
+    getCircuitTrunkPositionForDrop(target, circuit)
+  )
+  const placement = buildVisibleTrunkSitplanPlacement(project, circuitId)
+  if (placement) device.placements = [placement]
+  addCircuitTrunkDeviceAtDrop(target, circuit, device, callbacks)
+  callbacks.setSelection({ type: 'trunkDevice', ids: [device.id] })
+  return true
+}
+
 const SUPPLY_DC_SWITCH_SYMBOL_IDS = new Set([
   'switch',
   'switch_1p_twoway',
@@ -889,6 +942,7 @@ const SUPPLY_DC_SWITCH_SYMBOL_IDS = new Set([
   'switch_dimmer',
   'switch_1p_changeover',
   'switch_1p_pull',
+  'contact',
   'switch_impulse',
   'switch_cross',
   'switch_single',
@@ -1720,7 +1774,7 @@ const endpointBehavior: DropBehavior = {
     }
 
     if (!isDomoticaOutputDrop) {
-      const chainRef = isDomoticaChildReplace
+      const chainRef = isDomoticaChildReplace || target.domoticaChildDropIntent === 'insertBefore'
         ? domoticaChildRefForEndpoint(circuit, target.endpointId)
         : domoticaChildRefForBranchInsert(circuit, insertAfterEndpointId, target.branchEndpoints)
       if (chainRef) {
@@ -1742,8 +1796,20 @@ const endpointBehavior: DropBehavior = {
       ? circuit.branches
       : initializeBranchesIfNeeded(circuit)
 
+    const downstreamIds = target.branchEndpoints?.slice(
+      typeof insertAfterEndpointId === 'string' ? target.branchEndpoints.indexOf(insertAfterEndpointId) + 1 : 0
+    )
+    if (!createNewBranch && downstreamIds?.length) hideInlineConverterMetadataByDefault(endpoint)
+
     // Branch point labels are synced after addEndpoint / updateCircuit (sequential A1…n in branch order).
     callbacks.addEndpoint(circuitId, endpoint, insertAfterEndpointId)
+
+    if (target.domoticaChildDropIntent === 'insertBefore') {
+      const afterAdd = callbacks.getCircuitById(circuitId)
+      if (afterAdd) callbacks.updateCircuit(circuitId, {
+        endpoints: updateDomoticaChainHeadAfterInsert(afterAdd, endpointId, target.endpointId),
+      })
+    }
 
     if (isDomoticaChildReplace && target.endpointId && target.endpointId !== endpointId) {
       callbacks.deleteEndpoint(target.endpointId)
@@ -2020,6 +2086,7 @@ const switchBehavior: DropBehavior = {
       addConverterDcBranchDevice(symbol, target, project, callbacks)
       return
     }
+    if (addCircuitTrunkSwitchAtDrop(symbol, target, project, callbacks)) return
     const expansion = resolveSmartSwitchExpansion(symbol)
     if (!expansion) {
       endpointBehavior.execute(target, project, symbol, t, callbacks)
@@ -2280,6 +2347,8 @@ const energyConversionBehavior: DropBehavior = {
     'supplyConverterDcWire',
   ],
   execute: (target, project, symbol, t, callbacks) => {
+    const targetCircuit = target.circuitId ? callbacks.getCircuitById(target.circuitId) : null
+    if (targetCircuit) target = resolveDomoticaConversionDropTarget(targetCircuit, target)
     if (target.dcBusId) {
       endpointBehavior.execute(target, project, symbol, t, callbacks)
       return
@@ -3323,7 +3392,8 @@ function addSupplyTrunkDevice(
     isSupplyDcSwitchSymbol(symbol.id) ||
     deviceType === 'conversion' ||
     deviceType === 'storage' ||
-    deviceType === 'generation'
+    deviceType === 'generation' ||
+    deviceType === 'energy_meter'
   if (needsPhysicalPlanPlacement) {
     const activeFloorId = resolveSitplanTargetFloorId(project, useUIStore.getState().activeFloorId)
     if (activeFloorId) {
@@ -3342,7 +3412,18 @@ function addSupplyTrunkDevice(
         placementId: generateId(),
         ...(preferredPlanPos ? { preferredPlanPos } : {}),
       })
-      if (placement) trunkDevice.placements = [placement]
+      if (placement) {
+        trunkDevice.placements = [placement]
+        if (deviceType === 'energy_meter') {
+          const floor = callbacks.getFloorById(activeFloorId)
+          const hiddenPlacementIds = floor?.hiddenSitplanPlacementIds ?? []
+          callbacks.updateFloor(activeFloorId, {
+            hiddenSitplanPlacementIds: hiddenPlacementIds.includes(placement.id)
+              ? hiddenPlacementIds
+              : [...hiddenPlacementIds, placement.id],
+          })
+        }
+      }
     }
   }
 
@@ -3564,6 +3645,7 @@ export const dropBehaviors: Record<string, DropBehavior> = {
   switch_dimmer: switchBehavior,
   switch_1p_changeover: switchBehavior,
   switch_1p_pull: switchBehavior,
+  contact: switchBehavior,
   switch_impulse: switchBehavior,
   switch_cross: switchBehavior,
   motion_detector: switchBehavior,
@@ -3587,6 +3669,11 @@ export const dropBehaviors: Record<string, DropBehavior> = {
   terminal_strip: junctionBoxBehavior,
   junction_panel: junctionPanelBehavior,
   note: noteBehavior,
+}
+
+/** Whether a symbol can be dropped on blank one-wire canvas (outside any panel or wire). */
+export function canDropSymbolOnEmptyCanvas(symbolId: string): boolean {
+  return dropBehaviors[symbolId]?.validTargets.includes(null) ?? false
 }
 
 /**

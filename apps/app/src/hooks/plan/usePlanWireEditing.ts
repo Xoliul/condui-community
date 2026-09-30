@@ -13,6 +13,8 @@ import {
   removePlanWireRouteWaypoint,
 } from '@/lib/plan/planWiring'
 import {
+  movePlanWireRouteRiser,
+  movePlanWireRouteRisers,
   movePlanWireRouteWaypoint,
   replacePlanWireSpanRoutes,
   upsertPlanWireRouteWaypoint,
@@ -56,6 +58,32 @@ export function usePlanWireEditing({ activeFloorId, currentProject }: UsePlanWir
           waypointIndex,
           point
         )
+        if (!nextRoutes) return
+        replacePlanWireRoutesForProject(project, nextRoutes)
+        state.isDirty = true
+      })
+    },
+    []
+  )
+
+  const movePlanWireRiser = useCallback((route: PlanWireRoute, point: Point2) => {
+    useProjectStore.setState((state: ProjectState) => {
+      const project = state.currentProject
+      if (!project) return
+      const nextRoutes = movePlanWireRouteRiser(selectProjectPlanWireRoutes(project), route, point)
+      if (!nextRoutes) return
+      replacePlanWireRoutesForProject(project, nextRoutes)
+      state.isDirty = true
+    })
+  }, [])
+
+  /** Several floor passages dragged together, as one edit. */
+  const movePlanWireRisers = useCallback(
+    (moves: ReadonlyArray<{ route: PlanWireRoute; point: Point2 }>) => {
+      useProjectStore.setState((state: ProjectState) => {
+        const project = state.currentProject
+        if (!project) return
+        const nextRoutes = movePlanWireRouteRisers(selectProjectPlanWireRoutes(project), moves)
         if (!nextRoutes) return
         replacePlanWireRoutesForProject(project, nextRoutes)
         state.isDirty = true
@@ -164,6 +192,8 @@ export function usePlanWireEditing({ activeFloorId, currentProject }: UsePlanWir
   return {
     insertPlanWireWaypoint,
     movePlanWireWaypoint,
+    movePlanWireRiser,
+    movePlanWireRisers,
     removePlanWireWaypoint,
     drawPlanWire,
     removeManualOtherPlanWiresFromOrigin,

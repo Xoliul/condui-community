@@ -923,6 +923,34 @@ export function EndpointProperties({
               }
             />
           )}
+          {endpoint.symbol === 'switch_impulse' && (
+            <div>
+              <label className={labelClass}>{t('endpoints.switchingCount', 'Number of switching locations')}</label>
+              <input
+                key={`switching-count-${endpointId}`}
+                type="number"
+                min={1}
+                step={1}
+                defaultValue={endpoint.switchProps?.switchingCount ?? 1}
+                onChange={(e) => {
+                  const value = e.currentTarget.value
+                  if (value === '') return
+                  const target = Number(value)
+                  if (!Number.isInteger(target) || target < 1) return
+                  if (target === (endpoint.switchProps?.switchingCount ?? 1)) return
+                  onUpdate(endpointId, {
+                    switchProps: { ...endpoint.switchProps, switchingCount: target },
+                  })
+                }}
+                onBlur={(e) => {
+                  if (e.currentTarget.value === '') {
+                    e.currentTarget.value = String(endpoint.switchProps?.switchingCount ?? 1)
+                  }
+                }}
+                className={selectClass}
+              />
+            </div>
+          )}
           {(endpoint.symbol === 'switch_1p_twoway' || endpoint.symbol === 'switch_2p_twoway') && (
             <TwoWayPolesGrid
               value={endpoint.symbol === 'switch_2p_twoway' ? 2 : 1}

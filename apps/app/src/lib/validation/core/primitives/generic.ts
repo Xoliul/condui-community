@@ -37,11 +37,32 @@ function hasUpstreamOvercurrent(
   // load yet. There is nothing downstream to protect in that state, so do not
   // report the missing overcurrent device warning until the circuit is used.
   const directProtection = query.getProtectionForCircuit(circuit.id)
+  const isSurgeProtectionDevice = (device: {
+    type: string
+    protectionType?: string
+  }) => device.type === 'SPD' || (device.type === 'protection' && device.protectionType === 'SPD')
   const hasConnectedLoad =
     circuit.endpoints.length > 0 ||
-    (circuit.branches?.length ?? 0) > 0 ||
-    (circuit.trunkDevices?.length ?? 0) > 0
-  if (directProtection?.type === 'RCD' && !hasConnectedLoad) {
+    (circuit.branches ?? []).some(
+      (branch) =>
+        branch.endpointIds.length > 0 ||
+        (branch.branchDevices?.length ?? 0) === 0 ||
+        branch.branchDevices?.some((device) => !isSurgeProtectionDevice(device)) === true
+    ) ||
+    (circuit.trunkDevices ?? []).some((device) => !isSurgeProtectionDevice(device))
+  const hasStandaloneSurgeProtection =
+    directProtection?.type === 'SPD' ||
+    (circuit.trunkDevices ?? []).some(isSurgeProtectionDevice) ||
+    (circuit.branches ?? []).some(
+      (branch) =>
+        branch.endpointIds.length === 0 &&
+        (branch.branchDevices?.length ?? 0) > 0 &&
+        branch.branchDevices?.every(isSurgeProtectionDevice) === true
+    )
+  if (
+    !hasConnectedLoad &&
+    (directProtection?.type === 'RCD' || hasStandaloneSurgeProtection)
+  ) {
     return { passed: true }
   }
 

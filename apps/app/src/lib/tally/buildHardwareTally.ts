@@ -61,6 +61,8 @@ export interface TallyGroup {
   hasSupply: boolean
   /** Total wire length in meters for this group (when lengths were entered). */
   totalLengthM?: number
+  /** Part of {@link totalLengthM} comes from plan-based estimates. */
+  lengthIncludesEstimates?: boolean
   /**
    * When set, expanded tally UI shows an “Options” heading and these lines only
    * (no repeat of the row title / base device name).
@@ -75,6 +77,11 @@ export interface TallyCategory {
   totalDevices: number
   typeCount: number
   groups: TallyGroup[]
+  /**
+   * One line per type with its total length only (wires): cable is cut to length, so single
+   * runs and their count do not matter for ordering.
+   */
+  lengthsOnly?: boolean
 }
 
 export type TallyData = TallyCategory[]
@@ -165,6 +172,22 @@ function getCircuitOwners(panels: Panel[]): Map<string, CircuitOwner> {
     }
   }
   return owners
+}
+
+/** Plan-estimated lengths for wires without an entered length, summed once per anchor. */
+function estimatedWireLength(
+  segments: WireSegment[],
+  estimates: ReadonlyMap<string, number> | undefined
+): number | undefined {
+  if (!estimates) return undefined
+  const anchors = new Set(
+    segments.flatMap((segment) =>
+      segment.wireAnchor ? [segment.wireAnchor] : (segment.wireAnchors ?? [])
+    )
+  )
+  let total = 0
+  for (const anchor of anchors) total += estimates.get(anchor) ?? 0
+  return total > 0 ? total : undefined
 }
 
 function uniqueEnteredWireLength(segments: WireSegment[]): number | undefined {
@@ -637,7 +660,11 @@ function buildEnergyConversionTrunkSpecLines(
 /** Build full hardware tally from project. t() is i18n t function for symbol/option labels. */
 export function buildHardwareTally(
   project: TallyProject | null,
-  t: WireTranslateFn
+  t: WireTranslateFn,
+  options: {
+    /** Plan-estimated length per wire anchor, used where no length was entered. */
+    estimatedLengthByAnchor?: ReadonlyMap<string, number>
+  } = {}
 ): TallyData {
   if (!project) return []
 
@@ -1325,6 +1352,7 @@ export function buildHardwareTally(
       summaryLabel: string
       hasSupply: boolean
       totalLengthM: number
+      includesEstimates: boolean
     }
   >()
   for (const segments of logicalWireRuns.values()) {
@@ -1348,27 +1376,33 @@ export function buildHardwareTally(
       ),
     }
     const enteredLengthM = uniqueEnteredWireLength(segments)
+    const estimatedLengthM =
+      enteredLengthM == null
+        ? estimatedWireLength(segments, options.estimatedLengthByAnchor)
+        : undefined
+    const lengthM = enteredLengthM ?? estimatedLengthM ?? 0
     const existing = wireMap.get(key)
     if (existing) {
       existing.details.push(detail)
       if (isSupply) existing.hasSupply = true
-      existing.totalLengthM += enteredLengthM ?? 0
+      existing.totalLengthM += lengthM
+      if (estimatedLengthM != null) existing.includesEstimates = true
     } else {
       wireMap.set(key, {
         details: [detail],
         summaryLabel,
         hasSupply: isSupply,
-        totalLengthM: enteredLengthM ?? 0,
+        totalLengthM: lengthM,
+        includesEstimates: estimatedLengthM != null,
       })
     }
   }
   if (wireMap.size > 0) {
     const groups: TallyGroup[] = []
-    for (const [, { details, summaryLabel, hasSupply, totalLengthM }] of wireMap) {
+    for (const [, { details, summaryLabel, hasSupply, totalLengthM, includesEstimates }] of wireMap) {
+      const lengthText = `${includesEstimates ? '≈ ' : ''}${formatWireLengthMeters(totalLengthM, t)}`
       const specLines = [
-        ...(totalLengthM > 0
-          ? [t('tally.wireLengthTotal', { length: formatWireLengthMeters(totalLengthM, t) })]
-          : []),
+        ...(totalLengthM > 0 ? [t('tally.wireLengthTotal', { length: lengthText })] : []),
       ]
       groups.push({
         summaryLabel,
@@ -1376,6 +1410,7 @@ export function buildHardwareTally(
         details,
         hasSupply,
         totalLengthM: totalLengthM > 0 ? totalLengthM : undefined,
+        ...(totalLengthM > 0 && includesEstimates ? { lengthIncludesEstimates: true } : {}),
         specLines: specLines.length > 0 ? specLines : undefined,
       })
     }
@@ -1387,6 +1422,7 @@ export function buildHardwareTally(
       totalDevices: total,
       typeCount: groups.length,
       groups,
+      lengthsOnly: true,
     })
   }
 

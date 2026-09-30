@@ -249,8 +249,8 @@ function normalizeUniquePanelModuleVisibility(
   return changed
 }
 
-/** Inverter plan visibility never implicitly changes its panel visibility. */
-export function isInverterSituationPlanPlacement(
+/** Inverter and supply-meter plan visibility never implicitly changes panel visibility. */
+export function hasIndependentSituationPlanVisibility(
   project: PanelPlanVisibilityProject,
   placementId: string,
 ): boolean {
@@ -326,6 +326,7 @@ function collectPanelPlanPlacementOwners(
   const installation = selectProjectElectricalInstallation(project)
   const endpointsById = new Map<string, Endpoint>()
   const trunkDevicesById = new Map<string, TrunkDevice>()
+  const independentSupplyMeterIds = new Set<string>()
 
   if (installation) {
     for (const panel of walkPanels(rootPanels)) {
@@ -339,6 +340,11 @@ function collectPanelPlanPlacementOwners(
   }
   for (const panel of walkPanels(rootPanels)) {
     for (const circuit of getAllCircuits(panel)) {
+      if (circuit.code.trim().toUpperCase() === 'PANEL') {
+        for (const device of circuit.trunkDevices ?? []) {
+          if (device.type === 'energy_meter') independentSupplyMeterIds.add(device.id)
+        }
+      }
       for (const endpoint of circuit.endpoints ?? []) endpointsById.set(endpoint.id, endpoint)
       for (const device of circuit.trunkDevices ?? []) trunkDevicesById.set(device.id, device)
     }
@@ -366,9 +372,15 @@ function collectPanelPlanPlacementOwners(
       if (owner.symbol === 'inverter' && ref.kind === 'trunkDevice' && ref.scope === 'supply') {
         visible = isSupplyDeviceVisibleInPanel(project, ref.id)
       }
+      const independentSupplyMeter =
+        ref.kind === 'trunkDevice' &&
+        owner.type === 'energy_meter' &&
+        (ref.scope === 'supply' || independentSupplyMeterIds.has(ref.id))
       if (
         (ref.kind === 'domotica' && owner.symbol === 'energy_meter') ||
-        (ref.kind === 'trunkDevice' && owner.type === 'energy_meter')
+        (ref.kind === 'trunkDevice' &&
+          owner.type === 'energy_meter' &&
+          !independentSupplyMeter)
       ) continue
 
       const ownerKey = ref.kind === 'domotica' ? `endpoint:${owner.id}` : `trunk:${owner.id}`
@@ -379,7 +391,7 @@ function collectPanelPlanPlacementOwners(
         owners.set(ownerKey, {
           placements: owner.placements,
           visibleInAnyPanel: visible,
-          independentVisibility: owner.symbol === 'inverter',
+          independentVisibility: owner.symbol === 'inverter' || independentSupplyMeter,
         })
       }
     }

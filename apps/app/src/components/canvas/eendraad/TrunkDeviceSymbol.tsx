@@ -23,6 +23,7 @@ import {
   getSwitchSymbolPaths,
   getSwitchDisplaySvgPath,
   getSymbolById,
+  SOCKET_OVERLAY_PATHS,
   DOMOTICA_CONTROL_OVERLAY_PATHS,
   TRANSFORMER_OVERLAY_PATHS,
   RELAY_OVERLAY_PATHS,
@@ -314,6 +315,8 @@ export function TrunkDeviceSymbol({
   const [transformerProtectionImage, setTransformerProtectionImage] =
     useState<HTMLImageElement | null>(null)
   const [domoticaMainImage, setDomoticaMainImage] = useState<HTMLImageElement | null>(null)
+  const [domoticaMainSocketOverlayImage, setDomoticaMainSocketOverlayImage] =
+    useState<HTMLImageElement | null>(null)
   const [domoticaControlImages, setDomoticaControlImages] = useState<
     Partial<Record<DomoticaControlKey, HTMLImageElement | null>>
   >({})
@@ -446,6 +449,7 @@ export function TrunkDeviceSymbol({
   const domoticaMainSwitchSymbol = domoticaProps?.mainSwitchSymbol
   const domoticaMainSocketSymbol = domoticaProps?.mainSocketSymbol
   const domoticaMainSwitchProps = domoticaProps?.mainSwitchProps
+  const domoticaMainSocketProps = domoticaProps?.mainSocketProps
   const domoticaEndpointCount = isSupplyDcBusDomotica
     ? DOMOTICA_MIN_ENDPOINT_OUTPUTS
     : Math.max(
@@ -505,6 +509,24 @@ export function TrunkDeviceSymbol({
     isDomoticaDevice,
     theme?.mode,
   ])
+  const domoticaMainSocketOverlayPath =
+    domoticaMainType === 'socket'
+      ? domoticaMainSocketProps?.switchOverlayLock
+        ? SOCKET_OVERLAY_PATHS.switchOverlayLock
+        : domoticaMainSocketProps?.switchOverlay
+          ? SOCKET_OVERLAY_PATHS.switchOverlay
+          : null
+      : null
+
+  useEffect(() => {
+    if (!isDomoticaDevice || !domoticaMainSocketOverlayPath) {
+      setDomoticaMainSocketOverlayImage(null)
+      return
+    }
+    loadProcessedSymbol(domoticaMainSocketOverlayPath, theme?.mode === 'dark')
+      .then(setDomoticaMainSocketOverlayImage)
+      .catch(() => setDomoticaMainSocketOverlayImage(null))
+  }, [domoticaMainSocketOverlayPath, isDomoticaDevice, theme?.mode])
   const stackedRightLabelItems = useMemo(
     () => [
       ...(isConversionSymbol || device.symbol === 'solar_panel' || device.symbol === 'battery'
@@ -1531,6 +1553,18 @@ export function TrunkDeviceSymbol({
             listening={false}
           />
         )}
+        {domoticaMainSocketOverlayImage && domoticaMainType === 'socket' && (
+          <Image
+            image={domoticaMainSocketOverlayImage}
+            width={mainDeviceSize}
+            height={mainDeviceSize}
+            offsetX={mainDeviceSize / 2}
+            offsetY={mainDeviceSize / 2}
+            x={DOMOTICA_BOX_WIDTH / 2}
+            y={dividerY + (domoticaHeight - controlBandHeight) / 2}
+            listening={false}
+          />
+        )}
         {showDeviceLabelLeft && leftStackLabelItems.length > 0 && (
           <SymbolTextLabels
             items={leftStackLabelItems}
@@ -2146,9 +2180,13 @@ export function TrunkDeviceSymbol({
           items={leftStackLabelItems}
           config={{ position: 'left', layout: 'stack' }}
           sideLabelBlockAlign="center"
-          textColor={getSecondaryTextColor(isDark ?? false)}
+          textColor={
+            isVerticalSupplyProtection
+              ? getTextColor(isDark ?? false)
+              : getSecondaryTextColor(isDark ?? false)
+          }
           fontFamily={fontFamily}
-          fontSize={8}
+          fontSize={isVerticalSupplyProtection ? 11 : 8}
           symbolWidth={renderedSymbolSize.width}
           symbolHeight={renderedSymbolSize.height}
         />

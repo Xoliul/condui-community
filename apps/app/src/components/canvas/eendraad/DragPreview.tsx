@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Group, Rect, Line, Circle, Image } from 'react-konva'
 import { getSymbolById } from '@/lib/symbols'
 import type { SymbolMetadata } from '@/lib/symbols'
+import { loadProcessedSymbol } from '@/lib/symbolImage'
+import { useSettingsStore } from '@/stores/settingsStore'
 import type { Point } from '@/types/ui'
 import type { BottomUpLayoutResult } from '@/lib/layout/bottomUpLayout'
 import { getPanelDiagramId, LAYOUT_CONSTANTS } from '@/lib/layout/bottomUpLayout'
@@ -41,6 +43,7 @@ export function DragPreview({
 }: DragPreviewProps) {
   const previewColor = '#0284c7' // Blue for preview
   const previewOpacity = 0.6
+  const isDark = useSettingsStore((state) => state.theme.mode === 'dark')
   const [symbolImage, setSymbolImage] = useState<HTMLImageElement | null>(null)
 
   // Find the target panel for highlighting
@@ -83,11 +86,18 @@ export function DragPreview({
       return
     }
 
-    const img = new window.Image()
-    img.onload = () => setSymbolImage(img)
-    img.onerror = () => setSymbolImage(null)
-    img.src = symbol.svgPath
-  }, [symbolData])
+    let cancelled = false
+    loadProcessedSymbol(symbol.svgPath, isDark)
+      .then((image) => {
+        if (!cancelled) setSymbolImage(image)
+      })
+      .catch(() => {
+        if (!cancelled) setSymbolImage(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isDark, symbolData])
 
   if (!layout || !dropTarget) return null
 
@@ -234,7 +244,6 @@ export function DragPreview({
 
       {/* Domotica output preview: ghost symbol at the selected domotica output. */}
       {domoticaCtx &&
-        symbolImage &&
         dropTarget.panelId &&
         dropTarget.circuitId &&
         (() => {
@@ -271,27 +280,18 @@ export function DragPreview({
           return (
             <>
               {/* Ghost symbol at final location */}
-              <Circle
-                x={symbolX}
-                y={symbolY}
-                radius={symbolSize}
-                fill={previewColor}
-                opacity={previewOpacity * 0.2}
+              <Rect
+                x={symbolX - symbolSize / 2}
+                y={symbolY - symbolSize / 2}
+                width={symbolSize}
+                height={symbolSize}
+                fill="rgba(59,130,246,0.10)"
                 stroke={previewColor}
                 strokeWidth={2}
+                dash={[6, 4]}
+                cornerRadius={4}
                 listening={false}
               />
-              <Group x={symbolX} y={symbolY} rotation={0}>
-                <Image
-                  image={symbolImage}
-                  width={symbolSize}
-                  height={symbolSize}
-                  offsetX={symbolSize / 2}
-                  offsetY={symbolSize / 2}
-                  opacity={previewOpacity}
-                  listening={false}
-                />
-              </Group>
             </>
           )
         })()}

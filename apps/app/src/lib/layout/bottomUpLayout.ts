@@ -27,7 +27,7 @@ import {
 import { ensureInstallationFeedTopology, getPanelFeedProjection } from '@/lib/feedTopology'
 import { getPrimaryPanelBusSectionId } from '@/lib/panel/panelBusSections'
 import { PANEL_BUS_FEED_GAP } from '@/lib/panel/panelBusFeedPreview'
-import { getSplitSupplyRailPaintBounds } from './busFeedMarkerGeometry'
+import { BUS_FEED_MARKER_STUB_BOTTOM, getSplitSupplyRailPaintBounds } from './busFeedMarkerGeometry'
 import {
   getGroundElementId,
   getPanelGroundTrunkDevices,
@@ -90,6 +90,7 @@ import {
 import {
   calculateBranchLayoutPass,
   getBranchProtectionAnchorOffset,
+  getTrunkDeviceBranchGapY,
   type BranchPassConstants,
 } from './bottomUpBranchPass'
 import { getEndpointLayoutOffsets } from './bottomUpBranchWidths'
@@ -107,7 +108,7 @@ import {
   normalizeCircuitNotesText,
 } from './circuitNoteMetrics'
 import { arrangeBottomRightBlock, type OneWireLayoutBlock } from './oneWireBlockLayout'
-import { getProtectionToTrunkDeviceCenterGap } from './trunkDeviceSpacing'
+import { getProtectionToTrunkDeviceCenterGap, getTrunkDeviceVerticalPaintHeight } from './trunkDeviceSpacing'
 import {
   CIRCUIT_CONVERTER_BLOCK_SIZE,
   CIRCUIT_CONVERTER_OUTPUT_BRANCH_LEAD,
@@ -244,6 +245,9 @@ export const LAYOUT_CONSTANTS = {
   PROTECTION_LABEL_GAP: 5,
 } as const
 
+/** WireSegment paints main buses as 6 px round-capped lines. */
+export const MAIN_BUS_RENDER_STROKE_WIDTH = 6
+
 function getSupplyConverterDcDeviceOffset(device: TrunkDevice, index: number): number {
   return (
     getSupplyConverterHorizontalGrowth(device) +
@@ -353,8 +357,7 @@ function getSupplyDcBusBranchBounds(devices: TrunkDevice[]): SupplyDcBusBranchBo
       })
     }
     // These are the labels that TrunkDeviceSymbol renders beside a vertical
-    // DC-bus branch. Include visible notes because they are rendered in the
-    // same right-side label stack and must reserve horizontal space.
+    // DC-bus branch. Names and notes use the separate left-side stack below.
     const rightLabelLines = hasSupplyInlineLabels(device)
       ? []
       : [
@@ -368,10 +371,6 @@ function getSupplyDcBusBranchBounds(devices: TrunkDevice[]): SupplyDcBusBranchBo
             ? getVisibleConversionLabelParts(device).map((part) => part.text)
             : []),
           ...getVisibleCertificationLabelParts(device).map((part) => part.text),
-          ...((device.notes ?? '').trim().length > 0 &&
-          isSymbolLabelVisible(device.symbolLabelDisplay, 'trunkDeviceNotes', true)
-            ? [(device.notes ?? '').trim()]
-            : []),
         ]
     const rightLabelWidth = Math.max(
       0,
@@ -383,8 +382,7 @@ function getSupplyDcBusBranchBounds(devices: TrunkDevice[]): SupplyDcBusBranchBo
         (height, line) => height + countSymbolLabelVisualLines(line) * lineHeight,
         0
       )
-      const blockTop =
-        contentHeight <= LAYOUT_CONSTANTS.SYMBOL_SIZE ? -contentHeight / 2 : -halfSymbol
+      const blockTop = -contentHeight / 2
       extend({
         right: halfSymbol + 5 + rightLabelWidth,
         top: blockTop,
@@ -392,18 +390,37 @@ function getSupplyDcBusBranchBounds(devices: TrunkDevice[]): SupplyDcBusBranchBo
       })
     }
 
-    if (!hasSupplyInlineLabels(device) && device.type !== 'dc_bus' && device.label?.trim()) {
-      const labelWidth = getSupplyDcBusBranchTextWidth(device.label.trim(), 11)
-      extend({ left: -(halfSymbol + 5) - labelWidth })
+    if (device.type !== 'dc_bus') {
+      // RenderNode gives every upright DC branch showDeviceLabelLeft. Its name
+      // and visible notes are centered together beside the symbol, including
+      // protection names; reserve that exact side before branches are mirrored.
+      const sideLines = [
+        device.label?.trim() ?? '',
+        ...(isSymbolLabelVisible(device.symbolLabelDisplay, 'trunkDeviceNotes', true)
+          ? [device.notes?.trim() ?? '']
+          : []),
+      ].filter(Boolean)
+      const fontSize = hasSupplyInlineLabels(device) ? 11 : 8
+      const sideWidth = Math.max(
+        0,
+        ...sideLines.map((line) => getSupplyDcBusBranchTextWidth(line, fontSize))
+      )
+      const sideHeight = sideLines.reduce(
+        (height, line) => height + countSymbolLabelVisualLines(line) * (fontSize + 2),
+        0
+      )
+      if (sideLines.length > 0) {
+        extend({
+          left: -(halfSymbol + 5) - sideWidth,
+          top: -sideHeight / 2,
+          bottom: sideHeight / 2,
+        })
+      }
     }
 
     if (hasSupplyInlineLabels(device)) {
       const topMetadataLines = [
         ...getVisibleCertificationLabelParts(device).map((part) => part.text),
-        ...(isSymbolLabelVisible(device.symbolLabelDisplay, 'trunkDeviceNotes', true) &&
-        device.notes?.trim()
-          ? [device.notes.trim()]
-          : []),
       ]
       const metadataHeight = topMetadataLines.reduce(
         (height, line) => height + countSymbolLabelVisualLines(line) * 10,
@@ -432,17 +449,6 @@ function getSupplyDcBusBranchBounds(devices: TrunkDevice[]): SupplyDcBusBranchBo
           right: halfSymbol + LAYOUT_CONSTANTS.PROTECTION_LABEL_GAP + technicalWidth,
           top: blockTop,
           bottom: blockTop + contentHeight,
-        })
-      }
-
-      const name = device.label?.trim()
-      if (name) {
-        const nameWidth = getSupplyDcBusBranchTextWidth(name, 11)
-        const nameHeight = 13
-        extend({
-          left: -nameWidth / 2,
-          right: nameWidth / 2,
-          top: -(halfSymbol + 5 + nameHeight + (metadataHeight > 0 ? metadataHeight + 4 : 0)),
         })
       }
     }
@@ -610,9 +616,9 @@ function getSupplyDeviceHorizontalPaintBounds(device: TrunkDevice, x: number, y:
 }
 
 const SUPPLY_INFO_DEVICE_HORIZONTAL_REACH = 42
-const INLINE_SUPPLY_COLLISION_RIGHT_TRIM = 12
 const SUPPLY_VOLTAGE_LABEL_X_OFFSET = LAYOUT_CONSTANTS.SYMBOL_SIZE / 2 + 6
 const SUPPLY_VOLTAGE_LABEL_FONT_SIZE = 12
+const SUPPLY_VOLTAGE_LABEL_PADDING = 6
 // Keep vertically rotated circuit notes just clear of the circuit multiplier.
 export const CIRCUIT_NOTES_VERTICAL_OFFSET = 26
 
@@ -813,6 +819,8 @@ export interface BottomUpPanelLayout {
     insertBase: number
     devices: TrunkDevice[]
   }>
+  /** Empty inline split rails follow the mirrored supply risers. */
+  inlineEmptySplitRails?: boolean
   /** Visual direction of the supply chain. */
   supplyFlowDirection?: 'right-to-left' | 'left-to-right'
   /** Stable axis used to mirror supply geometry without mirroring symbol artwork or text. */
@@ -953,7 +961,10 @@ function alignCompactInlineSupplyBusWithAnchors(panelLayout: BottomUpPanelLayout
   const mainBusElement = panelLayout.elements.find((element) => element.type === 'mainBus')
   if (mainBusElement) mainBusElement.position.x = compactBusX
   const mainBusBlock = panelLayout.layoutBlocks?.find((block) => block.kind === 'main-bus')
-  if (mainBusBlock) mainBusBlock.x = compactBusX
+  if (mainBusBlock) {
+    mainBusBlock.x = compactBusX - MAIN_BUS_RENDER_STROKE_WIDTH / 2
+    mainBusBlock.width = panelLayout.mainBus.width + MAIN_BUS_RENDER_STROKE_WIDTH
+  }
 }
 
 /**
@@ -1104,6 +1115,22 @@ export function mirrorInlineSupplyPanelLayoutHorizontally(panelLayout: BottomUpP
   panelLayout.supplyFlowDirection =
     panelLayout.supplyFlowDirection === 'left-to-right' ? 'right-to-left' : 'left-to-right'
 
+  if (panelLayout.inlineEmptySplitRails) {
+    panelLayout.mainBus.x = mirrorRectX(
+      panelLayout.mainBus.x,
+      panelLayout.mainBus.width,
+      axisX
+    )
+    panelLayout.elements.forEach((element) => {
+      if (element.type === 'mainBus') {
+        element.position.x = mirrorRectX(element.position.x, element.width ?? 0, axisX)
+      }
+    })
+    panelLayout.layoutBlocks?.forEach((block) => {
+      if (block.kind === 'supply-stub') block.x = mirrorRectX(block.x, block.width, axisX)
+    })
+  }
+
   const isSupplyElement = (element: BottomUpLayoutElement) =>
     element.type === 'supply' ||
     element.type === 'ground' ||
@@ -1209,10 +1236,6 @@ export function mirrorInlineSupplyPanelLayoutHorizontally(panelLayout: BottomUpP
   panelLayout.layoutBlocks?.forEach((block) => {
     if (block.kind === 'supply-assembly') {
       block.x = mirrorRectX(block.x, block.width, axisX)
-      // The aggregate inline-supply rectangle intentionally over-measures the
-      // bend and symbol row. Its mirrored right edge is collision-only; trim
-      // the redundant reserve so the info block can occupy the clear pocket.
-      block.width = Math.max(1, block.width - INLINE_SUPPLY_COLLISION_RIGHT_TRIM)
     }
   })
 }
@@ -2501,9 +2524,9 @@ function calculateBottomUpPanelLayout(
           before * (LAYOUT_CONSTANTS.TRUNK_DEVICE_SPACING + LAYOUT_CONSTANTS.SYMBOL_SIZE)
       } else {
         const branchAbove = circuitBranches[device.trunkPosition - 1]
-        const branchBelow = circuitBranches[device.trunkPosition]
-        if (branchAbove && branchBelow) {
-          deviceY = (branchAbove.branchY + branchBelow.branchY) / 2
+        const gapY = getTrunkDeviceBranchGapY(device, trunkDevices, circuitBranches, LAYOUT_CONSTANTS)
+        if (gapY != null) {
+          deviceY = gapY
         } else if (branchAbove) {
           const before = trunkDevices
             .filter((candidate) => candidate.trunkPosition === device.trunkPosition)
@@ -2704,6 +2727,28 @@ function calculateBottomUpPanelLayout(
     (device) => device.symbol === 'source_changeover'
   )
   const hasSupplyChangeover = supplyChangeoverIndex >= 0
+  const changeoverAdjacentLabelWidth = Math.max(
+    0,
+    ...supplyTrunkDevices
+      .filter(
+        (device) =>
+          (device.supplyPath === 'changeover-grid' &&
+            device.changeoverGridPlacement === 'input-leg') ||
+          (supplyTrunkDevices.indexOf(device) < supplyChangeoverIndex &&
+            (device.supplyPath == null || device.supplyPath === 'serial'))
+      )
+      .flatMap((device) => getSupplyInlineLabelLines(device))
+      .map((line) => measureSymbolLabelTextWidth(line.text, 'Figtree', 10))
+  )
+  const changeoverElbowLead = Math.max(
+    LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_ELBOW_LEAD,
+    changeoverAdjacentLabelWidth > 0
+      ? LAYOUT_CONSTANTS.SYMBOL_SIZE / 2 +
+          PROTECTION_TECHNICAL_LABEL_OFFSET_FROM_SYMBOL +
+          changeoverAdjacentLabelWidth +
+          8
+      : 0
+  )
   const directConverterIndex = supplyTrunkDevices.findIndex(
     (device) => device.supplyPath === 'converter-branch'
   )
@@ -2945,7 +2990,7 @@ function calculateBottomUpPanelLayout(
       const elbowX =
         changeoverDevicePosition.x +
         LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_RENDER_SIZE / 2 +
-        LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_ELBOW_LEAD
+        changeoverElbowLead
       const converterX =
         elbowX +
         LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_SLOT_LENGTH +
@@ -3369,7 +3414,7 @@ function calculateBottomUpPanelLayout(
   const changeoverSlotEndX = changeoverPosition
     ? changeoverPosition.x +
       LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_RENDER_SIZE / 2 +
-      LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_ELBOW_LEAD +
+      changeoverElbowLead +
       LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_SLOT_LENGTH +
       Math.max(backupOutputDeviceCount, changeoverGridDeviceCount) *
         LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_BRANCH_DEVICE_SPACING
@@ -3657,10 +3702,17 @@ function calculateBottomUpPanelLayout(
   const longestFeedStubStack = Math.max(
     0, ...(panelLocalFeedStubStacks ?? []).map((stack) => stack.devices.length)
   )
+  // Wires start at the bus centre, while the collision reserve starts 8 px
+  // above its top. Include the terminal icon and caption beneath the wire.
+  const emptyFeedStubStackHeight =
+    LAYOUT_CONSTANTS.BUS_THICKNESS / 2 +
+    LAYOUT_CONSTANTS.SUPPLY_VERTICAL_DROP +
+    BUS_FEED_MARKER_STUB_BOTTOM +
+    8
   const feedStubStackHeight = Math.max(
-    usesInlineEmptySplitRails ? LAYOUT_CONSTANTS.SUPPLY_VERTICAL_DROP + 38 : 64,
+    usesInlineEmptySplitRails ? LAYOUT_CONSTANTS.SUPPLY_VERTICAL_DROP + 38 : emptyFeedStubStackHeight,
     ...(panelLocalFeedStubStacks ?? []).map((stack) => {
-      if (stack.devices.length === 0) return 64
+      if (stack.devices.length === 0) return emptyFeedStubStackHeight
       const extraLabelHeight = stack.devices.reduce((total, device) => {
         const leftLines = [device.label, device.notes]
           .filter((line): line is string => !!line?.trim())
@@ -3819,21 +3871,21 @@ function calculateBottomUpPanelLayout(
   // Include the receiving chain even in detached panels: mirroring that chain
   // places its bus connection beyond the compact bend used by empty rails.
   const compactSupplyRailWidth = Math.max(groundX, supplyBendX) - mainBusX + 15
+  const inlineSplitRailWidth = 32
+  const inlineSplitBusWidth =
+    (panel.busSections?.length ?? 2) * inlineSplitRailWidth +
+    Math.max(0, (panel.busSections?.length ?? 2) - 1) * PANEL_BUS_FEED_GAP
   const mainBusWidthWithSupply = Math.max(
     mainBusWidth,
     supplyRightExtent - mainBusX + LAYOUT_CONSTANTS.SUPPLY_RIGHT_FRAME_PADDING
   )
   const renderedMainBusWidth =
-    options.feedOutput ||
-    usesInlineEmptySplitRails ||
-    usesCompactPanelMainBus ||
-    usesInlineSupplyOnlyCompactRail
-      ? Math.max(
-          compactSupplyRailWidth,
-          usesInlineEmptySplitRails
-            ? 2 * LAYOUT_CONSTANTS.MIN_MAIN_BUS_WIDTH
-            : 0
-        )
+    usesInlineEmptySplitRails
+      ? inlineSplitBusWidth
+      : options.feedOutput ||
+        usesCompactPanelMainBus ||
+        usesInlineSupplyOnlyCompactRail
+      ? compactSupplyRailWidth
       : mainBusWidthWithSupply
   elements.push({
     id: `mainBus-${panel.id}`,
@@ -4000,8 +4052,8 @@ function calculateBottomUpPanelLayout(
       }
 
       const branchAbove = circuitBranches[device.trunkPosition - 1]
-      const branchBelow = circuitBranches[device.trunkPosition]
-      if (branchAbove && branchBelow) return (branchAbove.branchY + branchBelow.branchY) / 2
+      const gapY = getTrunkDeviceBranchGapY(device, trunkDevices, circuitBranches, LAYOUT_CONSTANTS)
+      if (gapY != null) return gapY
       if (branchAbove) {
         const devicesAtSamePositionBefore = trunkDevices
           .filter((candidate) => candidate.trunkPosition === device.trunkPosition)
@@ -4561,11 +4613,10 @@ function calculateBottomUpPanelLayout(
           } else {
             // Between branches: position between branch (trunkPosition-1) and branch (trunkPosition)
             const branchAbove = circuitBranchesLocal[device.trunkPosition - 1]
-            const branchBelow = circuitBranchesLocal[device.trunkPosition]
 
-            if (branchAbove && branchBelow) {
-              // Midpoint between the two branches
-              deviceY = (branchAbove.branchY + branchBelow.branchY) / 2
+            const gapY = getTrunkDeviceBranchGapY(device, nestedTrunkDevices, circuitBranchesLocal, LAYOUT_CONSTANTS)
+            if (gapY != null) {
+              deviceY = gapY
             } else if (branchAbove) {
               // After all branches (top-most): keep full spacing above branch,
               // then stack additional devices further up.
@@ -4794,11 +4845,10 @@ function calculateBottomUpPanelLayout(
         } else {
           // Between branches: position between branch (trunkPosition-1) and branch (trunkPosition)
           const branchAbove = circuitBranchesLocal[device.trunkPosition - 1]
-          const branchBelow = circuitBranchesLocal[device.trunkPosition]
 
-          if (branchAbove && branchBelow) {
-            // Midpoint between the two branches
-            deviceY = (branchAbove.branchY + branchBelow.branchY) / 2
+          const gapY = getTrunkDeviceBranchGapY(device, trunkDevices, circuitBranchesLocal, LAYOUT_CONSTANTS)
+          if (gapY != null) {
+            deviceY = gapY
           } else if (branchAbove) {
             // After all branches (top-most): keep full spacing above branch,
             // then stack additional devices further up.
@@ -5079,6 +5129,15 @@ function calculateBottomUpPanelLayout(
     const circuit = circuitById.get(circuitLayout.circuit.id)
     if (!circuit) continue
 
+    for (const device of circuit.trunkDevices ?? []) {
+      const deviceElement = elements.find((element) =>
+        element.type === 'trunkDevice' && element.trunkDeviceId === device.id)
+      if (deviceElement) {
+        minY = Math.min(minY, deviceElement.position.y -
+          getTrunkDeviceVerticalPaintHeight(device, LAYOUT_CONSTANTS.SYMBOL_SIZE) / 2 - 4)
+      }
+    }
+
     for (const bus of (circuit.trunkDevices ?? []).filter((device) => device.type === 'dc_bus')) {
       let busY = elements.find(
         (element) => element.type === 'trunkDevice' && element.trunkDeviceId === bus.id
@@ -5321,8 +5380,8 @@ function calculateBottomUpPanelLayout(
   const voltageLabelRight = voltageLabel
     ? supplyX +
       SUPPLY_VOLTAGE_LABEL_X_OFFSET +
-      estimateTextLineWidth(voltageLabel, SUPPLY_VOLTAGE_LABEL_FONT_SIZE * 0.58) +
-      2
+      measureSymbolLabelTextWidth(voltageLabel, 'Figtree', SUPPLY_VOLTAGE_LABEL_FONT_SIZE) +
+      SUPPLY_VOLTAGE_LABEL_PADDING
     : Number.NEGATIVE_INFINITY
   const supplyLeft = Math.min(
     supplyBendX,
@@ -5357,10 +5416,10 @@ function calculateBottomUpPanelLayout(
     id: `${options.diagramId ?? panel.id}-main-bus`,
     kind: 'main-bus',
     label: 'main bus',
-    x: mainBusX,
-    y: renderedMainBusY - LAYOUT_CONSTANTS.BUS_THICKNESS / 2,
-    width: renderedMainBusWidth,
-    height: LAYOUT_CONSTANTS.BUS_THICKNESS,
+    x: mainBusX - MAIN_BUS_RENDER_STROKE_WIDTH / 2,
+    y: renderedMainBusY - MAIN_BUS_RENDER_STROKE_WIDTH / 2,
+    width: renderedMainBusWidth + MAIN_BUS_RENDER_STROKE_WIDTH,
+    height: MAIN_BUS_RENDER_STROKE_WIDTH,
   })
   if (supplyFeedOutputLabelRect) {
     layoutObstacles.push({
@@ -5474,10 +5533,21 @@ function calculateBottomUpPanelLayout(
             : []
           const sideWidth = Math.max(
             0,
-            ...sideLines.map((line) => measureSymbolLabelTextWidth(line, 'Figtree', 8))
+            ...sideLines.map((line) =>
+              measureSymbolLabelTextWidth(
+                line,
+                'Figtree',
+                hasSupplyInlineLabels(position.device) && isVerticalSupplyDevice(position.device)
+                  ? PROTECTION_LABEL_FONT_SIZE
+                  : 8
+              )
+            )
           )
           const sideHeight =
-            sideLines.reduce((count, line) => count + countSymbolLabelVisualLines(line), 0) * 10
+            sideLines.reduce((count, line) => count + countSymbolLabelVisualLines(line), 0) *
+            (hasSupplyInlineLabels(position.device) && isVerticalSupplyDevice(position.device)
+              ? PROTECTION_LABEL_FONT_SIZE + 2
+              : 10)
           // Text stays upright after mirroring. Reserve both side-label directions
           // and the multiplier above the symbol, not just the symbol body.
           return {
@@ -5671,7 +5741,7 @@ function calculateBottomUpPanelLayout(
         const elbowX =
           changeover.x +
           LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_RENDER_SIZE / 2 +
-          LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_ELBOW_LEAD
+          changeoverElbowLead
         pushSupplyBlock(
           'changeover-riser',
           'modular switch branch riser',
@@ -6110,6 +6180,7 @@ function calculateBottomUpPanelLayout(
     panelLocalRootSupplyInsertBase,
     panelLocalRootBusSectionId: rootSupplyFeed?.busSectionId ?? getPrimaryPanelBusSectionId(panel),
     panelLocalFeedStubStacks,
+    inlineEmptySplitRails: usesInlineEmptySplitRails || undefined,
     compactInlineSupplyBus: usesInlineSupplyOnlyCompactRail || undefined,
     elements: offsetElements, // Elements already have frameOffset applied
     circuitNotes,
@@ -6163,7 +6234,7 @@ function calculateBottomUpPanelLayout(
           elbowX:
             changeoverPosition.x +
             LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_RENDER_SIZE / 2 +
-            LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_ELBOW_LEAD +
+            changeoverElbowLead +
             frameOffset.x,
           upperY: changeoverPosition.y - changeoverLaneOffset + frameOffset.y,
           lowerY:

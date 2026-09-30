@@ -17,6 +17,8 @@ export type LabelDirection = 'right' | 'left' | 'below' | 'above'
 type LabelPlacement = Placement & {
   endpointId?: string
   junctionPanelLabel?: string
+  /** Label of a plan-only symbol drawn like a board (a supply enclosure). */
+  planLabel?: string
 }
 
 const OPPOSITE_DIR: Record<LabelDirection, LabelDirection> = {
@@ -142,7 +144,11 @@ export function calculateLabelPositions(
         : 1
     const symbolType =
       endpoint?.symbol ??
-      (placement.junctionPanelLabel != null ? 'junction_panel' : undefined)
+      (placement.junctionPanelLabel != null
+        ? 'junction_panel'
+        : placement.planLabel != null
+          ? 'panel_distribution'
+          : undefined)
     const bounds = getPlacementWorldBounds(
       placement.pos,
       placement.rotationDeg ?? 0,
@@ -158,7 +164,8 @@ export function calculateLabelPositions(
     const info = placementInfoById.get(placement.id)
     const endpoint =
       info?.endpoint ?? (placement.endpointId ? getEndpointById(placement.endpointId) : null)
-    const labelText: string | undefined = endpoint?.label ?? placement.junctionPanelLabel
+    const labelText: string | undefined =
+      endpoint?.label ?? placement.junctionPanelLabel ?? placement.planLabel
     if (!labelText || !placement.pos) return
     const { width: labelWidth, height: labelHeight } = getLabelBoxSize(
       labelText,
@@ -171,7 +178,9 @@ export function calculateLabelPositions(
     const cy = placement.pos.y
 
     const isPanelLike =
-      endpoint?.symbol === 'panel_distribution' || placement.junctionPanelLabel != null
+      endpoint?.symbol === 'panel_distribution' ||
+      placement.junctionPanelLabel != null ||
+      placement.planLabel != null
 
     // Base distance from symbol center to label box center, per axis,
     // derived from actual symbol bounds when available.

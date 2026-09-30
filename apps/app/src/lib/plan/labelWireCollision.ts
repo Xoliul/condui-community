@@ -362,7 +362,7 @@ export function buildPlanWireObstacleRects(
   }
 
   const orthogonalInputs = drafts
-    .filter(({ draft }) => draft.style !== 'spline')
+    .filter(({ draft }) => draft.style === 'orthogonal')
     .map(({ draft, context }) => ({
       id: draft.route.id,
       spanSetKey: planWireSpanSetKey(draft.route),
@@ -379,7 +379,9 @@ export function buildPlanWireObstacleRects(
     const points =
       draft.style === 'spline'
         ? sampleSpline(draft.basePoints, hasContext ? context : undefined)
-        : (orthogonalPolylines.get(draft.route.id) ?? draft.basePoints)
+        : draft.style === 'straight'
+          ? draft.basePoints
+          : (orthogonalPolylines.get(draft.route.id) ?? draft.basePoints)
     for (let i = 0; i < points.length - 1; i++) {
       rects.push(segmentToObstacleRect(points[i]!, points[i + 1]!, halfThickness))
     }

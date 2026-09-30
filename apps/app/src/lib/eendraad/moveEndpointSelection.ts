@@ -1,6 +1,7 @@
 import type { DropTarget } from '@/lib/layout/findDropTarget'
 import type { Branch, Circuit, Endpoint } from '@/types/schema'
 import { generateId } from '@/utils'
+import { circuitContainsJunctionPanelIdentity, getJunctionIdentity } from '@/lib/junctionIdentity'
 
 export interface MoveEndpointSelectionResult {
   endpoints: Endpoint[]
@@ -25,6 +26,10 @@ function parseBranchIndex(branchId: string | undefined, circuitId: string): numb
 function resolveTargetBranchIndex(circuit: Circuit, target: DropTarget): number | null {
   const branches = circuit.branches ?? []
   if (target.circuitId !== circuit.id) return null
+
+  if (typeof target.branchInsertIndex === 'number') {
+    return Math.max(0, Math.min(target.branchInsertIndex, branches.length))
+  }
 
   // A DC rail's insertion index is relative to the rail branches, not to all
   // branches in the circuit. Convert that slot to the absolute branch index
@@ -188,7 +193,11 @@ export function moveEndpointSelectionOnCircuit(
       .filter(({ branch }) => branch.endpointIds.some((endpointId) => selected.has(endpointId)))
       .map(({ index }) => index)
   )
-  if (selectedBranchIndexes.has(targetIndex)) return null
+  // A branch hit on a moved branch is a no-op. An explicit trunk slot is a gap between
+  // branches instead; slots adjacent to the moved branches fall out as unchanged below.
+  if (typeof target.branchInsertIndex !== 'number' && selectedBranchIndexes.has(targetIndex)) {
+    return null
+  }
 
   const remainingEntries = branches
     .map((branch, index) => ({
@@ -251,6 +260,10 @@ export function moveEndpointSelectionBetweenCircuits(
     options?.allowSingle
   )
   if (!moving) return null
+  if (moving.movedEndpoints.some((endpoint) =>
+    endpoint.symbol === 'junction_panel' &&
+    circuitContainsJunctionPanelIdentity(targetCircuit, getJunctionIdentity(endpoint))
+  )) return null
 
   const selected = new Set(moving.movedEndpointIds)
   const sourceBranches = (sourceCircuit.branches ?? [])

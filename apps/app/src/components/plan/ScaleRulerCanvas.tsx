@@ -6,6 +6,7 @@ import { scaleRulerPointerToCanvas } from '@/lib/plan/scaleRulerCoordinates'
 import { useCanvasFontFamily } from '@/editions/community/communityHooks'
 import { screenPxToCanvasUnits } from '@/constants/canvasConstants'
 import { isScaleRulerPlacementButton } from '@/lib/plan/scaleRulerInput'
+import { createPlanScaleReference } from '@/lib/plan/planScale'
 
 export interface ScaleReference {
   p1: Point2
@@ -18,6 +19,7 @@ interface ScaleRulerCanvasProps {
   onCancel: () => void
   /** When user has placed both points, parent shows overlay and can control meters for the label */
   onPointsReady?: (start: Point2, end: Point2, meters: number) => void
+  onPointsChange?: (start: Point2 | null, end: Point2 | null) => void
   /** Controlled meters when parent is showing the distance input (for label on line) */
   meters?: number
   onMetersChange?: (meters: number) => void
@@ -47,6 +49,7 @@ function ScaleRulerCanvas({
   onComplete,
   onCancel: _onCancel,
   onPointsReady,
+  onPointsChange,
   meters: controlledMeters,
   onMetersChange: _onMetersChange,
   initialReference,
@@ -61,6 +64,7 @@ function ScaleRulerCanvas({
   const rafRef = useRef<number | null>(null)
   const pendingDragRef = useRef<{ start?: Point2; end?: Point2 } | null>(null)
   const meters = controlledMeters ?? internalMeters
+  const distanceLabel = Number.isFinite(meters) && meters > 0 ? `${meters.toFixed(2)} m` : '— m'
   const fontFamily = useCanvasFontFamily()
   const lastCommitSignalRef = useRef<number | undefined>(commitSignal)
   const rulerStrokeCanvas = screenPxToCanvasUnits(zoom, 3, 2, 6)
@@ -70,7 +74,7 @@ function ScaleRulerCanvas({
   const labelPaddingYCanvas = screenPxToCanvasUnits(zoom, 4, 3, 8)
   const labelWidthCanvas = Math.max(
     screenPxToCanvasUnits(zoom, 72, 52, 120),
-    `${meters.toFixed(2)} m`.length * labelFontSizeCanvas * 0.62 + labelPaddingXCanvas * 2,
+    distanceLabel.length * labelFontSizeCanvas * 0.62 + labelPaddingXCanvas * 2,
   )
   const labelHeightCanvas = labelFontSizeCanvas + labelPaddingYCanvas * 2
   const labelCornerRadiusCanvas = screenPxToCanvasUnits(zoom, 4, 2, 8)
@@ -81,6 +85,9 @@ function ScaleRulerCanvas({
       onPointsReady?.(initialReference.p1, initialReference.p2, initialReference.meters)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- only on mount when initialReference is used by parent
+
+  useEffect(() => { onPointsChange?.(startPoint, endPoint) }, [startPoint, endPoint, onPointsChange])
+  useEffect(() => () => { if (rafRef.current != null) cancelAnimationFrame(rafRef.current) }, [])
 
   // Handle placement from the canvas DOM in capture phase. Plan elements may cancel Konva's
   // bubbling mousedown event, but scale adjustment must still receive the second point click.
@@ -136,7 +143,7 @@ function ScaleRulerCanvas({
   }, [startPoint, endPoint, onPointsReady, meters])
 
   const handleComplete = useCallback(() => {
-    if (startPoint && endPoint) {
+    if (startPoint && endPoint && createPlanScaleReference(startPoint, endPoint, meters)) {
       onComplete(startPoint, endPoint, meters)
     }
   }, [startPoint, endPoint, meters, onComplete])
@@ -275,7 +282,7 @@ function ScaleRulerCanvas({
                   opacity={0.9}
                 />
                 <Text
-                  text={`${meters.toFixed(2)} m`}
+                  text={distanceLabel}
                   fontSize={labelFontSizeCanvas}
                   fontFamily={fontFamily}
                   fill="#0284c7"

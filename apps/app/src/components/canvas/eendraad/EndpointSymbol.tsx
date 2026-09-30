@@ -12,7 +12,13 @@ import {
 } from '@/editions/community/communityHooks'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { logger } from '@/lib/logger'
-import { getStableEndpointRenderRevision } from '@/lib/projectV2/electricalLookupIndex'
+import {
+  getElectricalLookupIndex,
+  getStableEndpointRenderRevision,
+} from '@/lib/projectV2/electricalLookupIndex'
+import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
+import { getBranchDownstreamEndpointIds } from '@/lib/eendraad/downstreamSelection'
+import { registerActivation } from '@/utils/repeatActivation'
 import {
   getSymbolById,
   getFixedApplianceSymbolPath,
@@ -71,11 +77,13 @@ import {
   HVAC_HEAT_EXCHANGE_TYPE_OFFSET_Y,
 } from './canvasSymbols'
 import { MultiplierBadge } from './MultiplierBadge'
+import { ImpulseSwitchCountMarker } from '../shared/ImpulseSwitchCountMarker'
 import type { Endpoint, DomoticaControlKey } from '@/types/schema'
 import { useProjectStore } from '@/stores/projectStore'
 import type { Point } from '@/types/ui'
 import { getVisibleCertificationLabelParts } from '@/lib/certificationLabels'
 import { getVisibleConversionLabelParts, getVisibleEndpointNoteText } from '@/lib/conversionLabels'
+import { DOMOTICA_NOTE_FONT_SIZE, getDomoticaNoteOffsetFromSymbol } from '@/lib/eendraad/domoticaNotes'
 import { useEendraadWireSegments } from '@/hooks/eendraad'
 import {
   CONVERTER_ARTWORK_PATHS,
@@ -374,6 +382,8 @@ export const EndpointSymbol = memo(function EndpointSymbol({
   const [smokeDetectorOverlayImage, setSmokeDetectorOverlayImage] =
     useState<HTMLImageElement | null>(null)
   const [domoticaMainImage, setDomoticaMainImage] = useState<HTMLImageElement | null>(null)
+  const [domoticaMainSocketOverlayImage, setDomoticaMainSocketOverlayImage] =
+    useState<HTMLImageElement | null>(null)
   const [domoticaControlImages, setDomoticaControlImages] = useState<
     Partial<Record<DomoticaControlKey, HTMLImageElement | null>>
   >({})
@@ -452,6 +462,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
   const domoticaMainSwitchSymbol = domoticaProps?.mainSwitchSymbol
   const domoticaMainSocketSymbol = domoticaProps?.mainSocketSymbol
   const domoticaMainSwitchProps = domoticaProps?.mainSwitchProps
+  const domoticaMainSocketProps = domoticaProps?.mainSocketProps
 
   // Resolve base SVG path: switches use getSwitchSymbolPaths; boiler/heating use getFixedApplianceSymbolPath; else symbol.svgPath
   const baseSvgPath = isDomoticaParent
@@ -583,6 +594,25 @@ export const EndpointSymbol = memo(function EndpointSymbol({
     lightPointProps?.switch1p,
     theme?.mode,
   ])
+
+  const domoticaMainSocketOverlayPath =
+    domoticaMainType === 'socket'
+      ? domoticaMainSocketProps?.switchOverlayLock
+        ? SOCKET_OVERLAY_PATHS.switchOverlayLock
+        : domoticaMainSocketProps?.switchOverlay
+          ? SOCKET_OVERLAY_PATHS.switchOverlay
+          : null
+      : null
+
+  useEffect(() => {
+    if (!isDomoticaParent || !domoticaMainSocketOverlayPath) {
+      setDomoticaMainSocketOverlayImage(null)
+      return
+    }
+    loadProcessedSymbol(domoticaMainSocketOverlayPath, theme?.mode === 'dark')
+      .then(setDomoticaMainSocketOverlayImage)
+      .catch(() => setDomoticaMainSocketOverlayImage(null))
+  }, [domoticaMainSocketOverlayPath, isDomoticaParent, theme?.mode])
 
   // Load transformer overlays (safety type, short‑circuit, protection)
   useEffect(() => {
@@ -794,6 +824,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
         } else if (selection.type !== 'endpoint') {
           setSelection({ type: 'endpoint', ids: [endpoint.id] })
         }
+        return
       } else if (e.evt.altKey || e.evt.ctrlKey || e.evt.metaKey) {
         const { selection } = useUIStore.getState()
         if (selection.type === 'endpoint' && selection.ids.includes(endpoint.id)) {
@@ -804,9 +835,24 @@ export const EndpointSymbol = memo(function EndpointSymbol({
             setSelection({ type: 'endpoint', ids: newIds })
           }
         }
-      } else {
-        setSelection({ type: 'endpoint', ids: [endpoint.id] })
+        return
       }
+
+      const activation = registerActivation(`endpoint:${endpoint.id}`)
+      if (activation === 'absorbed') return
+      if (activation === 'double') {
+        // Double click/tap: select the rest of this endpoint's branch.
+        const project = useProjectStore.getState().currentProject
+        const circuit = project
+          ? getElectricalLookupIndex(getProjectElectricalPanels(project)).endpointsById.get(
+              endpoint.id
+            )?.circuit
+          : undefined
+        const ids = circuit ? getBranchDownstreamEndpointIds(circuit, endpoint.id) : [endpoint.id]
+        setSelection({ type: 'endpoint', ids })
+        return
+      }
+      setSelection({ type: 'endpoint', ids: [endpoint.id] })
     },
     [endpoint.id, setSelection]
   )
@@ -970,12 +1016,15 @@ export const EndpointSymbol = memo(function EndpointSymbol({
                   e.target.position({ x: position.x - DOMOTICA_BOX_WIDTH / 2, y: position.y })
                   return
                 }
-                const accepted = onDragEnd(
-                  getCanvasPositionFromEvent?.(e) ?? { x: e.target.x(), y: e.target.y() }
-                )
-                if (accepted === false) {
-                  e.target.position({ x: position.x - DOMOTICA_BOX_WIDTH / 2, y: position.y })
+                const dropPoint = getCanvasPositionFromEvent?.(e) ?? {
+                  x: e.target.x(),
+                  y: e.target.y(),
                 }
+                // Return to the layout position before the drop re-renders: react-konva only
+                // reapplies x/y when the prop changes, so an unchanged position would leave the
+                // node where it was dropped.
+                e.target.position({ x: position.x - DOMOTICA_BOX_WIDTH / 2, y: domoticaGroupY })
+                onDragEnd(dropPoint)
               }
             : undefined
         }
@@ -1031,6 +1080,21 @@ export const EndpointSymbol = memo(function EndpointSymbol({
               outlinePad
             )}
           />
+        )}
+        {endpointNoteText && !metadataLabelSuppressed && (
+          <Group x={DOMOTICA_BOX_WIDTH / 2}>
+            <SymbolTextLabels
+              items={[{ key: 'endpointNotes', text: endpointNoteText }]}
+              config={{ position: 'bottom', layout: 'stack' }}
+              textColor={getSecondaryTextColor(theme?.mode === 'dark')}
+              fontFamily={fontFamily}
+              fontSize={DOMOTICA_NOTE_FONT_SIZE}
+              symbolWidth={DOMOTICA_BOX_WIDTH}
+              symbolHeight={domoticaHeight}
+              offsetFromSymbol={getDomoticaNoteOffsetFromSymbol(endpoint)}
+              bottomMinimumLeftX={bottomLabelMinimumLeftX}
+            />
+          </Group>
         )}
         {isSelected && isDomoticaResizeEnabled && (
           <>
@@ -1168,6 +1232,18 @@ export const EndpointSymbol = memo(function EndpointSymbol({
             listening={false}
           />
         )}
+        {domoticaMainSocketOverlayImage && domoticaMainType === 'socket' && (
+          <Image
+            image={domoticaMainSocketOverlayImage}
+            width={mainDeviceSize}
+            height={mainDeviceSize}
+            offsetX={mainDeviceSize / 2}
+            offsetY={mainDeviceSize / 2}
+            x={outlineX + DOMOTICA_BOX_WIDTH / 2}
+            y={dividerY + (domoticaHeight - controlBandHeight) / 2}
+            listening={false}
+          />
+        )}
         {isSelected && isDomoticaResizeEnabled && (
           <Rect
             x={outlineX}
@@ -1184,7 +1260,16 @@ export const EndpointSymbol = memo(function EndpointSymbol({
     )
   }
 
-  if (suppressWhenSelected && isSinglySelectedEndpoint) return null
+  if (suppressWhenSelected && isSinglySelectedEndpoint) {
+    // The selected copy is drawn by the canvas overlay (a higher layer), which only mounts
+    // after a full canvas render. Keep a click-only target here meanwhile so a quick second
+    // click still reaches this endpoint instead of clearing the selection on the stage.
+    return (
+      <Group x={position.x} y={position.y} onClick={handleClick} onTap={handleClick}>
+        <Rect {...standardHitRect} fill={INTERACTIVE_HIT_FILL} />
+      </Group>
+    )
+  }
 
   return (
     <Group
@@ -1218,15 +1303,16 @@ export const EndpointSymbol = memo(function EndpointSymbol({
                 e.target.position({ x: position.x, y: position.y })
                 return
               }
-              const accepted = onDragEnd(
-                getCanvasPositionFromEvent?.(e) ?? { x: e.target.x(), y: e.target.y() }
-              )
-              // If drop was rejected (no valid target), snap the symbol back to its
-              // original layout-driven position so the real symbol never "sticks"
-              // at an illegal location.
-              if (accepted === false) {
-                e.target.position({ x: position.x, y: position.y })
+              const dropPoint = getCanvasPositionFromEvent?.(e) ?? {
+                x: e.target.x(),
+                y: e.target.y(),
               }
+              // Return to the layout-driven position before the drop re-renders, accepted or
+              // not. A rejected drop must not stick at an illegal location, and react-konva only
+              // reapplies x/y when the prop changes, so an unchanged layout position would
+              // otherwise leave the node where it was dropped until the next remount.
+              e.target.position({ x: position.x, y: position.y })
+              onDragEnd(dropPoint)
             }
           : undefined
       }
@@ -1399,6 +1485,14 @@ export const EndpointSymbol = memo(function EndpointSymbol({
                 offsetY={SYMBOL_SIZE / 2}
                 y={0}
                 listening={false}
+              />
+            )}
+            {endpoint.symbol === 'switch_impulse' && (
+              <ImpulseSwitchCountMarker
+                count={endpoint.switchProps?.switchingCount ?? 1}
+                size={SYMBOL_SIZE}
+                color={getSymbolColor(theme?.mode === 'dark')}
+                fontFamily={fontFamily}
               />
             )}
             {/* Light point overlays: safety, switch 1p */}

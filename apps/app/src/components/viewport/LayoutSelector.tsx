@@ -1,4 +1,4 @@
-import { useUIStore } from '@/stores/uiStore'
+import { isLayoutPresetAvailable, useUIStore } from '@/stores/uiStore'
 import type { LayoutPreset } from '@/types/ui'
 
 interface PresetDef {
@@ -67,6 +67,17 @@ const PRESETS: PresetDef[] = [
       </LayoutIcon>
     ),
   },
+  {
+    preset: 'grid',
+    title: 'Two by two',
+    icon: (
+      <LayoutIcon>
+        <rect x="1" y="1" width="18" height="18" rx="1.5" />
+        <line x1="1" y1="10" x2="19" y2="10" />
+        <line x1="10" y1="1" x2="10" y2="19" />
+      </LayoutIcon>
+    ),
+  },
 ]
 
 export function LayoutSelector({
@@ -90,7 +101,7 @@ export function LayoutSelector({
           ? preset === 'single' || preset === 'stacked'
           : preset === 'single' || preset === 'sideBySide'
       )
-    : PRESETS
+    : PRESETS.filter(({ preset }) => isLayoutPresetAvailable(preset))
 
   return (
     <div className="flex items-center gap-0.5">

@@ -557,6 +557,16 @@ export const symbols: SymbolMetadata[] = [
     tags: ['switch', 'pull', 'trek'],
   },
   {
+    id: 'contact',
+    name: 'Contact',
+    nameNL: 'Contact',
+    nameFR: 'Contact',
+    category: 'switches',
+    scope: 'eendraad',
+    svgPath: '/symbols/switches/contact.svg',
+    tags: ['contact', 'los contact', 'domotica', 'input', 'ingang', 'potentiaalvrij', 'dry contact'],
+  },
+  {
     id: 'switch_impulse',
     name: 'Impulse/Push Switch',
     nameNL: 'Impulsschakelaar',
@@ -1037,7 +1047,14 @@ export const symbols: SymbolMetadata[] = [
     category: 'domotica',
     scope: 'both',
     svgPath: '/symbols/domotica/domotica.svg',
-    tags: ['domotica', 'smarthome', 'smart home', 'domotique', 'slimme installatie'],
+    tags: [
+      'domotica',
+      'smarthome',
+      'smart home',
+      'domotique',
+      'slimme installatie',
+      'teleruptor',
+    ],
   },
 
   // Metering
@@ -1468,6 +1485,9 @@ export function getSwitchSymbolPaths(
     case 'switch_1p_pull':
       basePath = '/symbols/switches/switch_1p_pull.svg'
       if (verklikkerlamp) overlayPath = SWITCH_OVERLAY_PATHS.overlayLight
+      break
+    case 'contact':
+      basePath = '/symbols/switches/contact.svg'
       break
     case 'switch_impulse':
       basePath = '/symbols/switches/switch_impulse.svg'

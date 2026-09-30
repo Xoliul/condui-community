@@ -1,0 +1,2964 @@
+{
+  "junctionIdentity": {
+    "label": "Identyfikacja połączenia",
+    "pickExisting": "Użyj ponownie istniejącej identyfikacji",
+    "toggleVisibility": "Pokaż lub ukryj identyfikację w harmonogramie",
+    "noExisting": "Brak istniejących identyfikatorów"
+  },
+  "terminalStrip": {
+    "pin": "Numer terminala",
+    "incomingPin": "Wejście",
+    "outgoingPin": "Wyłączone"
+  },
+  "appUpdate": {
+    "banner": "Dostępna jest nowa wersja aplikacji.",
+    "refresh": "Odśwież"
+  },
+  "themeControls": {
+    "light": "Światło",
+    "dark": "Ciemny"
+  },
+  "connectivity": {
+    "offlineBanner": "You are offline. Local projects remain saved on this device.",
+    "offlineReloadNotReady": "Unikaj ponownego ładowania, dopóki przynajmniej raz nie otworzysz aplikacji online w tej zakładce przeglądarki.",
+    "offlineReloadDevHint": "Ponowne ładowanie w trybie offline działa tylko z wersją produkcyjną (npm run build i& vite Preview), a nie z serwerem deweloperskim.",
+    "dismissOfflineBanner": "Zamknij powiadomienie offline",
+    "offlineIndicatorTitle": "Jesteś offline"
+  },
+  "diagnostics": {
+    "anonymousProjectName": "({{idShort}})",
+    "importFallbackProjectName": "Zaimportowany projekt ({{idShort}})"
+  },
+  "common": {
+    "save": "Zapisz",
+    "cancel": "Anuluj",
+    "delete": "Usuń",
+    "remove": "Usuń",
+    "edit": "Edytuj",
+    "add": "Dodatek",
+    "close": "Zamknij",
+    "open": "Otwarte",
+    "new": "Nowość",
+    "search": "Szukaj",
+    "export": "Import",
+    "import": "Import",
+    "ok": "OK",
+    "back": "Tył",
+    "next": "Następny",
+    "continue": "Kontynuuj",
+    "confirm": "Potwierdź",
+    "moreActions": "Więcej promocji",
+    "none": "Brak",
+    "mixed": "Mieszane"
+  },
+  "home": {
+    "footerCopyright": "© {{year}} {{brand}}",
+    "projectsMissing": {
+      "hint": "Utracone projekty?",
+      "title": "Utracone projekty?",
+      "body": "Mogą znajdować się lokalnie w innej przeglądarce, na innym urządzeniu lub w starej domenie Eendraa. Skontaktuj się z pomocą techniczną, jeśli potrzebujesz pomocy."
+    },
+    "viewMode": {
+      "grid": "Lista",
+      "list": "Lista"
+    },
+    "folders": {
+      "newFolder": "Nowy folder",
+      "renameFolder": "Zmień nazwę folderu",
+      "deleteFolder": "Usuń folder",
+      "deleteFolderConfirm": "Ten folder zostanie trwale usunięty i nie będzie można go odzyskać. Projekty znajdujące się w folderze zostaną usunięte z folderu.",
+      "duplicateName": "Folder o tej nazwie już istnieje.",
+      "addToFolder": "Dodaj do folderu",
+      "removeFromFolder": "Usuń z folderu",
+      "folderName": "Nazwa folderu",
+      "folderNamePlaceholder": "np. 2025",
+      "personal": "Osobisty",
+      "ungrouped": "Inne projekty",
+      "emptyFolder": "Przeciągnij tutaj projekty",
+      "ungroupedDropHint": "Przeciągnij projekty tutaj, aby nie znajdowały się w folderach",
+      "dragHandle": "Przeciągnij, aby przenieść",
+      "dragFolderHandle": "Przeciągnij, aby zmienić kolejność folderu",
+      "selectProject": "Wybierz {{name}}"
+    }
+  },
+  "dialog": {
+    "inputLabel": "Wprowadź wartość"
+  },
+  "menu": {
+    "open": "Menu",
+    "backToMain": "Powrót do początku",
+    "versions": "Wersje",
+    "exportPdf": "Eksportuj PDF",
+    "exportLabels": "Etykiety eksportowe",
+    "reExportPdf": "Ponowny eksport PDF",
+    "validation": "Walidacja",
+    "exportProject": "Pobierz projekt",
+    "exportProjectError": "Pobieranie projektu nie powiodło się. Spróbuj ponownie.",
+    "settings": "Klawisze skrótu",
+    "shortcuts": "Skróty",
+    "installOffline": "Zainstaluj do użytku w trybie offline",
+    "contactSupport": "Skontaktuj się z pomocą techniczną",
+    "documentation": "Dokumentacja",
+    "areiGuide": "AREI Przewodnik",
+    "tutorial": "Poradnik"
+  },
+  "pwaInstall": {
+    "iosTitle": "Dodaj do ekranu głównego",
+    "iosInstructions": "Stuknij opcję Udostępnij w przeglądarce Safari i wybierz „Dodaj do ekranu głównego”.",
+    "unavailableTitle": "Instalacja nie jest jeszcze dostępna",
+    "unavailableMessage": "Ta przeglądarka nie umożliwia jeszcze instalacji. Kontynuuj korzystanie z aplikacji w przeglądarce Chrome lub Edge albo zainstaluj za pomocą menu przeglądarki, gdy się pojawi."
+  },
+  "viewer": {
+    "propertiesReadOnly": "Tylko do odczytu. Wrażliwe dane kontaktowe i adresowe są ukryte."
+  },
+  "tutorial": {
+    "title": "Poradnik",
+    "description": "Szybki przegląd edytora, dzięki któremu możesz szybko rozpocząć pracę.",
+    "close": "Zamknij",
+    "openOnYoutube": "Obejrzyj na YouTube"
+  },
+  "touchOnboarding": {
+    "close": "Zamknij",
+    "pan": "Patelnie",
+    "zoom": "Zoom"
+  },
+  "shortcuts": {
+    "title": "Skróty",
+    "intro": "Wszystkie skróty klawiaturowe używane w edytorze.",
+    "groups": {
+      "general": "Ogólne",
+      "viewport": "Rzutnia",
+      "sitplan": "Plan rozmieszczenia",
+      "quickPlacer": "Szybki instalator",
+      "oneWire": "Schemat 1 przewodu"
+    },
+    "sections": {
+      "projectPanels": "Projekt i panele",
+      "keyboardNavigation": "Klawiatura",
+      "mouseSelection": "Mysz i wybór",
+      "trackpadTouch": "Gładzik i dotyk",
+      "floors": "Podłogi",
+      "editing": "Edytuj",
+      "fastPlacement": "Tryb szybki",
+      "navigation": "Nawigacja"
+    },
+    "keys": {
+      "ctrlCmdZ": "Ctrl/Cmd + Z",
+      "ctrlCmdShiftZ": "Ctrl/Cmd + Shift + Z",
+      "ctrlCmdY": "Ctrl/Cmd+Y",
+      "ctrlCmdL": "Ctrl/Cmd+L",
+      "ctrlCmdP": "Ctrl/Cmd+P",
+      "ctrlCmdD": "Ctrl/Cmd + D",
+      "tab": "Tab",
+      "esc": "Wyjście",
+      "space": "Przestrzeń",
+      "f": "F",
+      "plus": "+",
+      "equals": "=",
+      "minus": "-",
+      "leftClick": "Kliknij lewym przyciskiem myszy",
+      "rightClick": "Kliknij prawym przyciskiem myszy",
+      "middleDrag": "Przeciągnij środkowy przycisk myszy",
+      "rightDrag": "Przeciągnij w prawo",
+      "leftDragEmptyCanvas": "Przeciągnij lewym przyciskiem myszy na pustym obszarze roboczym",
+      "shiftClick": "Shift + kliknięcie",
+      "shiftDragSelect": "Shift + przeciągnięcie zaznaczenia",
+      "ctrlCmdAltClick": "Ctrl/Cmd/Alt + kliknięcie",
+      "altDragSelect": "Alt + przeciągnięcie zaznaczenia",
+      "mouseWheel": "Kółko myszy",
+      "twoFingerScroll": "Przewijanie dwoma palcami",
+      "pinch": "Ściśnij",
+      "ctrlWheel": "Ctrl / Cmd + kółko myszy",
+      "oneFingerDrag": "Przeciągnij jednym palcem",
+      "twoFingerDragPinch": "Przeciągnij/szczypnij dwoma palcami",
+      "doubleTap": "Kliknij dwukrotnie",
+      "longPress": "Długie naciśnięcie",
+      "threeFingerSwipeUpDown": "Przesunięcie trzema palcami w górę/w dół",
+      "threeFingerSwipeLeftRight": "Przesunięcie trzema palcami w lewo/w prawo",
+      "digit1To9": "1-9",
+      "delete": "Usuń",
+      "backspace": "Backspace",
+      "digits": "0-9",
+      "period": ".",
+      "comma": ",",
+      "shiftAZ": "Shift + A-Z",
+      "q": "Q",
+      "w": "W",
+      "d": "D",
+      "r": "R",
+      "f1": "F1",
+      "f2": "F2",
+      "f3": "F3",
+      "arrowKeys": "Klawisze strzałek"
+    },
+    "entries": {
+      "undo": {
+        "description": "Cofnij"
+      },
+      "redo": {
+        "description": "Wykonaj ponownie"
+      },
+      "toggleLibrary": {
+        "description": "Biblioteka przełączników"
+      },
+      "toggleProperties": {
+        "description": "Przełącz właściwości"
+      },
+      "toggleDockPanels": {
+        "description": "Panele składane"
+      },
+      "closeFloatingWindows": {
+        "description": "Zamknij okna"
+      },
+      "duplicate": {
+        "description": "Zduplikowany wybór (obwód, odgałęzienie lub punkty końcowe)"
+      },
+      "deleteSelection": {
+        "description": "Usuń wybór"
+      },
+      "focusViewport": {
+        "description": "Okno ostrości"
+      },
+      "fitView": {
+        "description": "Pasuje do obrazu"
+      },
+      "zoomIn": {
+        "description": "Powiększ"
+      },
+      "zoomOut": {
+        "description": "Pomniejsz"
+      },
+      "selectItem": {
+        "description": "Wybierz"
+      },
+      "contextMenu": {
+        "description": "Menu kontekstowe"
+      },
+      "panCanvas": {
+        "description": "Zmiana"
+      },
+      "rectangleSelect": {
+        "description": "Wybór prostokąta"
+      },
+      "addToSelection": {
+        "description": "Dodaj do wyboru"
+      },
+      "removeFromSelection": {
+        "description": "Usuń z wyboru"
+      },
+      "mouseWheelZoom": {
+        "description": "Zoom"
+      },
+      "trackpadPan": {
+        "description": "Zmiana"
+      },
+      "trackpadPinchZoom": {
+        "description": "Zoom"
+      },
+      "touchPan": {
+        "description": "Zmiana"
+      },
+      "touchPanZoom": {
+        "description": "Panoramowanie i powiększanie"
+      },
+      "touchContextMenu": {
+        "description": "Menu kontekstowe"
+      },
+      "touchMultiSelect": {
+        "description": "Przełącznik/ramka"
+      },
+      "touchFocusViewport": {
+        "description": "Okno ostrości"
+      },
+      "touchSidePanels": {
+        "description": "Panele boczne przełączające"
+      },
+      "switchFloor": {
+        "description": "Zmień piętro"
+      },
+      "toggleQuickPlacer": {
+        "description": "Włączanie/wyłączanie szybkiego instalatora",
+        "note": "Podczas przesuwania się nad plan rozmieszczenia"
+      },
+      "toggleWiring": {
+        "description": "Włączanie/wyłączanie narzędzia do okablowania",
+        "note": "Podczas przesuwania się nad plan rozmieszczenia"
+      },
+      "toggleDrawMode": {
+        "description": "Włączanie/wyłączanie trybu rysowania",
+        "note": "Podczas przesuwania się nad plan rozmieszczenia"
+      },
+      "switchToEendraadCanvas": {
+        "description": "Rzutnia do schematu 1-przewodowego",
+        "note": "Po najechaniu kursorem na panel rzutni; nie ma żadnego efektu, jeśli na tym panelu jest już wyświetlany schemat 1-przewodowy"
+      },
+      "switchToPlanCanvas": {
+        "description": "do plan rozmieszczenia",
+        "note": "Po najechaniu kursorem na panel rzutni; nie ma żadnego efektu, jeśli na tym panelu widać już plan rozmieszczenia"
+      },
+      "switchToPanelCanvas": {
+        "description": "Rzutnia do obszaru roboczego panelu",
+        "note": "Po najechaniu kursorem na panel rzutni; nie ma żadnego efektu, jeśli ten panel już pokazuje płótno panelu"
+      },
+      "openingWidthType": {
+        "description": "Ustaw szerokość"
+      },
+      "rotateSymbols": {
+        "description": "Obróć wybrane symbole o 90° w prawo",
+        "note": "Gdy wskaźnik znajduje się nad plan rozmieszczenia; wyłącza automatyczne obracanie tych miejsc docelowych"
+      },
+      "nudgeSymbols": {
+        "description": "Przesuń wybrane symbole",
+        "note": "Jeśli plan rozmieszczenia jest widoczny i wybrany jest jeden lub więcej symboli; nie podczas pisania w polu. Kran: 1 cm; naciśnij i przytrzymaj: 10 → 18 cm/s po 250 ms. Szybkie dotknięcia są zebrane w jeden zapis; przyciąganie jest ignorowane."
+      },
+      "quickPlacerEscape": {
+        "description": "Zamknij / szybkie wyjście"
+      },
+      "quickPlacerFloor": {
+        "description": "Zmień piętro"
+      },
+      "quickPlacerPlace": {
+        "description": "Miejsca"
+      },
+      "quickPlacerSkip": {
+        "description": "Pomiń"
+      },
+      "focusCircuitLetter": {
+        "description": "Koło ostrości"
+      }
+    }
+  },
+  "settings": {
+    "title": "Klawisze skrótu",
+    "language": "Język",
+    "interface": {
+      "title": "Czcionka",
+      "language": "Język",
+      "font": "Chrzcielnica",
+      "fontFigtree": "Rysunek",
+      "fontOpenSans": "Otwarte Sans"
+    },
+    "workflow": {
+      "title": "Metoda",
+      "placePlanSymbolsManually": "Umieść symbole na planie samodzielnie",
+      "placePlanSymbolsManuallyHint": "Nowe symbole pojawiają się na plan rozmieszczenia tylko wtedy, gdy je umieścisz, na przykład za pomocą QuickPlacer."
+    },
+    "navigation": {
+      "title": "Nawigacja na płótnie",
+      "leftDragPansCanvas": "Przeciągnięcie lewym przyciskiem myszy, aby przesuwać (pulpit)",
+      "leftDragPansCanvasHint": "Na laptopie i komputerze stacjonarnym: przeciągnij lewym przyciskiem myszy, aby przesunąć obszar roboczy (jak przy dotyku). Przytrzymaj klawisz Shift i przeciągnij, aby wybrać prostokąt. Przesuwanie środkowym i prawym przyciskiem myszy nadal działa."
+    },
+    "debug": {
+      "title": "Odpluskwić",
+      "eendraadHitboxDebug": "Pokaż hitboxy schemat jednokreskowy",
+      "eendraadHitboxDebugHint": "Wizualizuj strefy trafień używane do wykrywania kropli na schemacie jednoprzewodowym. Tylko w interfejsie użytkownika, a nie w eksporcie.",
+      "eendraadTrunkLayoutDebug": "Wyświetla skrzynki rozmieszczenia łączy jednoprzewodowych",
+      "eendraadTrunkLayoutDebugHint": "Pokaż obudowy wizualne stosowane do podziału torów obwodów i szyn wtórnych. Tylko w interfejsie użytkownika, a nie w eksporcie.",
+      "planPlacementDebug": "Pokaż debugowanie rysunku sytuacji (plan siedzenia)",
+      "planPlacementDebugHint": "Wizualizuj środki symboli, ramki ograniczające, pozycje etykiet i pomoce orientacyjne na ścianie na planie miejsca. Tylko w interfejsie użytkownika, a nie w eksporcie.",
+      "planCableRouteDebug": "Pokaż debugowanie długości kabla (plan sytuacyjny)",
+      "planCableRouteDebugHint": "Narysuj przybliżoną trójwymiarową trasę kabla i długość każdego przewodu ścieżki prądowej na planie instalacji, wraz z tabelą obliczeń. Tylko w interfejsie użytkownika, a nie w eksporcie.",
+      "cableRoute": {
+        "title": "Debugowanie długości kabla",
+        "circuit": "Obwód",
+        "from": "Furgonetka",
+        "to": "Do",
+        "horizontal": "Poziomy",
+        "vertical": "Pionowy",
+        "riser": "Luz",
+        "slack": "Wartość szacunkowa",
+        "estimate": "Wprowadzono",
+        "entered": "Wprowadzono",
+        "basis": "Podstawowy",
+        "gaps": "Luki",
+        "fromBoard": "Z płyty",
+        "onlySelected": "Tylko do wyboru",
+        "clear": "Przezroczysty",
+        "beside": "obok {{label}}"
+      },
+      "panelRelationDebug": "Pokaż debugowanie relacyjnego routingu dla paneli (płótno panelu)",
+      "panelRelationDebugHint": "Pokaż dostępne ścieżki, koszty tras, klasy wątków i role modułów. Szczegółowy routing pojawi się w konsoli devtools. Tylko w interfejsie użytkownika, a nie w eksporcie."
+    },
+    "installerInfo": {
+      "title": "Dane instalatora (AREI)",
+      "hint": "Imię i nazwisko, adres i podpis wymagane w planach zgodnych z AREI. Zapisane dla wszystkich projektów.",
+      "name": "Nazwa instalatora",
+      "companyNumber": "Nr firmy",
+      "vatNumber": "Numer VAT",
+      "vatNumberAccountHint": "Edytuj ten numer VAT w aplikacji konta.",
+      "email": "E-mail",
+      "mobile": "Telefon komórkowy",
+      "phone": "Adres",
+      "namePlaceholder": "Nazwa firmy lub instalatora",
+      "address": "Adres",
+      "addressPlaceholder": "Ulica, kod pocztowy, gmina",
+      "signature": "Podpis",
+      "uploadSignature": "Prześlij podpis",
+      "clearSignature": "Przezroczysty",
+      "logo": "Logo",
+      "uploadLogo": "Prześlij logo",
+      "clearLogo": "Przezroczysty",
+      "showBrandingInSchematics": "Pokaż logo i podpis na schematach",
+      "logoOptional": "Opcjonalnie. Rozmiar obrazów jest zmniejszany do maks. 500 pikseli do przechowywania.",
+      "save": "Zapisz",
+      "saving": "Zapisz…",
+      "saved": "Zapisano"
+    }
+  },
+  "visionScan": {
+    "title": "Zeskanuj dokument",
+    "action": "Skandować",
+    "choosePdf": "Wybierz pliki",
+    "chooseFiles": "Wybierz PDF lub obrazy",
+    "invalidFile": "Wybierz PDF lub obraz.",
+    "addPages": "Dodaj strony",
+    "dragPage": "Przeciągnij stronę {{page}}, aby ją przenieść",
+    "classifying": "Organizuj strony…",
+    "recognizing": "Dokument procesu…",
+    "serviceUnavailable": "Lokalna usługa wizyjna nie jest uruchomiona. Uruchom npm run Vision:api i spróbuj ponownie.",
+    "failed": "Nie można sformatować dokumentu.",
+    "registrationRequired": "Zarejestruj się, aby zeskanować dokument.",
+    "hosted": {
+      "cancelScan": "Anuluj skanowanie",
+      "cancelFailed": "Nie można anulować skanowania.",
+      "processing": "Dokument procesu…",
+      "reviewReady": "Gotowy do sprawdzenia strony"
+    },
+    "mode": {
+      "title": "Wybierz rozpoznawanie",
+      "description": "Opracuj opcję porównywania tras rozpoznawania.",
+      "hybrid": {
+        "title": "Hybryda",
+        "description": "Łączy przygotowanie OpenCV z wytrenowanym modelem wizji. Zalecony."
+      },
+      "opencv": {
+        "title": "OpenCV",
+        "description": "Wykorzystuje stałe przetwarzanie obrazu bez modelu wizyjnego."
+      }
+    },
+    "confident": "Układ wygląda dobrze",
+    "review": "Sprawdź tę stronę",
+    "page": "Strona {{page}}",
+    "pagePreview": "Przykład strony {{page}}",
+    "crop": "Wyłącznik",
+    "cropCorner": "Narożnik {{corner}} wycięcia",
+    "applyCrop": "Zastosuj",
+    "levels": "Jasność",
+    "highPass": "Wyrównanie",
+    "planReview": {
+      "analyzing": "Przygotowywanie planów…",
+      "cleaned": "Wyczyszczono",
+      "editable": "Możliwość edycji",
+      "previous": "Poprzedni plan",
+      "next": "Następny plan",
+      "zoomOut": "Pomniejsz",
+      "zoomIn": "Powiększ",
+      "fit": "Dostosuj, aby dopasować"
+    },
+    "summary": {
+      "title": "Podsumowanie skanowania",
+      "circuits": "Kręgi",
+      "endpoints": "Punkty",
+      "placed": "Na planie",
+      "detected": "rozpoznano",
+      "unplaced_one": "Punkt {{count}} nie jest powiązany z planem.",
+      "unplaced_other": "Punkty {{count}} nie są powiązane z planem.",
+      "create": "Utwórz projekt",
+      "creating": "Utwórz projekt…",
+      "types": {
+        "socket": "gniazda wtyczkowe",
+        "switch": "Oprawa oświetleniowa",
+        "light_point": "punkty oświetleniowe",
+        "fixed_appliance": "Automatyka domowa",
+        "domotica": "automatyka domowa"
+      },
+      "unplaced_few": "{{count}} punkty nie są powiązane z planem.",
+      "unplaced_many": "{{count}} punktów nie jest powiązanych z planem."
+    },
+    "pending": {
+      "title": "Skanowanie dokumentu",
+      "processing": "Przetwarzanie w tle",
+      "reviewPages": "Sprawdź rozpoznane strony",
+      "ready": "Gotowy do sprawdzenia",
+      "failed": "Wymaga uwagi",
+      "unavailable": "Usługa wizyjna niedostępna",
+      "open": "Otwarte",
+      "discard": "Usuń"
+    },
+    "moveEarlier": "Umieść stronę wcześniej",
+    "moveLater": "Opublikuj stronę później",
+    "types": {
+      "one_wire": "Pojedynczy przewód",
+      "plan": "Plan",
+      "other": "Inne"
+    }
+  },
+  "project": {
+    "rename": "Zmień nazwę projektu",
+    "new": "Nowy projekt",
+    "open": "Otwórz projekt",
+    "save": "Zapisz projekt",
+    "export": "Projekt eksportowy",
+    "customer": "Klient",
+    "name": "Nazwa projektu",
+    "companyNumber": "Numer VAT",
+    "customerEmail": "E-mail",
+    "customerMobile": "Telefon komórkowy",
+    "customerPhone": "Adres",
+    "yearOfConstruction": "Rok budowy",
+    "yearOfConstructionInvalid": "Wprowadź prawidłowy rok z zakresu od 1500 do 2100.",
+    "meterEanCode": "Kod EAN miernika",
+    "meterEanCodePlaceholder": "np. 5412345678901234",
+    "inspectionAgency": "Korpus inspekcyjny",
+    "inspectionAgencyName": "Nazwa organizmu",
+    "showInspectionAgencyInInfoBlock": "Pokaż w blokach informacyjnych diagramów",
+    "hideInspectionAgencyInInfoBlock": "Ukryj w blokach informacyjnych schematów",
+    "created": "Utworzono",
+    "updated": "Zaktualizowano",
+    "templates": "Szablony/szablony",
+    "createTemplate": "Utwórz szablon/szablon",
+    "useTemplate": "Do użycia",
+    "fromTemplate": "Z szablonu/szablonu",
+    "chooseTemplate": "Wybierz szablon",
+    "emptyProject": "Pusty projekt",
+    "templateDescription": "Opis",
+    "templateDescriptionPlaceholder": "bv. Projekt start-up dotyczący remontu mieszkania",
+    "downloadTemplate": "Pobierz szablon/szablon",
+    "deleteTemplate": "Usuń szablon/szablon",
+    "deleteTemplateConfirmTitle": "Usunąć szablon?",
+    "deleteTemplateConfirmMessage": "Usunąć „{{name}}”? Projekty utworzone za jego pomocą zostają zachowane.",
+    "templateCreateFailed": "Nie można utworzyć szablonu.",
+    "templateUseFailed": "Nie można utworzyć projektu na podstawie tego szablonu.",
+    "templateDeleteFailed": "Nie można usunąć szablonu.",
+    "recent": "Najnowsze",
+    "recentProjects": "Ostatnie projekty",
+    "notificationBadgeTooltip": "Powiadomienia o nowych projektach",
+    "notifications": {
+      "shared": "Nowy projekt udostępniony Tobie",
+      "versions_one": "Nowa wersja stworzona przez kogoś innego",
+      "versions_other": "{{count}} nowe wersje wykonane przez kogoś innego",
+      "comments_one": "{{count}} Dodano nowy komentarz",
+      "comments_other": "{{count}} dodano nowe komentarze",
+      "versions_few": "{{count}} nowe wersje wprowadzone przez innych użytkowników",
+      "versions_many": "{{count}} nowych wersji wprowadzonych przez innych użytkowników",
+      "comments_few": "Dodano {{count}} nowe komentarze",
+      "comments_many": "Dodano {{count}} nowych komentarzy"
+    },
+    "refresh": "Odśwież",
+    "noProjects": "Nie ma jeszcze żadnych projektów",
+    "noProjectsDescription": "Zacznij od stworzenia pierwszego projektu instalacji elektrycznej",
+    "createFirst": "Stwórz swój pierwszy projekt",
+    "deleteConfirmTitle": "Usunąć projekt?",
+    "deleteConfirmMessage": "Czy na pewno chcesz usunąć {name}? Tej akcji nie można cofnąć.",
+    "deleteConfirmShort": "Czy na pewno",
+    "deleteConfirmAction": "? Tej akcji nie można cofnąć.",
+    "importDownloaded": "Importuj pobrany projekt",
+    "importDownloadedInvalidFile": "Wybierz eksport projektu .zip lub .pdf.",
+    "importFailedTitle": "Import nie powiódł się",
+    "importFailedMessage": "Nie można zaimportować projektu.",
+    "importTrikFile": "Importuj plik .TRIK",
+    "importProjectLoadingTitle": "Importuj projekt…",
+    "importProjectLoadingBody": "Trwa przetwarzanie obrazów planów pięter i danych projektu. Duże pliki mogą zająć trochę czasu.",
+    "importTrikInvalidFileTitle": "Nieprawidłowy plik",
+    "importTrikInvalidFileMessage": "Wybierz prawidłowy plik .trik.",
+    "importTrikSuccessTitle": "Import powiódł się",
+    "importTrikSuccessMessage": "Projekt TRiK \"{{name}}\" został zaimportowany.",
+    "importRepairedSupplyHandoffs": "{{count}} Usunięto nieaktualne łącza zasilania, aby można było zaimportować projekt. Pozostałe dane projektu zostały zachowane.",
+    "importTrikImportedLocallyTitle": "Zaimportowano lokalnie",
+    "importTrikImportedLocallyMessage": "TRiK „{{name}}” został zaimportowany lokalnie. Synchronizacja z chmurą nie powiodła się, projekt pozostaje w pamięci lokalnej.",
+    "importTrikFailedTitle": "TRiK nie powiódł się",
+    "importTrikFailedMessage": "TRiK nie powiódł się: {{error}}",
+    "importTrikImportedNameSuffix": "(importowany)",
+    "importSchematicalsArchive": "Archiwum schematów importu (dev)…",
+    "importSchematicalsFolder": "Importuj folder schematów (dev)…",
+    "devElectricalImportButton": "Importuj JSON (dev)…",
+    "devElectricalImportTitle": "Importuj elektrykę JSON",
+    "devElectricalImportJson": "Import elektryczny-JSON",
+    "devElectricalImportValid": "JSON jest ważny",
+    "devElectricalImportInvalid": "Napraw błędy sprawdzania poprawności",
+    "devElectricalImportCreate": "Utwórz projekt",
+    "devElectricalImportCopyPrompt": "Skopiuj monit systemowy",
+    "devElectricalImportPromptCopied": "Skopiowano monit systemowy",
+    "devElectricalImportRepaired": "JSON przywrócono",
+    "devElectricalImportRepair": {
+      "removedWrapping": "Usunięto otaczający tekst lub Markdown.",
+      "closedDelimiters": "Dodano brakujące haki zamykające na końcu."
+    },
+    "openExampleProject": "Otwórz przykładowy projekt",
+    "exampleTitle": "Wypróbuj przykładowy projekt",
+    "exampleDescription": "Zobacz jak wygląda gotowy projekt.",
+    "view": "Do obejrzenia",
+    "create": "Utwórz projekt",
+    "download": "Pobierz projekt",
+    "manageAccess": "Dostęp i wersje",
+    "localOptions": "Lokalne opcje projektu",
+    "newProjectLocalWarningShort": "Osiągnięto limit chmury. Będzie to projekt lokalny.",
+    "newProjectLocalChosenWarning": "Będzie to projekt lokalny. Możesz później uaktualnić go do chmury.",
+    "newProjectOfflineLocalWarning": "Jesteś offline. Ten projekt jest zapisany na tym urządzeniu. Gdy wrócisz do trybu online, zsynchronizujemy go z chmurą, jeśli pozwala na to Twój plan.",
+    "newProjectCooldownLocalWarning": "Twoje wolne miejsce w chmurze schładza się do {{date}}. Ten projekt jest tworzony lokalnie.",
+    "createFailedTitle": "Tworzenie projektu nie powiodło się",
+    "createFailedMessage": "Coś poszło nie tak. Spróbuj ponownie.",
+    "registrationRequiredCreateTitle": "Zarejestruj się, aby utworzyć projekt",
+    "registrationRequiredCreateMessage": "Nowe projekty wymagają darmowego konta. Możesz nadal otwierać projekt demonstracyjny bez rejestracji.",
+    "registrationRequiredCreateWithLocalProjects": "Nowe projekty wymagają darmowego konta. Twoje istniejące projekty lokalne pozostaną dostępne na tym urządzeniu i zostaną przeniesione na Twoje konto po rejestracji.",
+    "registrationRequiredActionMessage": "Zarejestruj się, aby tworzyć, importować i organizować projekty. Możesz nadal otwierać projekt demonstracyjny bez rejestracji.",
+    "registrationRequiredActionWithLocalProjects": "Zarejestruj się, aby tworzyć, importować i organizować projekty. Twoje istniejące projekty lokalne pozostaną dostępne na tym urządzeniu i zostaną przeniesione na Twoje konto po rejestracji.",
+    "registrationRequiredCreateCta": "Rejestr",
+    "moveToLocal": "Przejdź do lokalnego",
+    "openingTitle": "Ładowanie…",
+    "openingBody": "Proszę czekać.",
+    "notFoundTitle": "Nie znaleziono projektu",
+    "notFoundBody": "Nieprawidłowy lub usunięty link.",
+    "notFoundBack": "Uruchom"
+  },
+  "infoBlock": {
+    "madeWith": "Utworzono za pomocą {{brand}}",
+    "pageNr": "Strona",
+    "installerPropertiesTitle": "Szczegóły instalatora",
+    "installerOverride": "Nadpisz dane instalatora dla tego projektu",
+    "installerOverrideHint": "Dane instalatora specyficzne dla projektu. Widoczne tylko w tym projekcie.",
+    "installerGlobalHint": "z Ustawień. Włącz nadpisywanie danych specyficznych dla projektu.",
+    "headerInstallation": "Adres instalacyjny",
+    "headerInstaller": "Instalator",
+    "viewTitle": {
+      "oneWire": "Schemat jednoprzewodowy",
+      "panel": "Tablica rozdzielcza",
+      "sitplan": "Plan rozmieszczenia"
+    }
+  },
+  "installation": {
+    "defaultCable": "Kabel standardowy",
+    "title": "Profil",
+    "profile": "Profil",
+    "profileHousehold": "Domowe",
+    "profileNonHousehold": "Niedomowe",
+    "address": "Adres",
+    "street": "ul",
+    "postalCode": "Kod pocztowy",
+    "city": "Gmina",
+    "country": "Kraj",
+    "countryBelgium": "Belgia",
+    "countryFrance": "Francja",
+    "countryNetherlands": "Holandia",
+    "voltage": "Napięcie",
+    "mainSupply": "Główny zasilacz",
+    "voltage_2x230": "2×230V",
+    "voltage_3x230": "3×230 V",
+    "voltage_3n400": "3N400V",
+    "voltage_1n400": "1N400V",
+    "voltage_1x230": "1×230V",
+    "lineToNeutral": "Faza zerowa (V)",
+    "lineToLine": "Faza-Faza (V)",
+    "notes": "Notatki"
+  },
+  "panels": {
+    "title": "Płyta",
+    "propertiesTitle": "Tablica",
+    "add": "Dodaj płytkę",
+    "name": "Nazwa",
+    "location": "Lokalizacja",
+    "panelType": "Typ płytki",
+    "secondaryPanelRole": "Płyta dodatkowa",
+    "parentSupply": "Rodzic / zasilacz",
+    "supply": "Zasilacz",
+    "distribution": "Rozdzielnica",
+    "mainPanel": "Zagłówek",
+    "secondaryPanel": "Płyta {{number}}",
+    "diagramLabels": "Oznaczenia schematyczne",
+    "panelNumbering": "Numeracja tablic",
+    "panelNumberingHint": "Dodaje B01, B02, … w kolejności od płyty głównej do płyt podrzędnych w schemat jednokreskowy.",
+    "panelNetTypeLabels": "Typ sieci zgodny z harmonogramem",
+    "panelNetTypeLabelsHint": "Dodaje połączenie zasilania, napięcia i uziemienia w złączu schemat jednokreskowy, gdy ustawiony jest system połączenia uziemiającego.",
+    "earthingSystemLabel": "System podłączenia uziemienia",
+    "earthingSystemGridLabel": "System uziemienia (sieć)",
+    "earthingSystemBackupLabel": "System uziemiający (zapasowy)",
+    "earthingSystemCustom": "Wartość natywna — brak synchronizacji z płytą główną, dopóki nie zresetujesz tego samego systemu.",
+    "earthingSystem": {
+      "none": "Brak",
+      "TT": "TT",
+      "TN-S": "TN-S",
+      "TN-C": "TN-C",
+      "TN-C-S": "TN-C-S",
+      "IT": "IT"
+    },
+    "diagramTitleNumbered": "{{code}} – {{name}}",
+    "diagramFedFrom": "Zasilacz z {{source}}",
+    "diagramNetMain": "Siatka: {{net}} – {{frequency}} Hz",
+    "diagramNetSecondary": "Siatka: {{net}} – {{frequency}} Hz – {{earthing}}",
+    "diagramNetWithEarthing": "Siatka: {{net}} – {{earthing}}",
+    "diagramEarthingSystem": "System podłączenia uziemienia: {{earthing}}",
+    "diagramEarthingSystemGrid": "System uziemienia (sieć): {{earthing}}",
+    "diagramEarthingSystemBackup": "Układ uziemienia (zapasowy): {{earthing}}"
+  },
+  "panel": {
+    "deleteConfirmTitle": "Usunąć płytę(y)?",
+    "deleteBlockedTitle": "Nie można wymontować płyty głównej",
+    "deleteLastMainTitle": "Nie można usunąć ostatniej płyty głównej",
+    "deleteLastMainMessage": "Musi pozostać przynajmniej jedna płyta główna. Płyty głównej „{{panelNames}}” nie można wyjąć.",
+    "deleteMainConfirmMessage": "Wyjąć płytę główną {{panelNames}}?\nWybrane płytki, ich obwody, urządzenia zabezpieczające, płyty podrzędne i powiązane ramki zostaną usunięte. Możesz to cofnąć.",
+    "deleteConfirmMessage": "Następujące karty zawierają obwody, urządzenia zabezpieczające lub płyty podrzędne: {{panelNames}}\nIch usunięcie powoduje również usunięcie całej zawartości. Możesz to cofnąć.\nCzy na pewno chcesz kontynuować?",
+    "deleteEmptyPanelMessage": "Czy na pewno chcesz usunąć tablicę(y) {{panelNames}}?\nUsuwa także wszelkie powiązane ramki i zagnieżdżone tablice. Możesz to cofnąć."
+  },
+  "protections": {
+    "title": "Urządzenia zabezpieczające",
+    "add": "Dodaj urządzenie zabezpieczające",
+    "type": "Typ",
+    "rating": "Prąd znamionowy",
+    "curve": "Charakterystyka wyzwalania",
+    "sensitivity": "Prąd różnicowy IΔn",
+    "poles": "Polska",
+    "polesConfig": "Konfiguracja biegunów",
+    "residualCurrentType": "Typ mechanizmu różnicowego",
+    "breakingCapacity": "Zdolność zwarciowa",
+    "spdKind": "Symbol",
+    "spdStandard": "Ochrona odgromowa",
+    "spdSparkGap": "Mostek iskrowy",
+    "poles_1P": "1P",
+    "poles_1P_N": "1P+N",
+    "poles_2P": "2P (L+N)",
+    "poles_3P": "3P",
+    "poles_3P_N": "3P+N",
+    "poles_4P": "4P (3L+N)",
+    "residualType_AC": "AC (sinusoidalny)",
+    "residualType_A": "A (pulsujący prąd stały)",
+    "residualType_F": "F (częstotliwość mieszana)",
+    "residualType_B": "B (gładki DC)",
+    "description": "Opis",
+    "type_MCB": "Automatyczny",
+    "type_RCD": "Wyłącznik różnicowoprądowy",
+    "type_RCBO": "Wyłącznik różnicowoprądowy z zabezpieczeniem nadprądowym",
+    "MCB": "Automatyczny",
+    "RCD": "Wyłącznik różnicowoprądowy",
+    "RCBO": "Wyłącznik różnicowoprądowy z zabezpieczeniem nadprądowym",
+    "deleteLinkedPanelTitle": "Usunąć zabezpieczenia?",
+    "deleteLinkedPanelMessage": "Płytka połączona: {{panelNames}}",
+    "deleteLinkedPanelAction": "Usuń także płytkę",
+    "deleteProtectionAction": "Usuń tylko zabezpieczenia"
+  },
+  "circuits": {
+    "title": "Obwody",
+    "legendTitle": "Legenda ścieżki przepływu",
+    "add": "Dodaj Obwód",
+    "code": "Kabel",
+    "kind": "Typ",
+    "cable": "Kabel",
+    "lighting": "Oświetlenie",
+    "sockets": "Gniazda wtyczkowe",
+    "fixed_appliance": "Urządzenie podłączone na stałe",
+    "mixed": "Mieszane",
+    "stove": "Piekarnik",
+    "solar": "Panele słoneczne",
+    "battery": "Dzwonek",
+    "doorbell": "Poddystrybutor",
+    "subpanel": "Poddystrybutor",
+    "hvac": "HVAC",
+    "boiler": "Bojler",
+    "heating": "Ogrzewanie",
+    "ev": "Ładowarka pojazdów elektrycznych",
+    "empty": "Pusty obwód",
+    "other": "Inne",
+    "derivedHint": "Proponowany w oparciu o obwód",
+    "noCircuits": "Brak obwody",
+    "addNew": "Dodaj nowy...",
+    "addNewDialogTitle": "Dodaj nowy obwód",
+    "addNewDialogDescription": "Utwórz nowy obwód na głównej magistrali i przypisz do niego ten punkt końcowy.",
+    "addNewConfirm": "Dodaj Obwód",
+    "addNewLabel": "Etykieta",
+    "addNewLabelPlaceholder": "np. A, B, kuchnia",
+    "addNewLabelHint": "Pozostaw puste dla automatycznego etykietowania.",
+    "addNewPanel": "Tablica"
+  },
+  "planDrop": {
+    "dialogTitle": "Dodaj do kręgu",
+    "shortHeadline": "Który obwód?",
+    "adjustHeadline": "Koło",
+    "applyCircuit": "Zastosuj",
+    "done": "Gotowe",
+    "panelLabel": "Rozdzielnica",
+    "circuitHeading": "Koło",
+    "confirm": "Dodaj do kręgu",
+    "newCircuit": "Nowy obwód",
+    "newCircuitCodeLabel": "Kod pętli",
+    "emptyKind": "Puste"
+  },
+  "endpoints": {
+    "title": "Punkty końcowe",
+    "add": "Dodaj punkt końcowy",
+    "label": "Etykieta",
+    "notes": "Notatki",
+    "socket": "Gniazdo wtyczkowe",
+    "modularSocket": "Modułowy gniazdo wtyczkowe",
+    "switch": "Przełącznik",
+    "light_point": "Oprawa oświetleniowa",
+    "fixed_appliance": "Urządzenie podłączone na stałe",
+    "accumulatingBoiler": "Kocioł akumulacyjny",
+    "accumulationHeating": "Ogrzewanie akumulacyjne",
+    "heatingWithFan": "Z wentylatorem",
+    "applianceType": "Typ urządzenia",
+    "notesPlaceholder": "Opcjonalne uwagi dotyczące tego punktu końcowego",
+    "deviceType": "Typ urządzenia",
+    "deviceTypeHelp": "Kategoria urządzenia elektrycznego",
+    "switchType": "Typ przełącznika",
+    "lightType": "Typ światła",
+    "socketType": "Typ gniazda",
+    "socketType_socket_gnd_child_short": "Uziemiony + zabezpieczenie przed dziećmi",
+    "socketType_socket_gnd_short": "Uziemiony",
+    "socketType_socket_child_short": "Ochrona dzieci",
+    "socketType_socket_short": "Standard",
+    "socketType_double_socket_gnd_child_short": "Podwójne, uziemione + dziecko",
+    "socketType_double_socket_child_short": "Podwójne, zabezpieczenie przed dziećmi",
+    "socketOptions": "Opcje gniazd",
+    "socketSwitchOption": "Przełącznik",
+    "socketSwitchNone": "Brak",
+    "socketSwitchOverlay": "Gniazdo wtyczkowe z przełącznikiem dwubiegunowym",
+    "socketSwitchOverlayLock": "Gniazdo wtyczkowe z dwubiegunowym wyłącznikiem blokującym",
+    "socketWaterproof": "Wodoodporny",
+    "socketCount": "Ilość gniazda wtyczkowe",
+    "setSocketCount": "Ustawiona ilość gniazda wtyczkowe",
+    "lightCount": "Liczba punktów świetlnych",
+    "ventilationCount": "Liczba wentylatorów",
+    "hvacDeviceCount": "Liczba urządzeń",
+    "switchPoles": "Polska",
+    "switchingCount": "Liczba operacji łączeniowych",
+    "switchPoles1": "1 biegun",
+    "switchPoles2": "2 bieguny",
+    "switchPoles3": "3 bieguny",
+    "twoWayPoles": "Bieguny (przełącznik)",
+    "verklikkerlamp": "Lampka ostrzegawcza",
+    "lightPointOptions": "Opcje punktu świetlnego",
+    "lightPointSafety": "Obwód bezpieczeństwa",
+    "lightPointAutonomous": "Autonomiczny",
+    "lightPointSwitch1p": "Przełącznik (1-biegunowy)",
+    "lightPointOnWall": "Na ścianie",
+    "lightPointSafetyShort": "Oświetlenie awaryjne",
+    "lightPointDecentralShort": "Zdecentralizowany",
+    "lightPointSwitch1pShort": "Przełącznik",
+    "lightPointOnWallShort": "Na ścianie",
+    "lightSpotBeamType": "Typ belki",
+    "lightSpotBeamNone": "Brak",
+    "lightSpotBeamStraight": "Belka prosta",
+    "lightSpotBeamDiverging": "Wiązka rozbieżna",
+    "lightFluorescentTubes": "Liczba rurek",
+    "hvac": {
+      "energySource": "Źródło energii",
+      "type": "Typ",
+      "function": "Funkcjonować",
+      "energy_electricity": "Energia elektryczna",
+      "energy_gas_fan": "Gaz (z wentylatorem)",
+      "energy_gas_atmospheric": "Gaz (atmosferyczny)",
+      "energy_liquid": "Paliwo płynne",
+      "energy_solid": "Paliwo stałe",
+      "energy_none": "Brak",
+      "type_heat_exchange": "Wymiennik ciepła",
+      "type_cogeneration": "CHP / Kogeneracja",
+      "type_tap_spiral": "Wężownica wody kranowej",
+      "type_boiler": "Bojler",
+      "type_none": "Brak",
+      "function_none": "Brak",
+      "function_heat": "Ogrzewanie",
+      "function_cool": "Chłodzenie",
+      "function_heat_cool": "Ogrzewanie/chłodzenie",
+      "energy_electricity_short": "Elektryczny.",
+      "energy_gas_fan_short": "Gaz (odpowietrznik)",
+      "energy_gas_atmospheric_short": "Gaz (atm.)",
+      "energy_liquid_short": "Ciecz",
+      "energy_solid_short": "Naprawiono",
+      "energy_none_short": "Brak",
+      "type_heat_exchange_short": "Zmień.",
+      "type_cogeneration_short": "CHP",
+      "type_tap_spiral_short": "Spirala",
+      "type_boiler_short": "Bojler",
+      "type_none_short": "Brak",
+      "function_none_short": "Brak",
+      "function_heat_short": "Nr ref.",
+      "function_cool_short": "Świetne.",
+      "function_heat_cool_short": "Ogrzewanie/chłodzenie"
+    },
+    "relay": {
+      "maxCurrentRating": "Maks. prąd znamionowy",
+      "poles": "Polska",
+      "control": "Sterowniczy",
+      "control_standard": "Standard",
+      "control_timer": "Zegar",
+      "control_clock": "Zegar",
+      "control_impulse": "Impuls",
+      "control_thermostat": "Termostat",
+      "control_dimmer": "Ściemniacz"
+    },
+    "smokeDetector": {
+      "type": "Typ czujki",
+      "type_smoke": "Dym",
+      "type_gas": "Gaz",
+      "type_manual": "Podręcznik",
+      "type_beam": "Promień",
+      "type_flame": "Płomień",
+      "type_heat": "Ciepło"
+    },
+    "motionDetector": {
+      "type": "Typ czujki",
+      "type_spread": "Rozpiętość",
+      "type_generic": "Ogólne"
+    },
+    "energyMeter": {
+      "poles": "Polska"
+    },
+    "trunkDevice": {
+      "title": "Urządzenie na bagażniku",
+      "label": "Etykieta",
+      "position": "Pozycja na bagażniku",
+      "positionBefore": "Przed wszystkimi gałęziami",
+      "positionAfter": "Po odgałęzieniu {{n}}",
+      "delete": "Wyjmij z bagażnika"
+    },
+    "domotica": {
+      "switchControlEnabled": "Włącz wyjście sterujące",
+      "switchType": "Przełącznik",
+      "switchType_1p": "1P",
+      "switchType_2p": "2P",
+      "switchType_impulse": "Impuls/przycisk",
+      "switchCount": "Liczba przełączników na kierownicy",
+      "endpointCount": "Liczba wyjść punktów końcowych",
+      "controlArea": "Sterowniczy",
+      "control_programmed": ".",
+      "control_wireless": "Bezprzewodowe",
+      "control_detection": "Wykrywanie",
+      "control_button": "Przycisk",
+      "mainType": "Jednostka główna",
+      "mainType_none": "Brak",
+      "mainType_socket": "Gniazdo wtyczkowe",
+      "mainType_switch": "Przełącznik",
+      "mainSwitchType": "Typ przełącznika"
+    },
+    "solarPanel": {
+      "groupTitle": "Marka i model",
+      "wattage": "Moc (Wp)",
+      "voltage": "Napięcie (V)"
+    },
+    "battery": {
+      "voltage": "Napięcie (V)",
+      "capacity": "Pojemność (kWh)",
+      "powerKw": "Moc (kW)"
+    },
+    "evCharger": {
+      "groupTitle": "Szczegóły stacji ładującej",
+      "integratedDcResidualProtection": "Wbudowane wykrywanie upływu prądu stałego (6 mA)"
+    },
+    "certification": {
+      "groupTitle": "Identyfikacja urządzenia (certyfikacja)",
+      "brand": "Model",
+      "model": "Model",
+      "serialNumber": "Numer seryjny",
+      "power": "Zasilanie"
+    },
+    "energyConversion": {
+      "groupTitle": "Konwersja energii"
+    },
+    "transformerOptions": {
+      "options": "Opcje"
+    },
+    "transformer": {
+      "safetyType": "Transformator bezpieczeństwa",
+      "safety_none": "Brak",
+      "safety_closed_short": "Zamknięte",
+      "safety_open_short": "Otwarte",
+      "shortCircuitProtected": "Odporny na zwarcia",
+      "protective": "Transformator ochronny",
+      "overlayLabel": "Etykieta transformatora"
+    },
+    "conversion": {
+      "pMaxPrimary": "Pmax U podkład (VA)",
+      "pMaxSecondary": "Pmax U sec (VA)",
+      "dcOutputVoltage": "Wyjście DC (V)",
+      "dcInputMinVoltage": "DC min. wejście (V)"
+    }
+  },
+  "frames": {
+    "title": "Rama",
+    "notFound": "Nie znaleziono ramki",
+    "frameTitle": "Tytuł",
+    "titlePlaceholder": "Podaj tytuł ramki...",
+    "titlePosition": "Pozycja tytułowa",
+    "titlePositionInside": "Wewnątrz",
+    "titlePositionOutside": "na zewnątrz",
+    "fontSize": "Rozmiar czcionki tytułu",
+    "contentInfo": "To pole grupuje elementy {{count}} {{type}}",
+    "contentType_endpoint": "Punkty końcowe",
+    "contentType_protection": "Urządzenie typu trunk",
+    "contentType_trunkDevice": "Uziemienie",
+    "contentType_ground": "grunt",
+    "contentType_mixed": "mieszane"
+  },
+  "views": {
+    "eendraad": "Schemat jednokreskowy",
+    "plan": "Plan rozmieszczenia",
+    "panel": "Tablica",
+    "structure": "Struktura",
+    "both": "Obydwa",
+    "panelAndPlan": "+ plan",
+    "documents": "Dokumenty"
+  },
+  "structure": {
+    "traceHidden": "{{count}} ukryte stopnie",
+    "traceBranches": "{{count}} odgałęzienia przewodzące",
+    "traceCycle": "Wykryto cykl",
+    "noStructure": "Brak konstrukcji elektrycznej",
+    "noFilterResults": "Brak wyników dla bieżących filtrów",
+    "buildFailed": "Nie można zbudować struktury",
+    "traceScope": "Kierunek śledzenia",
+    "upstream": "Upstream",
+    "downstream": "w dół",
+    "both": "Obydwa",
+    "none": "Brak",
+    "layoutDirection": "Kierunek układu",
+    "horizontal": "Poziomy",
+    "vertical": "Pionowy",
+    "relationships": "Relacje",
+    "secondaryLinks": "Powiązania wtórne",
+    "inferred": "Relacje pochodne",
+    "items": "Relacje",
+    "links": "Diagnoza",
+    "diagnostics": "diagnozy",
+    "viewOptions": "Opcje wyświetlania",
+    "supply": "Zasilacz",
+    "panelGraph": "Trasy tablicy",
+    "circuitGraph": "Obwody",
+    "panelOrphans": "Niepowiązane dane karty",
+    "circuitOrphans": "Niepołączone dane obwodu",
+    "graphScope": "Zakres wykresu",
+    "selectedPanel": "Wybrana płytka",
+    "entireInstallation": "Kompletna instalacja",
+    "occurrences": "Wygląd fizyczny",
+    "selectedConnection": "wybrane połączenie",
+    "connectionBetween": "Połączenie od {{source}} do {{target}}",
+    "item": "Element struktury",
+    "knowledge": "Poziom wiedzy",
+    "knowledge_explicit": "Jawne",
+    "knowledge_inferred": "Pochodny",
+    "knowledge_ambiguous": "Niejednoznaczne",
+    "knowledge_missing": "Źródło",
+    "source": "Źródło",
+    "sourceType": "Typ źródła",
+    "sourceId": "Identyfikator źródła",
+    "projectedReadOnly": "Wyświetlany element · tylko do odczytu",
+    "wire": "Przewód",
+    "busbar": "Szyny",
+    "busbarBars": "Szyny: {{count}}",
+    "wireConductors": "Żyły: {{count}}",
+    "resetView": "Przywróć widok drzewa",
+    "filtersActive": "filtry aktywne",
+    "alternativePaths_one": "{{count}} ścieżka alternatywna",
+    "alternativePaths_other": "{{count}} ścieżki alternatywne",
+    "alternativePaths_few": "{{count}} alternatywne ścieżki",
+    "alternativePaths_many": "{{count}} alternatywnych ścieżek"
+  },
+  "panelCanvas": {
+    "showOnPlan": "Pokaż na planie",
+    "selectPanel": "Wybierz płytkę",
+    "panelOptions": "Opcje zarządu",
+    "visibility": "Widoczność",
+    "hiddenDevices": "Ukryte urządzenia",
+    "allHierarchy": "Wszystkie (hierarchia)",
+    "noPanels": "Brak znaków",
+    "feedFromTop": "Zasilanie od góry",
+    "feedFromBottom": "Zasilanie od dołu",
+    "rows": "Wiersze",
+    "columns": "Kolumny",
+    "topTerminalStripRail": "Listwa zaciskowa u góry",
+    "bottomTerminalStripRail": "Listwa zaciskowa na dole",
+    "showDomotica": "Pokaż automatykę domową",
+    "modules": "moduły",
+    "assignToCircuit": "Przypisz do obwód",
+    "assignModeOn": "Kliknij obwód…",
+    "moveToSupplyPanel": "Przejdź do płyty siatkowej",
+    "moveToMainPanel": "Przejdź do płyty głównej",
+    "hideFromPanel": "Ukryj w widoku tablicy",
+    "showHiddenDescription": "Wybierz jedno lub więcej urządzeń do wyświetlenia.",
+    "supplyPanel": "Deska sieciowa",
+    "virtualEnclosure": "Skrzynka zasilająca",
+    "hideSupplyPanel": "Ukryj tablicę sieciową",
+    "rewireTool": "Narzędzie do resetowania",
+    "rewireModeOn": "Tryb resetowania Wyłącz",
+    "rewireModeOff": "Tryb zmiany przełożenia",
+    "autoArrange": "Automatycznie organizuj moduły",
+    "autoArrangeConfirm": "Całkowicie zastąpi obecny układ płytki. Kontynuować?",
+    "labelMode": "Tryb etykiety",
+    "swapLabelRows": "Zmień rzędy",
+    "swapPanelLabels": "Przełącz wszystkie rzędy etykiet na płycie",
+    "editRowTopLabels": "Edytuj górne etykiety wiersza",
+    "editRowBottomLabels": "Edytuj dolne etykiety wiersza",
+    "editPanelTopLabels": "Edytuj wszystkie górne etykiety",
+    "editPanelBottomLabels": "Edytuj wszystkie dolne etykiety",
+    "overflowWarningTitle": "Niektóre moduły znajdują się w strefie przelewu",
+    "overflowWarningMessage": "Niektóre moduły znajdują się w strefie przelewu. Umieść je w siatce planszy lub powiększ planszę; pomijają eksport etykiet.",
+    "labelSourceLabel": "Etykieta",
+    "labelSourceNotes": "Notatki",
+    "labelSourceExtra": "Dodatkowe",
+    "labelSourceTechnical": "Dane techniczne",
+    "labelCellPlaceholder": "Etykieta",
+    "notesCellPlaceholder": "Notatki",
+    "extraCellPlaceholder": "Dodaj notatki na etykiecie",
+    "technicalCellPlaceholder": "Właściwości techniczne",
+    "labelAlignLeft": "Wyrównaj w lewo",
+    "labelAlignCenter": "Centrum",
+    "labelAlignRight": "Wyrównaj w prawo",
+    "labelAlignJustify": "Rozłożony tekst",
+    "panelLayout": "Układ płytki"
+  },
+  "panelFilter": {
+    "title": "Filtr płytowy",
+    "allPanels": "Wszystkie płyty",
+    "syncWithPanelView": "Synchronizacja z widokiem tablicy"
+  },
+  "canvas": {
+    "grid": "Pokaż siatkę",
+    "snap": "Wyrównaj",
+    "projectedSnap": "Wyrównanie projekcji",
+    "gridSize": "Rozmiar siatki",
+    "gridOpacity": "Intensywność sieci",
+    "zoomIn": "Powiększ",
+    "zoomOut": "Pomniejsz",
+    "fitToView": "Dostosuj, aby dopasować",
+    "resetZoom": "Zresetuj powiększenie",
+    "uploadFloorPlan": "Prześlij plan piętra",
+    "controls": "Użyj kółka myszy, aby powiększyć • Kliknij prawym przyciskiem myszy i przeciągnij, aby przesuwać",
+    "controlsTouch": "Zsuń, aby powiększyć • 2 palce, aby przesunąć",
+    "splitHorizontal": "Podział poziomy",
+    "splitVertical": "Podział pionowy",
+    "floor": "Podłoga",
+    "groundFloor": "Parter",
+    "firstFloor": "Pierwsze piętro",
+    "dragSymbolsHere": "(przeciągnij tutaj symbole)",
+    "noFloors": "Brak podłóg",
+    "supplyFrame": {
+      "title": "Zasilacz",
+      "supplyLabel": "Zasilacz",
+      "mainPanelLabel": "Zagłówek"
+    },
+    "eendraadNaming": {
+      "menuTitle": "Oznaczenie",
+      "automaticNaming": "Automatyczna etykieta",
+      "automaticNamingDescription": "Obwody są automatycznie oznaczane (A,B,C,...)",
+      "hideFeederLetters": "Brak Etykieta bez połączeń",
+      "hideFeederLettersDescription": "Obwody bez połączeń nie są oznaczone.",
+      "toggleLetterOnOneWire": "Pokaż lub ukryj wielką literę na schemacie pojedynczego przewodu",
+      "endpointBranchLabelLocked": "Etykiety odgałęzień mają automatyczne nazewnictwo (okrągła litera + numer kolejny).",
+      "lockedTooltip": "Automatyczne etykietowanie jest włączone",
+      "lockedDescription": "Wyłącz tę opcję, aby zmienić tę etykietę.",
+      "openAutomaticNaming": "Automatycznie otwieraj etykietę",
+      "automaticStatus": "Automatyczny",
+      "customStatus": "Zmodyfikowano",
+      "setCustomLabel": "Ustaw etykietę niestandardową",
+      "useAutomaticLabel": "Użyj automatycznej etykiety",
+      "customLabelNonStandardWarning": "Ta etykieta niestandardowa jest poza zakresem A, B, C…",
+      "customLabelDuplicateWarning": "Ta etykieta jest również używana przez inny obwód na tej płycie.",
+      "customLabelBothWarnings": "Ta niestandardowa etykieta znajduje się poza zakresem A, B, C… i jest również używana przez inny obwód na tej płycie.",
+      "resetAllLabels": "Zresetuj wszystkie etykiety",
+      "resetAllTooltip": "Usuń wszystkie etykiety niestandardowe i użyj ponownie etykiet automatycznych dla wszystkich okręgów.",
+      "resetAllConfirmTitle": "Zresetować wszystkie niestandardowe etykiety?",
+      "resetAllConfirmMessage": "Wszystkie niestandardowe etykiety pętli zostaną usunięte i zastąpione etykietami automatycznymi. Możesz cofnąć tę zmianę.",
+      "resetAllConfirm": "Zresetuj etykiety",
+      "confirmOverwriteTitle": "Zamienić litery?",
+      "confirmOverwriteMessage": "Autonaming zastępuje obecne litery A, B, C… zgodnie z rzędami na każdej planszy. Kontynuować?",
+      "confirmOverwriteConfirm": "Kontynuuj"
+    }
+  },
+  "planImport": {
+    "recognizeWalls": "Rozpoznaje edytowalne ściany",
+    "recognizingWalls": "Rozpoznawanie ścian...",
+    "recognitionFailed": "Rozpoznanie ściany nie powiodło się.",
+    "signInToRecognize": "Zaloguj się, aby rozpoznać ściany.",
+    "scanWorkerRequired": "Ta metoda skanowania nie jest dostępna na serwerze wizyjnym.",
+    "scanMethod": "Metoda skanowania",
+    "scanHybrid": "Hybryda",
+    "scanYolo": "YOLO",
+    "scanLuna": "Luna",
+    "noWallsFound": "Na tym planie nie znaleziono żadnych ścian.",
+    "title": "Plan importu",
+    "uploadDescription": "Prześlij plan piętra jako tło.",
+    "dragDropOrClick": "Przeciągnij obraz tutaj lub kliknij, aby wybrać",
+    "orPaste": "Lub wklej obraz ze schowka",
+    "supportedFormats": ": JPG, PNG, GIF, WebP, PDF, SVG, DXF, DWG",
+    "invalidFileType": "Wybierz prawidłowy plik obrazu",
+    "invalidPdfFile": "Wybierz prawidłowy plik PDF",
+    "invalidDxfFile": "Wybierz prawidłowy plik DXF",
+    "invalidDwgFile": "Wybierz prawidłowy plik DWG",
+    "invalidSvgFile": "Wybierz prawidłowy plik SVG",
+    "loading": "Ładowanie...",
+    "cropDescription": "Opcjonalne przycinanie. Przeciągnij niebieskie pole, aby dostosować.",
+    "applyCrop": "Zastosuj",
+    "resetCrop": "Resetuj",
+    "skipCrop": "Pomiń",
+    "scaleDescription": "Narysuj linię skali. Kliknij i przeciągnij znaną odległość.",
+    "enterDistance": "Odległość w metrach:",
+    "skipScale": "Pomiń",
+    "redraw": "Znowu",
+    "selectFloor": "Podłoga",
+    "existingFloor": "Istniejąca podłoga",
+    "createNewFloor": "Nowa podłoga",
+    "selectFloorOption": "Wybierz...",
+    "floorNamePlaceholder": "Nazwa (np. Parter, I piętro)",
+    "floorNameRequired": "Wprowadź nazwę",
+    "preview": "Zapowiedź",
+    "backgroundProcessing": "Przetwarzanie w tle",
+    "backgroundProcessingDescription": "Automatycznie wykrywamy i usuwamy białe tło oraz odwracamy kolory dla trybu ciemnego.",
+    "processing": "Przetwarzanie obrazu...",
+    "whiteBackgroundDetected": "Wykryto białe tło",
+    "whiteBackgroundDetectedDescription": "Obraz ma białe tło. Możemy to usunąć i uczynić przezroczystym, aby działało lepiej w trybie ciemnym.",
+    "enableBackgroundProcessing": "Usuń białe tło i włącz obsługę trybu ciemnego",
+    "noWhiteBackground": "Nie wykryto białego tła. Obraz jest używany w takiej postaci, w jakiej jest.",
+    "original": "Oryginalny",
+    "processed": "przetworzone",
+    "pdfSelectPages": "Wybierz jedną lub więcej stron do zaimportowania. Możesz przyciąć każdą stronę osobno.",
+    "selectAllPages": "Wybierz wszystkie strony",
+    "clearAllPages": "Wyczyść wybór",
+    "pageLabel": "Strona {{page}}",
+    "duplicateFloor": "Zduplikowana podłoga",
+    "vectorPreferred": "Wektor",
+    "rasterFallback": "Awaria rastra",
+    "cropPage": "Przytnij stronę",
+    "resetPageCrop": "Zresetuj przycięcie",
+    "croppedBadge": "Przycięty",
+    "cadLayers": "Warstwy",
+    "croppedPages": "Przycięte strony: {{count}}",
+    "pdfDestination": "Miejsce docelowe importu",
+    "newFloorPerPage": "Utwórz nowe piętro na wybranej stronie",
+    "replaceSelectedFloor": "Zastąp wybrane piętro (tylko pierwsza wybrana strona)",
+    "selectAtLeastOnePage": "Wybierz co najmniej jedną stronę",
+    "processingPdf": "Ładowanie stron PDF...",
+    "scaleSettings": "Ustawienia skali",
+    "setScale": "Ustaw skalę",
+    "updateScale": "Dostosuj skalę",
+    "applyScaleToAllPages": "Zastosuj tę skalę do wszystkich importowanych stron",
+    "scaleSetForPage": "Zestaw wag ze stroną {{page}}",
+    "importing": "Importuj...",
+    "scaleModeTitle": "Jak chcesz zastosować skalę?",
+    "scaleModeShared": "Ustaw skalę raz (pierwsza wybrana strona) i użyj jej ponownie dla wszystkich zaimportowanych stron",
+    "scaleModePerPage": "Ustaw skalę oddzielnie dla każdej strony",
+    "scaleModeSkip": "Na razie pomiń skalę",
+    "scaledPagesCount": "Strony skalowane: {{count}} / {{total}}",
+    "skipScaleImport": "Pomiń skalę i import",
+    "saveFailedTitle": "Import nie został zapisany",
+    "saveFailed": "Plan został pomyślnie zaimportowany, ale projektu nie można było zapisać. Spróbuj ponownie.",
+    "resetPageScale": "Zresetuj skalę tej strony",
+    "pdfDarkModeTitle": "Obsługa trybu ciemnego",
+    "pdfDarkModeDescription": "Wybierz, czy importowane strony PDF mają automatycznie dostosowywać się do trybu ciemnego. To ustawienie dotyczy wszystkich wybranych stron.",
+    "enablePdfDarkModeProcessing": "Włącz dostosowywanie trybu ciemnego dla wszystkich importowanych stron PDF",
+    "previewPage": "Przykładowa strona",
+    "darkModePreview": "Przykład trybu ciemnego",
+    "cadColorModeTitle": "Tryb koloru CAD",
+    "cadColorModeDescription": "Wybierz, czy importować rysunek CAD w kolorze czy w skali szarości. Obydwa przykłady dostosowują się do bieżącego trybu jasnego lub ciemnego.",
+    "colorPreview": "Przykładowy kolor",
+    "enableCadGrayscale": "Konwertuj kolory CAD na skalę szarości",
+    "grayscalePreview": "Przykład skali szarości"
+  },
+  "planTools": {
+    "movePlanImage": "Przesuń obraz planu",
+    "resetScale": "Dostosuj skalę",
+    "uploadFloorPlanFirst": "Aby skorzystać z tego narzędzia, najpierw prześlij obraz planu"
+  },
+  "planWiring": {
+    "tool": "Okablowanie",
+    "toolDescription": "Narysuj trasy przewodów pomiędzy symbolami na aktywnej podłodze"
+  },
+  "layout": {
+    "presetLabel": "Układ",
+    "collapseBottomShelf": "Ukryj panel",
+    "expandBottomShelf": "Pokaż panel"
+  },
+  "floorPlanTools": {
+    "drawMode": "Tryb rysowania",
+    "exitDrawMode": "Wyjdź z trybu rysowania",
+    "drawWall": "Rysowanie ścian (dowolna forma)",
+    "drawWallHint": "Przytrzymaj Shift, aby rysować proste ściany (co 45°)",
+    "drawWallRect": "Rysowanie ścian (prostokąt)",
+    "movePoint": "Przesuń punkt ściany",
+    "insertDoor": "Włóż drzwi",
+    "insertWindow": "Wstaw okno",
+    "drawStair": "Rysunek schodów",
+    "placeNote": "Notatka",
+    "graphicElements": "Elementy graficzne",
+    "clipWall": "Ściana do cięcia",
+    "insertPoint": "Punkt wstawienia",
+    "select": "Wybierz ściany/punkty"
+  },
+  "planGraphic": {
+    "sizeLocked": "Stały rozmiar",
+    "resizable": "Skalowalny",
+    "width": "Szerokość (cm)",
+    "height": "Wysokość (cm)",
+    "rotation": "Obrót (stopnie)",
+    "elements": {
+      "bathtub": "Wanna",
+      "shower": "Prysznic",
+      "washbasin": "Umywalka",
+      "toilet": "Toaleta",
+      "kitchenCabinet": "Gabinet",
+      "car": "Samochód",
+      "rectangle": "Prostokąt"
+    }
+  },
+  "quickPlacer": {
+    "title": "SnelPlaatser",
+    "panelSelector": "Tablica",
+    "mode": {
+      "slow": "Wolno",
+      "fast": "Szybki",
+      "slowTooltip": "Przeciągnij wiersz na Plan rozmieszczenia, aby zmienić położenie istniejącego symbolu.",
+      "fastTooltip": "Kliknij lewym przyciskiem myszy miejsca. Kliknięcie prawym przyciskiem myszy pomija. Esc opuszcza tryb szybki. Klawisze 1-9 na kolejnych piętrach w kolejności."
+    },
+    "autoSkip": {
+      "short": "Automat. pomiń",
+      "full": "Automatyczne pomijanie niestandardowych miejsc docelowych"
+    },
+    "noItems": "Brak elementów",
+    "itemCount": "Elementy: {{count}}",
+    "noNotes": "Brak notatek",
+    "customPlacement": "Niestandardowe rozmieszczenie",
+    "defaultPlacement": "Standardowe umiejscowienie",
+    "floor": "Podłoga",
+    "current": "Prąd",
+    "emptyState": "Brak dostępnych rozmieszczeń symboli.",
+    "availableWhenPlanOpen": "QuickPlacer jest dostępny, gdy otwarty jest widok Plan rozmieszczenia.",
+    "unplaced": {
+      "count_one": "{{count}} do umieszczenia",
+      "count_other": "{{count}} do umieszczenia",
+      "count_few": "{{count}} do umieszczenia",
+      "count_many": "{{count}} do umieszczenia"
+    }
+  },
+  "synergrid": {
+    "fillButton": "Wypełnij listą Synergrid",
+    "verified": "Synergrid C10/26 zatwierdzony",
+    "types": {
+      "solar": "Solar",
+      "storage": "Pamięć masowa",
+      "backup": "Kopia zapasowa",
+      "wind": "Wiatr",
+      "chp": "CHP",
+      "combined": "Połączone"
+    },
+    "phases": {
+      "single": "1 faza",
+      "three": "3-fazowy"
+    },
+    "picker": {
+      "title": "Synergrid C10/26 lista zatwierdzonych",
+      "subtitle": "Wybierz element z oficjalnej listy i uzupełnij jego właściwości.",
+      "searchPlaceholder": "Wyszukaj markę, model lub referencję",
+      "plugAndPlayOnly": "Tylko typu plug and play",
+      "loading": "Ładowanie listy Synergrid...",
+      "error": "Nie można załadować listy Synergrid",
+      "empty": "Brak pasujących elementów",
+      "fill": "Wypełnienie",
+      "resultCount": "Elementy: {{count}}",
+      "resultLimit": "Pokazano pierwszy {{count}}",
+      "resultVisible": "{{visible}} z {{count}}",
+      "columns": {
+        "brand": "Model",
+        "productSeries": "Asortyment produktów",
+        "model": "Model",
+        "power": "Zasilanie",
+        "phase": "Faza",
+        "type": "Typ",
+        "approved": "Numer referencyjny",
+        "reference": "Odniesienie"
+      }
+    }
+  },
+  "inspectionAgencies": {
+    "fillButton": "Wypełnij rozpoznaną listą",
+    "picker": {
+      "title": "Uznane organy kontrolne",
+      "subtitle": "Wybierz uznaną organizację i wprowadź informacje dotyczące kontroli.",
+      "searchPlaceholder": "Wyszukaj nazwę, miasto, KBO, adres e-mail lub domenę",
+      "loading": "Ładowanie rozpoznanych ciał...",
+      "error": "Nie można załadować rozpoznanych obiektów",
+      "empty": "Brak pasujących organizmów",
+      "fill": "Wypełnienie",
+      "resultCount": "{{count}} organizmy",
+      "columns": {
+        "name": "Nazwa",
+        "city": "Miejsce",
+        "companyNumber": "KBO",
+        "email": "E-mail",
+        "phone": "Tel.",
+        "domains": "Domeny"
+      }
+    }
+  },
+  "sitplanVisibility": {
+    "title": "Widoczność",
+    "showAll": "Pokaż wszystko",
+    "groundPlans": "Plany pięter",
+    "opacity": "Przezroczystość",
+    "labels": "Etykiety",
+    "symbols": "Symbole",
+    "symbolSize": "Rozmiar symbolu",
+    "wires": "Okablowanie",
+    "wiresLighting": "Oświetlenie i łączniki",
+    "wiresSockets": "Gniazda wtyczkowe",
+    "wiresOther": "Inne",
+    "wiresSupply": "Zasilanie i uziemienie",
+    "wireStyle": "Styl",
+    "wireStyleSpline": "Zakrzywiony",
+    "wireStyleOrthogonal": "90 stopni",
+    "wireStyleStraight": "Prosty",
+    "wiresColorCoded": "Kolor na grupę",
+    "wiresHomeRuns": "Z rozdzielnicy",
+    "wiresBranchFeeds": "Między gałęziami"
+  },
+  "situationPlan": {
+    "bulkDeleteWarning": {
+      "title": "Usunąć symbole?",
+      "message": "Te symbole znajdują się również w schemat jednokreskowy. Po kliknięciu Usuń również tam znikają; Ukryj je tam trzyma.",
+      "hide": "Ukryj"
+    }
+  },
+  "symbols": {
+    "library": "Biblioteka symboli",
+    "recent": "Najnowsze",
+    "favorites": "Ulubione",
+    "armed": {
+      "placing": "Miejsca: {{name}}",
+      "stop": "Zatrzymaj wysyłanie"
+    },
+    "socket": "Gniazdo wtyczkowe",
+    "socket_gnd": "Gniazdo wtyczkowe ze stykiem dla przewód ochronny",
+    "socket_child": "Gniazdo wtyczkowe z zabezpieczeniem przed dziećmi",
+    "socket_gnd_child": "Gniazdo wtyczkowe ze stykiem dla przewód ochronny i zabezpieczeniem przed dziećmi",
+    "double_socket_gnd_child": "Podwójny gniazdo wtyczkowe ze stykiem dla przewód ochronny i zabezpieczeniem przed dziećmi",
+    "double_socket_child": "Podwójny gniazdo wtyczkowe z zabezpieczeniem przed dziećmi",
+    "switch": "Przełącznik",
+    "switch_1p_twoway": "Przełącznik",
+    "switch_2p_twoway": "Przełącznik (2-biegunowy)",
+    "switch_dimmer": "Ściemniacz",
+    "switch_1p_changeover": "Przełącznik",
+    "switch_1p_pull": "Przełącznik pociągany",
+    "contact": "Styk",
+    "switch_impulse": "Przełącznik impulsowy",
+    "switch_cross": "Przełącznik krzyżowy",
+    "source_changeover": "Przełącznik",
+    "motion_detector": "Czujnik ruchu",
+    "smoke_detector": "Czujnik dymu",
+    "light_point": "Oprawa oświetleniowa",
+    "light_spot": "Punkt",
+    "light_led": "Świetlówka",
+    "light_fluorescent": "Urządzenie",
+    "fixed_appliance_generic": "Urządzenie",
+    "oven": "Piekarnik",
+    "washer": "Pralka",
+    "dryer": "Suszarka bębnowa",
+    "dishwasher": "Pomywaczka",
+    "boiler": "Kocioł elektryczny",
+    "ev": "Stacja ładowania pojazdów elektrycznych",
+    "freezer": "Lodówka",
+    "fridge": "Lodówka",
+    "microwave": "Kuchenka mikrofalowa",
+    "motor": "Silnik",
+    "stove": "Piekarnik",
+    "heating": "Ogrzewanie elektryczne",
+    "ventilation": "Wentylacja",
+    "door_lock": "Zamek drzwi",
+    "furnace": "HVAC",
+    "furnace_heatpump": "Pompa ciepła",
+    "furnace_gas": "Ogrzewanie gazowe",
+    "furnace_oil": "Kocioł na olej opałowy",
+    "furnace_pellets": "Piec na pellet",
+    "buzzer": "Brzęczyk",
+    "bell": "Zadzwoń",
+    "horn": "Klakson",
+    "siren": "Syrena",
+    "panel_distribution": "Rozdzielnica",
+    "relay": "Przekaźnik",
+    "domotica": "Automatyka domowa / inteligentna instalacja",
+    "energy_meter": "Licznik energii",
+    "transformer": "Transformator",
+    "rectifier": "(AC → DC)",
+    "inverter": "(DC → AC)",
+    "dc_dc_converter": "Przetwornica DC-DC",
+    "solar_panel": "Panel słoneczny",
+    "battery": "Dzwonek",
+    "dc_bus": "Szyna DC",
+    "mcb": "Automatyczny",
+    "rcd": "Wyłącznik różnicowoprądowy",
+    "rcbo": "Wyłącznik różnicowoprądowy z zabezpieczeniem nadprądowym",
+    "fuse": "Bezpiecznik",
+    "main_switch": "Wyłącznik główny",
+    "spd": "Ochrona przeciwprzepięciowa",
+    "rotating_switch": "Przełącznik obrotowy",
+    "earthing": "Uziemienie",
+    "earthing_separator": "Separator uziemiający",
+    "names": {
+      "mains": "Przyłącze sieciowe",
+      "backup_feed": "Zasilanie rezerwowe",
+      "earthing": "Uziemienie",
+      "earthing_separator": "Złącze kontrolne uziemienia",
+      "panel_distribution": "Rozdzielnica",
+      "junction_box": "Puszka połączeniowa",
+      "junction_panel": "Panel połączeniowy",
+      "terminal_strip": "Listwa zaciskowa",
+      "mcb": "Wyłącznik nadprądowy",
+      "rcd": "Wyłącznik różnicowoprądowy",
+      "rcbo": "Wyłącznik różnicowoprądowy z zabezpieczeniem nadprądowym",
+      "fuse": "Bezpiecznik",
+      "main_switch": "Wyłącznik główny",
+      "spd": "Ogranicznik przepięć",
+      "rotating_switch": "Łącznik obrotowy",
+      "source_changeover": "Przełącznik źródeł",
+      "socket_gnd_child": "Gniazdo ze stykiem ochronnym i przesłonami torów prądowych",
+      "double_socket_gnd_child": "Podwójne gniazdo ze stykiem ochronnym i przesłonami torów prądowych",
+      "socket_child": "Gniazdo z przesłonami torów prądowych",
+      "double_socket_child": "Podwójne gniazdo z przesłonami torów prądowych",
+      "modular_socket": "Gniazdo modułowe",
+      "socket_gnd": "Gniazdo ze stykiem ochronnym",
+      "socket": "Gniazdo wtyczkowe",
+      "switch": "Łącznik",
+      "switch_1p_twoway": "Łącznik schodowy",
+      "switch_cross": "Łącznik krzyżowy",
+      "switch_dimmer": "Ściemniacz",
+      "switch_1p_changeover": "Przełącznik",
+      "switch_1p_pull": "Łącznik pociągany",
+      "switch_impulse": "Łącznik impulsowy",
+      "motion_detector": "Czujnik ruchu",
+      "smoke_detector": "Czujnik dymu",
+      "relay": "Przekaźnik",
+      "light_point": "Punkt świetlny",
+      "light_spot": "Reflektor",
+      "light_led": "Oprawa LED",
+      "light_fluorescent": "Świetlówka",
+      "stove": "Kuchenka",
+      "oven": "Piekarnik",
+      "washer": "Pralka",
+      "dryer": "Suszarka do ubrań",
+      "dishwasher": "Zmywarka",
+      "boiler": "Elektryczny podgrzewacz wody",
+      "freezer": "Zamrażarka",
+      "fridge": "Lodówka",
+      "microwave": "Kuchenka mikrofalowa",
+      "heating": "Ogrzewanie elektryczne",
+      "ventilation": "Wentylacja",
+      "door_lock": "Zamek drzwiowy",
+      "ev": "Stacja ładowania EV",
+      "motor": "Silnik",
+      "fixed_appliance_generic": "Urządzenie",
+      "furnace_heatpump": "Pompa ciepła",
+      "furnace_gas": "Ogrzewanie gazowe",
+      "furnace_oil": "Kocioł olejowy",
+      "furnace_pellets": "Piec na pellet",
+      "furnace": "Źródło HVAC",
+      "buzzer": "Brzęczyk",
+      "bell": "Dzwonek",
+      "horn": "Sygnał dźwiękowy",
+      "siren": "Syrena",
+      "domotica": "Automatyka budynkowa / Inteligentna instalacja",
+      "energy_meter": "Licznik energii",
+      "transformer": "Transformator",
+      "rectifier": "Prostownik (AC → DC)",
+      "inverter": "Falownik (DC → AC)",
+      "dc_dc_converter": "Przetwornica DC-DC",
+      "solar_panel": "Panel fotowoltaiczny",
+      "battery": "Akumulator",
+      "dc_bus": "Szyna DC",
+      "note": "Notatka / Etykieta",
+      "contact": "Styk"
+    }
+  },
+  "earthing": {
+    "deleteConfirmTitle": "Usunąć uziemienie?"
+  },
+  "supplyAssembly": {
+    "deleteChangeoverTitle": "Usunąć przełącznik?",
+    "deleteChangeoverMessage": "Jeśli usuniesz przełącznik zasilania, odgałęzienie falownika i podłączone urządzenia również zostaną usunięte. Kontynuować?"
+  },
+  "orphan": {
+    "banner": {
+      "dev": {
+        "one": "Wykryto 1 osierocony lub poddany kwarantannie przedmiot",
+        "many": "{{count}} Wykryto sieroty lub przedmioty poddane kwarantannie"
+      },
+      "prod": {
+        "quarantinedOnly": "{{count}} odzyskano ukryte elementy z powodu problemu z danymi.",
+        "detectedOnly": "Elementy {{count}} są niespójne i mogą nie być wyświetlane poprawnie.",
+        "both": "{{count}} elementy wymagają uwagi ze względu na problem z danymi."
+      },
+      "viewInspector": "Otwórz Inspektora Sierot",
+      "inspectOrRepair": "Sprawdź lub napraw"
+    },
+    "inspector": {
+      "title": "Inspektor ds. sierot",
+      "detected": "Wykryto problemy",
+      "quarantined": "Poddano kwarantannie (ukryty)",
+      "quarantinedHint": "Te elementy są zapisywane, ale nie są wyświetlane w harmonogramie. Przywróć, aby je przywrócić, lub usuń, aby trwale je usunąć.",
+      "focus": "Ostrość",
+      "quarantine": "Kwarantanna",
+      "fix": "Powrót do zdrowia",
+      "fixAll": "Przywróć wszystko",
+      "fixAllHint": "Wykonaj wszystkie dostępne automatyczne poprawki (tak samo jak Przywróć według wiersza).",
+      "restore": "Przywróć",
+      "remove": "Usuń",
+      "removePermanent": "Usuń trwale",
+      "fixQuarantineBranchesHintCircuit": "Przywróć gałąź/strukturę oddziału na tym obwód poddanym kwarantannie przed jego zwróceniem.",
+      "fixQuarantineBranchesHintEndpoint": "Przywróć gałąź/strukturę gałęzi na obwód, która jest nadal zgodna z harmonogramem (zalecane przed przywróceniem tego punktu końcowego).",
+      "empty": "Żadne sieroty ani przedmioty nie podlegają kwarantannie."
+    },
+    "labels": {
+      "unnamedCircuit": "[bez tytułu obwód]",
+      "unnamedProtection": "[nienazwane zabezpieczenie]"
+    },
+    "reason": {
+      "circuitRefMismatch": "Obwód pod nieprawidłowym zabezpieczeniem",
+      "protectionReferenceConflict": "Sprzeczne odniesienia do zabezpieczeń",
+      "endpointNotInBranch": "Punkt końcowy nie znajduje się w gałęzi",
+      "branchRefsMissingEndpoint": "Branch odnosi się do brakującego punktu końcowego",
+      "frameContentOrphan": "Pudełko odnosi się do brakującej zawartości",
+      "subCircuitSelfReference": "Obwód jest wymieniony jako własny sub-obwód",
+      "subCircuitIdMissingCircuit": "Obwód odnosi się do brakującego sub-obwód",
+      "endpointOnPanelCircuit": "Punkt końcowy na PANEL pseudo-obwód",
+      "endpointMultipleFloorPlacements": "Punkt końcowy znajduje się na wielu piętrach",
+      "endpointPlacementIntegrity": "Błąd integralności w umieszczeniu punktu końcowego",
+      "endpointMissingPlanPlacement": "Brak w planie",
+      "panelDistributionLabelDrift": "Symbol panelu nie jest zsynchronizowany",
+      "panelMissingOneWireSymbol": "Na panelu brakuje symbolu przewodu",
+      "panelGridDuplicateModule": "Podwójny moduł na płótnie panelowym",
+      "supplyTrunkMisplacedInMainGrid": "Element mocy w niewłaściwym obszarze panelu",
+      "supplyTrunkVisualPlacementMissing": "Brak elementu mocy w płótnie panelu",
+      "splitBusWithoutBackupSupply": "Szyna dzielona bez zasilacza awaryjnego",
+      "branchMultiplierEndpointsSplit": "Symbole mnożenia podzielone na jedną gałąź",
+      "danglingReference": "Zwisające odniesienie",
+      "invalidGeometry": "Nieprawidłowa geometria"
+    },
+    "circuit": "Obwód",
+    "endpoint": "Punkt końcowy"
+  },
+  "validation": {
+    "title": "Walidacja AREI",
+    "disabledOutsideBelgium": "Walidacja wyłączona poza Belgią.",
+    "belgianRulesOnly": "Aplikacja sprawdza obecnie tylko zasady AREI dla Belgii.",
+    "errors": "Błędy",
+    "warnings": "Ostrzeżenia",
+    "info": "Informacje",
+    "noIssues": "Te kontrole nie wykazały żadnych problemów. Nie gwarantuje to pełnej zgodności z AREI.",
+    "allClear": "Wszystkie dostępne kontrole zakończyły się pomyślnie",
+    "checking": "Sprawdzanie…",
+    "errorsFound": "Znalezione błędy: {{count}}",
+    "warningsFound": "Znalezione ostrzeżenia: {{count}}",
+    "revalidate": "Sprawdź ponownie",
+    "revalidateInProgress": "Ponowna weryfikacja…",
+    "goToIssue": "Przejdź do problemu",
+    "readMoreAboutError": "Przeczytaj więcej na temat tego błędu",
+    "readMoreAboutWarning": "Przeczytaj więcej na temat tego ostrzeżenia",
+    "readMoreAboutInfo": "Przeczytaj więcej na temat tego komunikatu",
+    "scopeLabels": {
+      "circuit": "Obwód",
+      "board": "Rozdzielnica",
+      "device": "Urządzenie",
+      "placement": "Symbol planu",
+      "segment": "Przewód",
+      "subgraph": "Zasilanie"
+    },
+    "linkedIssuesTooltip": "Te problemy są ze sobą powiązane. Jeśli rozwiążesz jeden, drugi też może zniknąć.",
+    "noFilteredIssues": "Żadnych problemów z tymi filtrami.",
+    "rules": {
+      "be.areibook1.2025": {
+        "diagram-sitplan-consistency": {
+          "shortTitle": "Miejsce na planie nie ma identyfikatora obwodu",
+          "message": "W miejscu na planie rozmieszczenia brakuje prawidłowego identyfikatora punktu końcowego obwodu",
+          "details": "Każde gniazdo, punkt świetlny i element sterujący umieszczony na planie rozmieszczenia musi odpowiadać punktowi końcowemu obwodu oznaczonemu literą odgałęzienia i numerem. Łączniki muszą wskazywać sterowane odbiorniki.",
+          "remediation": "Upewnij się, że każde miejsce jest powiązane z punktem końcowym o prawidłowym identyfikatorze obwodu, np. „A1” lub „B3”."
+        },
+        "hidden-situation-plan-symbols": {
+          "shortTitle": "Ukryte urządzenia na planie rozmieszczenia",
+          "message": "Urządzenia są ukryte na planie rozmieszczenia",
+          "details": "Ukryte urządzenia nie są wyświetlane na planie rozmieszczenia.",
+          "remediation": "Otwórz Pokaż ukryte i wybierz, które urządzenia chcesz pokazać."
+        },
+        "unplaced-situation-plan-symbols": {
+          "shortTitle": "Urządzenia nieumieszczone na planie rozmieszczenia",
+          "message": "Urządzenia nie zostały jeszcze umieszczone na planie rozmieszczenia",
+          "details": "Urządzenia, które nie zostały jeszcze umieszczone, nie są widoczne na planie rozmieszczenia.",
+          "remediation": "Umieść je na planie, na przykład za pomocą SnelPlaatser."
+        },
+        "sources-consistency": {
+          "shortTitle": "Brak głównego źródła zasilania",
+          "message": "Należy określić główne źródło zasilania",
+          "details": "Jeżeli główne źródło zasilania ma inne pochodzenie niż sieć (np. falownik pv), należy to konsekwentnie wyświetlić w instalacji.",
+          "remediation": "Określ główne źródło zasilania w ustawieniach instalacji."
+        },
+        "nonhousehold-board-grounded-network": {
+          "shortTitle": "Nie pokazano uziemionej sieci zasilającej",
+          "message": "Rozdzielnica nie pokazuje uziemionego układu sieci",
+          "details": "Oznaczenie rozdzielnicy w instalacji innej niż domowa musi wskazywać uziemiony układ sieci.",
+          "remediation": "Otwórz właściwości rozdzielnicy, włącz opcję „Pokaż typ sieci na schemacie” i wybierz właściwy układ sieci TT, TN lub IT."
+        },
+        "nonhousehold-board-numbering": {
+          "shortTitle": "Nie pokazano numeracji rozdzielnic",
+          "message": "Nie pokazano kolejnych numerów rozdzielnic",
+          "details": "Każda rozdzielnica w instalacji innej niż domowa musi mieć indywidualny numer.",
+          "remediation": "Otwórz właściwości rozdzielnicy i włącz numerację rozdzielnic."
+        },
+        "nonhousehold-circuit-cable-length": {
+          "shortTitle": "Nie pokazano długości kabla",
+          "message": "Nie pokazano długości przewodu obwodu",
+          "details": "Dokumentacja obwodów w instalacjach innych niż domowe musi zawierać długość przewodów elektrycznych.",
+          "remediation": "Zaznacz przewód obwodu, podaj dodatnią długość i włącz wyświetlanie długości przewodu na schemacie jednokreskowym."
+        },
+        "household-breaking-capacity": {
+          "shortTitle": "Zbyt mała zdolność wyłączania",
+          "message": "Zdolność wyłączania wyłącznika niższa niż 3000 A",
+          "details": "W instalacjach domowych zabezpieczenia nadprądowe wymagają po podłączeniu zdolności wyłączania wynoszącej co najmniej 3000 A.",
+          "remediation": "Wybierz wyłącznik automatyczny i wybierz zdolność wyłączania 3000 A lub większą."
+        },
+        "household-supply-breaking-capacity": {
+          "shortTitle": "Zbyt mała zdolność wyłączania zabezpieczenia zasilania",
+          "message": "Zdolność wyłączania zabezpieczenia zasilania jest zbyt niska",
+          "details": "Zabezpieczenie przyłącza przed licznikiem musi mieć zdolność wyłączania co najmniej 6000 A. Wyłączniki za licznikiem muszą mieć zdolność wyłączania co najmniej 3000 A.",
+          "remediation": "Wybierz zabezpieczenie zasilania i zwiększ jego zdolność wyłączania."
+        },
+        "maximum-protected-length": {
+          "shortTitle": "Przewód jest za długi dla wyłącznika",
+          "message": "Długość kabla przekracza maksymalną chronioną długość",
+          "details": "Zwarcie na końcu przewodu musi nadal powodować natychmiastowe zadziałanie wyłącznika.",
+          "remediation": "Wybierz większy przekrój przewodu, krótszą trasę albo wyłącznik o niższym prądzie znamionowym lub innej charakterystyce."
+        },
+        "overcurrent-upstream": {
+          "shortTitle": "Brak zabezpieczenia nadprądowego przed obwodem",
+          "message": "Obwód nie posiada zabezpieczenia nadprądowego na wejściu",
+          "details": "Każdy obwód musi mieć przed sobą odpowiednie zabezpieczenie nadprądowe: wyłącznik nadprądowy, wyłącznik różnicowonadprądowy lub bezpiecznik.",
+          "remediation": "Zamontuj przed obwodem odpowiednio dobrany wyłącznik nadprądowy, wyłącznik różnicowonadprądowy lub bezpiecznik."
+        },
+        "rcd-grouping": {
+          "shortTitle": "Za dużo obwodów na wyłączniku różnicowoprądowym",
+          "message": "Zbyt wiele obwodów jest podłączonych do jednego wyłącznika różnicowoprądowego 30 mA",
+          "details": "Wyłącznik różnicowoprądowy 30 mA może chronić maksymalnie 8 obwodów (w tym obwody z własnym zabezpieczeniem różnicowoprądowym).",
+          "remediation": "Zmniejsz liczbę obwodów podłączonych do tego wyłącznika różnicowoprądowego albo podziel je między kilka takich wyłączników. Obwody chronione wyłącznikiem różnicowonadprądowym nie są wliczane."
+        },
+        "rcd-selectivity": {
+          "shortTitle": "Brak selektywności wyłączników różnicowoprądowych",
+          "message": "Selektywność wyłączników różnicowoprądowych: urządzenie nadrzędne musi być mniej czułe niż podrzędne",
+          "details": "Główna różnica (np. 300 mA dla ochrony przeciwpożarowej) musi znajdować się przed bardziej czułymi różnicami (np. 30 mA dla ochrony osobistej). Nigdy nie umieszczaj przewodu 30 mA przed prądem 300 mA.",
+          "remediation": "Upewnij się, że główny wyłącznik ma próg 300 mA (lub niższą czułość), a wyłączniki podrzędne — 30 mA (większą czułość). Próg zadziałania urządzenia nadrzędnego w mA powinien być wyższy."
+        },
+        "bathroom-rcd-30ma": {
+          "shortTitle": "Obwód pomieszczenia mokrego wymaga ochrony 30 mA",
+          "message": "Łazienka lub pomieszczenie mokre wymaga zabezpieczenia różnicowoprądowego 30 mA",
+          "details": "Obwody zasilające pomieszczenie z wanną lub prysznicem muszą być chronione wyłącznikiem różnicowoprądowym o wysokiej lub bardzo wysokiej czułości (zwykle 30 mA). Ponieważ nie zawsze da się jednoznacznie rozpoznać takie pomieszczenie, kontrola uruchamia się, gdy notatki obwodu zawierają określenia „łazienka”, „wanna” lub „prysznic” (w dowolnym języku).",
+          "remediation": "Poprowadź obwód przez wyłącznik różnicowoprądowy 30 mA albo użyj wyłącznika różnicowonadprądowego 30 mA. Jeśli obwód nie zasila łazienki ani pomieszczenia mokrego, popraw jego opis."
+        },
+        "max-endpoints-per-circuit": {
+          "shortTitle": "Zbyt wiele punktów końcowych na obwód",
+          "message": "Zbyt wiele punktów końcowych na obwód",
+          "details": "Każdy obwód ma określoną maksymalną liczbę punktów końcowych, aby zapewnić prawidłowy podział obciążenia i bezpieczeństwo.",
+          "remediation": "Podziel obwód na kilka obwodów, aby zmniejszyć liczbę punktów końcowych."
+        },
+        "minimum-lighting-circuits": {
+          "shortTitle": "Za mało obwodów oświetleniowych",
+          "message": "Wymagane są co najmniej dwa oddzielne obwody oświetleniowe",
+          "details": "W typowym domu AREI wymaga co najmniej dwóch oddzielnych obwodów oświetleniowych (oświetleniowych lub mieszanych). Uwzględniaj tylko obwody końcowe; obwód nadrzędny z obwodami podrzędnymi się nie liczy.",
+          "remediation": "Dodaj drugi obwód oświetleniowy lub mieszany, aby rozdzielić oświetlenie na co najmniej dwa obwody."
+        },
+        "installation-earthing": {
+          "shortTitle": "Brak uziemienia instalacji",
+          "message": "Instalacja nie posiada uziemienia",
+          "details": "Na żadnej płycie nie pokazano elektrody uziemiającej. To może być prawda, ale większość instalacji wymaga jednego punktu uziemienia.",
+          "remediation": "Dodaj masę do płyty głównej lub przeciągnij je na dolną płytkę, jeśli jest tam elektroda."
+        },
+        "multiple-earthing-locations": {
+          "shortTitle": "Więcej niż jeden punkt uziemienia",
+          "message": "Uziemienie występuje na więcej niż jednej płycie",
+          "details": "Instalacja przedstawia uziemienia w oddzielnych rozdzielnicach. Sprawdź, czy jest to prawidłowe; zwykle występuje jeden punkt uziemienia.",
+          "remediation": "Zachowaj uziemienie na jednej płytce i usuń dodatkowy trzpień uziemiający."
+        },
+        "cable-cross-section": {
+          "shortTitle": "Brak przekroju przewodu",
+          "message": "W obwodzie są odcinki przewodu bez określonego przekroju",
+          "details": "Każdy odcinek przewodu musi mieć prawidłowo określony przekrój.",
+          "remediation": "Podaj przekrój (sectionMm2) dla wszystkich odcinków przewodu w obwodzie."
+        },
+        "breaker-vs-cross-section": {
+          "shortTitle": "Zabezpieczenie nie odpowiada przekrojowi przewodu",
+          "message": "Zabezpieczenie nadprądowe a przekrój przewodu",
+          "details": "Prąd znamionowy wyłącznika nadprądowego lub różnicowonadprądowego nie może przekraczać dopuszczalnego prądu dla danego przekroju przewodu.",
+          "remediation": "Zmniejsz prąd znamionowy zabezpieczenia nadprądowego albo zwiększ przekrój przewodu, aby spełnić wymagania AREI."
+        },
+        "minimum-cross-section": {
+          "shortTitle": "Przekrój przewodu poniżej minimum",
+          "message": "Przekrój przewodu jest zbyt mały dla tego typu obwodu",
+          "details": "Każdy typ obwodu ma minimalny przekrój przewodu określony przez AREI 5.2.1.",
+          "remediation": "Zwiększ przekrój przewodu co najmniej do minimum wymaganego dla tego typu obwodu."
+        },
+        "cascade-protection": {
+          "shortTitle": "Za duży regulator wylotowy",
+          "message": "Zabezpieczenie odpływu ma wyższą wartość znamionową niż odpływu",
+          "details": "Wyłączniki instalacyjne znajdujące się za urządzeniem nie mogą być ustawione wyżej niż ich zabezpieczenie przed urządzeniem.",
+          "remediation": "Wyreguluj prądy znamionowe tak, aby wyłączniki znajdujące się za urządzeniem miały wartość znamionową równą lub niższą od wyłącznika znajdującego się powyżej."
+        },
+        "main-rcd": {
+          "shortTitle": "Brak głównego mechanizmu różnicowego lub jest on uszkodzony",
+          "message": "Główny wyłącznik różnicowoprądowy lub różnicowonadprądowy na przewodzie zasilającym jest wymagany i musi mieć odpowiednie parametry",
+          "details": "AREI Książka 1 wymaga na początku instalacji głównego mechanizmu różnicowego, zazwyczaj 300 mA typu A i prądu znamionowego co najmniej 40 A.",
+          "remediation": "Zamontuj główny wyłącznik różnicowoprądowy lub różnicowonadprądowy na przewodzie zasilającym, przed rozdzielnicą główną. Musi mieć prąd znamionowy co najmniej 40 A, próg zadziałania maksymalnie 300 mA i typ co najmniej A."
+        },
+        "board-global-isolation": {
+          "shortTitle": "nie można całkowicie wyłączyć",
+          "message": "brakuje urządzenia wyłączającego wszystkie aktywne przewody",
+          "details": "Każdą rozdzielnicę i rozdzielnica, w tym podrozdzielnie rozdzielcze, należy zapewnić możliwość całkowitego odłączenia od wszystkich aktywnych przewodów za pomocą lokalnego rozłącznika w tablicy lub poprzez znajdujący się przed nią wyłącznik zasilania.",
+          "remediation": "Dodaj lokalny główny wyłącznik/rozłącznik do płytki lub upewnij się, że zasilanie znajdujące się powyżej odłączy wszystkie aktywne przewody od tej płytki."
+        },
+        "board-local-isolation-hint": {
+          "shortTitle": "Brak lokalnego wyłącznika",
+          "message": "można wyłączyć tylko wcześniej",
+          "details": "Tę płytkę można odłączyć od strony zasilania, ale nie ma ona lokalnego wyłącznika rozłączającego na samej płycie. Podczas kontroli często oczekuje się lokalnego odłączenia ze względu na bezpieczeństwo i łatwość użytkowania.",
+          "remediation": "Rozważ dodanie lokalnego głównego wyłącznika/rozłącznika na tej płycie."
+        },
+        "switch-load-reference": {
+          "shortTitle": "Przełącznik bez obciążeń",
+          "message": "nie ma kontrolowanych obciążeń",
+          "details": "Każdy przełącznik musi mieć co najmniej jedno kontrolowane obciążenie (controlEndpointIds) lub jawne odniesienie do „kontroli”.",
+          "remediation": "Dodaj kontrolowane identyfikatory punktu końcowego do przełącznika, aby wskazać, które obciążenia kontroluje."
+        },
+        "switch-sequence": {
+          "shortTitle": "Nieprawidłowa sekwencja przełączania/krzyżowania",
+          "message": "Przełączniki przełączające i krzyżowe nie są w prawidłowej kolejności na tej gałęzi",
+          "details": "Załączenie oświetlenia na klatce schodowej wymaga dokładnie dwóch przełączników: rozjazd → rozjazd lub rozjazd → (krzyż) → rozjazd. Żadnej trzeciej zmiany i żadnego łańcucha później.",
+          "remediation": "Użyj dokładnie dwóch przełączników: przełącznik → przełącznik lub przełącznik → krzyżak → … → krzyżyk → przełącznik. Usuń dodatkowy przełącznik lub przełącznik między krzyżykami."
+        },
+        "electrical-domain": {
+          "shortTitle": "Niezgodność domeny AC/DC",
+          "message": "Niedopasowanie domeny elektrycznej (AC/DC)",
+          "details": "Dziedzina przewodu musi odpowiadać oczekiwanej domenie wejściowej podłączonego komponentu. Tylko konwertery mogą łączyć różne domeny.",
+          "remediation": "Ustaw domenę przewodu na domenę wejścia/wyjścia komponentu lub użyj konwertera (transformator, prostownik, falownik, DC-DC), w którym domena się zmienia."
+        },
+        "dc-cross-section-heuristic": {
+          "shortTitle": "Ostrzeżenie o przekroju przewodu prądu stałego",
+          "message": "Znamionowy prąd stały może być zbyt wysoki dla przekroju przewodu",
+          "details": "W tym ostrzeżeniu zastosowano ostrożne oszacowanie segmentów prądu stałego (I ~= P/U) w oparciu o znane moce przetwornicy/urządzenia i wartości napięcia prądu stałego. Ma to charakter informacyjny i należy je porównać z rzeczywistymi danymi urządzenia i warunkami instalacji.",
+          "remediation": "Sprawdź moc wyjściową konwertera i rzeczywiste napięcie/prąd DC. W razie potrzeby zwiększ przekrój przewodu DC, zmniejsz oczekiwane obciążenie lub dostosuj konfigurację konwertera/urządzenia."
+        },
+        "post-main-bus-pe-conductor": {
+          "shortTitle": "Brak ciągłości przewodu PE za rozdzielnicą główną",
+          "message": "Obwody AC za główną szyną zbiorczą muszą mieć ciągły przewód PE",
+          "details": "Przewód ochronny może być częścią kabla (oznaczenie G) lub osobnym przewodem poprowadzonym obok przewodów czynnych. Połączenia wewnętrzne między zabezpieczeniami mogą obejmować tylko przewody czynne; przewód PE musi zachować ciągłość przez szynę uziemiającą i nie może przechodzić przez te urządzenia. Okablowanie DC nie jest sprawdzane.",
+          "remediation": "Zapewnij ciągłość przewodu PE w wychodzących obwodach AC. Użyj kabla z żyłą ochronną (oznaczenie G) albo osobnego przewodu ochronnego o odpowiednim przekroju i ułożeniu."
+        },
+        "heavy-appliance-dedicated-circuit": {
+          "shortTitle": "Ciężki sprzęt nie jest samodzielny obwód",
+          "message": "Urządzenia stacjonarne o dużym poborze mocy wymagają osobnych, przypisanych im obwodów.",
+          "details": "Kuchenki elektryczne, płyty grzewcze, piekarniki, pralki, suszarki i zmywarki wymagają osobnego obwodu bez dodatkowych gniazd, oświetlenia ani innych odbiorników.",
+          "remediation": "Podłącz każde urządzenie o dużym poborze mocy do osobnego obwodu albo podziel obwód tak, by każde urządzenie miało własne zabezpieczenie i przewód."
+        },
+        "fixed-appliance-dedicated-hint": {
+          "shortTitle": "Urządzenie stałe bez przypisanego obwodu",
+          "message": "Urządzenie stałe nie ma własnego dedykowanego obwodu",
+          "details": "Urządzenia stacjonarne często podłącza się do osobnego obwodu, aby przekrój przewodu i zabezpieczenie były dostosowane do urządzenia oraz umożliwiały jego przyszłą wymianę. Rozważ umieszczenie tych urządzeń na osobnym obwodzie bez dodatkowych gniazd, oświetlenia ani innych odbiorników.",
+          "remediation": "Rozważ podłączenie urządzenia stacjonarnego do osobnego obwodu bez dodatkowych gniazd wtyczkowych, oświetlenia ani innych odbiorników."
+        },
+        "stove-sizing-hint": {
+          "shortTitle": "Zalecenia dotyczące doboru obwodu kuchenki",
+          "message": "Zalecany dobór obwodu kuchenki",
+          "details": "W praktyce pełnowymiarowa kuchenka elektryczna jest często zasilana z osobnego obwodu o prądzie znamionowym około 32 A, wykonanego przewodem miedzianym o przekroju 6 mm². Mniejsze wartości mogą być zgodne z przepisami, jeśli są dostosowane do urządzenia.",
+          "remediation": "Rozważ zwiększenie prądu znamionowego zabezpieczenia i przekroju przewodu obwodu kuchenki do około 32 A i 6 mm² albo sprawdź, czy obecne parametry odpowiadają mocy kuchenki."
+        },
+        "rcd-required-by-circuit-type": {
+          "shortTitle": "Wymagane zabezpieczenie różnicowoprądowe 30 mA",
+          "message": "Obwody ogólnego przeznaczenia i obwody ładowania pojazdów elektrycznych wymagają zabezpieczenia różnicowoprądowego 30 mA",
+          "details": "Oświetlenie, ogólne gniazda wtyczkowe, pralki, suszarki, zmywarki i obwody ładowania pojazdów elektrycznych wymagają zabezpieczenia różnicowego 30 mA zgodnie z AREI 4.2.4.3(b) i 7.22.4.1.",
+          "remediation": "Poprowadź obwód przez wyłącznik różnicowoprądowy o czułości 30 mA w rozdzielnicy albo przez główny wyłącznik różnicowoprądowy 30 mA."
+        },
+        "eendraad-orphans": {
+          "shortTitle": "Sierota lub niespójność na schemacie jednokreskowym",
+          "message": "Obwód, punkt końcowy lub ramka są niezgodne ze schematem jednokreskowym",
+          "details": "Niektóre obwody, punkty końcowe lub elementy ramki nie są prawidłowo połączone, dlatego nie pojawiają się na schemacie jednokreskowym albo są objęte niewłaściwym zabezpieczeniem. Punkty końcowe przypisane do planu rozmieszczenia muszą mieć na nim swoje położenie. Sprawdź przypisania obwodów podrzędnych, listy punktów końcowych odgałęzień i odwołania do ramek albo dodaj brakujące położenia na planie.",
+          "remediation": "Upewnij się, że każdy obwód jest objęty tylko jednym zabezpieczeniem; przypisz każdy punkt końcowy do odpowiedniego odgałęzienia; popraw lub usuń odwołania do brakujących elementów; dodaj położenia na planie rozmieszczenia dla punktów końcowych, których tam brakuje."
+        },
+        "phase-protection-compatibility": {
+          "shortTitle": "Liczba biegunów może być nieprawidłowa"
+        },
+        "duplicate-panel-protection-label": {
+          "shortTitle": "Zduplikowana nazwa zabezpieczeń na płycie",
+          "message": "Dwa lub więcej zabezpieczeń na tej płycie ma tę samą nazwę",
+          "details": "Każdy ochraniacz na jednej płytce (szyna główna, szyna podrzędna, listwa zasilająca lub zasilacz) musi mieć unikalną nazwę, aby obwody pozostawał rozpoznawalny na jednokreskowym schemacie i mapie paneli. To nie jest sierota z okablowaniem — to konflikt nazewnictwa.",
+          "remediation": "Zmień nazwę jednego z zabezpieczeń powodujących konflikt lub włącz automatyczne nadawanie nazw, aby litery były przypisywane bez duplikatów."
+        },
+        "converter-backup-labels": {
+          "shortTitle": "Brak etykiety na zasilaczu awaryjnym",
+          "message": "Zabezpieczenie lub odbiornik zasilania awaryjnego nie ma etykiety",
+          "details": "Komponenty zasilacza rezerwowego znajdują się poza główną szyną zbiorczą i nie są automatycznie nazywane.",
+          "remediation": "Należy wyraźnie i ręcznie oznaczyć każde zabezpieczenie i odbiornik w gałęzi rezerwowej falownika."
+        }
+      }
+    },
+    "orphanDetection": {
+      "circuitRefMismatch": "Obwód {{circuitCode}} jest objęty zabezpieczeniem „{{listedUnderLabel}}”, ale pojawia się na schemacie jednoliniowym pod obwód {{parentCircuitCode}} (zabezpieczenie „{{displayedUnderLabel}}”).",
+      "protectionReferenceConflict": "Obwód {{circuitCode}} odwołuje się do wielu zabezpieczeń ({{protectionLabels}}). Podczas zagnieżdżania mechanizmów różnicowych i wyłączników różnicowych obwód pozostaje pod wyłącznikiem i jest podłączony poprzez ścieżkę prądową twornika. Najpierw napraw topologię diagramu jednokreskowego.",
+      "endpointNotInBranch": "Punkt końcowy „{{endpointLabel}}” w obwodzie {{circuitCode}} nie należy do żadnego odgałęzienia i nie pojawia się na schemacie jednokreskowym.",
+      "branchRefsMissingEndpoint": "Odgałęzienie „{{branchLabel}}” w obwodzie {{circuitCode}} odwołuje się do nieistniejącego punktu końcowego {{endpointId}}.",
+      "frameContentOrphans": "Pole „{{frameTitle}}” odnosi się do brakującej lub nieprawidłowej treści ({{contentId}}).",
+      "subCircuitSelfReference": "Obwód \"{{circuitCode}}\" wyświetla własny identyfikator w subCircuitIds (nieprawidłowy). Być może niewidoczne na schemacie jednoprzewodowym, ale widoczne na listach wyboru.",
+      "subCircuitIdMissingCircuit": "Obwód „{{parentCircuitCode}}” odnosi się do brakującego sub-obwód (id: {{missingCircuitId}}).",
+      "endpointOnPanelCircuit": "Punkt końcowy „{{endpointLabel}}” jest podłączony do PANEL pseudo-obwód i nie pojawia się poprawnie na schemacie jednokreskowym.",
+      "endpointMultipleFloorPlacements": "Punkt końcowy „{{endpointLabel}}” znajduje się na piętrach {{floorCount}}, ale ten symbol może mieć tylko jedno miejsce docelowe.",
+      "endpointPlacementIntegrity": "Punkt końcowy „{{endpointLabel}}” ma nieprawidłowe dane dotyczące miejsca docelowego ({{violation}}).",
+      "planPlacementIdentityConflict": "Publikacja planu sytuacyjnego „{{placementId}}” jest udostępniana przez {{ownerLabels}}. Symbole mogą nakładać się na siebie, znikać lub być zaznaczane razem; odtwórz dotknięte duplikaty z unikalnymi miejscami docelowymi.",
+      "endpointMissingPlanPlacement": "{{endpointLabel}} ({{circuitCode}}) — poza planem.",
+      "panelDistributionLabelDrift": "Symbol panelu „{{endpointLabel}}” nie pasuje do płytki „{{panelName}}” (obwód {{circuitCode}}).",
+      "panelMissingOneWireSymbol": "„{{panelName}}” istnieje, ale nie ma symbolu/łącza zasilania jednoprzewodowego.",
+      "panelGridDuplicateModule": "Na płótnie panelu pojawia się „{{moduleLabel}}” więcej niż raz; zachowaj cały moduł i ukryj słabszy dublet.",
+      "supplyTrunkMisplacedInMainGrid": "Element mocy „{{label}}” znajduje się w głównej sieci (wiersz {{row}}, kolumna {{col}}), ale należy tylko do listwy zasilającej — płótno panelu i zasilanie jednoprzewodowe są różne.",
+      "supplyTrunkVisualPlacementMissing": "Komponent mocy „{{label}}” istnieje w topologii zasilania, ale nie można go umieścić w dostępnym miejscu na płótnie panelu.",
+      "splitBusWithoutBackupSupply": "Rozdzielnica „{{panelName}}” ma {{busSectionCount}} sekcje szynowe, ale nie podłączono zasilania rezerwowego. Podłącz ponownie sekcje do jednego źródła zasilania.",
+      "supplyAssemblyHandoffTargetMissing": "Podłączenie zasilania odnosi się do brakującego obwód {{missingCircuitId}}.",
+      "branchMultiplierEndpointsSplit": "Obwód {{circuitCode}}: gałąź „{{branchLabel}}” ma dodatkowe symbole mnożenia {{absorbCount}} jako oddzielne punkty końcowe; powinien być jednym punktem końcowym z wieloma miejscami docelowymi. Użyj naprawy podczas inspekcji sierot."
+    },
+    "primitives": {
+      "supplyModePaths": {
+        "message": "Brak prawidłowej ścieżki sieciowej/zapasowej dla {{phases}}",
+        "details": "Narysowana topologia nie obejmuje kompletnej i skoordynowanej siatki oraz ścieżki zapasowej dla {{phases}}.",
+        "remediation": "Podłącz ponownie stronę zasilania, rezerwowego i obciążenia, tak aby każda pobierana faza miała kompletną ścieżkę zasilania."
+      },
+      "supplyConductorProtectionCoordination": {
+        "message": "{{protectionLabel}}: przewód {{section}} mm² jest za mały dla ochrony {{ratingA}} A",
+        "details": "Przewód zasilający {{section}} mm² może być chroniony przez to urządzenie zabezpieczające maksymalnie {{maxRatingA}} A, ale wartość znamionowa poboru wynosi {{ratingA}} A.",
+        "remediation": "Zwiększ przekrój poprzeczny przewodu lub zmniejsz wartość zabezpieczenia przed nim."
+      },
+      "duplicatePanelProtectionLabels": {
+        "message": "Nazwa zabezpieczeń „{{label}}” była używana razy {{count}} na tej płycie",
+        "details": "Zduplikowane nazwy zabezpieczeń na tej samej płycie (magistrala główna, magistrala pomocnicza lub zasilacz) utrudniają identyfikację obwody. Zmień nazwę jednego zabezpieczenia lub włącz automatyczne nadawanie nazw."
+      },
+      "converterBackupLabels": {
+        "protection": {
+          "message": "Zabezpieczenie zasilacza rezerwowego nie jest oznaczone",
+          "details": "Zabezpieczenia na gałęzi rezerwowej falownika nie są nazywane automatycznie. Dodaj wyraźną etykietę ręczną."
+        },
+        "endpoint": {
+          "message": "Konsument na zasilaczu rezerwowym nie ma etykiety",
+          "details": "Odbiorcy w odgałęzieniu rezerwowym falownika nie są automatycznie nazywani. Dodaj wyraźną etykietę ręczną."
+        }
+      },
+      "protectionPhaseCompatibility": {
+        "deviceLabel": "Bezpieczeństwo",
+        "group": {
+          "message": "{{count}} mogą nie pasować do tego zasilacza {{availablePoleCount}}",
+          "details": "Dotknięte zabezpieczenia: {{deviceLabels}}. Sprawdź ustawienie fazy i bieguna przy tym przejściu zasilania."
+        },
+        "neutralUnavailable": {
+          "message": "{{deviceLabel}} wykorzystuje przewód neutralny, ale ta sieć go nie ma",
+          "details": "Ta kombinacja może być niepoprawna. Sprawdź ustawienie fazy lub bieguna."
+        },
+        "tooManyPoles": {
+          "message": "{{deviceLabel}} to pin {{poleCount}}; wydaje się to za dużo dla tego zasilacza pinowego {{availablePoleCount}}",
+          "details": "Ta kombinacja może być niepoprawna. Sprawdź ustawienie basenu."
+        },
+        "tooFewPoles": {
+          "message": "{{deviceLabel}} to pin {{poleCount}}; wydaje się to za mało dla tej sieci trójfazowej",
+          "details": "Ta kombinacja może być niepoprawna. Sprawdź ustawienie basenu."
+        }
+      },
+      "hasUpstreamOvercurrent": {
+        "message": "Obwód {{circuitCode}} nie posiada zabezpieczenia nadprądowego na wejściu",
+        "details": "Każdy obwód musi mieć przed sobą odpowiednie zabezpieczenie nadprądowe: wyłącznik nadprądowy, wyłącznik różnicowonadprądowy lub bezpiecznik."
+      },
+      "countUnderThreshold": {
+        "message": "Numer {{count}} przekracza próg {{threshold}}",
+        "details": "Liczba {{count}} przekracza maksymalny dozwolony próg {{threshold}}."
+      },
+      "hasValue": {
+        "message": "wymaga {{fieldName}}",
+        "details": "Brak wymaganego pola {{fieldName}} lub jest ono niezdefiniowane."
+      },
+      "switchHasControlledLoads": {
+        "message": "Przełącznik {{switchLabel}} nie ma kontrolowanych obciążeń",
+        "details": "Każdy przełącznik musi sterować co najmniej jednym obciążeniem (oświetleniem, gniazdo wtyczkowe lub urządzeniem)."
+      },
+      "branchSwitchSequence": {
+        "wrongTwoWayCount": {
+          "message": "Odgałęzienie {{branchLabel}} do obwód {{circuitCode}}: wymagane są dokładnie dwa przełączniki",
+          "details": "Ta gałąź ma jeden lub więcej niż dwa punkty w łańcuchu schodów. Użyj dokładnie dwóch: przełącznik → przełącznik lub przełącznik → krzyż → przełącznik."
+        },
+        "twoWayChaining": {
+          "message": "Odgałęzienie {{branchLabel}} w obwodzie {{circuitCode}}: w układzie jest dodatkowy łącznik schodowy",
+          "details": "Nie umieszczaj przełącznika pomiędzy krzyżykami lub po wzorze. Obowiązująca kolejność: przełącznik → (tylko krzyż) → przełącznik."
+        },
+        "crossWithoutLeadingTwoWay": {
+          "message": "Odgałęzienie {{branchLabel}} w obwodzie {{circuitCode}}: łącznik krzyżowy musi być poprzedzony łącznikiem schodowym",
+          "details": "Zacznij od zmiany, potem dowolne krzyżyki, a na koniec druga zmiana."
+        },
+        "crossWithoutTrailingTwoWay": {
+          "message": "Odgałęzienie {{branchLabel}} w obwodzie {{circuitCode}}: za łącznikiem krzyżowym musi znajdować się łącznik schodowy",
+          "details": "Zakończ zmianą po krzyżówkach, przed konsumentem."
+        }
+      },
+      "placementHasValidIdentifier": {
+        "message": "Miejsce na planie dla „{{endpointLabel}}” nie ma prawidłowego identyfikatora obwodu",
+        "details": "Miejsce „{{endpointLabel}}” na planie rozmieszczenia musi być powiązane z punktem końcowym o prawidłowej literze odgałęzienia i numerze punktu (np. „A1”). Sprawdź, czy ten symbol jest przypisany do obwodu na schemacie jednokreskowym."
+      },
+      "hiddenSituationPlanSymbolsAreVisible": {
+        "message_one": "Urządzenie {{count}} jest ukryte na plan rozmieszczenia",
+        "message_other": "{{count}} są ukryte na plan rozmieszczenia",
+        "details": "Ukryte urządzenia:\n{{devices}}",
+        "message_few": "{{count}} symbole nie są widoczne na planie rozmieszczenia",
+        "message_many": "{{count}} symboli nie jest widocznych na planie rozmieszczenia"
+      },
+      "situationPlanSymbolsArePlaced": {
+        "message_one": "Urządzenie {{count}} nie zostało jeszcze umieszczone na plan rozmieszczenia",
+        "message_other": "{{count}} nie zostały jeszcze umieszczone na plan rozmieszczenia",
+        "details": "Jeszcze nie opublikowane:\n{{devices}}",
+        "message_few": "{{count}} symbole nie zostały jeszcze umieszczone na planie rozmieszczenia",
+        "message_many": "Nie umieszczono jeszcze {{count}} symboli na planie rozmieszczenia"
+      },
+      "cableHasCrossSection": {
+        "message": "Obwód posiada segmenty kablowe bez przekroju",
+        "details": "Każdy odcinek przewodu musi mieć prawidłowo określony przekrój."
+      },
+      "breakerSizeMatchesCrossSection": {
+        "message": "Obwód {{circuitCode}}: zabezpieczenie {{breakerRating}} A przekracza maksymalną wartość {{maxRating}} A dla przewodu {{section}} mm²",
+        "details": "W obwodzie {{circuitCode}} wartość znamionowa wyłącznika {{breakerRating}} A przekracza dopuszczalny prąd dla miedzianego przewodu {{section}} mm² (maksymalnie {{maxRating}} A). Zmniejsz wartość zabezpieczenia albo zwiększ przekrój przewodu."
+      },
+      "minimumCrossSection": {
+        "message": "Obwód {{circuitCode}}: przekrój przewodu {{section}} mm² jest mniejszy niż wymagane minimum {{required}} mm²",
+        "details": "Obwód {{circuitCode}} ma przewód o przekroju {{section}} mm², ale minimalny przekrój wymagany przez AREI dla tego typu obwodu wynosi {{required}} mm²."
+      },
+      "dcCrossSectionHeuristic": {
+        "message": "Obwód {{circuitCode}}: orientacyjne obciążenie prądowe DC — szacowane {{estimatedCurrentA}} A przekracza około {{sectionAmpacity}} A dla przekroju {{section}} mm²",
+        "details": "Szacunkowe obliczenie dla części obwodu DC {{circuitCode}}: I ≈ P/U = {{estimatedPowerW}} W / {{estimatedVoltage}} V = {{estimatedCurrentA}} A. Przewód DC ma przekrój {{section}} mm² (uproszczony punkt odniesienia dla obciążalności: około {{sectionAmpacity}} A). Źródło napięcia: {{voltageSourceLabel}}. To ostrzeżenie, a nie formalna niezgodność z AREI; sprawdź specyfikacje przetwornicy i urządzeń.",
+        "voltageSources": {
+          "fallback-48V": "wartość domyślna 48 V (nie znaleziono wyraźnego napięcia DC)",
+          "conversion-device": "ustawienie napięcia konwertera",
+          "endpoint-device": "ustawienie napięcia akumulatora lub paneli słonecznych"
+        }
+      },
+      "cascadeProtectionRatings": {
+        "message": "Zabezpieczenie odpływu skalibrowane wyżej niż zabezpieczenie odpływu",
+        "details": "Parametry znamionowe wyłącznika nadprądowego lub różnicowonadprądowego znajdującego się za innym urządzeniem nie mogą przekraczać parametrów zabezpieczenia nadrzędnego."
+      },
+      "supplyHasMainBreaker": {
+        "message": "Główny zasilacz nie posiada zabezpieczenia",
+        "details": "Linia zasilająca musi mieć główny wyłącznik lub główny wyłącznik przed główną tablicą rozdzielczą."
+      },
+      "hasSupplyOrigin": {
+        "message": "Należy określić główne źródło zasilania",
+        "details": "Główne źródło zasilania (sieć, generator, falownik fotowoltaiczny itp.) należy określić w ustawieniach instalacji."
+      },
+      "installationHasEarthing": {
+        "message": "Instalacja nie posiada uziemienia",
+        "details": "Na żadnej płycie nie pokazano elektrody uziemiającej. To może być prawda, ale większość instalacji wymaga jednego punktu uziemienia."
+      },
+      "installationHasSingleEarthingLocation": {
+        "message": "Uziemienie występuje na więcej niż jednej płycie",
+        "details": "Instalacja przedstawia uziemienia w oddzielnych rozdzielnicach. Sprawdź, czy jest to prawidłowe; zwykle występuje jeden punkt uziemienia."
+      },
+      "nonHouseholdPanelShowsGroundedNetwork": {
+        "message": "Rozdzielnica {{panelName}} nie pokazuje uziemionego układu sieci",
+        "details": "Rozdzielnice w instalacjach innych niż domowe muszą wskazywać uziemiony układ sieci. Włącz oznaczenie typu sieci i we właściwościach rozdzielnicy wybierz właściwy układ TT, TN lub IT."
+      },
+      "nonHouseholdPanelNumberingIsShown": {
+        "message": "Nie pokazano numeracji rozdzielnic",
+        "details": "Rozdzielnice w instalacjach innych niż domowe muszą mieć indywidualne numery. Włącz numerację rozdzielnic we właściwościach rozdzielnicy."
+      },
+      "nonHouseholdCircuitShowsCableLength": {
+        "message": "Obwód {{circuitCode}} nie pokazuje długości przewodu",
+        "details": "Schematy obwodów w instalacjach innych niż domowe muszą zawierać długości przewodów elektrycznych. Podaj dodatnią długość przewodu i włącz jej wyświetlanie na schemacie jednokreskowym."
+      },
+      "householdBoardBreakingCapacity": {
+        "message": "Zdolność wyłączania niższa niż 3000 A: {{labels}}",
+        "details": "W instalacjach domowych zabezpieczenia nadprądowe wymagają po podłączeniu zdolności wyłączania wynoszącej co najmniej 3000 A."
+      },
+      "householdSupplyBreakingCapacity": {
+        "message": "Zbyt mała zdolność wyłączania zabezpieczenia zasilania: {{list}}",
+        "details": "Zabezpieczenie przyłącza przed licznikiem musi mieć zdolność wyłączania co najmniej 6000 A. Zabezpieczenia nadprądowe za licznikiem muszą mieć zdolność wyłączania co najmniej 3000 A."
+      },
+      "circuitWithinMaximumProtectedLength": {
+        "message": "Obwód {{circuitCode}}: przewód o długości {{lengthM}} m przekracza maksymalną długość chronioną {{maxLengthM}} m",
+        "details": "Zwarcie na końcu przewodu musi nadal powodować natychmiastowe zadziałanie wyłącznika {{curve}}{{ratingA}} ({{tripCurrentA}} A). Dla przekroju {{sectionMm2}} mm² maksymalna długość wynosi {{maxLengthM}} m. Wybierz większy przekrój przewodu, krótszą trasę albo wyłącznik o niższym prądzie znamionowym lub innej charakterystyce."
+      },
+      "rcdHasTooManyCircuits": {
+        "message": "Wyłącznik różnicowoprądowy chroni zbyt wiele obwodów ({{circuitCount}} > {{threshold}})",
+        "details": "Liczba obwodów podłączonych do jednego wyłącznika różnicowoprądowego 30 mA nie może przekraczać {{threshold}}, aby ograniczyć niepożądane zadziałania. Obwody z własnym wyłącznikiem różnicowonadprądowym nie są wliczane."
+      },
+      "rcdSelectivity": {
+        "message": "Selektywność wyłączników różnicowoprądowych: urządzenie nadrzędne musi być mniej czułe niż urządzenie podrzędne (np. główne 300 mA, podrzędne 30 mA)",
+        "details": "Główny wyłącznik różnicowoprądowy (np. 300 mA) musi znajdować się przed urządzeniami o większej czułości (np. 30 mA). Nigdy nie instaluj wyłącznika 30 mA przed wyłącznikiem 300 mA."
+      },
+      "wetRoomRequires30mAFromCircuitNotes": {
+        "message": "Obwód {{circuitCode}} prawdopodobnie zasila łazienkę (na podstawie notatek), ale nie ma zabezpieczenia różnicowoprądowego 30 mA",
+        "details": "Reguła została uruchomiona, ponieważ notatki obwodu zawierają określenia „łazienka”, „wanna” lub „prysznic” (dopasowanie: {{matched}}). AREI wymaga, aby obwody zasilające pomieszczenie z wanną lub prysznicem były chronione wyłącznikiem różnicowoprądowym o wysokiej lub bardzo wysokiej czułości (zwykle 30 mA). Zamontuj przed obwodem wyłącznik różnicowoprądowy 30 mA albo użyj wyłącznika różnicowonadprądowego 30 mA."
+      },
+      "circuitHasTooManyEndpoints": {
+        "message": "Obwód {{circuitCode}} ma zbyt wiele punktów równoważnych gniazdom wtyczkowym ({{endpointCount}} > {{threshold}})",
+        "details": "Obwód gniazd wtyczkowych lub obwód mieszany {{circuitCode}} ma {{endpointCount}} punktów równoważnych gniazdom wtyczkowym; maksymalna liczba to {{threshold}}."
+      },
+      "installationHasMinimumLightingCircuits": {
+        "message": "Instalacja ma {{count}} obwodów oświetleniowych; wymagane minimum to {{threshold}}",
+        "details": "AREI (5.3.5.2) wymaga co najmniej {{threshold}} oddzielnych obwodów oświetleniowych w typowym domu. Ta instalacja ma ich {{count}} (obwody oświetleniowe lub mieszane)."
+      },
+      "domainMismatch": {
+        "message": "Obwodu DC nie można podłączyć do elementu AC.",
+        "details": "Domena przewodu musi odpowiadać oczekiwanej domenie wejścia lub wyjścia podłączonego elementu. Tylko przetworniki (transformator, prostownik, falownik, przetwornica DC-DC) mogą łączyć różne domeny."
+      },
+      "mainRcdCompliance": {
+        "missing": {
+          "message": "Główne zasilanie nie ma nadrzędnego wyłącznika różnicowoprądowego ani różnicowonadprądowego",
+          "details": "AREI wymaga głównego wyłącznika różnicowoprądowego na początku instalacji. Zamontuj go na przewodzie zasilającym, przed rozdzielnicą główną."
+        },
+        "rating": {
+          "message": "Główny wyłącznik różnicowoprądowy / różnicowonadprądowy ma prąd znamionowy {{ratingA}} A, poniżej zalecanego minimum 40 A dla głównego zabezpieczenia instalacji mieszkalnej",
+          "details": "Główny wyłącznik różnicowoprądowy na początku instalacji musi mieć prąd znamionowy co najmniej 40 A. Zwiększ prąd znamionowy lub dostosuj projekt instalacji."
+        },
+        "sensitivity": {
+          "message": "Główny wyłącznik różnicowoprądowy / różnicowonadprądowy ma czułość {{sensitivityMa}} mA, wyższą niż maksymalne 300 mA",
+          "details": "Główny wyłącznik różnicowoprądowy na początku instalacji musi mieć prąd zadziałania nieprzekraczający 300 mA. Użyj urządzenia 300 mA lub o niższym progu."
+        },
+        "type": {
+          "message": "Główny wyłącznik różnicowoprądowy / różnicowonadprądowy musi być co najmniej typu A, a nie wyłącznie typu AC",
+          "details": "Zgodnie z najnowszymi zmianami AREI główny wyłącznik różnicowoprądowy na początku instalacji musi być co najmniej typu A (wykrywać pulsujący prąd stały). Zastąp urządzenia wyłącznie typu AC urządzeniem typu A, F lub B."
+        }
+      },
+      "backupSupplyRcdCompliance": {
+        "message": "Zasilanie rezerwowe nie ma równoważnego zabezpieczenia różnicowoprądowego",
+        "details": "Obwód zasilania rezerwowego wymaga wyłącznika różnicowoprądowego lub różnicowonadprądowego o nastawie czułości maksymalnie 300 mA i prądzie znamionowym co najmniej 40 A.",
+        "remediation": "Zamontuj zgodny wyłącznik różnicowoprądowy lub różnicowonadprądowy na obwodzie zasilania rezerwowego, między falownikiem lub przełącznikiem źródeł a zasilaną rozdzielnicą."
+      },
+      "panelHasGlobalIsolation": {
+        "message": "Rozdzielnica {{panelName}} nie ma urządzenia odłączającego wszystkie przewody czynne",
+        "details": "Każda rozdzielnica musi mieć możliwość odłączenia za pomocą rozłącznika, który odłącza wszystkie przewody czynne. Rozłącznik może znajdować się w rozdzielnicy lub przed nią, na zasilaniu."
+      },
+      "panelHasLocalIsolationHint": {
+        "message": "Rozdzielnicę {{panelName}} można odłączyć tylko od strony zasilania; nie ma lokalnego rozłącznika",
+        "details": "Rozdzielnicę można odłączyć za pomocą urządzenia zasilającego znajdującego się przed nią, ale nie ma w niej lokalnego wyłącznika głównego ani rozłącznika. Lokalna możliwość odłączenia zwiększa bezpieczeństwo i ułatwia konserwację."
+      },
+      "circuitHasRcdProtection": {
+        "missing": {
+          "message": "Obwód {{circuitCode}} wymaga zabezpieczenia różnicowoprądowego 30 mA, ale nie znaleziono urządzenia nadrzędnego",
+          "details": "Oświetlenie, ogólne gniazda wtyczkowe, pralki, suszarki, zmywarki i obwody ładowania pojazdów elektrycznych wymagają zabezpieczenia różnicowoprądowego 30 mA. Zamontuj przed obwodem wyłącznik różnicowoprądowy lub różnicowonadprądowy albo poprowadź go przez istniejące urządzenie 30 mA."
+        },
+        "sensitivity": {
+          "message": "Obwód {{circuitCode}} jest chroniony wyłącznikami różnicowoprądowymi, ale żaden z nich nie ma czułości 30 mA",
+          "details": "Oświetlenie, ogólne gniazda wtyczkowe, pralki, suszarki, zmywarki i obwody ładowania pojazdów elektrycznych wymagają zabezpieczenia różnicowoprądowego 30 mA. Dostosuj czułość urządzenia nadrzędnego albo poprowadź obwód przez urządzenie 30 mA."
+        },
+        "dcCompatibility": {
+          "message": "Obwód ładowania pojazdu elektrycznego {{circuitCode}} ma zabezpieczenie różnicowoprądowe 30 mA, ale nie wykryto zabezpieczenia przed prądem uszkodzeniowym DC",
+          "details": "AREI 7.22.4.1 i 5.3.5.3(f) wymagają ochrony punktu ładowania przed zakłócającymi składowymi prądu stałego. Użyj wyłącznika różnicowoprądowego typu B albo zaznacz, że stacja ładowania ma wbudowane, skoordynowane zabezpieczenie lub wykrywanie upływu prądu stałego, np. wykrywanie 6 mA DC."
+        }
+      },
+      "stoveCircuitSizingHint": {
+        "message": "Obwód kuchenki {{circuitCode}} ma przekrój {{section}} mm² i zabezpieczenie {{breakerRating}} A; rozważ co najmniej {{recommendedSection}} mm² i {{recommendedBreaker}} A dla pełnowymiarowej kuchenki",
+        "details": "To sugestia projektowa: w Belgii pełnowymiarowa kuchenka elektryczna jest zwykle zasilana z osobnego obwodu o prądzie znamionowym około {{recommendedBreaker}} A, wykonanego z miedzi o przekroju {{recommendedSection}} mm². Mniejsze wartości mogą być zgodne z wymaganiami, jeśli są dobrane do urządzenia, ale ograniczają możliwość przyszłej wymiany na inne."
+      },
+      "heavyApplianceDedicatedCircuit": {
+        "message": "Urządzenia o dużym poborze mocy {{applianceLabels}} w obwodzie {{circuitCode}} powinny mieć własny obwód bez innych odbiorników",
+        "details": "Kuchenki elektryczne, płyty grzewcze, piekarniki, pralki, suszarki i zmywarki wymagają osobnego obwodu bez dodatkowych gniazd wtyczkowych, oświetlenia ani innych odbiorników."
+      },
+      "fixedApplianceDedicatedCircuitHint": {
+        "message": "Urządzenia stałe {{applianceLabels}} w obwodzie {{circuitCode}} współdzielą obwód z innymi odbiornikami",
+        "details": "Urządzenia stacjonarne często podłącza się do osobnego obwodu, aby przekrój przewodu i zabezpieczenie były do nich dostosowane i pozwalały na przyszłą wymianę. Rozważ podłączenie tych urządzeń do osobnego obwodu bez dodatkowych gniazd wtyczkowych, oświetlenia ani innych odbiorników."
+      }
+    },
+    "citations": {
+      "AREI": {
+        "code": "AREI",
+        "title": "Ogólne przepisy dotyczące instalacji elektrycznych"
+      }
+    }
+  },
+  "placement": {
+    "properties": "Właściwości rozmieszczenia",
+    "rotation": "Obrót",
+    "rotateCW": "Obróć w prawo",
+    "rotateCCW": "Obróć w kierunku przeciwnym do ruchu wskazówek zegara",
+    "cw": "Zgodnie z ruchem wskazówek zegara",
+    "ccw": "W lewo",
+    "position": "Pozycja",
+    "scale": "Danie",
+    "layer": "Niski",
+    "notFound": "Nie znaleziono miejsca docelowego"
+  },
+  "circuit": {
+    "code": "Obwód"
+  },
+  "export": {
+    "dialog": {
+      "title": "Eksport do PDF",
+      "selectCanvases": "Wybierz płótno do eksportu",
+      "eendraad": "Schemat jednokreskowy",
+      "eendraadShort": "Pojedynczy przewód",
+      "panel": "(widok płytki)",
+      "panelShort": "Tablica",
+      "sitplan": "Plan siedzenia (Rzut piętra)",
+      "sitplanShort": "Plan rozmieszczenia",
+      "mergePlanPages": "Połącz plany na piętra",
+      "mergePlanPagesWarning": "Znaleziono zduplikowane etykiety; połączone strony mogą być mylące.",
+      "options": "Opcje",
+      "theme": "Temat",
+      "themeLight": "Światło",
+      "themeDark": "Ciemny",
+      "pageCount": "Liczba stron",
+      "pagesForEendraad": "{{count}} strony dla schemat jednokreskowy",
+      "pagesForPanel": "{{count}} strony do płytki",
+      "pagesForSitplan": "{{count}} strony planu siedzenia",
+      "totalPages": "Łącznie: strony {{count}}",
+      "total": "Razem",
+      "editablePremiumTooltip": "Odblokuj ten projekt lub uaktualnij do wersji Premium, aby osadzić edytowalne dane projektu.",
+      "installDates": "Zapisz dane instalacyjne",
+      "eendraadPaperSize": "Rozmiar papieru z pojedynczą nitką",
+      "includeSignature": "Dołącz podpis",
+      "exportButton": "Import",
+      "cancelButton": "Anuluj"
+    },
+    "progress": {
+      "title": "PDF...",
+      "processing": "Przetwarzanie: {{pageId}}",
+      "complete": "{{percent}}% ukończono",
+      "cancel": "Anuluj"
+    },
+    "error": {
+      "title": "Eksport nie powiódł się",
+      "message": "PDF nie powiódł się. Spróbuj ponownie.",
+      "details": "Eksport zakończony, ale niektóre strony nie powiodły się:\n{{errors}}",
+      "validationFailureTitle": "Nie można ukończyć eksportu",
+      "validationFailureMessage": "Coś poszło nie tak podczas przygotowywania eksportu. Twój projekt jest bezpieczny, a problem został zgłoszony naszemu zespołowi. Spróbuj ponownie później."
+    }
+  },
+  "labelStripExport": {
+    "title": "Etykiety eksportowe",
+    "canvasWarningTitle": "Najpierw ułóż płótno panelu",
+    "canvasWarningMessage": "Niezmieniony układ powoduje powstanie nierzetelnych etykiet.",
+    "overflowWarningTitle": "Niektóre moduły nie pasują",
+    "overflowWarningMessage": "{{count}} wybrane moduły znajdują się w strefie przepełnienia i są pomijane. Przed eksportem sprawdź układ płytki.",
+    "sourcesTitle": "Zawiera panele",
+    "noSources": "Brak dostępnych paneli",
+    "virtualSource": "Skrzynka zasilająca",
+    "paperSettings": "Papier",
+    "exportFormat": "Format eksportu",
+    "brotherLbx": "Brother LBX",
+    "brotherPrinter": "Brother",
+    "brotherP900Family": "PT-P900 / PT-P950",
+    "brotherE920": "PT-E920BT",
+    "brotherP910": "PT-P910BT",
+    "brotherE800": "PT-E800W",
+    "brotherD800": "PT-D800W",
+    "brotherE550": "PT-E550W",
+    "brotherE560": "PT-E560BT",
+    "brotherE310": "PT-E310BT",
+    "brotherQl810w": "QL-810W",
+    "brotherQl820": "QL-820NWB",
+    "brotherTapeWidth": "Brother",
+    "brotherSheets": "Arkusze",
+    "brotherSingleStrip": "Jeden pasek",
+    "panelContents": "Zawartość panelu",
+    "paperSize": "Rozmiar papieru",
+    "preset": "Wstępne ustawienie paska etykiet",
+    "generic25": "Typowy 25 mm",
+    "generic35": "Typowy 35 mm",
+    "custom": "Zmodyfikowano",
+    "customHeight": "Regulowana wysokość listwy",
+    "customHeightFirst": "Wysokość pierwszego paska",
+    "customHeightSecond": "Wysokość drugiego paska",
+    "height": "{{value}} mm wysokości",
+    "mode": "Paski",
+    "modeSingle": "Pojedynczy",
+    "modeDouble": "Podwójne",
+    "include": "Wycofać się",
+    "domotics": "Automatyka domowa",
+    "nonProtection": "Falowniki",
+    "terminalStrips": "Listwy zaciskowe",
+    "skipEmptyRows": "Pomiń puste wiersze",
+    "skipEmptyRowsDescription": "Wyłącz tę opcję, aby drukować puste paski, które możesz później wypełnić ręcznie.",
+    "madeWith": "Etykiety szafkowe wykonane z",
+    "rowFromTop": "Rząd {{row}} od góry",
+    "preview": "Przykład",
+    "hidePreview": "Ukryj podgląd",
+    "previewPages": "{{count}} stron",
+    "previewLoading": "Przykład w toku...",
+    "previewError": "Nie można utworzyć próbki. Spróbuj ponownie.",
+    "export": "Import",
+    "errorTitle": "Eksport etykiety nie powiódł się",
+    "errorMessage": "Nie można utworzyć eksportu etykiety. Spróbuj ponownie.",
+    "generatedDescription": "{{type}} dla {{items}}"
+  },
+  "panelRelationOverview": "Przegląd powiązań między panelami",
+  "properties": {
+    "title": "Właściwości",
+    "projectProperties": "Właściwości projektu",
+    "viewSettings": "Ustawienia wyświetlacza",
+    "gridSize": "Rozmiar siatki",
+    "multiSelectDifferent": "Wybrano wiele elementów o różnych właściwościach. Edycja właściwości jest wyłączona.",
+    "multiSelectSame": "Wybrano wiele elementów. Edycja grupowa już wkrótce.",
+    "selectedCount": "Wybrane elementy: {{count}}",
+    "mixedValue": "Mieszane",
+    "multiSelectUnsupported": "Tych elementów nie można edytować razem."
+  },
+  "stairs": {
+    "width": "Szerokość schodów",
+    "stepDepth": "Wejście",
+    "cornerStyle": "Słupek narożny",
+    "cornerStyleRound": "Ukończono",
+    "cornerStyleSharp": "Ostre",
+    "defaultPointBehavior": "Domyślne zachowanie punktu",
+    "pointBehaviorTurn": "Schody",
+    "pointBehaviorPlatform": "Platforma",
+    "selectedPointOverride": "Nadpisanie wybranego punktu",
+    "selectedPointsOverride": "Nadpisania dla wybranych punktów",
+    "selectedPointOverrideHelp": "Zmiana na punkt. Użyj platformy, aby stworzyć podest i zniszcz stopnie na sąsiednich elementach.",
+    "clearPointOverride": "Użyj standardu schodów",
+    "pointOverrideCount": "Punkty {{count}} zastępują to zachowanie.",
+    "mixedPointModes": "Wartości mieszane",
+    "drawUpArrows": "Wyświetla strzałki kierunku wznoszenia",
+    "invertUpArrow": "Odwróć kierunek strzałki",
+    "upArrowDirection": "Strzałka wznoszenia",
+    "upArrowDirectionLeft": "Lewy",
+    "upArrowDirectionRight": "Z prawej",
+    "invertSpiralDirection": "Odwróć kierunek spirali",
+    "spiralSweepDegrees": "Łuk spiralny"
+  },
+  "contextMenu": {
+    "deletePlanImage": "Usuń obraz planu",
+    "deletePlanImageConfirmTitle": "Usunąć obraz planu?",
+    "deletePlanImageConfirmMessage": "Obraz planu został usunięty z {{floor}}.",
+    "addElement": "Dodaj element",
+    "addNote": "Dodaj notatkę",
+    "addFrame": "Dodaj ramkę",
+    "editProperties": "Edytuj właściwości",
+    "duplicate": "Duplikat",
+    "moveProtectionToNewPanel": "Przejdź na nowy rozdzielnica",
+    "copy": "Kopia",
+    "cut": "Cięcie",
+    "paste": "Wklej",
+    "delete": "Usuń",
+    "deleteAll": "Usuń wszystko",
+    "assignToCircuit": "Przypisz do obwód",
+    "alignLeft": "Wyrównaj w lewo",
+    "alignRight": "Wyrównaj w prawo",
+    "alignTop": "Wyrównaj górę",
+    "alignBottom": "Wyrównaj do dołu",
+    "alignCenter": "Centrum",
+    "distributeHorizontal": "Podział w poziomie",
+    "distributeVertical": "Rozkład pionowy",
+    "lockPosition": "Pozycja blokady",
+    "unlockPosition": "Pozycja odblokowania",
+    "sendToBack": "Do tyłu",
+    "bringToFront": "Do przodu",
+    "moveToFloor": "Przejdź na piętro...",
+    "copyToFloor": "Kopiuj na piętro...",
+    "copyToFloorDescription": "Wybierz docelowe piętra dla bieżącego wyboru na rzucie piętra.",
+    "copyOpeningsAlong": "Kopiuj otwory",
+    "copyToFloorSummaryPerFloor": "{{walls}} ściany, {{stairs}} schody i {{openings}} otwory na kondygnację",
+    "copyToFloorSummaryTotal": "Kopiuj do piętra {{floors}}: łącznie elementy {{total}}",
+    "isolateCircuit": "Obwód",
+    "showAll": "Pokaż wszystko",
+    "addMore": "Dodaj więcej...",
+    "hideInThisView": "Ukryj przed tym widokiem",
+    "showHidden": "Pokaż ukryte...",
+    "mergePoints": "Połącz punkty"
+  },
+  "multiplier": {
+    "setTotalCount": "Ustawia całkowitą liczbę symboli na planie sytuacyjnym",
+    "totalCount": "Całkowita ilość",
+    "invalidNumber": "Wprowadź liczbę całkowitą",
+    "mustBeAtLeastOne": "Liczba musi wynosić co najmniej 1",
+    "mustBeAtLeastCurrent": "Numer musi być co najmniej numerem bieżącym",
+    "maximumCount": "Maksymalnie to {{max}}",
+    "allowedInverterCounts": "Użyj 1, 2 lub 3",
+    "maxCount": "Maksymalnie wynosi 99"
+  },
+  "floorSelection": {
+    "selectFloor": "Wybierz piętro",
+    "createNew": "Utwórz nową podłogę",
+    "noFloors": "Nie ma pięter. Utwórz pierwsze piętro:",
+    "floorName": "Nazwa piętra",
+    "floorNamePlaceholder": "np. Parter, pierwsze piętro",
+    "add": "Dodatek",
+    "delete": "Usuń",
+    "addFloor": "Dodaj podłogę",
+    "deleteFloor": "Usuń piętro",
+    "selected": "Aktywny",
+    "moveUp": "W górę",
+    "moveDown": "W dół",
+    "deleteConfirmTitle": "Usunąć piętro?",
+    "deleteConfirmMessage": "Czy na pewno chcesz usunąć {{name}}? Miejsca docelowe na tym piętrze zostaną przeniesione na inne piętro. Tego nie można cofnąć.",
+    "cannotDeleteLast": "Musi pozostać co najmniej jedno piętro.",
+    "referenceOverlayShow": "Pokaż tę podłogę lekko w celach informacyjnych podczas rysowania na innym piętrze",
+    "referenceOverlayHide": "Ukryj odnośnik dla tego piętra"
+  },
+  "hiddenItemsDialog": {
+    "description": "Wybierz jeden lub więcej elementów, które mają zostać ponownie pokazane na planie.",
+    "confirm": "Aby pokazać",
+    "selectAll": "Wybierz wszystko",
+    "moveToCurrentView": "Przejdź do bieżącego widoku",
+    "none": "W tym widoku nie ma żadnych ukrytych elementów.",
+    "unnamedItem": "Element bez nazwy",
+    "protectionFallback": "Urządzenie zabezpieczające",
+    "trunkDeviceFallback": "Urządzenie na bagażniku",
+    "domoticaFallback": "Moduł automatyki domowej",
+    "manageHidden": "Zarządzaj ukrytymi symbolami",
+    "deviceOnCircuit": "{{device}} na {{circuit}}",
+    "selectSymbol": "Wybierz {{symbol}}"
+  },
+  "tally": {
+    "title": "Lista materiałów",
+    "categoryProtection": "Urządzenia zabezpieczające",
+    "categoryEnergyMeters": "Liczniki energii",
+    "categorySockets": "Gniazda wtyczkowe",
+    "categorySwitches": "Przełączniki",
+    "categoryImpulse": "Przełączniki impulsowe",
+    "categoryLights": "Punkty świetlne",
+    "categoryRelays": "Przekaźnik",
+    "categoryDomotica": "Automatyka domowa / Inteligentny dom",
+    "categoryStove": "Dystrybutor pieca",
+    "categoryPanels": "Płyta",
+    "categoryWires": "Przewody",
+    "wireLengthTotal": "{{length}} ogółem",
+    "wireLengthEstimate": "Przybliżone szacunki na podstawie planu piętra: {{length}}",
+    "wireLengthEstimateShort": "oszacowanie {{length}}",
+    "wireLengthEstimateHint": "Narysowany lub skalibrowany plan piętra: w linii prostej odległość ×2; +3 m przy każdej zmianie piętra.",
+    "devicesCount": "Automatyka domowa",
+    "typesCount": "typy",
+    "exportCsv": "Eksport do CSV",
+    "supplyWarningTitle": "Na przewodzie zasilającym — może być zainstalowany fabrycznie lub niemodyfikowalny",
+    "supplyPathSegment": "Zasilacz",
+    "groundPathSegment": "Uziemienie",
+    "panelGrid": "rzędy × moduły",
+    "panelNoGrid": "(bez siatki)",
+    "stoveJunctionBox": "Dystrybutor pieca",
+    "empty": "Brak urządzeń do wyświetlenia. Dodaj płyty, obwody i punkty końcowe.",
+    "selectSymbol": "Wybierz ten symbol",
+    "specOptionsHeading": "Opcje",
+    "specLinesAria": "Opcje dla tego typu urządzenia",
+    "specSocketOutletCount": "{{count}}×",
+    "socketOptionTwoPoleSwitch": "Przełącznik dwubiegunowy",
+    "socketOptionTwoPoleSwitchLock": "Dwubiegunowy wyłącznik z możliwością blokady",
+    "directCircuit": "Bezpośrednio",
+    "csvCategory": "Podsumowanie",
+    "csvSummary": "Streszczenie",
+    "csvCount": "Ilość",
+    "csvPanel": "Tablica",
+    "csvPath": "Ścieżka",
+    "csvDetails": "Bliższe dane"
+  },
+  "wires": {
+    "cableDefault": "Standard",
+    "makeCableDefault": "Wykonaj standard",
+    "useCableDefault": "Użyj standardu",
+    "multipleConnections": "Wspólny segment linii. Wybierz indywidualne połączenie, aby edytować przewód.",
+    "title": "Właściwości drutu",
+    "phase": "Faza",
+    "phaseAll": "Wszystkie fazy",
+    "phaseInherited": "Nabyto",
+    "phaseAutomatic": "Automatyczny",
+    "phaseSelect": "Wybierz fazę",
+    "busbarPhaseOrder": "Kolejność faz szyny",
+    "showPhaseLabel": "Pokazuje fazę na jednym przewodzie",
+    "hidePhaseLabel": "Ukryj fazę na jednym przewodzie",
+    "type": "Typ",
+    "conductors": "Przewodnicy",
+    "thickness": "Grubość",
+    "fireClass": "Klasa ogniowa",
+    "inTube": "Rura",
+    "onWall": "Na ścianie",
+    "inWall": "W ścianie",
+    "inGround": "Ziemia",
+    "inAir": "Powietrze",
+    "routeNone": "Brak",
+    "routeLabel": "Trasa przewodu",
+    "notFound": "Nie znaleziono segmentu przewodu",
+    "onlyVertical": "są dostępne tylko dla przewodów pionowych",
+    "noCircuit": "Segment przewodu nie jest powiązany z obwód",
+    "circuitNotFound": "Obwód",
+    "trySelectingAgain": "Spróbuj ponownie wybrać przewód. Segmenty drutu są regenerowane, więc wybór może zostać utracony.",
+    "other": "Inne",
+    "batteryCable": "Kabel akumulatora",
+    "customTypePlaceholder": "Nazwa typu własnego",
+    "supplyTitle": "Właściwości przewodu zasilającego",
+    "supplySegmentUpstream": "Strona zasilająca (do separacji)",
+    "supplySegmentCrossing": "Ramka panelu",
+    "supplySegmentDownstream": "Panel główny (do magistrali)",
+    "earthingTitle": "Właściwości przewodu uziemiającego",
+    "earthingConductorsNote": "Przewód uziemiający jest zawsze pojedynczym przewodem z uziemieniem (1G).",
+    "noInstallation": "Nie znaleziono instalacji",
+    "hideLabel": "Ukryj etykietę przewodu",
+    "showFireClassLabel": "Pokazuje klasę palności na jednym przewodzie",
+    "hideFireClassLabel": "Ukryj klasę ogniową na jednym przewodzie",
+    "length": "Długość",
+    "lengthPlaceholder": "Długość w metrach",
+    "lengthWithUnit": "{{value}} m",
+    "domainDc": "DC",
+    "showWireLengthLabel": "Pokaż długość przewodu na schemacie jednokreskowym",
+    "hideWireLengthLabel": "Ukryj długość przewodu na schemacie jednokreskowym",
+    "busStubNoProperties": "Ten wątek nie ma właściwości, które można edytować",
+    "domainTag": "Domena elektryczna (AC/DC)",
+    "domainMismatchTitle": "Nie można się tutaj połączyć",
+    "domainMismatchDrop": "{{component}} wymaga wejścia {{domain}}, ale tutaj wątek to {{wireDomain}}.",
+    "deleteRectifierWithDcDevicesTitle": "Usunąć prostownik i urządzenia prądu stałego?",
+    "deleteRectifierWithDcDevicesMessage": "Ten prostownik zasila urządzenia {{count}} zasilane wyłącznie prądem stałym (panele słoneczne/baterie). Usunięcie go powoduje również usunięcie tych urządzeń. Czy chcesz kontynuować?",
+    "lengthEstimateRange": "≈ {{low}}–{{high}} m zgodnie z planem",
+    "lengthFromPlan": "Oszacowano zgodnie z planem",
+    "calibratePlan": "Ustaw skalę planu, aby oszacować długości",
+    "lengthEstimateStale": "Plan został zmieniony. Sprawdź tę długość.",
+    "useLengthEstimate": "Użyj ≈ {{value}} m"
+  },
+  "plan": {
+    "doorProperties": "Drzwi",
+    "windowProperties": "Okno",
+    "openingWidth": "Szerokość",
+    "cm": "cm",
+    "doorHinge": "Otwór",
+    "doorHingeLeft": "Lewy",
+    "doorHingeRight": "Z prawej",
+    "doorHingeNone": "Brak",
+    "doorHingeDouble": "Podwójne",
+    "doorOpening": "Otwór",
+    "doorOpeningIn": "Wewnątrz",
+    "doorOpeningOut": "Wyjdź na zewnątrz",
+    "doorOpeningAngle": "Kąt otwarcia (stopnie)",
+    "resetScale": {
+      "distance": "Odległość (m)",
+      "confirmRescaleTitle": "Zastosować nową skalę obrazu?",
+      "confirmRescaleIntro": "Zmieniłeś skalę obrazu planu (~{{factor}}x). Wybierz, co chcesz zrobić:",
+      "optionRescale": "Przeskaluj narysowane elementy, aby zachować ich aktualne wymiary w metrach.",
+      "optionKeep": "Pozostaw narysowane elementy na miejscu i przelicz ich wymiary.",
+      "optionCancel": "Anuluj i pozostaw wszystko bez zmian.",
+      "confirmRescaleConfirm": "Zachowaj wymiary",
+      "confirmRescaleCancel": "Przelicz wymiary"
+    }
+  },
+  "junctionPanel": {
+    "label": "Nazwa tablicy rozdzielczej",
+    "labelPlaceholder": "Nazwa (ta sama nazwa = ta sama płyta w planie sesji)",
+    "pickExisting": "Wybierz istniejące…",
+    "noExisting": "Brak istniejących nazw",
+    "labelHelp": "Ta sama nazwa na wielu symbolach = jeden znak w planie siedzenia. Zmień nazwę, aby dodać drugą tablicę."
+  },
+  "ground": {
+    "trunkDevice": "Przewód uziemiający urządzenia"
+  },
+  "supply": {
+    "trunkDevice": "Przewód zasilający urządzenia",
+    "mainProtectionLabel": "Główny",
+    "port1": "Port 1",
+    "port2": "Port 2",
+    "converterPhases": "Fazy prądu przemiennego",
+    "converterAcConnection": "Złącze AC",
+    "converterAcShared": "Wspólne przyłącze sieciowe",
+    "converterAcSeparate": "Oddzielne przyłącza zasilania i zasilania rezerwowego",
+    "converterDcConnections": "Połączenia prądu stałego",
+    "converterTopDcConnections": "Przyłącza prądu stałego na górze",
+    "inverterUnit": "Falownik",
+    "nameLabelOnDiagramHint": "Jeśli jest widoczny: pojawia się nad symbolem na poziomym przewodzie zasilającym."
+  },
+  "installDates": {
+    "tool": "Data instalacji",
+    "toolDescription": "Zaznacz wybrane pozycje w schemat jednokreskowy według daty",
+    "installDate": "Data instalacji",
+    "installDateHint": "Pozostaw puste, aby użyć roku budowy projektu.",
+    "color": "Kolor daty instalacji",
+    "chooseExactDate": "Wybierz dokładną datę",
+    "clearExplicitDate": "Wyczyść wyraźną datę",
+    "month": "Miesiąc",
+    "day": "Cześć",
+    "menuSection": "Daty",
+    "showLabelsOutsideMode": "Etykiety z datą",
+    "showLabelsOutsideModeDescription": "Pokaż tryb daty zewnętrznej.",
+    "forceMonochrome": "Monochromatyczny",
+    "forceMonochromeDescription": "Użyj neutralnego koloru.",
+    "oldInstallation": "Stara instalacja",
+    "propagatePanelTitle": "Zmienić także wszystkie podstawowe urządzenia?",
+    "propagatePanelMessage": "Wybierz, czy ta data instalacji ma być kontynuowana z płytki.",
+    "propagateCircuitTitle": "Zmienić także podstawowe urządzenia?",
+    "propagateCircuitMessage": "Wybierz, czy ta data instalacji powinna obejmować odbiorców obwodu.",
+    "propagateProtections": "Tak – tylko zabezpieczenia",
+    "propagateAll": "Tak – wszystko",
+    "propagateConsumers": "Tak – konsumenci też"
+  },
+  "feedOrganization": {
+    "title": "Układ zasilania",
+    "single": "Jeden zasilacz",
+    "splitSwitchable": "Net + przełączalna kopia zapasowa",
+    "splitBackup": "Net + kopia zapasowa",
+    "bus": "Szyny",
+    "gridFeed": "Zasilacz",
+    "backupFeed": "Zasilacz zapasowy",
+    "gridMarker": "Netto",
+    "backupMarker": "Kopia zapasowa",
+    "switchableBackupMarker": "Kopia zapasowa/sieć"
+  },
+  "wallProperties": {
+    "title": "Właściwości ściany",
+    "drawingTitle": "Nowa ściana",
+    "thickness": "Grubość (cm)",
+    "thicknessHint": "Grubość w centymetrach. Pozostaw puste, aby użyć domyślnej grubości ściany z rzutu piętra.",
+    "length": "Długość",
+    "delete": "Usuń ścianę",
+    "confirmDelete": "Usunąć tę ścianę?",
+    "appearanceTitle": "Wygląd ściany",
+    "appearanceHint": "Globalne kolory wszystkich ścian na rzucie piętra. Ustaw osobne kolory dla jasnego i ciemnego motywu.",
+    "modeLight": "Motyw świetlny",
+    "modeDark": "Ciemny motyw",
+    "fillColor": "Ściana wypełniająca",
+    "strokeColor": "Obwód ściany",
+    "paletteLabel": "Paleta Quick",
+    "paletteColor": "Zastosuj kolor z palety"
+  },
+  "projectDocuments": {
+    "planDisplay": {
+      "title": "Zobacz plan",
+      "darkMode": "Ustaw na tryb ciemny",
+      "colour": "Kolor",
+      "greyscale": "Skala szarości",
+      "noColour": "Zaimportowano w skali szarości; ponownie zaimportuj kolory"
+    },
+    "add": "Dodaj dokumenty",
+    "emptyTitle": "Brak jeszcze dokumentów",
+    "drop": "Przeciągnij tutaj pliki PDF lub obrazy",
+    "rejected_one": "{{count}}: tylko pliki PDF i obrazy",
+    "rejected_other": "{{count}}: tylko pliki PDF i obrazy",
+    "back": "Wszystkie dokumenty",
+    "categories": {
+      "inspection": "Kontrola i zgodność",
+      "datasheet": "Dokumentacja urządzenia",
+      "sourcePlan": "Plany źródłowe",
+      "schematic": "Schematy",
+      "other": "Inne"
+    },
+    "category": "Kategoria",
+    "name": "Nazwa",
+    "pages_one": "{{count}} strona",
+    "pages_other": "{{count}} stron",
+    "includeInExport": "Uwzględnij w eksporcie",
+    "inExport": "W eksporcie",
+    "linkedTo": "Powiązano z",
+    "visibleToViewersHint": "Widoczny dla przeglądających, gdy projekt został udostępniony",
+    "notLinked": "Jeszcze nie powiązano z urządzeniem.",
+    "linkToDevice": "Powiąż z urządzeniem",
+    "noLinkableDevices": "Brak urządzeń do powiązania",
+    "unlink": "Usuń powiązanie",
+    "remove": "Usuń",
+    "loadFailed": "Nie można otworzyć tego dokumentu",
+    "attach": "Powiąż dokument",
+    "open": "Otwórz",
+    "section": "Dokumenty",
+    "exportTile": "Dokumenty",
+    "propertiesTitle": "Dokument",
+    "uploadFiles": "Prześlij pliki",
+    "removeConfirmTitle": "Usunąć dokument?",
+    "removeConfirmMessage": "„{{name}}” zostanie usunięty z tego projektu.",
+    "projectFileHint": "Z importu planu projektu.",
+    "rejectedTooLarge_one": "{{count}}: większy niż 100 MB",
+    "rejectedTooLarge_other": "{{count}}: większe niż 100 MB",
+    "uploadFailed": "Nie można dodać tych plików",
+    "replaceFile": "Zastąp plik",
+    "replaceFileShort": "Wymień",
+    "visibleToViewers": "Widoczne dla przeglądających",
+    "visibleToViewersShareNote": "Dokumenty powiązane z urządzeniem i plany na piętrze są widoczne dla każdego, kto może przeglądać ten projekt.",
+    "rejectedStorageFull_one": "{{count}}: miejsce na dokumenty jest pełne",
+    "rejectedStorageFull_other": "{{count}}: miejsce na dokumenty jest pełne",
+    "storageUsage": "{{used}} z {{limit}}",
+    "storageLabel": "Przechowywanie dokumentów",
+    "includePage": "Dołącz stronę do eksportu",
+    "deletePage": "Usuń stronę",
+    "deletePageConfirmTitle": "Usunąć stronę?",
+    "deletePageConfirmMessage": "Strona {{page}} zostanie usunięta z „{{name}}”.",
+    "deletePageFailed": "Tego pliku PDF nie można edytować",
+    "deletePages": "Usuń wiele stron",
+    "deletePagesConfirm": "Usuń strony: {{count}}",
+    "pageNumber": "Strona {{page}}",
+    "pagesInExport": "{{count}} z {{total}} stron w eksporcie",
+    "removeFloorPlanConfirmMessage": "„{{name}}” to plan na {{floors}}. Usunięcie powoduje również usunięcie go z planu sytuacyjnego.",
+    "exportFailed": "Nie można dodać „{{name}}” do pliku PDF",
+    "moveTo": "Przenieś do {{category}}",
+    "moveLocked": "Używany na planie sytuacyjnym",
+    "reduceSize": "Zmniejsz",
+    "reduceSizeBalanced": "Zrównoważony: łatwy do odczytania",
+    "reduceSizeSmallest": "Najmniejszy: niższa jakość",
+    "reduceSizeQuality": "Jakość",
+    "reduceSizeCurrent": "Teraz {{size}}.",
+    "reduceSizePdfHint": "Strony stają się obrazami, więc nie można już wybierać tekstu.",
+    "reduceSizeDone": "Zmniejszono z {{before}} do {{after}}.",
+    "reduceSizeNoGain": "Ten plik jest już tak mały, jak to tylko możliwe.",
+    "reduceSizeFailed": "Nie można zmniejszyć tego pliku.",
+    "reducingSize": "Zmniejszanie…",
+    "overBudgetTitle": "Za mało miejsca",
+    "overBudgetMessage_one": "{{count}} nie pasuje do pozostałego pliku {{free}}. Zmniejszyć i dodać?",
+    "overBudgetMessage_other": "{{count}} nie mieszczą się w pozostałych {{free}}. Zmniejszyć i dodać?",
+    "overBudgetConfirm": "Zmniejsz i dodaj",
+    "builtInHint": "Zawsze część projektu",
+    "rejected_few": "Pominięto {{count}} pliki: obsługiwane są tylko pliki PDF i obrazy.",
+    "rejected_many": "Pominięto {{count}} plików: obsługiwane są tylko pliki PDF i obrazy.",
+    "pages_few": "{{count}} strony",
+    "pages_many": "{{count}} stron",
+    "rejectedTooLarge_few": "Pominięto {{count}} pliki: przekraczają limit 100 MB.",
+    "rejectedTooLarge_many": "Pominięto {{count}} plików: przekraczają limit 100 MB.",
+    "rejectedStorageFull_few": "Pominięto {{count}} pliki: zabrakło miejsca na dokumenty.",
+    "rejectedStorageFull_many": "Pominięto {{count}} plików: zabrakło miejsca na dokumenty.",
+    "overBudgetMessage_few": "{{count}} nie mieszczą się w pozostałych {{free}}. Zmniejszyć i dodać?",
+    "overBudgetMessage_many": "{{count}} nie mieszczą się w pozostałych {{free}}. Zmniejszyć i dodać?"
+  },
+  "schematicAssistant": {
+    "validationReview": {
+      "title": "Powiadomienia",
+      "findings": "Informacje o",
+      "error": "Błędy",
+      "warning": "Ostrzeżenia",
+      "info": "Informacja",
+      "resolved": "rozwiązano",
+      "introduced": "Nowość",
+      "remaining": "Pozostały",
+      "limitedDetails": "Wyświetlana jest ograniczona lista komunikatów.",
+      "unavailable": "niedostępne. Nie można porównać powiadomień."
+    },
+    "catalogSource": "Synergrid C10/26 · egzemplarz katalogowy",
+    "catalogUpdated": "Aktualizacja źródła: {{date}}",
+    "catalogUnavailable": "Katalog niedostępny. Brak zweryfikowanych danych.",
+    "catalogNoMatches": "Brak pasujących wpisów w tym egzemplarzu katalogu.",
+    "catalogMoreMatches": "Dostępnych jest więcej wyników. Sprecyzuj wyszukiwanie.",
+    "dockLeft": "Zabezpiecz po lewej stronie",
+    "conversation": "Rozmowa",
+    "you": "Ty",
+    "assistant": "Asystent",
+    "applied": "Zmiany zostały zastosowane.",
+    "declined": "Propozycja odrzucona. Nie zastosowano żadnych zmian.",
+    "superseded": "Poprzednia propozycja nie została zastosowana.",
+    "createAction": "Generuj harmonogram…",
+    "editAction": "Asystent harmonogramu…",
+    "createTitle": "Generuj harmonogram",
+    "editTitle": "Asystent harmonogramu",
+    "newProjectName": "Nowy harmonogram",
+    "scope": "Tylko schemat jednokreskowy. Sprawdź każdą zmianę przed jej zastosowaniem.",
+    "context": "Wybrano",
+    "selected": "Wybrany",
+    "noSelection": "Nie wybrano żadnego",
+    "moreSelected": "+{{count}} więcej",
+    "unresolvedSelection": "{{count}} nie można rozpoznać wybranych elementów",
+    "truncatedSelection": "{{count}} pominięto wybrane elementy",
+    "prompt": "Opisz swoje zmiany",
+    "createPlaceholder": "Utwórz schemat z płytą główną…",
+    "editPlaceholder": "Dodaj cztery gniazda wtyczkowe do obwodu A…",
+    "generate": "Wyślij",
+    "generating": "Przygotuj ofertę…",
+    "review": "Proponowane zmiany",
+    "modelNotes": "Komentarze i założenia modelu",
+    "details": "Pełna oferta",
+    "installation": "Profil",
+    "createdSummary": "{{circuits}} obwody, punkty połączeń {{endpoints}}",
+    "warnings": {
+      "newSymbolsAwaitPlacement": "Nowe symbole czekają na umieszczenie na plan rozmieszczenia.",
+      "inverterDisconnectedBypassRemains": "Wejście sieciowe falownika nie jest podłączone. Ręczny przełącznik przełączający utrzymuje bezpośrednie zasilanie sieciowe.",
+      "supplyValuesAsSpecified": "Zasilacze i wartości zabezpieczeń zostały przyjęte zgodnie ze specyfikacją. Nie sprawdzono zgodności elektrycznej.",
+      "electricalComplianceNotVerified": "Nie sprawdzono zgodności elektrycznej."
+    },
+    "decline": "Odrzucenie",
+    "accept": "Zastosuj zmiany",
+    "acceptCreate": "Utwórz projekt",
+    "stale": "Projekt został zmieniony. Wygeneruj nową propozycję przed jej zastosowaniem.",
+    "noProject": "Najpierw otwórz projekt.",
+    "requestFailed": "Nie można przygotować propozycji. Spróbuj ponownie.",
+    "invalidProposal": "Nie można zatwierdzić propozycji. Spróbuj ponownie.",
+    "unsupportedTitle": "Jeszcze nieobsługiwane",
+    "alternatives": "Spróbuj tego",
+    "validation": {
+      "unknown_target": "Nie znaleziono określonego elementu. Wybierz zamierzony element i spróbuj ponownie.",
+      "unsupported_topology": "Ta zmiana nie jest obsługiwana w przypadku obwodu prądowego, płytki lub zasilacza. Wprowadź tę zmianę w edytorze.",
+      "socket_limit": "Ten gniazdo wtyczkowe nie obsługuje tego numeru. Poproś o mniejszą liczbę punktów połączenia.",
+      "missing_specification": "Brak danych elektrycznych. Podaj kod obwodu, kabel i wymagane wartości i spróbuj ponownie.",
+      "duplicate_code": "Ten kod okręgu jest już w użyciu. Wybierz inny kod."
+    },
+    "applyFailed": "Nie można zastosować tych zmian.",
+    "operations": {
+      "append_sockets": "Dodaj Gniazda wtyczkowe",
+      "update_circuit": "Zmień opis obwodu",
+      "update_endpoint": "Zmień punkt połączenia",
+      "add_circuit": "Dodaj obwód",
+      "create": "Utwórz harmonogram",
+      "update_supply_device": "Zmień zasilanie",
+      "disconnect_supply_grid_input": "Odłączyć wejście sieciowe falownika",
+      "set_circuit_cable": "Zmień kabel",
+      "update_protection": "Zmień zabezpieczenia",
+      "rename_circuit": "Zmień nazwę okręgu",
+      "move_panel_to_circuit": "Przesuń tablicę do okręgu",
+      "append_endpoints": "Dodaj urządzenia",
+      "add_supply_system": "Dodaj zasilacz"
+    },
+    "errors": {
+      "configuration": "Najpierw ustaw klucz i model OpenRouter na serwerze.",
+      "local_only": "Ten prototyp jest dostępny tylko na serwerze lokalnym.",
+      "invalid_context": "Ten projekt nie może zostać przetworzony przez prototyp.",
+      "invalid_response": "Model podał nieprawidłową propozycję. Spróbuj ponownie.",
+      "provider_auth": "Klucz OpenRouter na serwerze został odrzucony.",
+      "provider_credit": "Konto OpenRouter ma niewystarczające środki.",
+      "provider_busy": "Model jest zajęty. Spróbuj ponownie później.",
+      "provider_error": "Model nie mógł zrealizować żądania. Spróbuj ponownie.",
+      "timeout": "Żądanie trwało zbyt długo. Spróbuj ponownie.",
+      "busy": "Żądanie jest już w toku. Spróbuj ponownie później.",
+      "unsubmitted_draft": "Propozycja nie jest jeszcze gotowa. Poproś asystenta o jego uzupełnienie lub odrzuć.",
+      "tool_budget": "To pytanie wymaga zbyt wielu kroków. Podziel je na mniejsze zmiany.",
+      "invalid_session": "Podłącz ponownie asystenta do tego edytora."
+    },
+    "supplyUnitScope": "Dotyczy wszystkich jednostek {{count}}.",
+    "supplyUnitRatings": "Dotyczy wszystkich jednostek {{count}}. Wartości podano na jednostkę.",
+    "supplyFields": {
+      "label": "Etykieta",
+      "notes": "Opis",
+      "brand": "Model",
+      "model": "Model",
+      "powerW": "Moc na falownik (W)",
+      "capacityKWh": "Pojemność na akumulator (kWh)",
+      "wattageW": "Energia słoneczna (W)",
+      "ratedCurrentA": "Prąd znamionowy (A)",
+      "ratingA": "Wartość ochrony (A)",
+      "curve": "Krzywa",
+      "sensitivityMa": "Czułość (mA)",
+      "breakingCapacityKa": "Zdolność wyłączania (kA)",
+      "port1Label": "Etykieta wejścia zasilania",
+      "port2Label": "Etykieta wejścia zapasowego",
+      "gridInputConnected": "Wejście sieciowe falownika",
+      "unspecified": "Nie określono",
+      "connected": "Połączono",
+      "disconnected": "Odłączono",
+      "before": "Przód",
+      "after": "Nie",
+      "kind": "Typ kabla",
+      "customKind": "Niestandardowy typ kabla",
+      "conductors": "Przewodnicy",
+      "sectionMm2": "Przekrój (mm²)",
+      "hasPE": "Przewód ochronny",
+      "fireClass": "Klasa ogniowa",
+      "inTube": "W tubie",
+      "route": "Procedura",
+      "residualCurrentType": "Typ mechanizmu różnicowego",
+      "code": "Kod pętli"
+    },
+    "usingTools": "Wykonywanie funkcji edytora…",
+    "toolsConnected": "podłączony",
+    "copyMcp": "Skopiuj połączenie MCP",
+    "mcpCopied": "Połączenie skopiowane",
+    "mcpCopyFailed": "Nie można skopiować połączenia MCP.",
+    "devTrace": {
+      "work": "Stopnie",
+      "steps": "kroki",
+      "running": "Zajęty",
+      "done": "Gotowe",
+      "failed": "nie powiodło się",
+      "cancelled": "Anulowano",
+      "modelText": "Tekst modelu",
+      "modelCall": "Wywołanie modelu",
+      "arguments": "Argumenty",
+      "result": "Wynik"
+    }
+  },
+  "supplyImportReview": {
+    "title": "Zasilacz",
+    "unknown": "Nieznany",
+    "yes": "Tak",
+    "no": "nr",
+    "unspecified": "Nie określono zasilacza; żadne zasilacze nie są importowane.",
+    "incomingCable": "Kabel zasilający",
+    "connections": "Znajomości",
+    "allLoads": "Wszystkie importowane obwody są zasilane poprzez główne wyjście do {{panel}}.",
+    "gridInputConnected": "Podłączone wejście sieciowe falownika",
+    "gridInputDisconnected": "Wejście sieciowe falownika nie jest podłączone",
+    "neutralSwitched": "Przełączany przewód neutralny",
+    "topology": {
+      "manual_changeover": "Przełączanie ręczne",
+      "direct_backup": "Bezpośrednie zasilanie inwertera"
+    },
+    "devices": {
+      "grid": "Sieć energetyczna",
+      "energy_meter": "Licznik energii",
+      "protection": "Bezpieczeństwo",
+      "inverter": "Falownik",
+      "dcBus": "Szyna DC",
+      "battery": "Dzwonek",
+      "solar": "Panele słoneczne",
+      "changeover": "Przełącznik",
+      "mainPanel": "Zagłówek",
+      "inverterGridInput": "Wejście sieciowe falownika",
+      "inverterBackupOutput": "Wyjście rezerwowe falownika",
+      "inverterDcInput": "Falownik wejściowy DC",
+      "generator": "Falownik fotowoltaiczny",
+      "pv_inverter": "Falownik fotowoltaiczny",
+      "unknown": "Nieznane źródło",
+      "unknownSource": "Nieznane źródło",
+      "acDistribution": "Dystrybucja prądu przemiennego",
+      "integratedTransfer": "Zintegrowany przełącznik"
+    },
+    "roles": {
+      "incoming": "Program żywieniowy",
+      "gridInput": "Wejście sieciowe falownika",
+      "backupOutput": "Wyjście rezerwowe falownika",
+      "dcSource": "Oddział źródła prądu stałego"
+    },
+    "fields": {
+      "voltageSystem": "Układ napięcia",
+      "phases": "Fazy",
+      "protectionType": "Typ",
+      "current": "Prąd znamionowy",
+      "poles": "Polska",
+      "sensitivity": "Czułość",
+      "residualCurrentType": "Typ mechanizmu różnicowego",
+      "curve": "Krzywa",
+      "breakingCapacity": "Siła zrywania",
+      "brand": "Model",
+      "model": "Model",
+      "units": "Ilość",
+      "power": "Zasilanie",
+      "voltage": "Napięcie",
+      "capacity": "Pojemność na baterię",
+      "neutralTreatment": "Przewód neutralny",
+      "cableType": "Typ kabla",
+      "conductors": "Przewodnicy",
+      "section": "Przekrój poprzeczny",
+      "earthConductor": "Przewód uziemiający",
+      "fireClass": "Klasa ogniowa"
+    }
+  },
+  "cableSchedule": {
+    "settings": {
+      "floorHeight": "Wysokość kondygnacji",
+      "socketHeight": "Gniazda",
+      "switchHeight": "Łączniki",
+      "panelHeight": "Rozdzielnice",
+      "heights": "Wysokości (m)"
+    },
+    "title": "Lista kabli",
+    "board": "Rozdzielnica",
+    "circuit": "Obwód",
+    "from": "Z",
+    "to": "Do",
+    "cable": "Kabel",
+    "length": "Długość (m)",
+    "estimateLow": "Szacunkowa min (m)",
+    "estimateHigh": "Szacowany maks. (m)",
+    "sourceHeader": "Źródło",
+    "source": {
+      "entered": "Wprowadzono",
+      "accepted": "Zgodnie z planem",
+      "stale": "Sprawdź długość",
+      "uncalibrated": "Ustaw skalę",
+      "estimate": "Szacunek",
+      "missing": "Nieznany"
+    },
+    "useEstimates": "Użyj szacunków ({{count}})",
+    "cableCount_one": "{{count}} kabel",
+    "cableCount_other": "{{count}} kabli",
+    "collapseCircuit": "Zwiń obwód",
+    "expandCircuit": "Rozwiń obwód",
+    "use": "Użyj",
+    "exportCsv": "Eksportuj CSV",
+    "empty": "Umieść symbole na planie, aby zobaczyć ich kable.",
+    "totals": "Łącznie na kabel",
+    "continued": "ciąg dalszy",
+    "point": {
+      "socket": "Gniazdo wtyczkowe"
+    },
+    "cableCount_few": "{{count}} kable",
+    "cableCount_many": "{{count}} kabli"
+  },
+  "wireLegend": {
+    "lighting": "Oświetlenie",
+    "sockets": "Gniazda wtyczkowe",
+    "devices": "Urządzenia stałe",
+    "feeders": "Między rozdzielnicami",
+    "supply": "Zasilanie",
+    "dc": "DC",
+    "earthing": "Uziemienie",
+    "other": "Inne",
+    "selected": "Wybrany"
+  }
+}

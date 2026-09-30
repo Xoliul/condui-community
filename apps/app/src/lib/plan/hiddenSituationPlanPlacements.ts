@@ -4,9 +4,9 @@ import {
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import type { ProjectWithOptionalV2Building } from '@/lib/projectV2/buildingFloors'
-import type { Panel, SymbolKey } from '@/types/schema'
+import type { Panel, Placement, SymbolKey } from '@/types/schema'
 import { canSymbolAppearOnSituationPlan } from '@/lib/plan/situationPlanSymbolEligibility'
-import { hasCustomPlacement } from '@/lib/plan/customPlacement'
+import { hasCustomPlacement, isAwaitingPlanPlacement } from '@/lib/plan/customPlacement'
 import { getSituationPlanPlacementIdsHiddenByPanel } from '@/lib/plan/panelPlanPlacementVisibility'
 import { isModularSocket } from '@/lib/socket/modularSocket'
 
@@ -30,6 +30,26 @@ export interface HiddenSituationPlanPlacement {
  */
 export function getHiddenSituationPlanPlacements(
   project: ProjectWithSituationPlanPlacements
+): HiddenSituationPlanPlacement[] {
+  return collectSituationPlanPlacements(project, ({ hiddenOnFloor }) => hiddenOnFloor)
+}
+
+/**
+ * Returns automatic placements still waiting for the user to put them on the plan
+ * (manual plan placement). Placements the user also hid are reported as hidden instead.
+ */
+export function getAwaitingSituationPlanPlacements(
+  project: ProjectWithSituationPlanPlacements
+): HiddenSituationPlanPlacement[] {
+  return collectSituationPlanPlacements(
+    project,
+    ({ placement, hiddenOnFloor }) => !hiddenOnFloor && isAwaitingPlanPlacement(placement)
+  )
+}
+
+function collectSituationPlanPlacements(
+  project: ProjectWithSituationPlanPlacements,
+  include: (item: { placement: Placement; hiddenOnFloor: boolean }) => boolean
 ): HiddenSituationPlanPlacement[] {
   const floors = readLegacyCompatibilityFloors(project)
   const hiddenByFloor = new Map(
@@ -55,7 +75,8 @@ export function getHiddenSituationPlanPlacements(
           if (isModularSocket(endpoint)) continue
           for (const placement of endpoint.placements) {
             if (seenPlacementIds.has(placement.id)) continue
-            if (!hiddenByFloor.get(placement.floorId)?.has(placement.id)) continue
+            const hiddenOnFloor = hiddenByFloor.get(placement.floorId)?.has(placement.id) === true
+            if (!include({ placement, hiddenOnFloor })) continue
             if (hiddenByPanel.has(placement.id)) continue
             seenPlacementIds.add(placement.id)
             hidden.push({
@@ -74,7 +95,8 @@ export function getHiddenSituationPlanPlacements(
           if (!canSymbolAppearOnSituationPlan(device.symbol)) continue
           for (const placement of device.placements ?? []) {
             if (seenPlacementIds.has(placement.id)) continue
-            if (!hiddenByFloor.get(placement.floorId)?.has(placement.id)) continue
+            const hiddenOnFloor = hiddenByFloor.get(placement.floorId)?.has(placement.id) === true
+            if (!include({ placement, hiddenOnFloor })) continue
             if (hiddenByPanel.has(placement.id)) continue
             seenPlacementIds.add(placement.id)
             hidden.push({

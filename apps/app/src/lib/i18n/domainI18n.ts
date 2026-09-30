@@ -1,3 +1,6 @@
+import de from '@/locales/de.json'
+import pl from '@/locales/pl.json'
+import ro from '@/locales/ro.json'
 import { createInstance } from 'i18next'
 import nlBE from '@/locales/nl-BE.json'
 import frBE from '@/locales/fr-BE.json'
@@ -11,6 +14,9 @@ const domainI18n = createInstance()
 
 void domainI18n.init({
   resources: {
+  de: { translation: de },
+  pl: { translation: pl },
+  ro: { translation: ro },
     'nl-BE': { translation: nlBE },
     'fr-BE': { translation: frBE },
     en: { translation: en },

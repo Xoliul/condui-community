@@ -208,7 +208,7 @@ function Dialog() {
             ) : (
               <>
                 {dialog.message && (
-                  <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                  <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap [overflow-wrap:anywhere]">
                     {dialog.message}
                   </p>
                 )}
