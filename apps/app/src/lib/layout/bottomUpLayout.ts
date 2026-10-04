@@ -51,6 +51,8 @@ import {
 } from '@/lib/protectionLabels'
 import { getVisibleCertificationLabelParts } from '@/lib/certificationLabels'
 import { getVisibleConversionLabelParts } from '@/lib/conversionLabels'
+import { buildControlLinkNoteMap } from '@/lib/controlLink/controlLink'
+import { runWithControlLinkNotes } from '@/lib/controlLink/controlLinkNoteContext'
 import { isSymbolLabelVisible } from '@/lib/symbolLabels'
 import { getJunctionIdentity, isJunctionIdentityVisibleByDefault } from '@/lib/junctionIdentity'
 import { countSymbolLabelVisualLines } from '@/lib/symbolLabelMetrics'
@@ -1301,6 +1303,8 @@ export interface BottomUpLayoutResult {
   panels: BottomUpPanelLayout[]
   totalWidth: number
   totalHeight: number
+  /** Resolved control-link note text per endpoint id; lets later passes re-enter the same scope. */
+  controlLinkNotes?: ReadonlyMap<string, string>
 }
 
 /**
@@ -6378,6 +6382,19 @@ function clonePanelForDiagramRole(panel: Panel, role: 'panel' | 'supply'): Panel
  * Calculate bottom-up layout for entire project
  */
 export function calculateBottomUpLayout(
+  project: ProjectWithOptionalV2Electrical,
+  manualOverrides?: Map<string, Point>
+): BottomUpLayoutResult {
+  // Linked endpoints replace their notes with the resolved link text; measurement,
+  // envelopes and layout elements all read it through this one scope.
+  const controlLinkNotes = buildControlLinkNoteMap(getProjectElectricalPanels(project))
+  const result = runWithControlLinkNotes(controlLinkNotes, () =>
+    calculateBottomUpLayoutScoped(project, manualOverrides)
+  )
+  return controlLinkNotes.size > 0 ? { ...result, controlLinkNotes } : result
+}
+
+function calculateBottomUpLayoutScoped(
   project: ProjectWithOptionalV2Electrical,
   manualOverrides?: Map<string, Point>
 ): BottomUpLayoutResult {

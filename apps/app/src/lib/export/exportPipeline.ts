@@ -76,8 +76,11 @@ import { isProjectV2 } from '@/lib/projectV2/migration'
 
 import { appendDocumentsToPdf } from '@/lib/documents/appendDocumentsToPdf'
 
+import { buildAddressTable } from '@/lib/controlLink/addressTable'
+import { buildAddressTableSvgPages, getAddressTablePdfLabels } from '@/lib/controlLink/addressTablePdf'
 import {
   cableScheduleDocument,
+  controlAddressesDocument,
   getExportedProjectDocuments,
   getProjectDocuments,
 } from '@/lib/documents/projectDocuments'
@@ -216,7 +219,10 @@ async function prepareSceneForPage(
 
       const fullScene = eendraadCache
         ? eendraadCache.byPanelId.get(diagramId)
-        : await prepareEendraadScene(diagramId, 0, null, options)
+        : await prepareEendraadScene(diagramId, 0, null, options, undefined, {
+            project: context.project,
+            panelLayout,
+          })
       if (!fullScene) {
         throw new ExportError('NO_CONTENT', `Eendraad scene for diagram ${diagramId} not in cache`)
       }
@@ -393,10 +399,14 @@ export async function exportToPDF(
             (p) => getPanelDiagramId(p) === diagramId
           )
           if (!panelLayout) continue
-          const fullScene = await prepareEendraadScene(diagramId, 0, null, {
-            ...options,
-            theme: exportTheme,
-          })
+          const fullScene = await prepareEendraadScene(
+            diagramId,
+            0,
+            null,
+            { ...options, theme: exportTheme },
+            undefined,
+            { project: context.project, panelLayout }
+          )
           byPanelId.set(diagramId, fullScene)
           const baseOverlays = collectEendraadTextOverlays(panelLayout, exportTheme)
           const noteOverlays =
@@ -876,6 +886,24 @@ export async function exportToPDF(
             documentPages.push({ id: `document-cable-schedule-${index + 1}`, svg })
           )
           exportLog(`[Export] Added the cable schedule (${schedulePages.length} page(s))`)
+        }
+        if (
+          isProjectV2(context.project) &&
+          controlAddressesDocument('', context.project.assets).includeInExport
+        ) {
+          const table = buildAddressTable(getProjectElectricalPanels(context.project))
+          if (table.length > 0) {
+            const tablePages = buildAddressTableSvgPages(
+              table,
+              getAddressTablePdfLabels(i18n.t),
+              fontFamily,
+              exportTheme
+            )
+            tablePages.forEach((svg, index) =>
+              documentPages.push({ id: `document-control-addresses-${index + 1}`, svg })
+            )
+            exportLog(`[Export] Added the domotics address table (${tablePages.length} page(s))`)
+          }
         }
         
         for (const { id: tablePageId, svg: tableSvg } of documentPages) {

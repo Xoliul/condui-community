@@ -1,4 +1,5 @@
 import type { Circuit } from '@/types/schema'
+import { getNumberedCircuitTrunkSwitches } from '@/lib/eendraad/circuitPointNumbering'
 
 /**
  * Next available branch label for a circuit (e.g. M1, M2), matching addEndpoint / drop naming.
@@ -14,8 +15,13 @@ export function getNextBranchLabelForCircuit(circuit: Circuit): string {
     .map((e) => e.label)
     .filter((l): l is string => !!l && l.trim().length > 0)
 
+  // Numbered trunk switches hold point numbers too.
+  const trunkSwitchLabels = getNumberedCircuitTrunkSwitches(circuit)
+    .map((device) => device.label)
+    .filter((l): l is string => !!l && l.trim().length > 0)
+
   // Union both sources: preferring only branches could miss endpoint-only labels (out-of-sync data).
-  const labels = [...new Set([...branchLabels, ...endpointLabels])]
+  const labels = [...new Set([...branchLabels, ...endpointLabels, ...trunkSwitchLabels])]
 
   const numbered = labels
     .map((label) => {

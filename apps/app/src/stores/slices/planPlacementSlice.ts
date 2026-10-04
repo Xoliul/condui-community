@@ -7,6 +7,7 @@ import {
 import type { Project, ProjectSliceCreator } from './projectStoreTypes'
 import { recordSessionAction } from '@/lib/diagnostics/sessionActionLog'
 import { syncSequentialEndpointBranchLabelsToCircuit } from '@/lib/eendraad/automaticEndpointBranchNaming'
+import { applyDomoticaRowLabelEdit } from '@/lib/eendraad/domoticaRowLabel'
 import { syncDerivedEndpointFlags } from '@/lib/eendraad/endpointInsertAfter'
 import { getEarthingSeparatorPairIds } from '@/lib/eendraad/earthingSeparatorPairs'
 import {
@@ -739,7 +740,17 @@ export const createPlanPlacementSlice: ProjectSliceCreator = (set, get) => ({
                 syncSequentialEndpointBranchLabelsToCircuit(newCircuitResult.circuit)
               }
             } else {
-              Object.assign(result.endpoint, updates)
+              // A label typed on a domotica output only renames that output row; the module,
+              // the branch and the other rows keep their labels.
+              const isDomoticaRowLabelEdit =
+                updates.label !== undefined && !!result.endpoint.domoticaChildProps
+              if (isDomoticaRowLabelEdit) {
+                const { label: typedRowLabel, ...updatesWithoutLabel } = updates
+                Object.assign(result.endpoint, updatesWithoutLabel)
+                applyDomoticaRowLabelEdit(result.circuit, id, typedRowLabel ?? '')
+              } else {
+                Object.assign(result.endpoint, updates)
+              }
               if (isModularSocket(result.endpoint)) {
                 result.endpoint.socketProps = normalizeModularSocketProps(result.endpoint.socketProps)
               }
@@ -752,7 +763,11 @@ export const createPlanPlacementSlice: ProjectSliceCreator = (set, get) => ({
               // Propagate label changes to the branch and all sibling endpoints.
               // The branch label is the single source of truth — when one endpoint's
               // label is edited, all endpoints on the same branch must follow.
-              if (updates.label !== undefined && result.circuit.branches?.length) {
+              if (
+                updates.label !== undefined &&
+                !isDomoticaRowLabelEdit &&
+                result.circuit.branches?.length
+              ) {
                 const branch = result.circuit.branches.find((b) => b.endpointIds.includes(id))
                 if (branch) {
                   branch.label = updates.label

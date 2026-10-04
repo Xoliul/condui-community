@@ -62,9 +62,8 @@ import {
   PLAN_IMPORT_FILE_ACCEPT,
 } from './planImportFiles'
 import { isFloorplanScanEnabled } from '@/lib/vision/availability'
-import { PlanWallRecognitionError, recognizePlanWalls } from '@/lib/vision/recognizePlanWalls'
-import { recognizedWallsToFloorPlan } from '@/lib/plan/recognizedWalls'
-import type { VisionPlanGeometryMode, VisionPlanReviewPage } from '@/lib/vision/visionReviewApi'
+import { useWallScanStore, type WallScanTarget } from '@/stores/wallScanStore'
+import { useWallRecognitionAccess, WallRecognitionToggle } from './WallRecognitionControls'
 
 // Component to show processed image with dark mode preview
 function ProcessedImagePreview({
@@ -214,11 +213,15 @@ function ImportPlanImageDialog({
     })
   const [pdfScaleCurrentPageIndex, setPdfScaleCurrentPageIndex] = useState<number | null>(null)
   const [isApplyingPdfImport, setIsApplyingPdfImport] = useState(false)
-  const [recognizeWalls, setRecognizeWalls] = useState(false)
-  const [scanMethod, setScanMethod] = useState<VisionPlanGeometryMode>('hybrid')
-  const [isRecognizingWalls, setIsRecognizingWalls] = useState(false)
-  const [recognitionError, setRecognitionError] = useState<string | null>(null)
-  const [pdfEnableDarkModeProcessing, setPdfEnableDarkModeProcessing] = useState(true)
+  // Wall recognition is on by default where it is available; the toggle turns itself off
+  // for projects without recognition access or accounts without scans left.
+  const [recognizeWalls, setRecognizeWalls] = useState(true)
+  const [importError, setImportError] = useState<string | null>(null)
+  const autoImportStartedRef = useRef(false)
+  const wallRecognitionAccess = useWallRecognitionAccess()
+  const wallRecognitionAvailable =
+    isFloorplanScanEnabled() && wallRecognitionAccess === 'available'
+  const pdfEnableDarkModeProcessing = true
   const [pdfConvertCadToGrayscale, setPdfConvertCadToGrayscale] = useState(false)
   const [pdfPreviewPageIndex, setPdfPreviewPageIndex] = useState<number | null>(null)
   const [pdfPreviewOriginalUrl, setPdfPreviewOriginalUrl] = useState<string | null>(null)
@@ -285,9 +288,9 @@ function ImportPlanImageDialog({
   )
   const getPdfRasterThemePreviewUrl = useCallback(
     async (dataUrl: string, darkMode: boolean): Promise<string> => {
-      if (darkMode) return applyDarkModeInversion(dataUrl)
       const processed = await processPdfRasterBackground(dataUrl)
-      return processed.hasWhiteBackground ? processed.processedDataUrl : dataUrl
+      const source = processed.hasWhiteBackground ? processed.processedDataUrl : dataUrl
+      return darkMode ? applyDarkModeInversion(source) : source
     },
     []
   )
@@ -406,12 +409,9 @@ function ImportPlanImageDialog({
       const isDxf = lowerName.endsWith('.dxf')
       const isDwg = lowerName.endsWith('.dwg')
       const isSvg = selectedFile.type === 'image/svg+xml' || lowerName.endsWith('.svg')
-      const isPngJpeg =
-        selectedFile.type === 'image/png' ||
-        selectedFile.type === 'image/jpeg' ||
-        /\.(png|jpe?g)$/i.test(lowerName)
+      const isRasterImage = isRasterPlanImportFile(selectedFile)
 
-      if (isPdf || isDxf || isDwg || isSvg || isPngJpeg) {
+      if (isPdf || isDxf || isDwg || isSvg || isRasterImage) {
         setFile(selectedFile)
         setStep('pdfPages')
         setIsParsingPdf(true)
@@ -431,7 +431,7 @@ function ImportPlanImageDialog({
             ? parseDwgFile(selectedFile)
             : isSvg
               ? parseSvgFile(selectedFile)
-              : isPngJpeg
+              : isRasterImage
                 ? parseRasterImageFile(selectedFile)
                 : parsePdfFile(selectedFile, { maxPages: 20 })
         parsePromise
@@ -446,7 +446,7 @@ function ImportPlanImageDialog({
                     ? 'dwg'
                     : isSvg
                       ? 'svg'
-                      : isPngJpeg
+                      : isRasterImage
                         ? 'image'
                         : isPdf
                           ? 'pdf'
@@ -484,7 +484,7 @@ function ImportPlanImageDialog({
                   ? `${t('planImport.invalidDwgFile')}${message ? `: ${message}` : ''}`
                   : isSvg
                     ? `${t('planImport.invalidSvgFile')}${message ? `: ${message}` : ''}`
-                    : isPngJpeg
+                    : isRasterImage
                       ? `${t('planImport.invalidFileType')}${message ? `: ${message}` : ''}`
                       : `${t('planImport.invalidPdfFile')}${message ? `: ${message}` : ''}`
             )
@@ -684,10 +684,11 @@ function ImportPlanImageDialog({
     setPdfScaleRulerRevision(0)
     setPdfScaleCurrentPageIndex(null)
     setIsApplyingPdfImport(false)
-    setRecognizeWalls(false)
-    setIsRecognizingWalls(false)
-    setRecognitionError(null)
-    setPdfEnableDarkModeProcessing(true)
+    setRecognizeWalls(true)
+    setImportError(null)
+    autoImportStartedRef.current = false
+    // Closing before the plan is imported releases a wall scan that was started for it.
+    if (!useWallScanStore.getState().projectId) useWallScanStore.getState().discard()
     setPdfConvertCadToGrayscale(false)
     setPdfPreviewPageIndex(null)
     setPdfPreviewOriginalUrl(null)
@@ -734,7 +735,6 @@ function ImportPlanImageDialog({
   // Handle final import
   const handleImport = useCallback(async () => {
     if (!currentProject || !croppedImageDataUrl) return
-    if (isRecognizingWalls) return
     if (createNewFloor && !newFloorName.trim()) {
       alert(t('planImport.floorNameRequired'))
       return
@@ -752,20 +752,6 @@ function ImportPlanImageDialog({
     const imageWidth = (imageDimensions?.width ?? 1) * factor
     const imageHeight = (imageDimensions?.height ?? 1) * factor
     const importedScale: Floor['scale'] = { pxPerMeter: targetPxPerMeter, reference: scaleReference && measuredPxPerMeter ? createPlanScaleReference(scalePlanPoint(scaleReference.p1, factor), scalePlanPoint(scaleReference.p2, factor), scaleReference.meters) ?? undefined : undefined }
-    let recognizedPage: VisionPlanReviewPage | null = null
-    if (recognizeWalls && isFloorplanScanEnabled()) {
-      setIsRecognizingWalls(true)
-      setRecognitionError(null)
-      try {
-        recognizedPage = await recognizePlanWalls(croppedImageDataUrl, file?.name ?? 'plan', scanMethod)
-      } catch (error) {
-        setRecognitionError(t(error instanceof PlanWallRecognitionError
-          ? error.translationKey : 'planImport.recognitionFailed'))
-        return
-      } finally {
-        setIsRecognizingWalls(false)
-      }
-    }
 
     const hasWhiteBackground = processingResult?.hasWhiteBackground ?? false
 
@@ -782,7 +768,6 @@ function ImportPlanImageDialog({
             ? processingResult.processedDataUrl
             : undefined,
         planAssetHasWhiteBackground: hasWhiteBackground,
-        planImageOpacity: recognizedPage ? 30 : undefined,
         planImportAsset: {
           id: nanoid(),
           kind: 'raster',
@@ -799,12 +784,6 @@ function ImportPlanImageDialog({
         scale: importedScale,
         planScaleNeedsCalibration: !measuredPxPerMeter,
       }
-      if (recognizedPage) {
-        newFloor.floorPlan = recognizedWallsToFloorPlan(
-          recognizedPage, newFloor.id, { width: imageWidth, height: imageHeight }
-        )
-      }
-
       addFloor(newFloor)
       targetFloorId = newFloor.id
       setActiveFloor(newFloor.id)
@@ -819,13 +798,6 @@ function ImportPlanImageDialog({
               ? processingResult.processedDataUrl
               : undefined,
           planAssetHasWhiteBackground: hasWhiteBackground,
-          ...(recognizedPage ? {
-            planImageOpacity: 30,
-            floorPlan: recognizedWallsToFloorPlan(
-              recognizedPage, targetFloorId, { width: imageWidth, height: imageHeight },
-              floor.planImageOffset, floor.floorPlan
-            ),
-          } : {}),
           planImportAsset: {
             id: nanoid(),
             kind: 'raster',
@@ -869,10 +841,6 @@ function ImportPlanImageDialog({
   }, [
     currentProject,
     croppedImageDataUrl,
-    file,
-    recognizeWalls,
-    scanMethod,
-    isRecognizingWalls,
     selectedFloorId,
     createNewFloor,
     newFloorName,
@@ -977,14 +945,6 @@ function ImportPlanImageDialog({
                 grayscale: Boolean(asset.svgContent) && pdfConvertCadToGrayscale,
               }
             }
-            if (!pdfEnableDarkModeProcessing) {
-              return {
-                ...asset,
-                processedDataUrl: undefined,
-                hasWhiteBackground: false,
-                darkModeAware: false,
-              }
-            }
             if (asset.kind === 'pdf-vector') {
               return {
                 ...asset,
@@ -1034,16 +994,12 @@ function ImportPlanImageDialog({
           })
         )
 
-        const recognizedByPage = new Map<number, VisionPlanReviewPage>()
-        if (recognizeWalls && !isCadMultiCropImport && isFloorplanScanEnabled()) {
-          setRecognitionError(null)
-          for (const asset of normalizedWithBackground) {
-            if (!asset.dataUrl) throw new Error(t('planImport.recognitionFailed'))
-            recognizedByPage.set(
-              asset.pageIndex,
-              await recognizePlanWalls(asset.dataUrl, `${file.name}-${asset.pageIndex + 1}`, scanMethod)
-            )
-          }
+        setImportError(null)
+        // Where each scanned page lands, so the background wall scan can be previewed there.
+        const wallScanTargets: WallScanTarget[] = []
+        const scansWalls = useWallScanStore.getState().status !== 'idle'
+        const addWallScanTarget = (target: WallScanTarget) => {
+          if (scansWalls) wallScanTargets.push(target)
         }
 
         const orderedSelectedPages = [...selectedPages].sort((a, b) => a.pageIndex - b.pageIndex)
@@ -1288,18 +1244,15 @@ function ImportPlanImageDialog({
             planAsset: first.dataUrl,
             planAssetProcessed: first.processedDataUrl,
             planAssetHasWhiteBackground: first.hasWhiteBackground,
-            ...(recognizedByPage.has(first.pageIndex) ? {
-              planImageOpacity: 30,
-              floorPlan: recognizedWallsToFloorPlan(
-                recognizedByPage.get(first.pageIndex)!, selectedFloorId,
-                createPlanImportAsset(first, { isReferenceCrop: true }),
-                getFloorById(selectedFloorId)?.planImageOffset,
-                getFloorById(selectedFloorId)?.floorPlan
-              ),
-            } : {}),
             planImportAsset: createPlanImportAsset(first, { isReferenceCrop: true }),
             scale: normalizedScale(first.pageIndex),
             planScaleNeedsCalibration: !pageScales.get(first.pageIndex),
+          })
+          addWallScanTarget({
+            pageIndex: first.pageIndex,
+            floorId: selectedFloorId,
+            imageSize: createPlanImportAsset(first, { isReferenceCrop: true }),
+            offset: getFloorById(selectedFloorId)?.planImageOffset,
           })
           setActiveFloor(selectedFloorId)
         } else {
@@ -1331,14 +1284,6 @@ function ImportPlanImageDialog({
                 planAsset: first.dataUrl,
                 planAssetProcessed: first.processedDataUrl,
                 planAssetHasWhiteBackground: first.hasWhiteBackground,
-                ...(recognizedByPage.has(first.pageIndex) ? {
-                  planImageOpacity: 30,
-                  floorPlan: recognizedWallsToFloorPlan(
-                    recognizedByPage.get(first.pageIndex)!, floorToReuse.id,
-                    firstAsset,
-                    getCadCropOffset(first, referenceAssetForAlignment) ? scalePlanPoint(getCadCropOffset(first, referenceAssetForAlignment)!, firstFactor) : undefined, floorToReuse.floorPlan
-                  ),
-                } : {}),
                 planImportAsset: createPlanImportAsset(first, {
                   isReferenceCrop: true,
                   planImageOffset: getCadCropOffset(first, referenceAssetForAlignment),
@@ -1346,6 +1291,14 @@ function ImportPlanImageDialog({
                 planImageOffset: getCadCropOffset(first, referenceAssetForAlignment) ? scalePlanPoint(getCadCropOffset(first, referenceAssetForAlignment)!, firstFactor) : undefined,
                 scale: normalizedScale(first.pageIndex),
                 planScaleNeedsCalibration: !pageScales.get(first.pageIndex),
+              })
+              addWallScanTarget({
+                pageIndex: first.pageIndex,
+                floorId: floorToReuse.id,
+                imageSize: firstAsset,
+                offset: getCadCropOffset(first, referenceAssetForAlignment)
+                  ? scalePlanPoint(getCadCropOffset(first, referenceAssetForAlignment)!, firstFactor)
+                  : undefined,
               })
               firstImportedFloorId = floorToReuse.id
             }
@@ -1361,32 +1314,33 @@ function ImportPlanImageDialog({
               planAsset: pageAsset.dataUrl,
               planAssetProcessed: pageAsset.processedDataUrl,
               planAssetHasWhiteBackground: pageAsset.hasWhiteBackground,
-              planImageOpacity: recognizedByPage.has(pageAsset.pageIndex) ? 30 : undefined,
               planImportAsset: importedAsset,
               planImageOffset,
               scale: normalizedScale(pageAsset.pageIndex),
               planScaleNeedsCalibration: !pageScales.get(pageAsset.pageIndex),
             }
-            const recognizedPage = recognizedByPage.get(pageAsset.pageIndex)
-            if (recognizedPage) {
-              newFloor.floorPlan = recognizedWallsToFloorPlan(
-                recognizedPage, newFloor.id,
-                importedAsset, planImageOffset
-              )
-            }
+            addWallScanTarget({
+              pageIndex: pageAsset.pageIndex,
+              floorId: newFloor.id,
+              imageSize: importedAsset,
+              offset: planImageOffset,
+            })
             addFloor(newFloor)
             if (!firstImportedFloorId) firstImportedFloorId = newFloor.id
           }
           if (firstImportedFloorId) setActiveFloor(firstImportedFloorId)
         }
 
+        if (scansWalls) {
+          useWallScanStore.getState().attach(currentProject.project.id, wallScanTargets)
+        }
         schedulePlanFitToViewAfterImport()
         handleClose()
         clearProjectHistory()
         saveProjectAfterImport()
       } catch (error) {
-        setRecognitionError(t(error instanceof PlanWallRecognitionError
-          ? error.translationKey : 'planImport.recognitionFailed'))
+        logger.error('[planImport] Plan import failed:', error)
+        setImportError(t('planImport.importFailed'))
       } finally {
         setIsApplyingPdfImport(false)
       }
@@ -1403,11 +1357,8 @@ function ImportPlanImageDialog({
       applyPdfScaleToAll,
       pdfScalePerPage,
       pdfScaleSkippedPages,
-      pdfEnableDarkModeProcessing,
       pdfConvertCadToGrayscale,
       isApplyingPdfImport,
-      recognizeWalls,
-      scanMethod,
       isCadMultiCropImport,
       cadImportPipeline,
       cadImportPipelinesByPage,
@@ -1423,6 +1374,48 @@ function ImportPlanImageDialog({
       saveProjectAfterImport,
     ]
   )
+
+  /**
+   * Starts the wall scan in the background as soon as the pages and crops are chosen, so it
+   * runs while the user calibrates the scale. The import itself never waits for it.
+   */
+  const startWallScan = useCallback(() => {
+    const scan = useWallScanStore.getState()
+    if (!file || !recognizeWalls || !wallRecognitionAvailable || isCadMultiCropImport) {
+      if (!scan.projectId) scan.discard()
+      return
+    }
+    const pages = pdfPages
+      .filter((page) => selectedPdfPages.includes(page.pageIndex))
+      .sort((a, b) => a.pageIndex - b.pageIndex)
+    const inputKey = JSON.stringify([
+      file.name,
+      file.size,
+      file.lastModified,
+      pages.map((page) => [page.pageIndex, pdfPageCropMap[page.pageIndex] ?? null]),
+    ])
+    if (scan.inputKey === inputKey && scan.status !== 'failed') return
+    void Promise.all(
+      pages.map((page) => normalizePdfPageAsset(page, file.name, pdfPageCropMap[page.pageIndex]))
+    )
+      .then((assets) => {
+        const images = assets.flatMap((asset) =>
+          asset.dataUrl
+            ? [{ pageIndex: asset.pageIndex, dataUrl: asset.dataUrl, name: `${file.name}-${asset.pageIndex + 1}` }]
+            : []
+        )
+        if (images.length > 0) useWallScanStore.getState().start(inputKey, images)
+      })
+      .catch((error: unknown) => logger.warn('[planImport] Could not prepare the wall scan:', error))
+  }, [
+    file,
+    recognizeWalls,
+    wallRecognitionAvailable,
+    isCadMultiCropImport,
+    pdfPages,
+    selectedPdfPages,
+    pdfPageCropMap,
+  ])
 
   const croppedPageCount = useMemo(() => Object.keys(pdfPageCropMap).length, [pdfPageCropMap])
   const cadLayerList = useMemo(() => mergeCadLayers(pdfPages), [pdfPages])
@@ -1530,6 +1523,17 @@ function ImportPlanImageDialog({
     [cropEditingPageIndex, pdfPages]
   )
 
+  // Raster images and PDFs always receive background processing after calibration.
+  useEffect(() => {
+    if (step !== 'pdfBackground' || isCadMultiCropImport) {
+      autoImportStartedRef.current = false
+      return
+    }
+    if (autoImportStartedRef.current) return
+    autoImportStartedRef.current = true
+    void handlePdfImport(false)
+  }, [step, isCadMultiCropImport, handlePdfImport])
+
   const handlePdfScaleComplete = useCallback(
     (reference: { p1: Point2; p2: Point2; meters: number }) => {
       const orderedSelected = selectedPdfPages.slice().sort((a, b) => a - b)
@@ -1625,7 +1629,7 @@ function ImportPlanImageDialog({
   )
 
   useEffect(() => {
-    if (step !== 'pdfBackground' || !file) return
+    if (step !== 'pdfBackground' || !isCadMultiCropImport || !file) return
     const selected = selectedPdfPages.slice().sort((a, b) => a - b)
     const pageIndex = pdfPreviewPageIndex ?? selected[0] ?? null
     if (pageIndex == null) return
@@ -1731,6 +1735,7 @@ function ImportPlanImageDialog({
       <div
         className={`bg-white dark:bg-gray-800 rounded-md shadow-2xl ${dialogSize} max-h-[95vh] min-h-0 overflow-hidden flex flex-col`}
       >
+
         {/* Header */}
         <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-800">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -1988,28 +1993,7 @@ function ImportPlanImageDialog({
                 </div>
               </div>
 
-              {isFloorplanScanEnabled() && (
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-200">
-                    <input type="checkbox" checked={recognizeWalls}
-                      onChange={(event) => setRecognizeWalls(event.target.checked)}
-                      disabled={isRecognizingWalls} />
-                    <span>{t('planImport.recognizeWalls')}</span>
-                  </label>
-                  {recognizeWalls && (
-                    <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                      <span>{t('planImport.scanMethod')}</span>
-                      <select value={scanMethod} onChange={(event) => setScanMethod(event.target.value as VisionPlanGeometryMode)}
-                        disabled={isRecognizingWalls}
-                        className="rounded border border-gray-300 bg-white px-2 py-1 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
-                        <option value="hybrid">{t('planImport.scanHybrid')}</option>
-                        <option value="yolo">{t('planImport.scanYolo')}</option>
-                        <option value="luna">{t('planImport.scanLuna')}</option>
-                      </select>
-                    </label>
-                  )}
-                </div>
-              )}
+
 
               {/* Preview */}
               {(enableBackgroundProcessing && processingResult?.processedDataUrl
@@ -2044,6 +2028,13 @@ function ImportPlanImageDialog({
                   <p className="text-gray-600 dark:text-gray-400">
                     {t('planImport.pdfSelectPages')}
                   </p>
+                  {isFloorplanScanEnabled() && !isCadMultiCropImport && !isParsingPdf && (
+                    <WallRecognitionToggle
+                      access={wallRecognitionAccess}
+                      checked={recognizeWalls}
+                      onChange={setRecognizeWalls}
+                    />
+                  )}
                   {isParsingPdf && (
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
@@ -2439,7 +2430,12 @@ function ImportPlanImageDialog({
               )
             })()}
 
-          {step === 'pdfBackground' && (
+          {step === 'pdfBackground' && !isCadMultiCropImport && !importError && (
+            <div className="flex flex-1 items-center justify-center py-16">
+              <div className="inline-block h-10 w-10 animate-spin rounded-full border-b-2 border-sky-600" />
+            </div>
+          )}
+          {step === 'pdfBackground' && isCadMultiCropImport && (
             <div className="flex-1 flex flex-col space-y-4 min-h-0">
               <div className="space-y-3 border border-gray-200 dark:border-gray-700 rounded-md p-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -2452,36 +2448,7 @@ function ImportPlanImageDialog({
                     ? t('planImport.cadColorModeDescription')
                     : t('planImport.pdfDarkModeDescription')}
                 </p>
-                {!isCadMultiCropImport && (
-                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                    <input
-                      type="checkbox"
-                      checked={pdfEnableDarkModeProcessing}
-                      onChange={(e) => setPdfEnableDarkModeProcessing(e.target.checked)}
-                    />
-                    <span>{t('planImport.enablePdfDarkModeProcessing')}</span>
-                  </label>
-                )}
-                {isFloorplanScanEnabled() && !isCadMultiCropImport && (
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                      <input type="checkbox" checked={recognizeWalls}
-                        onChange={(event) => setRecognizeWalls(event.target.checked)} />
-                      <span>{t('planImport.recognizeWalls')}</span>
-                    </label>
-                    {recognizeWalls && (
-                      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                        <span>{t('planImport.scanMethod')}</span>
-                        <select value={scanMethod} onChange={(event) => setScanMethod(event.target.value as VisionPlanGeometryMode)}
-                          className="rounded border border-gray-300 bg-white px-2 py-1 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
-                          <option value="hybrid">{t('planImport.scanHybrid')}</option>
-                          <option value="yolo">{t('planImport.scanYolo')}</option>
-                          <option value="luna">{t('planImport.scanLuna')}</option>
-                        </select>
-                      </label>
-                    )}
-                  </div>
-                )}
+
                 <div className="flex items-center gap-2">
                   <label
                     className="text-sm text-gray-700 dark:text-gray-200"
@@ -2626,9 +2593,9 @@ function ImportPlanImageDialog({
         </div>
 
         {/* Footer */}
-        {recognitionError && (step === 'floor' || step === 'pdfBackground') && (
+        {importError && step === 'pdfBackground' && (
           <div role="alert" className="px-6 pb-2 text-sm text-red-600 dark:text-red-400">
-            {recognitionError}
+            {importError}
           </div>
         )}
         {step !== 'crop' && step !== 'pdfCrop' && (
@@ -2665,11 +2632,11 @@ function ImportPlanImageDialog({
               <button
                 type="button"
                 data-testid="e2e-import-plan-finish"
-              onClick={handleImport}
-                disabled={(!createNewFloor && !selectedFloorId) || isRecognizingWalls}
+                onClick={() => void handleImport()}
+                disabled={!createNewFloor && !selectedFloorId}
                 className="flex-1 px-6 py-3 bg-sky-600 hover:bg-sky-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold rounded-md shadow-md transition-colors"
               >
-                {isRecognizingWalls ? t('planImport.recognizingWalls') : t('common.ok')}
+                {t('common.ok')}
               </button>
             )}
             {step === 'pdfPages' && (
@@ -2678,6 +2645,7 @@ function ImportPlanImageDialog({
                 data-testid="e2e-import-plan-continue-pages"
                 onClick={() => {
                   if (pdfImportError) return
+                  startWallScan()
                   const firstSelected = selectedPdfPages.slice().sort((a, b) => a - b)[0]
                   setPdfScaleCurrentPageIndex(firstSelected ?? null)
                   setPdfPreviewPageIndex(firstSelected ?? null)
@@ -2711,7 +2679,7 @@ function ImportPlanImageDialog({
                 {t('common.continue')}
               </button>
             )}
-            {step === 'pdfBackground' && (
+            {step === 'pdfBackground' && (isCadMultiCropImport || importError) && (
               <button
                 type="button"
                 data-testid="e2e-import-plan-finish"
@@ -2723,9 +2691,7 @@ function ImportPlanImageDialog({
                 }
                 className="flex-1 px-6 py-3 bg-sky-600 hover:bg-sky-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold rounded-md shadow-md transition-colors"
               >
-                {isApplyingPdfImport
-                  ? recognizeWalls ? t('planImport.recognizingWalls') : t('planImport.importing')
-                  : t('common.ok')}
+                {isApplyingPdfImport ? t('planImport.importing') : t('common.ok')}
               </button>
             )}
           </div>

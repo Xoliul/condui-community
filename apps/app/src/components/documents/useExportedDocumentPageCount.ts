@@ -7,6 +7,9 @@ import { usePaidDocumentPageCount } from '@/components/documents/documentsHosted
 import { cableRouteIndexFor } from '@/components/cableRouting/useCableRouteEstimation'
 import { buildCableSchedule } from '@/lib/cableRouting/cableSchedule'
 import { getCableSchedulePdfPageCount } from '@/lib/cableRouting/cableSchedulePdf'
+import { buildAddressTable } from '@/lib/controlLink/addressTable'
+import { getAddressTablePdfPageCount } from '@/lib/controlLink/addressTablePdf'
+import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { useProjectStore } from '@/stores/projectStore'
 import { loadPdfDocument } from './pdfDocuments'
 import { useListedProjectDocuments } from './useProjectDocuments'
@@ -15,8 +18,8 @@ type PdfPageCounts = Record<string, { url: string; pages: number }>
 
 /**
  * Pages the documents marked for export add to a PDF: one per image, every page of a PDF or only
- * its selected pages, the pages the cable schedule fills, and (with `includePaid`) the pages an
- * external influences table fills.
+ * its selected pages, the pages the cable schedule and the domotica address table fill, and
+ * (with `includePaid`) the pages an external influences table fills.
  * Null while PDF page counts are still being read; 0 when `enabled` is false.
  */
 export function useExportedDocumentPageCount(
@@ -40,6 +43,12 @@ export function useExportedDocumentPageCount(
         : 0,
     [cableScheduleExported, enabled, project]
   )
+  const addressTableExported = documents.some((document) => document.kind === 'controlAddresses')
+  const addressTablePages = useMemo(() => {
+    if (!enabled || !addressTableExported || !project) return 0
+    const table = buildAddressTable(getProjectElectricalPanels(project))
+    return table.length > 0 ? getAddressTablePdfPageCount(table) : 0
+  }, [addressTableExported, enabled, project])
 
   useEffect(() => {
     if (!enabled) return
@@ -61,7 +70,7 @@ export function useExportedDocumentPageCount(
   }, [enabled, pdfPages, pdfs])
 
   if (!enabled) return 0
-  let total = paidPages + cableSchedulePages
+  let total = paidPages + cableSchedulePages + addressTablePages
   for (const document of documents) {
     if (document.kind === 'image') total += 1
   }

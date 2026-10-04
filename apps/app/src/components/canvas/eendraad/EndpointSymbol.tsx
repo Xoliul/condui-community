@@ -76,6 +76,7 @@ import {
   HVAC_FUNCTION_OFFSET_X_FACTOR,
   HVAC_HEAT_EXCHANGE_TYPE_OFFSET_Y,
 } from './canvasSymbols'
+import { getDomoticaChildMultiplierBadgeAnchor } from '@/lib/eendraad/multiplierBadgeGeometry'
 import { MultiplierBadge } from './MultiplierBadge'
 import { ImpulseSwitchCountMarker } from '../shared/ImpulseSwitchCountMarker'
 import type { Endpoint, DomoticaControlKey } from '@/types/schema'
@@ -83,6 +84,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import type { Point } from '@/types/ui'
 import { getVisibleCertificationLabelParts } from '@/lib/certificationLabels'
 import { getVisibleConversionLabelParts, getVisibleEndpointNoteText } from '@/lib/conversionLabels'
+import { useControlLinkNote } from '@/lib/controlLink/useControlLinkNote'
 import { DOMOTICA_NOTE_FONT_SIZE, getDomoticaNoteOffsetFromSymbol } from '@/lib/eendraad/domoticaNotes'
 import { useEendraadWireSegments } from '@/hooks/eendraad'
 import {
@@ -153,17 +155,17 @@ export const EndpointMetadataCallout = memo(function EndpointMetadataCallout({
   const theme = useSettingsStore((state) => state.theme)
   const fontFamily = useCanvasFontFamily()
   const isSelected = useEndpointSelected(endpoint)
+  const controlLinkNote = useControlLinkNote(endpoint)
   const metadataLabelItems = useMemo(() => {
+    const noteText = getVisibleEndpointNoteText(endpoint, controlLinkNote)
     const items = [
       ...getVisibleConversionLabelParts(endpoint),
       ...getVisibleCertificationLabelParts(endpoint),
-      ...(getVisibleEndpointNoteText(endpoint)
-        ? [{ key: 'endpointNotes' as const, text: getVisibleEndpointNoteText(endpoint) }]
-        : []),
+      ...(noteText ? [{ key: 'endpointNotes' as const, text: noteText }] : []),
     ]
     const multiplier = endpointSupportsMultiplier(endpoint) ? getEndpointMultiplier(endpoint) : 1
     return applyMetadataCalloutMultiplier(items, metadataCallout.totalMultiplier ?? multiplier)
-  }, [endpoint, metadataCallout.totalMultiplier])
+  }, [controlLinkNote, endpoint, metadataCallout.totalMultiplier])
 
   const handleClick = useCallback(
     (event: unknown) => {
@@ -327,6 +329,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
       ? getStableEndpointRenderRevision(projectId, liveEndpoint)
       : layoutEndpoint
   })
+  const controlLinkNote = useControlLinkNote(endpoint)
   const setSelection = useSetSelection()
   const isSinglySelectedEndpoint = useUIStore(
     (state) =>
@@ -448,7 +451,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
     prefersRightEndpointLabel && isEndpointAtBranchEnd ? 'right' : 'bottom'
   const conversionLabelParts = getVisibleConversionLabelParts(endpoint)
   const certificationLabelParts = getVisibleCertificationLabelParts(endpoint)
-  const endpointNoteText = getVisibleEndpointNoteText(endpoint)
+  const endpointNoteText = getVisibleEndpointNoteText(endpoint, controlLinkNote)
   const symbolSideLabelItems = useMemo(
     () => [
       ...conversionLabelParts,
@@ -1782,8 +1785,16 @@ export const EndpointSymbol = memo(function EndpointSymbol({
       {multiplier > 1 && (
         <MultiplierBadge
           count={multiplier}
-          anchorX={SYMBOL_SIZE / 2 + (mirrorHorizontally ? 0 : socketExtraWidth)}
-          anchorY={-SYMBOL_SIZE / 2}
+          anchorX={
+            endpoint.domoticaChildProps
+              ? getDomoticaChildMultiplierBadgeAnchor(SYMBOL_SIZE / 2, 0, multiplier).x
+              : SYMBOL_SIZE / 2 + (mirrorHorizontally ? 0 : socketExtraWidth)
+          }
+          anchorY={
+            endpoint.domoticaChildProps
+              ? getDomoticaChildMultiplierBadgeAnchor(SYMBOL_SIZE / 2, 0, multiplier).y
+              : -SYMBOL_SIZE / 2
+          }
           fontFamily={fontFamily}
           fill={getSymbolColor(theme?.mode === 'dark')}
           onActivate={() => openAddMoreDialogForEndpoint(endpoint, t)}

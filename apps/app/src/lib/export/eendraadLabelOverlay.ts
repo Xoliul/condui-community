@@ -1131,7 +1131,8 @@ export function drawEendraadTextOverlaysOnPdf(
           } satisfies PdfTextOptionsWithAngle,
         )
       } else {
-        // Horizontal notes: keep anchor semantics, with a small baseline tweak.
+        // Each line's anchor is already its left edge, centered on the circuit
+        // by getCircuitNoteLinePlacements. Do not center it a second time.
         const originX = anchor.x
         const originY = anchor.y + baselineOffsetY
 
@@ -1140,15 +1141,14 @@ export function drawEendraadTextOverlaysOnPdf(
           drawDebugCross(pdf, originX, originY, [0, 0, 255])
 
           // Blue box: approximate horizontal text bounding box.
-          const halfW = textWidth / 2
           const halfH = fontSize / 2
           pdf.setDrawColor(0, 0, 255)
           pdf.setLineWidth(0.2)
-          pdf.rect(originX - halfW, originY - halfH, textWidth, fontSize)
+          pdf.rect(originX, originY - halfH, textWidth, fontSize)
         }
 
         pdf.text(text, originX, originY, {
-          align: 'center',
+          align: 'left',
           baseline: 'middle',
         })
       }

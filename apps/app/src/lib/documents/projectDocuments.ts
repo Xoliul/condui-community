@@ -22,7 +22,11 @@ export type ProjectDocumentCategory = (typeof PROJECT_DOCUMENT_CATEGORIES)[numbe
 
 /** File documents the viewer renders; generated documents render their own editor. */
 export type ProjectFileKind = 'pdf' | 'image'
-export type ProjectDocumentKind = ProjectFileKind | 'externalInfluences' | 'cableSchedule'
+export type ProjectDocumentKind =
+  | ProjectFileKind
+  | 'externalInfluences'
+  | 'cableSchedule'
+  | 'controlAddresses'
 
 /**
  * `projectAsset` documents are derived from files the project already owns and are read-only;
@@ -34,6 +38,34 @@ export type ProjectDocumentOrigin = 'upload' | 'projectAsset' | 'generated' | 'b
 export const CABLE_SCHEDULE_DOCUMENT_ID = 'builtin:cable-schedule'
 /** Stores the cable schedule's export choice; the schedule itself is never stored. */
 export const CABLE_SCHEDULE_SETTINGS_ASSET_ID = 'document-builtin-cable-schedule'
+
+export const CONTROL_ADDRESSES_DOCUMENT_ID = 'builtin:control-addresses'
+/** Stores the domotica address table's export choice; the table itself is never stored. */
+export const CONTROL_ADDRESSES_SETTINGS_ASSET_ID = 'document-builtin-control-addresses'
+
+/**
+ * The domotica address table: a live list of every domotica module with its channels. Listed
+ * only in projects with domotica modules, and kept out of exports until chosen.
+ */
+export function controlAddressesDocument(
+  name: string,
+  assets?: readonly AssetModelV2[] | null
+): ProjectDocument {
+  const settings = assets?.find((asset) => asset.id === CONTROL_ADDRESSES_SETTINGS_ASSET_ID)
+  return {
+    id: CONTROL_ADDRESSES_DOCUMENT_ID,
+    name,
+    category: 'schematic',
+    kind: 'controlAddresses',
+    mimeType: '',
+    url: '',
+    origin: 'builtIn',
+    visibleToViewers: false,
+    includeInExport: settings?.document?.includeInExport ?? false,
+    links: [],
+    addedAt: '',
+  }
+}
 
 /**
  * The always-present cable schedule: a live list of every cable in the project. It stays out of
@@ -510,6 +542,14 @@ export function getProjectDocumentPatchAsset(
       document: { builtIn: 'cableSchedule', includeInExport: patch.includeInExport },
     }
   }
+  if (documentId === CONTROL_ADDRESSES_DOCUMENT_ID) {
+    if (patch.includeInExport === undefined) return null
+    return {
+      id: CONTROL_ADDRESSES_SETTINGS_ASSET_ID,
+      kind: PROJECT_DOCUMENT_ASSET_KIND,
+      document: { builtIn: 'controlAddresses', includeInExport: patch.includeInExport },
+    }
+  }
   if (documentId.startsWith(DERIVED_DOCUMENT_ID_PREFIX)) {
     const sourceAssetId = documentId.slice(DERIVED_DOCUMENT_ID_PREFIX.length)
     if (!assets.some((asset) => asset.id === sourceAssetId)) return null
@@ -597,13 +637,15 @@ export function getDocumentsLinkedTo(
 
 /**
  * A floor plan is exported as the situation plan itself, so it never goes along as a document.
- * Of the built-in views, only the cable schedule has export pages.
+ * The built-in views with export pages are the cable schedule and the domotica address table.
  */
 export function canExportProjectDocument(
   document: Pick<ProjectDocument, 'sourceKind'> &
     Partial<Pick<ProjectDocument, 'kind' | 'origin'>>
 ): boolean {
-  if (document.origin === 'builtIn') return document.kind === 'cableSchedule'
+  if (document.origin === 'builtIn') {
+    return document.kind === 'cableSchedule' || document.kind === 'controlAddresses'
+  }
   return document.sourceKind !== 'floorPlan'
 }
 

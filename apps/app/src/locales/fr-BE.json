@@ -5,6 +5,9 @@
     "toggleVisibility": "Afficher ou masquer l’identification sur le schéma",
     "noExisting": "Aucune identification existante"
   },
+  "domoticaRowLabel": {
+    "toggleVisibility": "Afficher ou masquer le label sur le schéma"
+  },
   "terminalStrip": {
     "pin": "Borne",
     "incomingPin": "Entrée",
@@ -910,6 +913,36 @@
       "positionAfter": "Après la branche {{n}}",
       "delete": "Retirer du tronc"
     },
+    "mounting": {
+      "label": "Emplacement",
+      "panel": "Tableau",
+      "field": "Sur site"
+    },
+    "controlLink": {
+      "section": "Domotique",
+      "controlSection": "Commande",
+      "operates": "Commande",
+      "operatedBy": "Commandé par",
+      "channel": "Canal",
+      "channelPlaceholder": "3, C, Q7",
+      "notesReplaced": "Remplacé par l'appareil lié sur le schéma",
+      "outputs": "Sorties",
+      "inputs": "Entrées",
+      "missingDevice": "Appareil introuvable",
+      "duplicateChannel": "Canal déjà utilisé",
+      "groups": "Groupes",
+      "groupsPlaceholder": "1/1/3, 1/4/3",
+      "invalidChannel": "Le canal ne correspond pas au format {{system}}",
+      "invalidGroup": "Le groupe {{group}} n'est pas valide",
+      "chooseDevice": "Choisir un appareil",
+      "searchDevices": "Rechercher des appareils",
+      "suggested": "Suggérés",
+      "allDevices": "Tous les appareils",
+      "noDevices": "Aucun appareil trouvé",
+      "pickOnCanvas": "Désigner sur le canevas",
+      "pickHint": "Cliquez sur un appareil dans le canevas",
+      "unlink": "Dissocier"
+    },
     "domotica": {
       "switchControlEnabled": "Activer la sortie de commande",
       "switchType": "Type d'interrupteur de commande",
@@ -917,7 +950,16 @@
       "switchType_2p": "Interrupteur 2P",
       "switchType_impulse": "Impulsion / bouton-poussoir",
       "switchCount": "Nombre d'interrupteurs de commande",
-      "endpointCount": "Nombre de sorties endpoint",
+      "endpointCount": "Nombre d'entrées/sorties",
+      "system": "Système",
+      "systems": {
+        "unspecified": "Non précisé",
+        "knx": "KNX",
+        "niko_hc": "Niko Home Control",
+        "dali": "DALI",
+        "loxone": "Loxone",
+        "other": "Autre"
+      },
       "controlArea": "Commande",
       "control_programmed": "Programmé",
       "control_wireless": "Sans fil",
@@ -927,7 +969,15 @@
       "mainType_none": "Aucun",
       "mainType_socket": "Prise",
       "mainType_switch": "Interrupteur",
-      "mainSwitchType": "Type d'interrupteur"
+      "mainSwitchType": "Type d'interrupteur",
+      "outputSystem": "Passerelle vers",
+      "outputSystem_none": "Pas de passerelle",
+      "deviceAddress": "Adresse de l'appareil",
+      "deviceAddressPlaceholder": "1.1.12",
+      "invalidDeviceAddress": "L'adresse ne correspond pas au format {{system}}",
+      "line": "Ligne",
+      "channelCount": "Canaux de sortie",
+      "overCapacity": "{{used}} canaux de sortie utilisés sur {{capacity}}"
     },
     "solarPanel": {
       "groupTitle": "Marque et modèle",
@@ -1164,16 +1214,19 @@
     }
   },
   "planImport": {
+    "importFailed": "Impossible d'importer le plan.",
     "recognizeWalls": "Reconnaître les murs modifiables",
-    "recognizingWalls": "Reconnaissance des murs...",
     "recognitionFailed": "Impossible de reconnaître les murs.",
     "signInToRecognize": "Connectez-vous pour reconnaître les murs.",
     "scanWorkerRequired": "Cette méthode de scan n'est pas disponible sur le service de vision.",
-    "scanMethod": "Méthode de scan",
-    "scanHybrid": "Hybride",
-    "scanYolo": "YOLO",
-    "scanLuna": "Luna",
     "noWallsFound": "Aucun mur n'a été trouvé sur ce plan.",
+    "noScanCredits": "Plus aucun scan de murs disponible.",
+    "scansLeft_one": "{{count}} scan restant",
+    "scansLeft_few": "{{count}} scans restants",
+    "scansLeft_many": "{{count}} scans restants",
+    "scansLeft_other": "{{count}} scans restants",
+    "keepWalls": "Conserver les murs",
+    "keepWallsFailed": "Impossible de conserver les murs. Réessayez.",
     "title": "Importer une image de plan",
     "uploadDescription": "Téléchargez une image de plan de sol à utiliser comme arrière-plan pour placer les éléments électriques.",
     "dragDropOrClick": "Glissez-déposez une image ici, ou cliquez pour sélectionner",
@@ -1252,6 +1305,14 @@
     "enableCadGrayscale": "Convertir les couleurs CAD en niveaux de gris",
     "grayscalePreview": "Aperçu niveaux de gris"
   },
+  "wallScan": {
+    "scanning": "Reconnaissance des murs…",
+    "found_one": "{{count}} mur trouvé",
+    "found_few": "{{count}} murs trouvés",
+    "found_many": "{{count}} murs trouvés",
+    "found_other": "{{count}} murs trouvés",
+    "discard": "Ignorer"
+  },
   "planTools": {
     "movePlanImage": "Déplacer l'image du plan",
     "resetScale": "Réinitialiser l'échelle",
@@ -1286,7 +1347,7 @@
     "sizeLocked": "Taille fixe",
     "resizable": "Redimensionnable",
     "width": "Largeur (cm)",
-    "height": "Hauteur (cm)",
+    "length": "Longueur (cm)",
     "rotation": "Rotation (degrés)",
     "elements": {
       "bathtub": "Baignoire",
@@ -2960,5 +3021,32 @@
     "earthing": "Mise à la terre",
     "other": "Autres",
     "selected": "Sélectionné"
+  },
+  "controlAddresses": {
+    "title": "Adresses domotiques",
+    "module": "Module",
+    "channel": "Canal",
+    "direction": "Sens",
+    "groups": "Groupes",
+    "load": "Raccordé à",
+    "circuit": "Circuit",
+    "source": "Liaison",
+    "free": "Libre",
+    "output": "Sortie",
+    "input": "Entrée",
+    "wired": "Câblé",
+    "linked": "Lié",
+    "check": "À vérifier",
+    "collapseModule": "Replier le module",
+    "expandModule": "Déplier le module",
+    "empty": "Aucun module ne correspond aux filtres.",
+    "emptyGroups": "Aucun groupe attribué.",
+    "view": "Affichage",
+    "viewModules": "Modules",
+    "filters": "Filtres",
+    "allSystems": "Tous les systèmes",
+    "allBoards": "Tous les tableaux",
+    "issuesOnly": "Seulement les modules à vérifier",
+    "hideRelays": "Masquer les relais"
   }
 }

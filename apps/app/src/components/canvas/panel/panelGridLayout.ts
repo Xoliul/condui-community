@@ -4,9 +4,12 @@
 import type { Panel, PanelGridConfig, PanelGridModuleRef, PanelGridSlot } from '@/types/schema'
 import { panelGridModuleRefKey } from '@/lib/panel/panelGridModuleRef'
 export { panelGridModuleRefKey } from '@/lib/panel/panelGridModuleRef'
-import { getModuleWidthInCols, moduleWidthFollowsDevice } from '@/lib/panel/panelGridModuleWidth'
+import {
+  getModuleWidthInCols,
+  isTerminalStripModuleRef,
+  moduleWidthFollowsDevice,
+} from '@/lib/panel/panelGridModuleWidth'
 export { getModuleWidthInCols } from '@/lib/panel/panelGridModuleWidth'
-import { findTrunkDeviceInProject } from '@/lib/eendraad/findTrunkDeviceInProject'
 import { clamp } from '@/lib/geometry'
 import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
 import type { ProjectWithOptionalV2Electrical } from '@/lib/projectV2/electrical'
@@ -363,9 +366,7 @@ export function getPanelGridPlacements(
         : requestedRail === 'bottom'
           ? config.terminalStripBottomRail === true
           : false
-    const device =
-      ref.kind === 'trunkDevice' && project ? findTrunkDeviceInProject(project, ref.id) : undefined
-    const isTerminalStrip = device?.symbol === 'terminal_strip' || device?.type === 'terminal_strip'
+    const isTerminalStrip = isTerminalStripModuleRef(ref, project)
     if (requestedRail && railEnabled && isTerminalStrip) {
       const preferredCol = clamp(panelModulesToGridUnits(slot.col), 0, colUnits - w)
       // A persisted rail slot is manual layout too. Do not move it to the next

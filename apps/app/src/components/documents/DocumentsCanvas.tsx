@@ -53,6 +53,10 @@ import { DocumentsStorageTally } from './DocumentsStorageTally'
 import { ExportToggle } from './ExportToggle'
 import { CableSchedule, CableScheduleActions } from '@/components/cableRouting/CableSchedule'
 import {
+  ControlAddressTable,
+  ControlAddressTableActions,
+} from '@/components/controlLink/ControlAddressTable'
+import {
   ExternalInfluencesDocumentActions,
   ExternalInfluencesDocumentView,
   TeamLibraryPicker,
@@ -486,6 +490,12 @@ export default function DocumentsCanvas() {
                   <CableScheduleActions />
                 </div>
               )}
+              {openedDocument.kind === 'controlAddresses' && (
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                  <ExportToggle document={openedDocument} />
+                  <ControlAddressTableActions />
+                </div>
+              )}
               {openedDocument.kind === 'externalInfluences' && (
                 <ExternalInfluencesDocumentActions
                   documentId={openedDocument.id}
@@ -498,6 +508,8 @@ export default function DocumentsCanvas() {
                 <ExternalInfluencesDocumentView documentId={openedDocument.id} />
               ) : openedDocument.kind === 'cableSchedule' ? (
                 <CableSchedule />
+              ) : openedDocument.kind === 'controlAddresses' ? (
+                <ControlAddressTable />
               ) : (
                 <DocumentViewer
                   document={openedDocument}
@@ -704,7 +716,8 @@ export default function DocumentsCanvas() {
           maximizeOnly={
             !openedDocument ||
             openedDocument.kind === 'externalInfluences' ||
-            openedDocument.kind === 'cableSchedule'
+            openedDocument.kind === 'cableSchedule' ||
+            openedDocument.kind === 'controlAddresses'
           }
         />
 

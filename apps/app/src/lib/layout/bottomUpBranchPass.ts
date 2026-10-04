@@ -12,6 +12,7 @@ import {
   getEndpointBranchLabelPrefix,
   getExpectedBranchLabel,
 } from '@/lib/eendraad/automaticEndpointBranchNaming'
+import { getCircuitBranchPointIndex } from '@/lib/eendraad/circuitPointNumbering'
 import {
   CIRCUIT_CONVERTER_OUTPUT_ROW_SPACING,
   getCircuitConverterDcConnectionCount,
@@ -97,7 +98,9 @@ export function getBranchBottomLabelHeight(branchEndpoints: Circuit['endpoints']
 
 function getSequentialBranchLabelFallback(circuit: Circuit, branchIndex: number): string {
   const prefix = getEndpointBranchLabelPrefix(circuit)
-  return prefix ? getExpectedBranchLabel(circuit, prefix, branchIndex) : ''
+  return prefix
+    ? getExpectedBranchLabel(circuit, prefix, getCircuitBranchPointIndex(circuit, branchIndex))
+    : ''
 }
 
 export function buildBranchCircuitMap(panel?: Panel): Map<string, Circuit> {

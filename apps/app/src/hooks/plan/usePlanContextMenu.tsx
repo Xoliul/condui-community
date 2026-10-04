@@ -93,7 +93,90 @@ export function usePlanContextMenu(
       const { closeDialog } = useDialogStore.getState()
       const items: ContextMenuItem[] = []
 
+      // Plan symbols that are not circuit endpoints (earthing, supply devices such as batteries
+      // and inverters, supply enclosures) have their own placement owners; act on the placements.
+      const buildOwnPlacementMenu = (
+        placements: SitplanPlacementRow[],
+        onDelete: (() => void) | null
+      ): ContextMenuItem[] => {
+        const placementIds = placements.map((placement) => placement.id)
+        const lockable = placements.length === 1 && !placements[0]!.isEarthing
+        const isLocked = lockable && (placements[0]!.locked ?? false)
+        return [
+          {
+            label: t('contextMenu.moveToFloor'),
+            onClick: () => {
+              openDialog({
+                type: 'custom',
+                title: t('contextMenu.moveToFloor'),
+                content: (
+                  <FloorSelectionDialog
+                    currentFloorId={activeFloorId}
+                    onSelect={(floorId) => {
+                      const moved = useProjectStore
+                        .getState()
+                        .movePlanPlacementsToFloor(
+                          placementIds.map((id) => ({ id })),
+                          floorId
+                        )
+                      if (moved) clearSelection()
+                      closeDialog()
+                    }}
+                    onCancel={closeDialog}
+                  />
+                ),
+              })
+            },
+          },
+          ...(lockable
+            ? [
+                { label: '', onClick: () => {}, separator: true },
+                {
+                  label: isLocked
+                    ? t('contextMenu.unlockPosition')
+                    : t('contextMenu.lockPosition'),
+                  onClick: () => updatePlacement(placementIds[0]!, { locked: !isLocked }),
+                },
+              ]
+            : []),
+          { label: '', onClick: () => {}, separator: true },
+          {
+            label: t('contextMenu.hideInThisView', 'Hide in this view'),
+            icon: getContextMenuIcon('hideInThisView'),
+            onClick: () => {
+              if (!activeFloorId) return
+              const floor = getFloorById(activeFloorId)
+              if (!floor) return
+              updateFloor(activeFloorId, {
+                hiddenSitplanPlacementIds: mergeHiddenSituationPlanPlacementIds(
+                  floor.hiddenSitplanPlacementIds,
+                  placementIds
+                ),
+              })
+              clearSelection()
+            },
+          },
+          ...(onDelete
+            ? [
+                {
+                  label: t('contextMenu.delete'),
+                  icon: getContextMenuIcon('delete'),
+                  onClick: onDelete,
+                  variant: 'danger' as const,
+                },
+              ]
+            : []),
+        ]
+      }
+
       if (selection.type === 'ground' && selection.ids.includes('ground')) {
+        const allEarthingPlacements = (
+          activeFloorId ? getPlacementsByFloor(activeFloorId) : []
+        ).filter((placement: SitplanPlacementRow) => placement.isEarthing)
+        if (selection.ids.length === 1 && allEarthingPlacements.length > 0) {
+          items.push(...buildOwnPlacementMenu(allEarthingPlacements, () => confirmDeleteEarthing()))
+          return items
+        }
         items.push({
           label: t('contextMenu.delete'),
           icon: getContextMenuIcon('delete'),
@@ -154,36 +237,23 @@ export function usePlanContextMenu(
         return items
       }
 
-      const selectedTrunkPlacement =
+      const selectedOwnPlacement =
         selection.type === 'placement' && selection.ids.length === 1
           ? getPlacementById(selection.ids[0]!)
           : undefined
-      if (selectedTrunkPlacement?.trunkDeviceId && activeFloorId) {
-        items.push(
-          {
-            label: t('contextMenu.hideInThisView', 'Hide in this view'),
-            icon: getContextMenuIcon('hideInThisView'),
-            onClick: () => {
-              const floor = getFloorById(activeFloorId)
-              if (!floor) return
-              updateFloor(activeFloorId, {
-                hiddenSitplanPlacementIds: Array.from(
-                  new Set([...(floor.hiddenSitplanPlacementIds ?? []), selectedTrunkPlacement.id])
-                ),
-              })
+      if (
+        selectedOwnPlacement &&
+        (selectedOwnPlacement.trunkDeviceId || selectedOwnPlacement.enclosureId) &&
+        activeFloorId
+      ) {
+        // Supply enclosures are removed from the board view; the plan only moves or hides them.
+        const onDelete = selectedOwnPlacement.trunkDeviceId
+          ? () => {
+              deletePlacement(selectedOwnPlacement.id)
               clearSelection()
-            },
-          },
-          {
-            label: t('contextMenu.delete'),
-            icon: getContextMenuIcon('delete'),
-            onClick: () => {
-              deletePlacement(selectedTrunkPlacement.id)
-              clearSelection()
-            },
-            variant: 'danger',
-          }
-        )
+            }
+          : null
+        items.push(...buildOwnPlacementMenu([selectedOwnPlacement], onDelete))
         return items
       }
 

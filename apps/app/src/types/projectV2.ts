@@ -391,10 +391,10 @@ export interface ProjectDocumentMetadataV2 {
   /** A table created in the editor; such a document has no file payload. */
   externalInfluences?: { rooms: ExternalInfluenceRoomV2[] }
   /**
-   * Settings of a document every project derives live (the cable schedule); such an entry has
-   * no payload and only carries the export choice.
+   * Settings of a document every project derives live (the cable schedule, the domotica address
+   * table); such an entry has no payload and only carries the export choice.
    */
-  builtIn?: 'cableSchedule'
+  builtIn?: 'cableSchedule' | 'controlAddresses'
 }
 
 export interface AssetModelV2 {

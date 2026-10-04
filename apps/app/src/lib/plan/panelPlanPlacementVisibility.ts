@@ -1,6 +1,8 @@
 import {
+  findPanelContainingCircuit,
   getDefaultPanelGridModuleRefs,
   getAllCircuits,
+  panelGridModuleIsAlwaysVisibleInPanel,
   panelGridModuleIsVisibleByDefault,
   panelGridModuleRefKey,
 } from '@/lib/eendraad/projectElectricalDomain'
@@ -247,6 +249,47 @@ function normalizeUniquePanelModuleVisibility(
   }
 
   return changed
+}
+
+/**
+ * Where an endpoint that can sit either in a board or in the building is mounted. `panel` means
+ * it is shown as a module in a board (and its plan placements are hidden); `field` means it is
+ * in no board (and its plan placements show). Derived from panel visibility, so the panel view,
+ * the plan and cable routing always agree. Undefined for endpoints that cannot be a board module
+ * or are always in their board (modular sockets).
+ */
+export interface EndpointMounting {
+  location: 'panel' | 'field'
+  /** The board it is in, or the board it would go into. */
+  panelId: string
+  panelName: string
+  moduleRefKey: string
+}
+
+export function getEndpointMounting(
+  project: PanelPlanVisibilityProject,
+  endpointId: string,
+): EndpointMounting | undefined {
+  const occurrences = collectPanelModuleOccurrences(project).get(`endpoint:${endpointId}`)
+  const first = occurrences?.[0]
+  if (!occurrences || !first) return undefined
+  if (panelGridModuleIsAlwaysVisibleInPanel(first.ref, selectProjectElectricalPanels(project))) return undefined
+  const visible = occurrences.find((occurrence) => occurrence.visible)
+  // A device in no board would go into the board that owns its circuit.
+  const home =
+    visible ??
+    occurrences.find(
+      (occurrence) =>
+        occurrence.ref.kind === 'domotica' &&
+        findPanelContainingCircuit(occurrence.panel, occurrence.ref.circuitId) === occurrence.panel,
+    ) ??
+    first
+  return {
+    location: visible ? 'panel' : 'field',
+    panelId: home.panel.id,
+    panelName: home.panel.name,
+    moduleRefKey: home.refKey,
+  }
 }
 
 /** Inverter and supply-meter plan visibility never implicitly changes panel visibility. */

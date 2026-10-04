@@ -180,7 +180,7 @@ export function GraphicElementProperties({
           />
         </div>
         <div>
-          <label className={labelClass}>{t('planGraphic.height', 'Height (cm)')}</label>
+          <label className={labelClass}>{t('planGraphic.length', 'Length (cm)')}</label>
           <DebouncedTextInput
             type="number"
             value={String(Math.round(heightCm * 10) / 10)}

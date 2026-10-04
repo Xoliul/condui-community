@@ -1,4 +1,5 @@
 import type { Circuit, Panel } from '@/types/schema'
+import { getCircuitPointSequence } from '@/lib/eendraad/circuitPointNumbering'
 
 /** Circuits on this panel only (`panel.circuits` + `protection.circuits`). Subpanels are separate panels for naming. */
 export function forEachCircuitOnPanel(panel: Panel, fn: (circuit: Circuit) => void): void {
@@ -55,8 +56,8 @@ export function getEndpointBranchLabelPrefix(circuit: Circuit, panel?: Panel): s
 }
 
 /**
- * True if branch labels or endpoint labels on those branches differ from `{code}{1..n}`
- * in `circuit.branches` array order.
+ * True if branch labels, endpoint labels on those branches, or numbered trunk-switch labels
+ * differ from `{code}{1..n}` in circuit point order.
  */
 export function endpointBranchLabelsWouldChange(
   circuit: Circuit,
@@ -66,11 +67,16 @@ export function endpointBranchLabelsWouldChange(
   if (circuit.code === 'PANEL') return false
   const code = circuitCodeForBranches.trim() || getEndpointBranchLabelPrefix(circuit, panel)
   if (!code) return false
-  const branches = circuit.branches
-  if (!branches?.length) return false
-  for (let i = 0; i < branches.length; i++) {
-    const branch = branches[i]!
-    const expected = getExpectedBranchLabel(circuit, code, i)
+  const branches = circuit.branches ?? []
+  const sequence = getCircuitPointSequence(circuit)
+  for (let point = 0; point < sequence.length; point++) {
+    const slot = sequence[point]!
+    const expected = getExpectedBranchLabel(circuit, code, point)
+    if (slot.kind === 'trunkSwitch') {
+      if ((slot.device.label ?? '').trim() !== expected) return true
+      continue
+    }
+    const branch = branches[slot.branchIndex]!
     if ((branch.label ?? '').trim() !== expected) return true
     for (const id of branch.endpointIds) {
       const ep = circuit.endpoints.find((e) => e.id === id)
@@ -97,7 +103,8 @@ export function getExpectedBranchLabel(
 }
 
 /**
- * Assign branch + endpoint labels `{prefix}1`…`{prefix}n` in stored branch order. A nested circuit
+ * Assign branch + endpoint labels `{prefix}1`…`{prefix}n` in stored branch order, numbering
+ * plain trunk switches in place along the trunk (`getCircuitPointSequence`). A nested circuit
  * with no own code inherits the nearest labeled parent when panel context is available.
  * Always run after branch topology changes (delete, reorder, merge). Not gated on
  * `installation.eendraadAutomaticNaming` — that setting controls main-bus letters and
@@ -107,11 +114,19 @@ export function syncSequentialEndpointBranchLabelsToCircuit(circuit: Circuit, pa
   if (circuit.supplySource?.kind === 'converter-backup') return
   const code = getEndpointBranchLabelPrefix(circuit, panel)
   if (!code) return
-  const branches = circuit.branches
-  if (!branches?.length) return
-  for (let i = 0; i < branches.length; i++) {
-    const label = getExpectedBranchLabel(circuit, code, i)
-    const branch = branches[i]!
+  const branches = circuit.branches ?? []
+  const sequence = getCircuitPointSequence(circuit)
+  for (let point = 0; point < sequence.length; point++) {
+    const slot = sequence[point]!
+    const label = getExpectedBranchLabel(circuit, code, point)
+    if (slot.kind === 'trunkSwitch') {
+      // Replace rather than mutate: drop flows hand in devices taken from frozen store state.
+      const devices = circuit.trunkDevices!
+      const index = devices.indexOf(slot.device)
+      if (index >= 0 && slot.device.label !== label) devices[index] = { ...slot.device, label }
+      continue
+    }
+    const branch = branches[slot.branchIndex]!
     branch.label = label
     for (const id of branch.endpointIds) {
       const ep = circuit.endpoints.find((e) => e.id === id)

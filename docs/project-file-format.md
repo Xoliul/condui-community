@@ -81,6 +81,52 @@ treating the missing placement as invalid. It remains visible in the panel view
 and is limited to one or two outlets (two or four DIN modules). Missing or `false`
 means an ordinary wall socket.
 
+Control addressing records which channel of a building-control device (KNX, DALI,
+Loxone, Niko Home Control) feeds a load. It is descriptive only: addresses are labels for
+the installer and integrator, never programming data. Every field below is optional;
+missing means unspecified, and older files remain valid.
+
+Both kinds of connection share one addressing shape, `{ channel?, groups? }`. `channel`
+is a free-text physical channel (`C`, `5`, `Q7`); readers accept a legacy JSON number and
+treat it as its decimal string, and compare channels trimmed and case-insensitively.
+`groups` is a list of free-text logical addresses (KNX group addresses `1/2/3`, DALI
+groups `G1`); readers trim entries, drop blanks and ignore case-insensitive duplicates.
+
+- An endpoint may persist `controlLink: { deviceId, channel?, groups? }` as a virtual
+  "operated by" relation. `deviceId` is the id of a domotica module endpoint (an endpoint
+  with `symbol: "domotica"` and no `domoticaChildProps`) or of a relay endpoint
+  (`symbol: "relay"`, e.g. an impulse relay whose coil sits on a control circuit). The UI offers the link on
+  `contact` endpoints. The link carries no topology: it adds no wire and no panel module.
+  On the one-wire diagram a valid link replaces the endpoint's own notes (and
+  `notesVisible`) with `<device label> · <channel>` (just the device label without a
+  channel); a dangling link falls back to the endpoint's own notes.
+- An endpoint wired to a module (`domoticaChildProps`) may persist `channel` and `groups`
+  with the same meaning.
+- Output rows of a module are labelled `{module label}.{n}` by default. The root endpoint of a
+  row (the id in the module's `domoticaProps.endpointChildEndpointIds`) may persist
+  `domoticaRowLabel` as either `{ kind: "tail", tail }` (row label is the module-derived
+  label followed by `tail`, so it follows module renames) or `{ kind: "literal", text }`
+  (row label is exactly `text`). Every endpoint on that row shows the resulting label.
+  Absent means the automatic label. Showing the row label on the diagram can be turned off
+  with `symbolLabelDisplay.visibility.domoticaRowLabel = false` on the same root endpoint.
+  Readers ignore an invalid override.
+- A domotica module (`domoticaProps`) may persist device fields: `system` and, for a
+  gateway, `outputSystem` (each one of `knx`, `niko_hc`, `dali`, `loxone`, `other`),
+  `deviceAddress` (free text, e.g. the KNX physical address `1.1.12`), `line` (free text,
+  e.g. a DALI line) and `channelCount` (positive integer physical output capacity,
+  independent of the drawn `endpointCount`). Wired switches, pushbuttons and detectors
+  are the module's inputs and linked endpoints and other wired children its outputs;
+  inputs and outputs are numbered independently and inputs never count against
+  `channelCount`.
+
+The systems only select syntax warnings (KNX physical address, channel letter or number
+and group addresses; DALI short addresses and groups; Loxone I/O names; nothing for Niko
+Home Control or `other`). Readers must store any string and never reject invalid values,
+a `deviceId` that no longer resolves, channels claimed by several endpoints, or more
+connections than `channelCount`; these are validation findings. A module's connected list
+and its derived capacity are computed from wired children and linked endpoints and never
+stored.
+
 `disciplines.electrical.supplyAssemblies` optionally stores source-side electrical
 topology before a root feed or panel input. Each assembly owns a versioned port graph,
 its incoming attachment, load handoffs, inverter grouping, and connection properties.
@@ -726,10 +772,11 @@ informational: `project.json` stays the source, readers ignore it, and nothing r
 exported PDF, and diagnostic or support copies, omit them; a project restored from such a copy
 has no attached documents.
 
-A document entry without a payload may instead carry `document.builtIn: "cableSchedule"` and an
-`includeInExport` flag. It stores only whether the cable schedule, which every project derives
-from its cables and never stores, goes along with a PDF export. Readers that do not know the
-value preserve the entry and ignore it.
+A document entry without a payload may instead carry `document.builtIn` and an
+`includeInExport` flag. It stores only whether a view the project derives live and never stores
+goes along with a PDF export: `"cableSchedule"` (the cable schedule, derived from the cables) or
+`"controlAddresses"` (the domotica address table, derived from domotica modules and their
+connections). Readers that do not know the value preserve the entry and ignore it.
 
 CAD-derived floor plans use imported-plan asset kind `cad-vector` (distinct from PDF vector imports). When present, `cadReference` stores versioned source-coordinate metadata: source units, uncropped asset size, per-floor crop in both asset and model space, import-session linkage for multi-floor splits, and the forward/inverse transform parameters captured at import. Legacy projects imported before this metadata existed do not carry `cadReference`.
 

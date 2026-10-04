@@ -142,10 +142,12 @@ import {
   supportsCircuitConverterDcConnections,
 } from '@/lib/layout/circuitConverterGeometry'
 import { resizeConverterDcConnections } from '@/lib/eendraad/resizeConverterDcConnections'
+import { isNumberedCircuitTrunkSwitch } from '@/lib/eendraad/circuitPointNumbering'
 import { isSupplyDeviceInDetachedFrame } from '@/lib/layout/supplyFrameDetachment'
 import { canConfigureSupplyInverterAcConnection, findSupplyInverterAssembly } from '@/lib/supplyAssembly/deviceReferences'
 
 const SYNERGRID_AUTO_MATCH_DEBOUNCE_MS = 450
+const CIRCUIT_TRUNK_SWITCH_RATINGS_A = [10, 16, 20, 25, 32]
 export function TrunkDeviceProperties({
   deviceId,
   placementId,
@@ -1609,6 +1611,20 @@ export function TrunkDeviceProperties({
               value={(device.poles ?? 1) as 1 | 2 | 3 | 4}
               onChange={(poles) => handleUpdate({ poles, polesConfig: `${poles}P` as PolesConfig })}
             />
+          )}
+          {circuit && isNumberedCircuitTrunkSwitch(device) && (
+            <div>
+              <label className={labelClass}>{t('protections.rating', 'Rated current')} (A)</label>
+              <CustomDropdown
+                value={device.ratingA == null ? '' : String(device.ratingA)}
+                onChange={(value) => handleUpdate({ ratingA: value ? Number(value) : undefined })}
+                options={[
+                  { value: '', label: '-' },
+                  ...CIRCUIT_TRUNK_SWITCH_RATINGS_A.map((r) => ({ value: String(r), label: `${r} A` })),
+                ]}
+                className={selectClass}
+              />
+            </div>
           )}
           {(device.symbol === 'switch_1p_twoway' || device.symbol === 'switch_2p_twoway') && (
             <TwoWayPolesGrid

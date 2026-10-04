@@ -49,6 +49,17 @@ export function isCircuitTrunkSwitchDropTarget(target: DropTarget): boolean {
   )
 }
 
+/**
+ * A trunk switch switches every branch above it, so it lands in the branch gap under the
+ * pointer. Trunk wire segments only split at existing trunk devices, so `fallback` (the
+ * segment-derived position) cannot reach a gap between branches.
+ */
+export function getCircuitTrunkSwitchPositionForDrop(target: DropTarget, fallback: number): number {
+  return typeof target.circuitTrunkBranchSlot === 'number' && target.insertAfterCircuitContent !== true
+    ? target.circuitTrunkBranchSlot
+    : fallback
+}
+
 export function createCircuitTrunkSwitchDevice(
   symbolId: string,
   id: string,
@@ -57,13 +68,14 @@ export function createCircuitTrunkSwitchDevice(
   if (symbolId === 'relay') {
     return { id, type: 'relay', symbol: 'relay', label: '', trunkPosition }
   }
+  // Start with two poles; the user can choose the poles for the actual control function.
   return {
     id,
     type: 'switch',
     symbol: 'switch',
     label: '',
-    poles: 1,
-    polesConfig: '1P',
+    poles: 2,
+    polesConfig: '2P',
     trunkPosition,
   }
 }

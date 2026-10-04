@@ -191,6 +191,8 @@ export type ExportProject = ProjectWithOptionalV2Electrical &
       installerOverride?: ExportProjectInstallerOverride
       inspectionAgency?: ProjectPartyContact
       showInspectionAgencyInInfoBlock?: boolean
+      yearOfConstruction?: number
+      installDateColors?: Record<string, string>
     }
   }
 

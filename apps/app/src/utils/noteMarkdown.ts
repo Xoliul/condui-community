@@ -42,7 +42,10 @@ export function isNoteHtml(content: string): boolean {
  * Parse HTML (e.g. from TipTap) into lines and segments for canvas rendering.
  */
 export function htmlToSegments(html: string, defaultFontSize: number): ParsedLine[] {
-  const doc = typeof document !== 'undefined' ? document : null
+  // Parse in an inert document: note HTML comes from project files and shared
+  // projects, and elements created in the live document load images and fire
+  // their event handlers (e.g. <img onerror>) even while detached.
+  const doc = typeof document !== 'undefined' ? document.implementation.createHTMLDocument('') : null
   if (!doc) {
     return [
       {

@@ -711,7 +711,7 @@ export interface DomoticaOutputWireProps {
  * Domotica module configuration.
  * The parent domotica endpoint owns and orchestrates child endpoints via IDs.
  */
-export interface DomoticaDeviceProps {
+export interface DomoticaDeviceProps extends ControlDeviceFields {
   /** Enable optional control output wire on top of the domotica module. */
   switchControlEnabled?: boolean
   /** Switch type rendered on control output (only relevant when switchControlEnabled=true). */
@@ -757,13 +757,46 @@ export interface DomoticaDeviceProps {
 }
 
 /**
+ * Per-output-row label override. `tail` is appended to the label generated from the module,
+ * so the row keeps following module renames; `literal` replaces the whole row label.
+ */
+export type DomoticaRowLabelOverride =
+  | { kind: 'tail'; tail: string }
+  | { kind: 'literal'; text: string }
+
+/**
  * Marks an endpoint as a domotica child output of a parent domotica module.
  * Child endpoints remain real endpoints in the same circuit endpoint array.
  */
-export interface DomoticaChildEndpointProps {
+export interface DomoticaChildEndpointProps extends ControlAddressing {
   parentEndpointId: string
   outputGroup: 'control' | 'endpoint'
   outputIndex: number
+}
+
+export const CONTROL_SYSTEMS = ['knx', 'niko_hc', 'dali', 'loxone', 'other'] as const
+/** Building control system of a device; only selects which address syntax warnings apply. */
+export type ControlSystem = (typeof CONTROL_SYSTEMS)[number]
+
+/** Physical identity of a control device. Every field is optional; absent means unspecified. */
+export interface ControlDeviceFields {
+  system?: ControlSystem
+  /** Gateways only: system on the output side (e.g. KNX in, DALI out). */
+  outputSystem?: ControlSystem
+  /** Device address on its bus: KNX physical address `1.1.12`, Loxone extension, NHC module. */
+  deviceAddress?: string
+  /** Bus line or segment, e.g. a DALI line on a gateway. */
+  line?: string
+  /** Physical channel capacity; when absent it is derived from drawn outputs and connections. */
+  channelCount?: number
+}
+
+/** Address of one connection on a control device (free text, never rejected). */
+export interface ControlAddressing {
+  /** Physical channel: KNX `C`, DALI short address `5`, Loxone `Q7`, NHC output `2`. */
+  channel?: string
+  /** Logical addresses the channel listens to: KNX group addresses, DALI groups. */
+  groups?: string[]
 }
 
 /** Switch-specific props: poles and verklikkerlamp (indicator light) overlay */
@@ -940,6 +973,12 @@ export interface SocketDeviceProps {
   modular?: boolean
 }
 
+/** Virtual control relation from an endpoint to the device that operates it. */
+export interface EndpointControlLink extends ControlAddressing {
+  /** Id of the operating device (a domotica module endpoint). May dangle after deletion. */
+  deviceId: string
+}
+
 export interface Endpoint {
   id: string
   type: EndpointType
@@ -951,6 +990,11 @@ export interface Endpoint {
   /** Optional outgoing pin when an endpoint representation gains a second connection. */
   terminalStripOutgoingPin?: number
   symbol?: SymbolKey
+  /**
+   * Virtual "operated by" link to another device (currently a domotica module endpoint).
+   * Carries no topology or wiring; the device side is always derived, never stored.
+   */
+  controlLink?: EndpointControlLink
   /** When symbol === 'panel_distribution', optional back-reference to the owning panel */
   panelId?: string
   controlledEndpointIds?: string[] // For switches: what they control (on same circuit)
@@ -974,6 +1018,8 @@ export interface Endpoint {
   domoticaProps?: DomoticaDeviceProps
   /** When endpoint is generated/owned by a domotica parent module */
   domoticaChildProps?: DomoticaChildEndpointProps
+  /** On the root endpoint of a domotica output row: custom row label. */
+  domoticaRowLabel?: DomoticaRowLabelOverride
   /** When type === 'socket' — overlay options drawn on top of socket symbol */
   socketProps?: SocketDeviceProps
   /** When type === 'switch' — poles, twoPole, verklikkerlamp overlay */

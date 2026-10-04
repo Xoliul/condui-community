@@ -16,6 +16,7 @@ import {
   getSymbolKeyFromSymbol,
 } from '@/utils/symbolMapping'
 import {
+  getDomoticaChildMultiplierBadgeAnchor,
   getMultiplierBadgePosition,
   getMultiplierBadgeWidth,
   MULTIPLIER_BADGE_HEIGHT,
@@ -169,8 +170,15 @@ function getTargetMultiplier(target: SameSymbolAddMoreTarget): number {
 
 function multiplierBadgePosition(
   bounds: ReturnType<typeof getHitZoneBounds>,
-  count: number
+  count: number,
+  domoticaChild = false
 ): Point {
+  if (domoticaChild) {
+    return getMultiplierBadgePosition(
+      getDomoticaChildMultiplierBadgeAnchor(bounds.right, (bounds.top + bounds.bottom) / 2, count),
+      count
+    )
+  }
   // Layout nodes use center-based bounds for symbols. Their top-right corner
   // is therefore the same anchor used by the rendered multiplier badge.
   return getMultiplierBadgePosition({ x: bounds.right, y: bounds.top }, count)
@@ -231,7 +239,11 @@ export function findSameSymbolAddMoreLayoutTargets(
         x: (bounds.left + bounds.right) / 2,
         y: (bounds.top + bounds.bottom) / 2,
       }
-      const badgePosition = multiplierBadgePosition(bounds, getTargetMultiplier(target))
+      const badgePosition = multiplierBadgePosition(
+        bounds,
+        getTargetMultiplier(target),
+        Boolean(target.endpoint?.domoticaChildProps)
+      )
       const outline = {
         x: center.x - SAME_SYMBOL_PREVIEW_SIZE / 2,
         y: center.y - SAME_SYMBOL_PREVIEW_SIZE / 2,
@@ -278,7 +290,7 @@ export function positionHitsMultiplierBadge(layoutTree: LayoutTree, position: Po
       const count = getTargetMultiplier(target)
       if (count > 1) {
         const bounds = getMultiplierBadgeBounds(node)
-        const badge = multiplierBadgePosition(bounds, count)
+        const badge = multiplierBadgePosition(bounds, count, Boolean(endpoint?.domoticaChildProps))
         const width = getMultiplierBadgeWidth(count)
         hit =
           position.x >= badge.x - 1 &&

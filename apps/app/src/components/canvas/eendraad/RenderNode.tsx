@@ -33,6 +33,7 @@ import { isPanelOnlySubPanelFeeder as isPanelOnlySubPanelFeederCircuit } from '@
 import type { Point } from '@/types/ui'
 import { getSupplyProtectionLabelCollisionInfo } from '@/lib/eendraad/supplyProtectionLabelCollisions'
 import { findPanelDistributionEndpointInCircuit } from '@/lib/eendraad/panelSupplyLink'
+import { isNumberedCircuitTrunkSwitch } from '@/lib/eendraad/circuitPointNumbering'
 import { countPanelCircuits } from '@/utils/plan/placementHelpers'
 import { isVerticalSupplyDevice } from '@/lib/layout/supplyDeviceOrientation'
 import { reconcileLayoutNode } from '@/lib/layout/eendraadDerivedLayout'
@@ -626,6 +627,13 @@ const RenderNode = memo(function RenderNodeImpl({
             protectionLabelPosition={isVerticalSupplyBranchDevice ? 'right' : undefined}
             showDeviceLabelLeft={
               isSubPanelSupplyTrunkDevice || isVerticalSupplyBranchDevice
+            }
+            showCircuitPointLabel={
+              !isSupplyTrunkDevice &&
+              !isSubPanelSupplyTrunkDevice &&
+              !isGroundTrunkDevice &&
+              !isDcBusBranchDevice &&
+              isNumberedCircuitTrunkSwitch(trunkDevice)
             }
             splitProtectionResidualLine={
               isSupplyTrunkDevice && resolvedSupplyProtectionCollisionIds.has(node.id)

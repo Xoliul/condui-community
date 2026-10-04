@@ -198,6 +198,13 @@ export function buildElectricalStructureSnapshot(project: ProjectV2): Electrical
     targetId: string
     src: StructureSourceReference
   }> = []
+  /** Endpoints operated by a domotica module through `controlLink` (resolved after all endpoints). */
+  const pendingControlLinks: Array<{
+    endpointNodeId: string
+    deviceId: string
+    channel?: string
+    src: StructureSourceReference
+  }> = []
   const junctionMembers = new Map<
     string,
     Array<{ nodeId: string; symbol: string; source: StructureSourceReference }>
@@ -329,6 +336,18 @@ export function buildElectricalStructureSnapshot(project: ProjectV2): Electrical
         from: endpointId,
         targetId,
         src: source('endpoint', endpoint.id, container, 'controlledEndpointIds'),
+      })
+    }
+    if (endpoint.controlLink?.deviceId) {
+      const channel =
+        typeof endpoint.controlLink.channel === 'string' || typeof endpoint.controlLink.channel === 'number'
+          ? String(endpoint.controlLink.channel).trim()
+          : ''
+      pendingControlLinks.push({
+        endpointNodeId: endpointId,
+        deviceId: endpoint.controlLink.deviceId,
+        ...(channel ? { channel } : {}),
+        src: source('endpoint', endpoint.id, container, 'controlLink'),
       })
     }
     return endpointId
@@ -905,6 +924,27 @@ export function buildElectricalStructureSnapshot(project: ProjectV2): Electrical
       target,
       pending.src
     )
+  }
+  // A contact operated by a domotica module is a channel of that module: the module controls
+  // it, while the contact stays in (and conducts for) its own circuit. Never an electrical edge.
+  for (const pending of pendingControlLinks) {
+    const device = resolve('endpoint', pending.deviceId)
+    if (device)
+      edge(
+        'controls',
+        device,
+        pending.endpointNodeId,
+        pending.src,
+        { knowledge: 'explicit' },
+        pending.channel ? { channel: pending.channel } : undefined
+      )
+    else
+      edge(
+        'unresolved-reference',
+        pending.endpointNodeId,
+        missing('endpoint', pending.deviceId, pending.src),
+        pending.src
+      )
   }
 
   const supplyAssemblies = project.disciplines.electrical?.supplyAssemblies ?? []

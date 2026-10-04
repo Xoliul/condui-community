@@ -16,6 +16,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { getCenteredTouchDragPreviewStyle } from '@/lib/canvas/touchDragPreview'
 import { setLibrarySymbolDragImage } from '@/lib/ui/libraryDragImage'
 import { clamp } from '@/lib/geometry'
+import { DomoticaIcon } from '@/components/icons/UiIcons'
 
 const DRAG_THRESHOLD_PX = 10
 const DRAG_AXIS_BIAS_PX = 6
@@ -605,6 +606,11 @@ const LIBRARY_ICON_CUSTOM: Record<string, () => ReactNode> = {
   double_socket_gnd_child: () => <DoubleSocketLibraryIcon showGround />,
   double_socket_child: () => <DoubleSocketLibraryIcon showGround={false} />,
   modular_socket: () => <ModularSocketLibraryIcon />,
+  domotica: () => (
+    <div className="w-8 h-8 flex items-center justify-center text-black dark:text-white">
+      <DomoticaIcon className="h-7 w-7 [&>svg]:block [&>svg]:h-full [&>svg]:w-full" />
+    </div>
+  ),
 }
 
 export function SymbolPreview({ svgPath, symbolId }: SymbolPreviewProps) {

@@ -24,3 +24,17 @@ export function getMultiplierBadgePosition(anchor: Point, count: number): Point 
     y: anchor.y - MULTIPLIER_BADGE_HEIGHT,
   }
 }
+
+/**
+ * Domotica output rows are only one symbol-height apart, so the usual
+ * top-right badge would land on the symbol of the row above. Return the
+ * bottom-center anchor that places the badge in the symbol's own row instead:
+ * just right of the symbol, sitting on the row wire.
+ */
+export function getDomoticaChildMultiplierBadgeAnchor(
+  symbolRight: number,
+  symbolCenterY: number,
+  count: number
+): Point {
+  return { x: symbolRight + 1 + getMultiplierBadgeWidth(count) / 2, y: symbolCenterY - 1 }
+}

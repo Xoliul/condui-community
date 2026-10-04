@@ -3,8 +3,11 @@ import { useTranslation } from 'react-i18next'
 import { useProjectStore } from '@/stores/projectStore'
 import { useProjectDocumentsStore } from '@/stores/projectDocumentsStore'
 import { isCableRoutesEnabled } from '@/lib/cableRouting/availability'
+import { projectHasControlDevices } from '@/lib/controlLink/addressTable'
+import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import {
   cableScheduleDocument,
+  controlAddressesDocument,
   getProjectDocuments,
   type ProjectDocument,
 } from '@/lib/documents/projectDocuments'
@@ -25,19 +28,27 @@ export function useProjectDocuments(): ProjectDocument[] {
 }
 
 /**
- * Every document the Documents canvas lists: views every project derives live (the cable
- * schedule, where available) followed by the project's documents.
+ * Every document the Documents canvas lists: views the project derives live (the cable
+ * schedule, where available, and the domotica address table in projects with domotica modules)
+ * followed by the project's documents.
  */
 export function useListedProjectDocuments(): ProjectDocument[] {
   const { t } = useTranslation()
   const storedDocuments = useProjectDocuments()
   const assets = useProjectStore((s) => s.currentProject?.assets)
+  const project = useProjectStore((s) => s.currentProject)
+  const hasControlDevices = useMemo(
+    () => (project ? projectHasControlDevices(getProjectElectricalPanels(project)) : false),
+    [project]
+  )
   const cableScheduleName = t('cableSchedule.title', 'Cable schedule')
+  const controlAddressesName = t('controlAddresses.title', 'Domotics addresses')
   return useMemo(
-    () =>
-      isCableRoutesEnabled()
-        ? [cableScheduleDocument(cableScheduleName, assets), ...storedDocuments]
-        : storedDocuments,
-    [assets, cableScheduleName, storedDocuments]
+    () => [
+      ...(isCableRoutesEnabled() ? [cableScheduleDocument(cableScheduleName, assets)] : []),
+      ...(hasControlDevices ? [controlAddressesDocument(controlAddressesName, assets)] : []),
+      ...storedDocuments,
+    ],
+    [assets, cableScheduleName, controlAddressesName, hasControlDevices, storedDocuments]
   )
 }

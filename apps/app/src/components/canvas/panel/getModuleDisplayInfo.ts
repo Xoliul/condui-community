@@ -472,6 +472,32 @@ export function getModuleDisplayInfo(
     if (!context) return { ...empty, label: ref.endpointId }
     const { endpoint: ep } = context
 
+    if (ep.symbol === 'terminal_strip') {
+      const stripId = getTerminalStripId(ep) || '1'
+      const pin = getTerminalStripPin(ep) ?? 1
+      const connectedPins = [
+        ...new Set(
+          collectTerminalStripOccurrences(project)
+            .filter((occurrence) => occurrence.stripId.toUpperCase() === stripId.toUpperCase())
+            .map((occurrence) => occurrence.pin)
+        ),
+      ].sort((left, right) => left - right)
+      return {
+        label: `X${stripId}`,
+        specLines: [],
+        // An endpoint strip has a single connection, so incoming and outgoing coincide.
+        terminalStrip: {
+          stripId,
+          incomingPin: pin,
+          outgoingPin: pin,
+          maxPin: Math.max(2, ...connectedPins),
+          connectedPins,
+        },
+        tooltipText: `X${stripId}-${pin}`,
+        kind: 'domotica',
+      }
+    }
+
     const tooltipParts: string[] = [ep.label]
     const localizedPanelDeviceName = getLocalizedPanelDeviceName(ep.symbol)
     const typeName = localizedPanelDeviceName ?? ep.type.replace(/_/g, ' ')

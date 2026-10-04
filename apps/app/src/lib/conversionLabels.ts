@@ -1,4 +1,5 @@
 import type { Endpoint, EnergyConversionDeviceProps, TrunkDevice } from '@/types/schema'
+import { getScopedControlLinkNote } from '@/lib/controlLink/controlLinkNoteContext'
 import { CERTIFICATION_LISTING_VISIBILITY_KEY, formatCompactDiagramField } from '@/lib/certificationLabels'
 
 /** Inline supplies start compact; an explicit visibility choice is preserved. */
@@ -56,10 +57,22 @@ export function isConversionLabelVisible(
   return DEFAULT_VISIBILITY[key]
 }
 
+/**
+ * One-wire note text for an endpoint. A valid control link replaces the endpoint's own
+ * notes (and their visibility flag) with the resolved link text. Callers outside a
+ * layout scope pass linkedNoteText explicitly (see getEndpointOneWireNoteText).
+ */
 export function getVisibleEndpointNoteText(
-  endpoint: Pick<Endpoint, 'notes' | 'notesVisible' | 'domoticaChildProps' | 'symbol'>
+  endpoint: Pick<Endpoint, 'notes' | 'notesVisible' | 'domoticaChildProps' | 'symbol'> & {
+    id?: string
+  },
+  linkedNoteText?: string
 ): string {
-  if (endpoint.notesVisible === false || (endpoint.domoticaChildProps && endpoint.symbol !== 'domotica')) return ''
+  if (endpoint.domoticaChildProps && endpoint.symbol !== 'domotica') return ''
+  const linked =
+    linkedNoteText ?? (endpoint.id ? getScopedControlLinkNote(endpoint.id) : undefined)
+  if (linked) return linked
+  if (endpoint.notesVisible === false) return ''
   return (endpoint.notes ?? '').trim()
 }
 

@@ -1025,7 +1025,16 @@ export function getAllProtections(panel: Panel): ProtectionDevice[] {
 
 /** Endpoints that users may explicitly include in the panel view. */
 export function endpointCanAppearInPanelGrid(endpoint: Endpoint): boolean {
-  return symbolCanAppearInPanelGrid(endpoint.symbol) || isModularSocket(endpoint)
+  return (
+    symbolCanAppearInPanelGrid(endpoint.symbol) ||
+    isTerminalStripEndpoint(endpoint) ||
+    isModularSocket(endpoint)
+  )
+}
+
+/** A terminal strip dropped after an endpoint is stored as an endpoint, not a trunk device. */
+export function isTerminalStripEndpoint(endpoint: Endpoint | null | undefined): boolean {
+  return endpoint?.symbol === 'terminal_strip'
 }
 
 function findEndpointForPanelModuleRef(
@@ -1243,7 +1252,8 @@ export function panelGridModuleIsVisibleByDefault(
     return false
   }
   if (ref.kind === 'domotica') {
-    return isModularSocket(findEndpointForPanelModuleRef(allPanels, ref))
+    const endpoint = findEndpointForPanelModuleRef(allPanels, ref)
+    return isModularSocket(endpoint) || isTerminalStripEndpoint(endpoint)
   }
 
   let device: TrunkDevice | undefined
@@ -1624,6 +1634,7 @@ export function normalizeDomoticaCircuit(circuit: Circuit): void {
       const child = circuit.endpoints.find((candidate) => candidate.id === childId)
       if (!child) return
       child.domoticaChildProps = {
+        ...child.domoticaChildProps,
         parentEndpointId: endpoint.id,
         outputGroup: 'endpoint',
         outputIndex: index,

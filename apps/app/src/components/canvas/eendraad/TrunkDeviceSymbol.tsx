@@ -123,6 +123,7 @@ import {
   shouldUseSupplyDeviceMetadataCallout,
 } from '@/lib/supplyMetadataCallout'
 import { getCircuitLabelVisualRect } from '@/lib/layout/bottomUpLayout'
+import { CircuitLabel } from './CircuitLabel'
 import { resolveTrunkDeviceMetadataCalloutSelection } from '@/lib/ui/metadataCalloutSelection'
 import {
   applyMetadataCalloutMultiplier,
@@ -195,6 +196,8 @@ interface TrunkDeviceSymbolProps {
   symbolRotationDeg?: number
   /** Show the device's own label on the left for special vertical feeder contexts. */
   showDeviceLabelLeft?: boolean
+  /** Numbered circuit-trunk switch: draw its point label left of the trunk like a branch label. */
+  showCircuitPointLabel?: boolean
   /** Split a wide residual-current line to avoid adjacent supply-label collisions. */
   splitProtectionResidualLine?: boolean
   /** Override protection label placement for a wire branch with a fixed orientation. */
@@ -210,6 +213,8 @@ interface TrunkDeviceSymbolProps {
 }
 
 const SUPPLY_METADATA_FONT_SIZE = 8
+/** Matches the branch-label gap left of the trunk wire (`LAYOUT_CONSTANTS.LABEL_OFFSET`). */
+const CIRCUIT_POINT_LABEL_OFFSET = 20
 const CONVERTER_ARTWORK_VIEWBOX_SIZE = 48
 const CONVERTER_ARTWORK_EDGE = 5.3
 const CONVERTER_ARTWORK_STROKE = 2
@@ -272,6 +277,7 @@ export function TrunkDeviceSymbol({
   isHorizontal,
   symbolRotationDeg,
   showDeviceLabelLeft = false,
+  showCircuitPointLabel = false,
   splitProtectionResidualLine = false,
   protectionLabelPosition,
   getCanvasPositionFromEvent,
@@ -2174,6 +2180,11 @@ export function TrunkDeviceSymbol({
           symbolWidth={renderedSymbolSize.width}
           symbolHeight={renderedSymbolSize.height}
         />
+      )}
+      {showCircuitPointLabel && nameLabelText.length > 0 && (
+        <Group name="export-strip-label">
+          <CircuitLabel x={-CIRCUIT_POINT_LABEL_OFFSET} y={0} label={nameLabelText} align="right" />
+        </Group>
       )}
       {showDeviceLabelLeft && leftStackLabelItems.length > 0 && (
         <SymbolTextLabels

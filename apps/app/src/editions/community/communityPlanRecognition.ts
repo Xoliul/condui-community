@@ -13,11 +13,22 @@ export class PlanWallRecognitionError extends Error {
       | 'planImport.signInToRecognize'
       | 'planImport.scanWorkerRequired'
       | 'planImport.noWallsFound'
+      | 'planImport.noScanCredits'
   ) {
     super(translationKey)
   }
 }
 
+export type RecognizedPlanWalls = { jobId: string; page: never }
+
 export async function recognizePlanWalls(): Promise<never> {
   throw new PlanWallRecognitionError('planImport.scanWorkerRequired')
+}
+
+export async function acceptRecognizedPlanWalls(): Promise<void> {}
+
+export async function discardRecognizedPlanWalls(): Promise<void> {}
+
+export async function getAvailableWallScans(): Promise<number | null> {
+  return null
 }

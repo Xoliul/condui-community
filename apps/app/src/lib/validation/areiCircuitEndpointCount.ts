@@ -18,7 +18,7 @@ export interface AreiEndpointCountBreakdownRow {
  *
  * - Each socket endpoint counts as one enkelvoudige or meervoudige contactdoos,
  *   regardless of socketProps.socketCount (visual/meervoudige doos on one plate).
- * - Switches are not consumption points.
+ * - Switches are not consumption points, including numbered circuit-trunk switches.
  * - Fixed loads on one branch behind a common control count as one equivalent
  *   point. Individually controlled loads remain separate because they live on
  *   separate branches.

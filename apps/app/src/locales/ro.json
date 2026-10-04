@@ -5,6 +5,9 @@
     "toggleVisibility": "Afișați sau ascundeți identificarea pe schema circuitului",
     "noExisting": "Nu există identificatori"
   },
+  "domoticaRowLabel": {
+    "toggleVisibility": "Afișați sau ascundeți eticheta în schemă"
+  },
   "terminalStrip": {
     "pin": "Număr terminal",
     "incomingPin": "In",
@@ -910,6 +913,36 @@
       "positionAfter": "După ramificație {{n}}",
       "delete": "Scoateți din portbagaj"
     },
+    "mounting": {
+      "label": "Amplasare",
+      "panel": "Tablou",
+      "field": "Pe teren"
+    },
+    "controlLink": {
+      "section": "Domotică",
+      "controlSection": "Comandă",
+      "operates": "Comandă",
+      "operatedBy": "Comandat de",
+      "channel": "Canal",
+      "channelPlaceholder": "3, C, Q7",
+      "notesReplaced": "Înlocuit pe schemă de dispozitivul asociat",
+      "outputs": "Ieșiri",
+      "inputs": "Intrări",
+      "missingDevice": "Dispozitivul nu a fost găsit",
+      "duplicateChannel": "Canal deja utilizat",
+      "groups": "Grupuri",
+      "groupsPlaceholder": "1/1/3, 1/4/3",
+      "invalidChannel": "Canalul nu respectă formatul {{system}}",
+      "invalidGroup": "Grupul {{group}} nu este valid",
+      "chooseDevice": "Alegeți dispozitivul",
+      "searchDevices": "Căutați dispozitive",
+      "suggested": "Sugerate",
+      "allDevices": "Toate dispozitivele",
+      "noDevices": "Nu s-au găsit dispozitive",
+      "pickOnCanvas": "Alegeți pe planșă",
+      "pickHint": "Faceți clic pe un dispozitiv pe planșă",
+      "unlink": "Dezasociați"
+    },
     "domotica": {
       "switchControlEnabled": "Activați ieșirea de control",
       "switchType": "Comutator tip ghidon",
@@ -917,7 +950,16 @@
       "switchType_2p": "Comutator 2P",
       "switchType_impulse": "Buton de impuls / apăsare",
       "switchCount": "Număr de comutatoare pe ghidon",
-      "endpointCount": "Numărul de ieșiri ale punctelor finale",
+      "endpointCount": "Numărul de intrări/ieșiri",
+      "system": "Sistem",
+      "systems": {
+        "unspecified": "Nespecificat",
+        "knx": "KNX",
+        "niko_hc": "Niko Home Control",
+        "dali": "DALI",
+        "loxone": "Loxone",
+        "other": "Altul"
+      },
       "controlArea": "Control",
       "control_programmed": ".",
       "control_wireless": "Wireless",
@@ -927,7 +969,15 @@
       "mainType_none": "Niciuna",
       "mainType_socket": "Priză",
       "mainType_switch": "Comutator",
-      "mainSwitchType": "Tip comutator"
+      "mainSwitchType": "Tip comutator",
+      "outputSystem": "Gateway către",
+      "outputSystem_none": "Fără gateway",
+      "deviceAddress": "Adresa dispozitivului",
+      "deviceAddressPlaceholder": "1.1.12",
+      "invalidDeviceAddress": "Adresa nu respectă formatul {{system}}",
+      "line": "Linie",
+      "channelCount": "Canale de ieșire",
+      "overCapacity": "{{used}} din {{capacity}} canale de ieșire utilizate"
     },
     "solarPanel": {
       "groupTitle": "Marca și modelul",
@@ -1163,16 +1213,19 @@
     }
   },
   "planImport": {
+    "importFailed": "Planul nu a putut fi importat.",
     "recognizeWalls": "Recunoașteți pereții editabili",
-    "recognizingWalls": "Recunoașterea pereților...",
     "recognitionFailed": "Recunoașterea peretelui a eșuat.",
     "signInToRecognize": "Conectați-vă pentru a recunoaște pereții.",
     "scanWorkerRequired": "Această metodă de scanare nu este disponibilă pe serverul Vision.",
-    "scanMethod": "Metoda de scanare",
-    "scanHybrid": "Hibrid",
-    "scanYolo": "YOLO",
-    "scanLuna": "Luna",
     "noWallsFound": "Nu au fost găsite pereți pe acest plan.",
+    "noScanCredits": "Nu mai aveți scanări de pereți.",
+    "scansLeft_one": "{{count}} scanare rămasă",
+    "scansLeft_few": "{{count}} scanări rămase",
+    "scansLeft_many": "{{count}} de scanări rămase",
+    "scansLeft_other": "{{count}} de scanări rămase",
+    "keepWalls": "Păstrați pereții",
+    "keepWallsFailed": "Pereții nu au putut fi păstrați. Încercați din nou.",
     "title": "Plan de import",
     "uploadDescription": "Încărcați un plan de etaj ca fundal.",
     "dragDropOrClick": "Trageți o imagine aici sau faceți clic pentru a selecta",
@@ -1251,6 +1304,14 @@
     "enableCadGrayscale": "Conversia culorilor CAD în tonuri de gri",
     "grayscalePreview": "Exemplu în tonuri de gri"
   },
+  "wallScan": {
+    "scanning": "Se recunosc pereții…",
+    "found_one": "{{count}} perete găsit",
+    "found_few": "{{count}} pereți găsiți",
+    "found_many": "{{count}} de pereți găsiți",
+    "found_other": "{{count}} de pereți găsiți",
+    "discard": "Renunțați"
+  },
   "planTools": {
     "movePlanImage": "Mută imaginea planului",
     "resetScale": "Reglați scara",
@@ -1285,7 +1346,7 @@
     "sizeLocked": "Dimensiune fixă",
     "resizable": "Scalabil",
     "width": "Lățimea (cm)",
-    "height": "Înălțime (cm)",
+    "length": "Lungime (cm)",
     "rotation": "Rotație (grade)",
     "elements": {
       "bathtub": "Baie",
@@ -2960,5 +3021,32 @@
     "earthing": "Împământare",
     "other": "Altele",
     "selected": "Selectat"
+  },
+  "controlAddresses": {
+    "title": "Adrese domotică",
+    "module": "Modul",
+    "channel": "Canal",
+    "direction": "Sens",
+    "groups": "Grupuri",
+    "load": "Conectat la",
+    "circuit": "Circuit",
+    "source": "Conexiune",
+    "free": "Liber",
+    "output": "Ieșire",
+    "input": "Intrare",
+    "wired": "Cablat",
+    "linked": "Asociat",
+    "check": "De verificat",
+    "collapseModule": "Restrângeți modulul",
+    "expandModule": "Extindeți modulul",
+    "empty": "Niciun modul nu corespunde filtrelor.",
+    "emptyGroups": "Nu există încă grupuri atribuite.",
+    "view": "Vizualizare",
+    "viewModules": "Module",
+    "filters": "Filtre",
+    "allSystems": "Toate sistemele",
+    "allBoards": "Toate tablourile",
+    "issuesOnly": "Doar modulele de verificat",
+    "hideRelays": "Ascunde releele"
   }
 }

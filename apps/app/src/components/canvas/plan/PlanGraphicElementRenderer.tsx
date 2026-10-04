@@ -602,10 +602,14 @@ function GraphicElementNode({
   const getPointerInElementParent = (event: PlanGraphicPointerEvent): Point2 | null => {
     const stage = event.target?.getStage?.()
     const pointer = stage?.getPointerPosition?.()
-    const elementGroup = event.target?.getParent?.()
-    const parent = elementGroup?.getParent?.()
-    if (!pointer || !parent?.getAbsoluteTransform) return null
-    const transform = parent.getAbsoluteTransform().copy().invert()
+    const overlayGroup = event.target?.getParent?.()
+    const elementNode = overlayGroup?.getParent?.()
+    const elementParent = elementNode?.getParent?.()
+    if (!pointer || !elementParent?.getAbsoluteTransform) return null
+    // Convert to the element's parent (plan) space. Using the element node's
+    // transform here would already apply its rotation, which move and resize
+    // handlers account for separately below.
+    const transform = elementParent.getAbsoluteTransform().copy().invert()
     return transform.point(pointer)
   }
 

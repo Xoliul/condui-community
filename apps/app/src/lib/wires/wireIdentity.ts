@@ -267,7 +267,10 @@ export function stampWireSegmentAnchors(
         .flatMap((b) => {
           const all = [
             ...(b.branchDevices ?? []).map((device) => `trunk-device:${device.id}`),
-            ...b.endpointIds.map((id) => `endpoint:${id}`),
+            // Module outputs start after the module, not on its shared input stem.
+            ...b.endpointIds
+              .filter((id) => !circuit.endpoints.find((endpoint) => endpoint.id === id)?.domoticaChildProps)
+              .map((id) => `endpoint:${id}`),
           ]
           return sharedBranches ? all : all.slice(0, 1)
         })

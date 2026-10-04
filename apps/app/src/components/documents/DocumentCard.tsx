@@ -6,7 +6,7 @@ import {
   getProjectDocumentSizeBytes,
   type ProjectDocument,
 } from '@/lib/documents/projectDocuments'
-import { WiringIcon } from '@/components/icons/UiIcons'
+import { DomoticaIcon, WiringIcon } from '@/components/icons/UiIcons'
 import { formatBytes } from '@/utils/formatBytes'
 import { ExportToggle } from './ExportToggle'
 import { PdfPageCanvas } from './PdfPageCanvas'
@@ -44,6 +44,9 @@ function DocumentThumbnail({ document }: { document: ProjectDocument }) {
   const [failed, setFailed] = useState(false)
   if (document.kind === 'cableSchedule') {
     return <SheetThumbnail badge={<WiringIcon className="h-8 w-8 [&>svg]:block [&>svg]:h-full [&>svg]:w-full" />} />
+  }
+  if (document.kind === 'controlAddresses') {
+    return <SheetThumbnail badge={<DomoticaIcon className="h-8 w-8 [&>svg]:block [&>svg]:h-full [&>svg]:w-full" />} />
   }
   if (document.kind === 'externalInfluences') return <SheetThumbnail />
   if (failed) return <FileText className="h-10 w-10 text-gray-300 dark:text-gray-600" />

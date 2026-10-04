@@ -64,6 +64,21 @@ import {
   visibilityToggleClass,
 } from '../shared/propertiesSharedUtils'
 import { EndpointCertificationSection } from './EndpointControls'
+import { useControlLinkNote } from '@/lib/controlLink/useControlLinkNote'
+import {
+  ControlDeviceAddressingFields,
+  RelayOperatedContactsFields,
+  ControlLinkOperatedByFields,
+  DomoticaChildAddressFields,
+} from './ControlLinkFields'
+import { EndpointMountingField } from './EndpointMountingField'
+import { DomoticaRowLabelField } from '../shared/DomoticaRowLabelField'
+import {
+  findDomoticaRowRoot,
+  getDomoticaOutputBaseLabel,
+  isDomoticaRowLabelVisible,
+  withDomoticaRowLabelVisibility,
+} from '@/lib/eendraad/domoticaRowLabel'
 import { AutomaticNamingLockedField } from '../shared/AutomaticNamingLockedField'
 import { assignTerminalStripPin } from '@/handlers/terminalStripAssignments'
 import { getTerminalStripPin } from '@/lib/terminalStrip/labels'
@@ -118,6 +133,7 @@ export function EndpointProperties({
     (state: ProjectState) => state.findCircuitForEndpoint
   )
   const getCircuitIdentifier = useProjectStore((state: ProjectState) => state.getCircuitIdentifier)
+  const notesOverriddenByLink = useControlLinkNote(endpoint) !== undefined
   const getProtectionForCircuit = useProjectStore(
     (state: ProjectState) => state.getProtectionForCircuit
   )
@@ -320,6 +336,20 @@ export function EndpointProperties({
     !!currentCircuit?.branches?.some((b: { endpointIds: string[] }) =>
       b.endpointIds.includes(endpointId)
     )
+  const domoticaRowLabelState = (() => {
+    if (!endpoint.domoticaChildProps || !currentCircuit) return undefined
+    const parent = currentCircuit.endpoints.find(
+      (candidate) => candidate.id === endpoint.domoticaChildProps?.parentEndpointId
+    )
+    const root = findDomoticaRowRoot(currentCircuit, endpoint)
+    if (!parent || !root) return undefined
+    // The module owns the branch number: only the part after `{base}.` is editable here.
+    const prefix = `${getDomoticaOutputBaseLabel(parent, currentCircuit.code)}.`
+    const literal =
+      root.domoticaRowLabel?.kind === 'literal' || !endpoint.label.startsWith(prefix)
+    const editableText = literal ? endpoint.label : endpoint.label.slice(prefix.length)
+    return { prefix, root, literal, editableText }
+  })()
   const symbol = endpoint.symbol
   const isSwitch = endpoint.type === 'switch' && symbol !== 'relay'
   const isLight = endpoint.type === 'light_point'
@@ -368,7 +398,9 @@ export function EndpointProperties({
         }
       />
       <div>
-        <label className={labelClass}>{t('endpoints.label', 'Label')}</label>
+        {!domoticaRowLabelState && (
+          <label className={labelClass}>{t('endpoints.label', 'Label')}</label>
+        )}
         {isSharedJunctionSymbol(endpoint.symbol) ? (
           <JunctionIdentityField
             value={getJunctionIdentity(endpoint)}
@@ -414,6 +446,31 @@ export function EndpointProperties({
             pickTitle={t('junctionIdentity.pickExisting', 'Reuse an existing identity')}
             toggleTitle={t('junctionIdentity.toggleVisibility', 'Show or hide identity on diagram')}
             emptyText={t('junctionIdentity.noExisting', 'No existing identities')}
+          />
+        ) : domoticaRowLabelState ? (
+          <DomoticaRowLabelField
+            prefix={domoticaRowLabelState.prefix}
+            value={domoticaRowLabelState.editableText}
+            literal={domoticaRowLabelState.literal}
+            custom={!!domoticaRowLabelState.root.domoticaRowLabel}
+            visible={isDomoticaRowLabelVisible(domoticaRowLabelState.root)}
+            resetKey={`${endpointId}:${endpoint.label}`}
+            onCommit={(typed) => onUpdate(endpointId, { label: typed })}
+            onToggleVisible={() =>
+              onUpdate(domoticaRowLabelState.root.id, {
+                symbolLabelDisplay: withDomoticaRowLabelVisibility(
+                  domoticaRowLabelState.root.symbolLabelDisplay,
+                  !isDomoticaRowLabelVisible(domoticaRowLabelState.root)
+                ),
+              })
+            }
+            onUseAutomatic={() => onUpdate(endpointId, { label: '' })}
+            label={t('endpoints.label', 'Label')}
+            toggleTitle={t('domoticaRowLabel.toggleVisibility', 'Show or hide label on diagram')}
+            customLabel={t('canvas.eendraadNaming.customStatus', 'Custom')}
+            automaticLabel={t('canvas.eendraadNaming.automaticStatus', 'Automatic')}
+            setCustomLabel={t('canvas.eendraadNaming.setCustomLabel', 'Set custom label')}
+            useAutomaticLabel={t('canvas.eendraadNaming.useAutomaticLabel', 'Use automatic label')}
           />
         ) : (
           <AutomaticNamingLockedField locked={endpointBranchLabelLocked}>
@@ -1700,6 +1757,20 @@ export function EndpointProperties({
         onUpdate={onUpdate}
         t={t}
       />
+      <EndpointMountingField endpointId={endpointId} />
+      {/* Domotica addressing stays low, just above notes */}
+      {symbol === 'contact' && (
+        <ControlLinkOperatedByFields endpointId={endpointId} endpoint={endpoint} onUpdate={onUpdate} />
+      )}
+      {symbol === 'domotica' && !endpoint.domoticaChildProps && (
+        <ControlDeviceAddressingFields endpointId={endpointId} endpoint={endpoint} onUpdate={onUpdate} />
+      )}
+      {endpoint.domoticaChildProps && symbol !== 'domotica' && (
+        <DomoticaChildAddressFields endpointId={endpointId} endpoint={endpoint} onUpdate={onUpdate} />
+      )}
+      {symbol === 'relay' && !endpoint.domoticaChildProps && (
+        <RelayOperatedContactsFields endpointId={endpointId} />
+      )}
       {/* Notes at bottom of endpoint props */}
       <div>
         <div className="flex items-center gap-2 mb-1">
@@ -1707,14 +1778,17 @@ export function EndpointProperties({
           {!endpoint.domoticaChildProps && (
             <button
               type="button"
+              disabled={notesOverriddenByLink}
               onClick={() =>
                 onUpdate(endpointId, {
                   notesVisible: endpoint.notesVisible !== false ? false : true,
                 })
               }
-              className={visibilityToggleClass(endpoint.notesVisible !== false)}
+              className={`${visibilityToggleClass(endpoint.notesVisible !== false)}${notesOverriddenByLink ? ' opacity-40 cursor-not-allowed' : ''}`}
               title={
-                endpoint.notesVisible !== false
+                notesOverriddenByLink
+                  ? t('endpoints.controlLink.notesReplaced', 'Replaced by the linked device on the diagram')
+                  : endpoint.notesVisible !== false
                   ? t('circuits.notesHide', 'Hide on diagram')
                   : t('circuits.notesShow', 'Show on diagram')
               }

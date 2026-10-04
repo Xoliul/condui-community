@@ -47,16 +47,9 @@ export function usePlanImageBitmap(
             svgToUse = await invertSvgForDarkMode(svgContent)
           }
           imageUrlToUse = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgToUse)}`
-        } else if (
-          themeMode === 'dark' &&
-          darkModeAware &&
-          canonicalAsset?.kind === 'pdf-raster' &&
-          planImageDataUrl
-        ) {
-          // Keep the PDF page opaque while inverting it so the page's white
-          // paper becomes dark instead of showing the canvas through it.
-          imageUrlToUse = await applyDarkModeInversion(planImageDataUrl)
         } else if (hasWhiteBackground && planImageProcessedDataUrl) {
+          // A detected white page (PDF page or scanned/photographed plan) is removed, rooms
+          // included, so in dark mode only the inverted linework shows on the canvas.
           imageUrlToUse = planImageProcessedDataUrl
           if (themeMode === 'dark' && darkModeAware) {
             imageUrlToUse = await applyDarkModeInversion(planImageProcessedDataUrl)

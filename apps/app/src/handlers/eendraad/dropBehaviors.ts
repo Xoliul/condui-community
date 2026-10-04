@@ -79,6 +79,7 @@ import {
 import {
   circuitAcceptsTrunkSwitch,
   createCircuitTrunkSwitchDevice,
+  getCircuitTrunkSwitchPositionForDrop,
   isCircuitTrunkSwitchDropTarget,
   isCircuitTrunkSwitchSymbol,
 } from '@/lib/eendraad/circuitTrunkSwitch'
@@ -926,7 +927,7 @@ function addCircuitTrunkSwitchAtDrop(
   const device = createCircuitTrunkSwitchDevice(
     symbol.id,
     generateId(),
-    getCircuitTrunkPositionForDrop(target, circuit)
+    getCircuitTrunkSwitchPositionForDrop(target, getCircuitTrunkPositionForDrop(target, circuit))
   )
   const placement = buildVisibleTrunkSitplanPlacement(project, circuitId)
   if (placement) device.placements = [placement]

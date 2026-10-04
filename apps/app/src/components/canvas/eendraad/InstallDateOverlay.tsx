@@ -45,7 +45,7 @@ import {
 } from '@/lib/projectV2/electrical'
 
 type DateEntity = Panel | ProtectionDevice | Circuit | Endpoint | TrunkDevice
-type InstallDateOverlayProject = ProjectWithOptionalV2Electrical &
+export type InstallDateOverlayProject = ProjectWithOptionalV2Electrical &
   ProjectWithOptionalInstallYear & {
     project: {
       installDateColors?: Record<string, string>
@@ -76,7 +76,7 @@ export function isPrimaryInstallDateFrameClick(button?: number): boolean {
   return button == null || button === 0
 }
 
-interface DateFrame {
+export interface DateFrame {
   id: string
   year: number
   label: string
@@ -1013,6 +1013,45 @@ export function buildDateFramesForPanel(
   return placeFrameLabels(shrinkFramePaddingCollisions(frames), panelLayout)
 }
 
+export interface InstallDateFrameDrawing {
+  drawsBorder: boolean
+  relationLine: [number, number, number, number] | null
+  labelX: number
+  labelY: number
+  textWidth: number
+  fontSize: number
+}
+
+/** Geometry shared by the canvas overlay and the PDF export of install dates. */
+export function resolveInstallDateFrameDrawing(frame: DateFrame): InstallDateFrameDrawing {
+  const isSingle = frame.itemCount <= 1
+  const drawsRelationLine = !frame.borderless && (isSingle || isOldInstallYear(frame.year))
+  const fontSize = 11
+  const textWidth = frame.labelWidth ?? estimateOverlayTextWidth(frame.label, fontSize)
+  const labelX = frame.labelX ?? frame.x + frame.width - textWidth
+  const labelY = frame.labelY ?? frame.y - (isSingle ? 13 : 20)
+  const labelRect = {
+    x: labelX,
+    y: labelY + 1,
+    width: Math.min(textWidth, estimateRelationTextWidth(frame.label, fontSize)),
+    height: fontSize + 2,
+  }
+  const relationLine = drawsRelationLine
+    ? clippedRelationLine(
+        labelRect,
+        frame.relationBounds ?? { x: frame.x, y: frame.y, width: frame.width, height: frame.height }
+      )
+    : null
+  return {
+    drawsBorder: !isSingle && !frame.borderless,
+    relationLine,
+    labelX,
+    labelY,
+    textWidth,
+    fontSize,
+  }
+}
+
 const InstallDateOverlay = memo(function InstallDateOverlay({
   project,
   layout,
@@ -1037,34 +1076,8 @@ const InstallDateOverlay = memo(function InstallDateOverlay({
   return (
     <Group listening={interactive} name="install-date-overlay">
       {frames.map((frame) => {
-        const isSingle = frame.itemCount <= 1
-        const drawsRelationLine = !frame.borderless && (isSingle || isOldInstallYear(frame.year))
-        const fontSize = 11
-        const textWidth = frame.labelWidth ?? estimateOverlayTextWidth(frame.label, fontSize)
-        const labelX = frame.labelX ?? frame.x + frame.width - textWidth
-        const labelY = frame.labelY ?? frame.y - (isSingle ? 13 : 20)
-        const textHeight = fontSize + 2
-        const relationTextWidth = Math.min(
-          textWidth,
-          estimateRelationTextWidth(frame.label, fontSize)
-        )
-        const labelRect = {
-          x: labelX,
-          y: labelY + 1,
-          width: relationTextWidth,
-          height: textHeight,
-        }
-        const relationLine = drawsRelationLine
-          ? clippedRelationLine(
-              labelRect,
-              frame.relationBounds ?? {
-                x: frame.x,
-                y: frame.y,
-                width: frame.width,
-                height: frame.height,
-              }
-            )
-          : null
+        const { drawsBorder, relationLine, labelX, labelY, textWidth, fontSize } =
+          resolveInstallDateFrameDrawing(frame)
         const hitPad = 7
         const borderHits = [
           {
@@ -1104,7 +1117,7 @@ const InstallDateOverlay = memo(function InstallDateOverlay({
         }
         return (
           <Group key={frame.id} listening={interactive}>
-            {!isSingle && !frame.borderless ? (
+            {drawsBorder ? (
               <>
                 <Rect
                   x={frame.x}

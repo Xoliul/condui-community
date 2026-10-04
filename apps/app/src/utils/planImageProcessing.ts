@@ -9,7 +9,6 @@ import {
   detectWhiteFromRgba,
   detectWhitePageBackgroundFromRgba,
   invertRgbInPlace,
-  removeEdgeConnectedWhitePixelsInPlace,
   removeWhitePixelsInPlace,
 } from '@/lib/image/planImagePixelOps'
 import {
@@ -25,7 +24,7 @@ export interface PlanImageProcessingResult {
   originalDataUrl: string
 }
 
-/** Same as regular background processing, but only removes a PDF page-sized white rect. */
+/** Same as regular background processing, but only when a painted white page is detected. */
 export async function processPdfRasterBackground(
   imageDataUrl: string,
   threshold: number = 240,
@@ -57,13 +56,9 @@ export async function processPdfRasterBackground(
           })
           return
         }
-        removeEdgeConnectedWhitePixelsInPlace(
-          imageData.data,
-          canvas.width,
-          canvas.height,
-          threshold,
-          tolerance,
-        )
+        // Remove every near-white pixel, not only the page margin: rooms enclosed by walls are
+        // white too, and left opaque they invert to black blocks in dark mode.
+        removeWhitePixelsInPlace(imageData.data, threshold, tolerance)
         ctx.putImageData(imageData, 0, 0)
         resolve({
           processedDataUrl: canvas.toDataURL('image/png'),

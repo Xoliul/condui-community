@@ -8,6 +8,7 @@ import {
 } from '@/lib/documents/documentLinkTargets'
 import {
   CABLE_SCHEDULE_DOCUMENT_ID,
+  CONTROL_ADDRESSES_DOCUMENT_ID,
   canExportProjectDocument,
   canRemoveProjectDocument,
   getCategoryAfterLinking,
@@ -28,6 +29,7 @@ import { formatBytes } from '@/utils/formatBytes'
 import { ExportToggle } from './ExportToggle'
 import { FloorPlanDisplaySection } from './FloorPlanDisplaySection'
 import { CableScheduleProperties } from '@/components/cableRouting/CableScheduleProperties'
+import { ControlAddressTableProperties } from '@/components/controlLink/ControlAddressTable'
 import { useProjectDocuments } from './useProjectDocuments'
 import {
   canReduceProjectDocumentSize,
@@ -169,6 +171,7 @@ function DocumentLinksSection({ document }: { document: ProjectDocument }) {
 /** Properties panel editor for a selected document. */
 export default function DocumentProperties({ documentId }: { documentId: string }) {
   if (documentId === CABLE_SCHEDULE_DOCUMENT_ID) return <CableScheduleProperties />
+  if (documentId === CONTROL_ADDRESSES_DOCUMENT_ID) return <ControlAddressTableProperties />
   return <StoredDocumentProperties documentId={documentId} />
 }
 

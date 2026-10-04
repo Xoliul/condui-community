@@ -28,6 +28,7 @@ import {
   getProtectionOneWireAnchorLineIndex,
   getProtectionOneWireLabelLines,
 } from '@/lib/protectionLabels'
+import { isDomoticaRowLabelShown } from '@/lib/eendraad/domoticaRowLabel'
 import { getSymbolLabelVerticalMetrics } from '@/lib/symbolLabelMetrics'
 import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
 import {
@@ -64,6 +65,7 @@ import {
   supportsCircuitConverterDcConnections,
 } from './circuitConverterGeometry'
 import { getEndpointXOffsets } from './bottomUpBranchWidths'
+import { runWithControlLinkNotes } from '@/lib/controlLink/controlLinkNoteContext'
 import {
   getCircuitConverterMetadataCallouts,
   getBranchConverterMetadataCallouts,
@@ -395,6 +397,14 @@ function protectionTypeToSymbolId(type?: string): string {
 }
 
 export function buildLayoutTree(layout: BottomUpLayoutResult): LayoutTree {
+  // Re-enter the layout pass's control-link note scope so labels, offsets and
+  // minimum-left constraints use the same text as the measurement pass.
+  return runWithControlLinkNotes(layout.controlLinkNotes ?? new Map(), () =>
+    buildLayoutTreeScoped(layout)
+  )
+}
+
+function buildLayoutTreeScoped(layout: BottomUpLayoutResult): LayoutTree {
   const panelNodes: LayoutNode[] = layout.panels.map((panelLayout) =>
     buildPanelNodeForVisualDirection(panelLayout)
   )
@@ -4399,7 +4409,11 @@ function buildBranchNode(
       children.push(endpointNode)
 
       // Domotica child endpoints: label to the right of the symbol (A1.1, A1.2, …)
-      if (isDomoticaChild && endpoint.label) {
+      if (
+        isDomoticaChild &&
+        endpoint.label &&
+        isDomoticaRowLabelShown(branch.endpoints, endpoint)
+      ) {
         const ref = endpoint.domoticaChildProps!
         const rowEndpoints = branch.endpoints.filter(
           (ep) =>

@@ -131,6 +131,19 @@ function removeConverterBackupDependents(panels: Panel[], converterId: string): 
   return removedIds
 }
 
+/** Renumber circuits whose numbered trunk switches were added, removed or moved. */
+function syncCircuitPointLabels(panels: Panel[], circuitIds: Array<string | undefined>): void {
+  for (const circuitId of new Set(circuitIds)) {
+    if (!circuitId) continue
+    for (const panel of panels) {
+      const result = findCircuitById(panel, circuitId)
+      if (!result) continue
+      syncSequentialEndpointBranchLabelsToCircuit(result.circuit, panel)
+      break
+    }
+  }
+}
+
 function removeDcBusBranches(
   panels: Panel[],
   _busId: string,
@@ -332,6 +345,7 @@ export const createCircuitTrunkSlice: ProjectSliceCreator = (set, get) => ({
             const branchTopologyChanged =
               Object.prototype.hasOwnProperty.call(appliedUpdates, 'branches') ||
               Object.prototype.hasOwnProperty.call(appliedUpdates, 'endpoints') ||
+              Object.prototype.hasOwnProperty.call(appliedUpdates, 'trunkDevices') ||
               (newCode !== null && newCode !== oldCode)
             if (branchTopologyChanged) {
               syncSequentialEndpointBranchLabelsToCircuit(result.circuit)
@@ -469,6 +483,7 @@ export const createCircuitTrunkSlice: ProjectSliceCreator = (set, get) => ({
             } else {
               result.circuit.trunkDevices.push(device)
             }
+            syncSequentialEndpointBranchLabelsToCircuit(result.circuit, panel)
             syncPanelAndSituationPlanDeviceVisibility(state.currentProject)
             state.isDirty = true
             return
@@ -684,6 +699,7 @@ export const createCircuitTrunkSlice: ProjectSliceCreator = (set, get) => ({
                   ...removedEmptyDcBranchIds,
                 ],
               })
+              syncSequentialEndpointBranchLabelsToCircuit(result.circuit, panel)
               state.isDirty = true
               break
             }
@@ -715,7 +731,7 @@ export const createCircuitTrunkSlice: ProjectSliceCreator = (set, get) => ({
       }
     }),
 
-  moveTrunkDeviceInCircuit: (circuitId, deviceId, direction, parentCircuitId) =>
+  moveTrunkDeviceInCircuit: (circuitId, deviceId, direction, parentCircuitId) => {
     set((state) => {
       logger.info('[moveTrunkDeviceInCircuit]', {
         circuitId,
@@ -922,7 +938,15 @@ export const createCircuitTrunkSlice: ProjectSliceCreator = (set, get) => ({
           }
         }
       }
-    }),
+    })
+    set((state) => {
+      if (!state.currentProject) return
+      syncCircuitPointLabels(getEditableProjectElectricalPanels(state.currentProject), [
+        circuitId,
+        parentCircuitId,
+      ])
+    })
+  },
 
   relocateCircuitTrunkDevice: (deviceId, dropTarget): boolean => {
     const projectBefore = get().currentProject

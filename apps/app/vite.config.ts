@@ -219,6 +219,9 @@ function stripDisabledElectricalVisionScanSource(source: string): string {
 }
 
 const aliases = {
+  '@/stores/wallScanStore': './src/editions/community/communityWallScan.tsx',
+  './WallRecognitionControls': './src/editions/community/communityWallScan.tsx',
+  './plan/WallScanReview': './src/editions/community/communityWallScan.tsx',
   '@/lib/vision/availability': './src/editions/community/communityPlanRecognition.ts',
   '@/lib/vision/recognizePlanWalls': './src/editions/community/communityPlanRecognition.ts',
   '@/hooks/useExportDialog': './src/editions/community/useCommunityExportDialog.tsx',

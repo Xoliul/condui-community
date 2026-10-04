@@ -16,6 +16,10 @@ import {
 } from '../konvaThemeExport'
 import { useCanvasRegistryStore } from '@/stores/canvasRegistryStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useUIStore } from '@/stores/uiStore'
+import type { BottomUpPanelLayout } from '@/lib/layout/bottomUpLayout'
+import type { InstallDateOverlayProject } from '@/components/canvas/eendraad/InstallDateOverlay'
+import { createInstallDateExportNode } from '../installDateExport'
 import type { FrameSlice } from '../slicing/eendraadSlicing'
 import { exportLog } from '../exportLogger'
 import { stripInteractiveOverlaysForExport } from '../interactiveOverlayExport'
@@ -49,6 +53,7 @@ export function stripEendraadOverlayLabelsForExport(root: Konva.Container): void
  * @param slice Optional slice bounds (if provided, exports only that slice)
  * @param options Export options
  * @param eendraadSliceMeta When provided (for slice exports), fixed scale and main-bus Y for alignment
+ * @param installDateSource Project and panel layout used to draw install dates when requested
  * @returns Isolated export scene
  */
 export async function prepareEendraadScene(
@@ -56,7 +61,8 @@ export async function prepareEendraadScene(
   sliceIndex: number,
   slice: FrameSlice | null,
   options: ExportOptions,
-  eendraadSliceMeta?: EendraadSliceExportMeta
+  eendraadSliceMeta?: EendraadSliceExportMeta,
+  installDateSource?: { project: InstallDateOverlayProject; panelLayout: BottomUpPanelLayout }
 ): Promise<ExportScene> {
   const sourceTheme = useSettingsStore.getState().theme.mode
   const targetTheme = options.theme
@@ -148,8 +154,14 @@ export async function prepareEendraadScene(
     // Clone all children recursively
     deep: true,
   })
-  if (!options.includeInstallDates) {
-    clonedGroup.find('.install-date-overlay').forEach((node) => node.destroy())
+  clonedGroup.find('.install-date-overlay').forEach((node) => node.destroy())
+  if (options.includeInstallDates && installDateSource) {
+    const installDates = createInstallDateExportNode(
+      installDateSource.project,
+      installDateSource.panelLayout,
+      useUIStore.getState().eendraadDateMarkingVisibility.installDatesMonochrome
+    )
+    if (installDates) clonedGroup.add(installDates)
   }
 
   // Remove the info block from the clone; it will be added per-page in PDF composition

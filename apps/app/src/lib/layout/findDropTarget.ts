@@ -27,6 +27,7 @@ import {
   DOMOTICA_MIN_ENDPOINT_OUTPUTS,
 } from '@/lib/domoticaLayout'
 import { isVerticalSupplyDevice } from './supplyDeviceOrientation'
+import { findCircuitTrunkBranchSlot } from './circuitTrunkBranchSlots'
 
 /** Options for findDropTarget / findDropTargetWithDebug (all optional). */
 export interface FindDropTargetOptions {
@@ -122,6 +123,8 @@ export interface DropTarget {
   groundDeviceInsertIndex?: number
   /** Segment index on a circuit trunk hit zone (used for per-segment trunk insertion/domain checks) */
   circuitTrunkSegmentIndex?: number
+  /** Branches between the protection and the pointer on a circuit trunk wire (branch gap under the pointer). */
+  circuitTrunkBranchSlot?: number
   /** Insert index for main bus items (MCBs/RCDs/direct circuits) when dropping on the main bus */
   mainBusInsertIndex?: number
   /** Number of main bus items before the drop (used to derive final position after insertion) */
@@ -652,6 +655,14 @@ export function findDropTarget(
   position: Point,
   options?: FindDropTargetOptions
 ): DropTarget {
+  return withCircuitTrunkBranchSlot(tree, position, findDropTargetBySegment(tree, position, options))
+}
+
+function findDropTargetBySegment(
+  tree: LayoutTree,
+  position: Point,
+  options?: FindDropTargetOptions
+): DropTarget {
   // First, find which panel contains this position
   const panelNode = findPanelAtPosition(tree, position)
   if (!panelNode || !panelNode.domainId) {
@@ -769,6 +780,30 @@ export function findDropTarget(
  * Find drop target with debug information about the tree walk
  */
 export function findDropTargetWithDebug(
+  tree: LayoutTree,
+  position: Point,
+  options?: FindDropTargetOptions
+): { target: DropTarget; debug: DebugInfo } {
+  const result = findDropTargetWithDebugBySegment(tree, position, options)
+  return { ...result, target: withCircuitTrunkBranchSlot(tree, position, result.target) }
+}
+
+/** Attach the branch gap under the pointer to a circuit-trunk wire target. */
+function withCircuitTrunkBranchSlot(tree: LayoutTree, position: Point, target: DropTarget): DropTarget {
+  if (
+    target.type !== 'circuit' ||
+    !target.circuitId ||
+    typeof target.circuitTrunkSegmentIndex !== 'number' ||
+    target.branchEndpoints !== undefined
+  ) {
+    return target
+  }
+  const slot = findCircuitTrunkBranchSlot(tree, position, { includeBranchRows: false })
+  if (!slot || slot.circuitId !== target.circuitId) return target
+  return { ...target, circuitTrunkBranchSlot: slot.insertIndex }
+}
+
+function findDropTargetWithDebugBySegment(
   tree: LayoutTree,
   position: Point,
   options?: FindDropTargetOptions
@@ -1067,7 +1102,7 @@ export function ensureCircuitTrunkWireSegmentOnDropTarget(
   }
   const seg = findCircuitTrunkSegmentIndexUnderPoint(tree, position, target.circuitId)
   if (seg == null) return target
-  return { ...target, circuitTrunkSegmentIndex: seg }
+  return withCircuitTrunkBranchSlot(tree, position, { ...target, circuitTrunkSegmentIndex: seg })
 }
 
 /**

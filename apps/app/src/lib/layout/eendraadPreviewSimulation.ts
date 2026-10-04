@@ -18,6 +18,8 @@ import { symbolSupportsWireDomain, type SymbolMetadata } from '@/lib/symbols'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
 import {
   circuitAcceptsTrunkSwitch,
+  createCircuitTrunkSwitchDevice,
+  getCircuitTrunkSwitchPositionForDrop,
   isCircuitTrunkSwitchDropTarget,
   isCircuitTrunkSwitchSymbol,
 } from '@/lib/eendraad/circuitTrunkSwitch'
@@ -1354,30 +1356,35 @@ function simulateTrunkDeviceOnCircuit(
     return
   }
 
-  const trunkPosition = getCircuitTrunkPositionForDropSim(target, circuit)
+  const segmentPosition = getCircuitTrunkPositionForDropSim(target, circuit)
+  const trunkPosition = isCircuitTrunkSwitchSymbol(symbol.id)
+    ? getCircuitTrunkSwitchPositionForDrop(target, segmentPosition)
+    : segmentPosition
   const deviceId = generateId()
-  const trunkDevice: TrunkDevice = {
-    id: deviceId,
-    type,
-    symbol: symbol.id as TrunkDevice['symbol'],
-    label:
-      symbol.id === 'terminal_strip'
-        ? getNextTerminalStripLabel(project)
-        : type === 'conversion' || type === 'switch' || type === 'relay'
-          ? ''
-          : (symbol.name ?? ''),
-    trunkPosition,
-    ...(type === 'switch' ? { poles: 1, polesConfig: '1P' as const } : {}),
-    ...(target.converterDcConnection
-      ? { converterDcConnection: { ...target.converterDcConnection } }
-      : {}),
-    ...(type === 'dc_bus' ? { dcBusProps: {} } : {}),
-    ...(symbol.id === 'terminal_strip'
-      ? getTerminalStripTrunkConnectionProps(project)
-      : isSharedJunctionSymbol(symbol.id)
-        ? { junctionIdentity: getNextJunctionIdentity(project, symbol.id) }
-        : {}),
-  }
+  const trunkDevice: TrunkDevice = isCircuitTrunkSwitchSymbol(symbol.id)
+    ? createCircuitTrunkSwitchDevice(symbol.id, deviceId, trunkPosition)
+    : {
+        id: deviceId,
+        type,
+        symbol: symbol.id as TrunkDevice['symbol'],
+        label:
+          symbol.id === 'terminal_strip'
+            ? getNextTerminalStripLabel(project)
+            : type === 'conversion' || type === 'switch' || type === 'relay'
+              ? ''
+              : (symbol.name ?? ''),
+        trunkPosition,
+        ...(type === 'switch' ? { poles: 1, polesConfig: '1P' as const } : {}),
+        ...(target.converterDcConnection
+          ? { converterDcConnection: { ...target.converterDcConnection } }
+          : {}),
+        ...(type === 'dc_bus' ? { dcBusProps: {} } : {}),
+        ...(symbol.id === 'terminal_strip'
+          ? getTerminalStripTrunkConnectionProps(project)
+          : isSharedJunctionSymbol(symbol.id)
+            ? { junctionIdentity: getNextJunctionIdentity(project, symbol.id) }
+            : {}),
+      }
 
   const list = [...(circuit.trunkDevices ?? []), trunkDevice]
   // Order according to segment index if available
@@ -1393,6 +1400,12 @@ function simulateTrunkDeviceOnCircuit(
   }
 
   circuit.trunkDevices = list
+  if (isCircuitTrunkSwitchSymbol(symbol.id)) {
+    syncSequentialEndpointBranchLabelsToCircuit(
+      circuit,
+      findPanelForCircuit(project, circuit.id) ?? undefined
+    )
+  }
   if (type === 'dc_bus') {
     circuit.branches = promoteOrdinaryCircuitBranchesToDcBus(
       circuit,
@@ -1967,6 +1980,24 @@ export function mutateTrunkDeviceRelocation(
     insertIdx = orderedSans.length
   }
 
+  if (
+    isCircuitTrunkSwitchSymbol(device.symbol) &&
+    typeof target.circuitTrunkBranchSlot === 'number' &&
+    afterContentPosition === undefined
+  ) {
+    // A trunk switch moves to the branch gap under the pointer; the other devices keep
+    // their slots (renumbering them by list index would shift them between branches).
+    const slot = target.circuitTrunkBranchSlot
+    device.trunkPosition = slot
+    const after = orderedSans.findLastIndex((other) => (other.trunkPosition ?? 0) <= slot)
+    const slotted = [...orderedSans]
+    slotted.splice(after + 1, 0, device)
+    targetCircuit.trunkDevices = slotted
+    syncSequentialEndpointBranchLabelsToCircuit(sourceCircuit)
+    if (!sameCircuit) syncSequentialEndpointBranchLabelsToCircuit(targetCircuit)
+    return true
+  }
+
   const newList = [...orderedSans]
   newList.splice(insertIdx, 0, device)
 
@@ -1989,6 +2020,8 @@ export function mutateTrunkDeviceRelocation(
     })
   }
   targetCircuit.trunkDevices = newList
+  syncSequentialEndpointBranchLabelsToCircuit(sourceCircuit)
+  if (!sameCircuit) syncSequentialEndpointBranchLabelsToCircuit(targetCircuit)
 
   return true
 }

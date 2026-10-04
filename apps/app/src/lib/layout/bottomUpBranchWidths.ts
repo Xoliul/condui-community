@@ -10,6 +10,7 @@ import {
 import { DOMOTICA_CHILD_LABEL_GAP } from '@/lib/domoticaLayout'
 import { getVisibleCertificationLabelParts } from '@/lib/certificationLabels'
 import { getVisibleConversionLabelParts, getVisibleEndpointNoteText } from '@/lib/conversionLabels'
+import { getScopedControlLinkNote } from '@/lib/controlLink/controlLinkNoteContext'
 import { getEndpointNoteMinimumLeftX } from '@/lib/eendraad/endpointNoteLabelCollision'
 import { getDomoticaNoteBounds } from '@/lib/eendraad/domoticaNotes'
 import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
@@ -20,6 +21,23 @@ export const SOLAR_SEQUENCE_ENDPOINT_SPACING = 50
 
 function isSolarSequenceEndpoint(endpoint: Endpoint | undefined): boolean {
   return endpoint?.symbol === 'inverter' || endpoint?.symbol === 'solar_panel'
+}
+
+const CONTROL_LINK_NOTE_FONT_SIZE = 8
+const CONTROL_LINK_NOTE_NEXT_GAP = 8
+const CONTROL_LINK_NOTE_NEXT_HALF_SYMBOL = 15
+
+/**
+ * Smallest X a following endpoint may take so the control-link note painted under `endpoint`
+ * (clamped clear of the trunk wire, like other bottom notes) never reaches it.
+ */
+function getControlLinkNoteClearX(endpoint: Endpoint | undefined, x: number): number | undefined {
+  if (!endpoint || endpoint.domoticaChildProps) return undefined
+  const text = getScopedControlLinkNote(endpoint.id)
+  if (!text) return undefined
+  const width = measureSymbolLabelTextWidth(text, 'Figtree', CONTROL_LINK_NOTE_FONT_SIZE)
+  const left = x + Math.max(-width / 2, getEndpointNoteMinimumLeftX(x, 0))
+  return left + width + CONTROL_LINK_NOTE_NEXT_GAP + CONTROL_LINK_NOTE_NEXT_HALF_SYMBOL
 }
 
 /** X offset from branch.branchX for each endpoint (includes appliance-after-socket gap). */
@@ -44,7 +62,10 @@ export function getEndpointXOffsets(
           : endpointSpacing
       const extra =
         ep?.type === 'socket' && next?.type === 'fixed_appliance' ? applianceAfterSocketGap : 0
-      x += resolvedEndpointSpacing + extra
+      x = Math.max(
+        x + resolvedEndpointSpacing + extra,
+        getControlLinkNoteClearX(ep, x) ?? Number.NEGATIVE_INFINITY
+      )
     }
   }
   return result
@@ -336,7 +357,7 @@ export function calculateBranchWidth(
     const endpointX = offsets[0] ?? leadIn
     const usesRightLabel =
       ep?.symbol === 'solar_panel' || ep?.symbol === 'battery' || ep?.symbol === 'ev'
-    if (ep && ep.type !== 'switch' && !usesRightLabel) {
+    if (ep && (ep.type !== 'switch' || getScopedControlLinkNote(ep.id)) && !usesRightLabel) {
       const labelLines = [
         ...getVisibleConversionLabelParts(ep).map((part) => part.text),
         ...getVisibleCertificationLabelParts(ep).map((part) => part.text),

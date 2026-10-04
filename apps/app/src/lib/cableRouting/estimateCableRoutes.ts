@@ -665,11 +665,13 @@ export function estimateCableRoutes(
   // Hidden symbols and symbols still waiting at a default spot are not routing points.
   // The floors' own hidden lists are read directly: the plan helpers skip symbols they
   // consider ineligible for the plan, which would let those pull routes to stale positions.
+  // Placements hidden because their device is shown as a module in a board: it is in the board.
+  const inBoardPlacementIds = getSituationPlanPlacementIdsHiddenByPanel(project)
   const offPlanPlacementIds = new Set([
     ...readLegacyCompatibilityFloors(project).flatMap(
       (floor) => floor.hiddenSitplanPlacementIds ?? []
     ),
-    ...getSituationPlanPlacementIdsHiddenByPanel(project),
+    ...inBoardPlacementIds,
     ...getAwaitingSituationPlanPlacements(project).map((placement) => placement.placementId),
   ])
 
@@ -1328,7 +1330,12 @@ export function estimateCableRoutes(
       if (!edge) return undefined
       const locations = endpointLocations(endpoint)
       if (locations.length > 0) return { endpoint, edge, locations }
-      if (endpoint.placements.length > 0) return { endpoint, edge, locations: [], offPlan: true }
+      const inBoard =
+        endpoint.placements.length > 0 &&
+        endpoint.placements.every((placement) => inBoardPlacementIds.has(placement.id))
+      if (endpoint.placements.length > 0 && !inBoard) {
+        return { endpoint, edge, locations: [], offPlan: true }
+      }
       // A relay, timer, or contactor in the board: its cable starts and ends inside the board.
       const board = symbolCanAppearInPanelGrid(endpoint.symbol) ? boardLocation(circuit.id) : undefined
       if (board) {

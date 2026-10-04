@@ -5,6 +5,9 @@
     "toggleVisibility": "Show or hide identity on diagram",
     "noExisting": "No existing identities"
   },
+  "domoticaRowLabel": {
+    "toggleVisibility": "Show or hide label on diagram"
+  },
   "terminalStrip": {
     "pin": "Pin",
     "incomingPin": "In",
@@ -910,6 +913,36 @@
       "positionAfter": "After branch {{n}}",
       "delete": "Remove from trunk"
     },
+    "mounting": {
+      "label": "Location",
+      "panel": "Board",
+      "field": "Field"
+    },
+    "controlLink": {
+      "section": "Domotics",
+      "controlSection": "Control",
+      "operates": "Operates",
+      "operatedBy": "Operated by",
+      "channel": "Channel",
+      "channelPlaceholder": "3, C, Q7",
+      "notesReplaced": "Replaced by the linked device on the diagram",
+      "outputs": "Outputs",
+      "inputs": "Inputs",
+      "missingDevice": "Device not found",
+      "duplicateChannel": "Channel already used",
+      "groups": "Groups",
+      "groupsPlaceholder": "1/1/3, 1/4/3",
+      "invalidChannel": "Channel does not match the {{system}} format",
+      "invalidGroup": "Group {{group}} is not valid",
+      "chooseDevice": "Choose device",
+      "searchDevices": "Search devices",
+      "suggested": "Suggested",
+      "allDevices": "All devices",
+      "noDevices": "No devices found",
+      "pickOnCanvas": "Pick on canvas",
+      "pickHint": "Click a device on the canvas",
+      "unlink": "Unlink"
+    },
     "domotica": {
       "switchControlEnabled": "Enable control output",
       "switchType": "Control switch type",
@@ -917,7 +950,16 @@
       "switchType_2p": "2P switch",
       "switchType_impulse": "Impulse / push button",
       "switchCount": "Control switch amount",
-      "endpointCount": "Endpoint outputs",
+      "endpointCount": "Number of inputs/outputs",
+      "system": "System",
+      "systems": {
+        "unspecified": "Not specified",
+        "knx": "KNX",
+        "niko_hc": "Niko Home Control",
+        "dali": "DALI",
+        "loxone": "Loxone",
+        "other": "Other"
+      },
       "controlArea": "Control",
       "control_programmed": "Program.",
       "control_wireless": "Wireless",
@@ -927,7 +969,15 @@
       "mainType_none": "None",
       "mainType_socket": "Socket",
       "mainType_switch": "Switch",
-      "mainSwitchType": "Switch type"
+      "mainSwitchType": "Switch type",
+      "outputSystem": "Gateway to",
+      "outputSystem_none": "No gateway",
+      "deviceAddress": "Device address",
+      "deviceAddressPlaceholder": "1.1.12",
+      "invalidDeviceAddress": "Address does not match the {{system}} format",
+      "line": "Line",
+      "channelCount": "Output channels",
+      "overCapacity": "{{used}} of {{capacity}} output channels used"
     },
     "solarPanel": {
       "groupTitle": "Brand and model",
@@ -1163,16 +1213,19 @@
     }
   },
   "planImport": {
+    "importFailed": "Could not import the plan.",
     "recognizeWalls": "Recognize editable walls",
-    "recognizingWalls": "Recognizing walls...",
     "recognitionFailed": "Could not recognize walls.",
     "signInToRecognize": "Sign in to recognize walls.",
     "scanWorkerRequired": "This scan method is unavailable on the vision worker.",
-    "scanMethod": "Scan method",
-    "scanHybrid": "Hybrid",
-    "scanYolo": "YOLO",
-    "scanLuna": "Luna",
     "noWallsFound": "No walls were found in this plan.",
+    "noScanCredits": "No wall scans left.",
+    "scansLeft_one": "{{count}} scan left",
+    "scansLeft_few": "{{count}} scans left",
+    "scansLeft_many": "{{count}} scans left",
+    "scansLeft_other": "{{count}} scans left",
+    "keepWalls": "Keep walls",
+    "keepWallsFailed": "Could not keep the walls. Try again.",
     "title": "Import Plan Image",
     "uploadDescription": "Upload a floor plan image to use as a background for placing electrical elements.",
     "dragDropOrClick": "Drag and drop an image here, or click to select",
@@ -1251,6 +1304,14 @@
     "enableCadGrayscale": "Convert CAD colors to grayscale",
     "grayscalePreview": "Grayscale preview"
   },
+  "wallScan": {
+    "scanning": "Recognizing walls…",
+    "found_one": "{{count}} wall found",
+    "found_few": "{{count}} walls found",
+    "found_many": "{{count}} walls found",
+    "found_other": "{{count}} walls found",
+    "discard": "Discard"
+  },
   "planTools": {
     "movePlanImage": "Move Plan Image",
     "resetScale": "Reset Scale",
@@ -1285,7 +1346,7 @@
     "sizeLocked": "Fixed size",
     "resizable": "Resizable",
     "width": "Width (cm)",
-    "height": "Height (cm)",
+    "length": "Length (cm)",
     "rotation": "Rotation (degrees)",
     "elements": {
       "bathtub": "Bathtub",
@@ -2960,5 +3021,32 @@
     "earthing": "Earthing",
     "other": "Other",
     "selected": "Selected"
+  },
+  "controlAddresses": {
+    "title": "Domotics addresses",
+    "module": "Module",
+    "channel": "Channel",
+    "direction": "Direction",
+    "groups": "Groups",
+    "load": "Connected to",
+    "circuit": "Circuit",
+    "source": "Connection",
+    "free": "Free",
+    "output": "Output",
+    "input": "Input",
+    "wired": "Wired",
+    "linked": "Linked",
+    "check": "Check",
+    "collapseModule": "Collapse module",
+    "expandModule": "Expand module",
+    "empty": "No modules match the filters.",
+    "emptyGroups": "No groups assigned yet.",
+    "view": "View",
+    "viewModules": "Modules",
+    "filters": "Filters",
+    "allSystems": "All systems",
+    "allBoards": "All boards",
+    "issuesOnly": "Only modules to check",
+    "hideRelays": "Hide relays"
   }
 }

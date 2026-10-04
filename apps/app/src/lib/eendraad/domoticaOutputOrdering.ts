@@ -4,6 +4,10 @@ import {
 } from '@/lib/domoticaLayout'
 import type { Circuit, Endpoint } from '@/types/schema'
 import { clamp } from '@/lib/geometry'
+import {
+  getDomoticaOutputBaseLabel,
+  resolveDomoticaRowLabel,
+} from '@/lib/eendraad/domoticaRowLabel'
 import { resolveSymbolPortsForWire } from '@/lib/symbols'
 import type { ElectricalDomain } from '@/types/schema'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
@@ -186,16 +190,17 @@ export function relabelDomoticaChildRows(circuit: Circuit): Endpoint[] {
     visited.add(parentId)
     const nextAncestry = new Set(ancestry).add(parentId)
 
-    const parentLabel = parent.label?.trim() || `${circuit.code}1`
-    const baseLabel = parent.domoticaChildProps
-      ? parentLabel
-      : parentLabel.replace(/\.\d+$/, '')
+    const baseLabel = getDomoticaOutputBaseLabel(parent, circuit.code)
     const nestedChildIds: string[] = []
 
     const labelRowsForGroup = (ids: string[] | undefined, group: DomoticaOutputGroup) => {
       (ids ?? []).forEach((rootChildId, outputIndex) => {
         if (!rootChildId) return
-        const rowLabel = `${baseLabel}.${outputIndex + 1}`
+        const rowLabel = resolveDomoticaRowLabel(
+          baseLabel,
+          outputIndex,
+          nextById.get(rootChildId)?.domoticaRowLabel,
+        )
         const rowChildren = circuit.endpoints.filter(
           (child) =>
             child.domoticaChildProps?.parentEndpointId === parent.id &&

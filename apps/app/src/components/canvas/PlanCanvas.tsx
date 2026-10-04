@@ -87,6 +87,7 @@ import {
   PlanOpeningWidthEditor,
 } from './plan'
 import { PlanDebugOverlay } from './plan/PlanDebugOverlay'
+import { WallScanBar, WallScanPreviewLayer } from './plan/WallScanReview'
 
 import { PlanSelectedCableRoutes } from '@/components/cableRouting/PlanSelectedCableRoutes'
 import { isCableRoutesEnabled } from '@/lib/cableRouting/availability'
@@ -7714,6 +7715,14 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
                   onStairPointDragEnd={handleStairPointDragEnd}
                 />
               )}
+              {!isExporting && (
+                <WallScanPreviewLayer
+                  floorId={activeFloor?.id ?? null}
+                  pxPerMeter={canvasPxPerMeter}
+                  zoom={planView.zoom}
+                  theme={theme.mode}
+                />
+              )}
               {activeFloor?.floorPlan && (
                 <WallRenderer
                   walls={wallsForRender}
@@ -9155,6 +9164,8 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
             {quickPlacerCursorHint.message}
           </div>
         )}
+
+        <WallScanBar />
 
         {/* Import Dialog */}
         <ImportPlanImageDialog

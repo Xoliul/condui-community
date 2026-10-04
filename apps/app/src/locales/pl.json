@@ -5,6 +5,9 @@
     "toggleVisibility": "Pokaż lub ukryj identyfikację w harmonogramie",
     "noExisting": "Brak istniejących identyfikatorów"
   },
+  "domoticaRowLabel": {
+    "toggleVisibility": "Pokaż lub ukryj etykietę na schemacie"
+  },
   "terminalStrip": {
     "pin": "Numer terminala",
     "incomingPin": "Wejście",
@@ -910,6 +913,36 @@
       "positionAfter": "Po odgałęzieniu {{n}}",
       "delete": "Wyjmij z bagażnika"
     },
+    "mounting": {
+      "label": "Lokalizacja",
+      "panel": "Rozdzielnica",
+      "field": "Na obiekcie"
+    },
+    "controlLink": {
+      "section": "Automatyka domowa",
+      "controlSection": "Sterowanie",
+      "operates": "Steruje",
+      "operatedBy": "Sterowany przez",
+      "channel": "Kanał",
+      "channelPlaceholder": "3, C, Q7",
+      "notesReplaced": "Na schemacie zastąpione powiązanym urządzeniem",
+      "outputs": "Wyjścia",
+      "inputs": "Wejścia",
+      "missingDevice": "Nie znaleziono urządzenia",
+      "duplicateChannel": "Kanał jest już używany",
+      "groups": "Grupy",
+      "groupsPlaceholder": "1/1/3, 1/4/3",
+      "invalidChannel": "Kanał nie pasuje do formatu {{system}}",
+      "invalidGroup": "Grupa {{group}} jest nieprawidłowa",
+      "chooseDevice": "Wybierz urządzenie",
+      "searchDevices": "Szukaj urządzeń",
+      "suggested": "Sugerowane",
+      "allDevices": "Wszystkie urządzenia",
+      "noDevices": "Nie znaleziono urządzeń",
+      "pickOnCanvas": "Wskaż na obszarze roboczym",
+      "pickHint": "Kliknij urządzenie na obszarze roboczym",
+      "unlink": "Odłącz"
+    },
     "domotica": {
       "switchControlEnabled": "Włącz wyjście sterujące",
       "switchType": "Przełącznik",
@@ -917,7 +950,16 @@
       "switchType_2p": "2P",
       "switchType_impulse": "Impuls/przycisk",
       "switchCount": "Liczba przełączników na kierownicy",
-      "endpointCount": "Liczba wyjść punktów końcowych",
+      "endpointCount": "Liczba wejść/wyjść",
+      "system": "System",
+      "systems": {
+        "unspecified": "Nie określono",
+        "knx": "KNX",
+        "niko_hc": "Niko Home Control",
+        "dali": "DALI",
+        "loxone": "Loxone",
+        "other": "Inny"
+      },
       "controlArea": "Sterowniczy",
       "control_programmed": ".",
       "control_wireless": "Bezprzewodowe",
@@ -927,7 +969,15 @@
       "mainType_none": "Brak",
       "mainType_socket": "Gniazdo wtyczkowe",
       "mainType_switch": "Przełącznik",
-      "mainSwitchType": "Typ przełącznika"
+      "mainSwitchType": "Typ przełącznika",
+      "outputSystem": "Bramka do",
+      "outputSystem_none": "Brak bramki",
+      "deviceAddress": "Adres urządzenia",
+      "deviceAddressPlaceholder": "1.1.12",
+      "invalidDeviceAddress": "Adres nie pasuje do formatu {{system}}",
+      "line": "Linia",
+      "channelCount": "Kanały wyjściowe",
+      "overCapacity": "Używane kanały wyjściowe: {{used}} z {{capacity}}"
     },
     "solarPanel": {
       "groupTitle": "Marka i model",
@@ -1163,16 +1213,19 @@
     }
   },
   "planImport": {
+    "importFailed": "Nie udało się zaimportować planu.",
     "recognizeWalls": "Rozpoznaje edytowalne ściany",
-    "recognizingWalls": "Rozpoznawanie ścian...",
     "recognitionFailed": "Rozpoznanie ściany nie powiodło się.",
     "signInToRecognize": "Zaloguj się, aby rozpoznać ściany.",
     "scanWorkerRequired": "Ta metoda skanowania nie jest dostępna na serwerze wizyjnym.",
-    "scanMethod": "Metoda skanowania",
-    "scanHybrid": "Hybryda",
-    "scanYolo": "YOLO",
-    "scanLuna": "Luna",
     "noWallsFound": "Na tym planie nie znaleziono żadnych ścian.",
+    "noScanCredits": "Brak pozostałych skanów ścian.",
+    "scansLeft_one": "Pozostał {{count}} skan",
+    "scansLeft_few": "Pozostały {{count}} skany",
+    "scansLeft_many": "Pozostało {{count}} skanów",
+    "scansLeft_other": "Pozostało {{count}} skanu",
+    "keepWalls": "Zachowaj ściany",
+    "keepWallsFailed": "Nie udało się zachować ścian. Spróbuj ponownie.",
     "title": "Plan importu",
     "uploadDescription": "Prześlij plan piętra jako tło.",
     "dragDropOrClick": "Przeciągnij obraz tutaj lub kliknij, aby wybrać",
@@ -1251,6 +1304,14 @@
     "enableCadGrayscale": "Konwertuj kolory CAD na skalę szarości",
     "grayscalePreview": "Przykład skali szarości"
   },
+  "wallScan": {
+    "scanning": "Rozpoznawanie ścian…",
+    "found_one": "Znaleziono {{count}} ścianę",
+    "found_few": "Znaleziono {{count}} ściany",
+    "found_many": "Znaleziono {{count}} ścian",
+    "found_other": "Znaleziono {{count}} ściany",
+    "discard": "Odrzuć"
+  },
   "planTools": {
     "movePlanImage": "Przesuń obraz planu",
     "resetScale": "Dostosuj skalę",
@@ -1285,7 +1346,7 @@
     "sizeLocked": "Stały rozmiar",
     "resizable": "Skalowalny",
     "width": "Szerokość (cm)",
-    "height": "Wysokość (cm)",
+    "length": "Długość (cm)",
     "rotation": "Obrót (stopnie)",
     "elements": {
       "bathtub": "Wanna",
@@ -2960,5 +3021,32 @@
     "earthing": "Uziemienie",
     "other": "Inne",
     "selected": "Wybrany"
+  },
+  "controlAddresses": {
+    "title": "Adresy automatyki domowej",
+    "module": "Moduł",
+    "channel": "Kanał",
+    "direction": "Kierunek",
+    "groups": "Grupy",
+    "load": "Połączone z",
+    "circuit": "Obwód",
+    "source": "Połączenie",
+    "free": "Wolne",
+    "output": "Wyjście",
+    "input": "Wejście",
+    "wired": "Przewodowe",
+    "linked": "Powiązane",
+    "check": "Sprawdź",
+    "collapseModule": "Zwiń moduł",
+    "expandModule": "Rozwiń moduł",
+    "empty": "Żaden moduł nie pasuje do filtrów.",
+    "emptyGroups": "Nie przypisano jeszcze grup.",
+    "view": "Widok",
+    "viewModules": "Moduły",
+    "filters": "Filtry",
+    "allSystems": "Wszystkie systemy",
+    "allBoards": "Wszystkie rozdzielnice",
+    "issuesOnly": "Tylko moduły do sprawdzenia",
+    "hideRelays": "Ukryj przekaźniki"
   }
 }

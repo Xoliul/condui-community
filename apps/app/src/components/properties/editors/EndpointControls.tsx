@@ -676,7 +676,7 @@ export function DomoticaEndpointFields({
 
       <div>
         <label className={labelClass}>
-          {t('endpoints.domotica.endpointCount', 'Endpoint outputs')}
+          {t('endpoints.domotica.endpointCount', 'Number of inputs/outputs')}
         </label>
         <input
           type="number"

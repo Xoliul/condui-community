@@ -355,7 +355,7 @@ export function getRelationEdges(
         // trunks attach domotica and sub-protections directly to their protection.
         if (trunks.length === 0) {
           for (const ep of circuit.endpoints) {
-            if (ep.symbol === 'domotica') {
+            if (ep.symbol === 'domotica' || ep.symbol === 'terminal_strip') {
               childRefs.push({ kind: 'domotica', endpointId: ep.id, circuitId: circuit.id })
             }
           }
@@ -730,7 +730,7 @@ export function getRelationEdges(
       }
       if (circuit && idx === list.length - 1) {
         for (const ep of circuit.endpoints) {
-          if (ep.symbol === 'domotica') {
+          if (ep.symbol === 'domotica' || ep.symbol === 'terminal_strip') {
             childRefs.push({ kind: 'domotica', endpointId: ep.id, circuitId: circuit.id })
           }
         }

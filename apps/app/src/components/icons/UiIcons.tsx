@@ -18,6 +18,7 @@ import panelSelectorSvg from '../../../public/icons/ui-panel-selector.svg?raw'
 import panelSettingsSvg from '../../../public/icons/ui-panel-settings.svg?raw'
 import quickPlacerSvg from '../../../public/icons/ui-quick-placer_simple.svg?raw'
 import librarySvg from '../../../public/icons/ui-library.svg?raw'
+import domoticaSvg from '../../../public/icons/ui-domotica.svg?raw'
 import rewireSvg from '../../../public/icons/ui-rewire.svg?raw'
 import autoArrangeSvg from '../../../public/icons/ui-auto-arrange.svg?raw'
 import undoSvg from '../../../public/icons/ui-undo.svg?raw'
@@ -194,6 +195,10 @@ export function QuickPlacerIcon({ className }: IconProps) {
 
 export function LibraryIcon({ className }: IconProps) {
   return <SvgIcon svg={librarySvg} className={className} />
+}
+
+export function DomoticaIcon({ className }: IconProps) {
+  return <SvgIcon svg={domoticaSvg} className={className} />
 }
 
 export function UndoIcon({ className }: IconProps) {

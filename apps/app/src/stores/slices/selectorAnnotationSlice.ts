@@ -529,12 +529,24 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
     // occurrences may connect different pins, but the panel contains it only once.
     const terminalGroups = new Map<string, typeof result>()
     for (const item of result) {
-      if (item.ref.kind !== 'trunkDevice') continue
-      const device = findTrunkDeviceInProject(currentProject, item.ref.id)
-      if (!device || (device.symbol !== 'terminal_strip' && device.type !== 'terminal_strip')) {
+      let strip: { symbol?: string; type?: string; junctionIdentity?: string; label?: string }
+      if (item.ref.kind === 'trunkDevice') {
+        const device = findTrunkDeviceInProject(currentProject, item.ref.id)
+        if (!device) continue
+        strip = device
+      } else if (item.ref.kind === 'domotica') {
+        // Endpoint-form strips (dropped after an endpoint) share physical identity too.
+        const endpointId = item.ref.endpointId
+        const found = panels
+          .map((candidate) => findEndpointById(candidate, endpointId))
+          .find((candidate) => candidate != null)
+        if (!found) continue
+        strip = found.endpoint
+      } else {
         continue
       }
-      const identity = getTerminalStripId(device).trim().toUpperCase()
+      if (strip.symbol !== 'terminal_strip' && strip.type !== 'terminal_strip') continue
+      const identity = getTerminalStripId(strip).trim().toUpperCase()
       if (!identity) continue
       const group = terminalGroups.get(identity) ?? []
       group.push(item)

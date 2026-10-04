@@ -24,6 +24,7 @@ import {
 } from '@/lib/cableRouting/cableSchedulePointLabels'
 import { isKeyboardTypingTarget } from '@/lib/ui/keyboardTypingTarget'
 import { useDialogStore } from '@/stores/dialogStore'
+import { downloadText, useSidePaddingThatYields } from './scheduleTableLayout'
 
 const SOURCE_CLASS: Record<CableScheduleLengthSource, string> = {
   entered: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
@@ -32,15 +33,6 @@ const SOURCE_CLASS: Record<CableScheduleLengthSource, string> = {
   missing: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-100',
   stale: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100',
   uncalibrated: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-100',
-}
-
-function downloadText(text: string, fileName: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  link.click()
-  window.setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 function PointCell({ point, fallback }: { point?: CableRoutePoint; fallback: string }) {
@@ -67,46 +59,6 @@ function PointCell({ point, fallback }: { point?: CableRoutePoint; fallback: str
       {name && <span className="truncate text-gray-500 dark:text-gray-400">{name}</span>}
     </span>
   )
-}
-
-/** Side margin of the list; it gives way first when the table no longer fits. */
-const MAX_SIDE_PADDING_PX = 72
-const MIN_SIDE_PADDING_PX = 12
-
-/**
- * The widest side margin (up to 72 px) that still lets the table fit; at least 12 px, after
- * which the table scrolls sideways.
- */
-function useSidePaddingThatYields(
-  containerRef: React.RefObject<HTMLDivElement | null>,
-  tableRef: React.RefObject<HTMLTableElement | null>,
-  /** The table is rendered (it is absent while the list is empty). */
-  hasTable: boolean
-): number {
-  const [padding, setPadding] = useState(MAX_SIDE_PADDING_PX)
-  useEffect(() => {
-    const container = containerRef.current
-    const table = tableRef.current
-    if (!container || !table || typeof ResizeObserver === 'undefined') return
-    const measure = () => {
-      // The table's own width when nothing stretches it: its content, unwrapped.
-      const previousWidth = table.style.width
-      table.style.width = 'max-content'
-      const contentWidth = table.getBoundingClientRect().width
-      table.style.width = previousWidth
-      const spare = (container.clientWidth - contentWidth) / 2
-      const next = Math.round(
-        Math.min(MAX_SIDE_PADDING_PX, Math.max(MIN_SIDE_PADDING_PX, spare))
-      )
-      setPadding((current) => (current === next ? current : next))
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(container)
-    observer.observe(table)
-    return () => observer.disconnect()
-  }, [containerRef, tableRef, hasTable])
-  return padding
 }
 
 const SOURCE_ORDER: CableScheduleLengthSource[] = ['entered', 'accepted', 'estimate', 'stale', 'uncalibrated', 'missing']

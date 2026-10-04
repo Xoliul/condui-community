@@ -130,7 +130,7 @@ export function getCableSchedulePdfPageCount(schedule: CableSchedule): number {
   return paginate(schedule).length
 }
 
-function escapeXml(value: string): string {
+export function escapeXml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -139,7 +139,7 @@ function escapeXml(value: string): string {
 }
 
 /** Shortens text to roughly fit `widthMm` at `fontSize` (average glyph ≈ half the font size). */
-function fitText(value: string, widthMm: number, fontSize: number): string {
+export function fitText(value: string, widthMm: number, fontSize: number): string {
   const maxCharacters = Math.max(4, Math.floor(widthMm / (fontSize * 0.5)))
   return value.length > maxCharacters ? `${value.slice(0, maxCharacters - 1)}…` : value
 }
@@ -148,7 +148,7 @@ function round(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-function paletteFor(theme: 'light' | 'dark') {
+export function paletteFor(theme: 'light' | 'dark') {
   const colors = getThemeColors(theme)
   return theme === 'dark'
     ? {
