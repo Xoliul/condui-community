@@ -457,6 +457,8 @@ const RenderNode = memo(function RenderNodeImpl({
         const subPanel = resolvedSubPanelId ? getPanelById?.(resolvedSubPanelId) : undefined
 
         if (subPanel) {
+          // The fed main panel of a hosted stub feeder is not a sub-panel attachment.
+          const allowAttachmentDrag = !node.id.startsWith('feed-stub-feeder-panel-')
           const feederProtectionId = node.id.startsWith('subpanel-symbol-')
             ? node.id.slice('subpanel-symbol-'.length)
             : undefined
@@ -505,20 +507,21 @@ const RenderNode = memo(function RenderNodeImpl({
               circuitCount={circuitCount}
               symbolLabelDisplay={subPanel.symbolLabelDisplay}
               maxLabelWidth={isHorizontalConverterBackup ? 120 : maxLabelWidth}
-              labelPosition={isHorizontalConverterBackup ? 'top' : 'right'}
+              // A hosted feeder's panel sits left of the bus; keep its name off the bus.
+              labelPosition={isHorizontalConverterBackup || !allowAttachmentDrag ? 'top' : 'right'}
               onDragStart={
-                onElementDragStart
+                allowAttachmentDrag && onElementDragStart
                   ? (altKey, event) =>
                       onElementDragStart(subPanel.id, 'panelAttachment', altKey, event)
                   : undefined
               }
               onDragMove={
-                onElementDragMove
+                allowAttachmentDrag && onElementDragMove
                   ? (position) => onElementDragMove(subPanel.id, 'panelAttachment', position)
                   : undefined
               }
               onDragEnd={
-                onElementDragEnd
+                allowAttachmentDrag && onElementDragEnd
                   ? (position) => onElementDragEnd(subPanel.id, 'panelAttachment', position)
                   : undefined
               }
@@ -598,7 +601,10 @@ const RenderNode = memo(function RenderNodeImpl({
       // than on Circuit.trunkDevices. They are selectable/editable, but the existing
       // circuit-trunk drag path cannot relocate that nested array safely yet.
       const isDcBusBranchDevice = node.id?.startsWith('dc-bus-branch-device-')
-      const isDraggableTrunkDevice = !isGroundTrunkDevice && !isDcBusBranchDevice
+      // A hosted feeder is a view of another panel's stub device; move it there.
+      const isHostedFeederDevice = node.id.includes('--feed-stub-feeder-')
+      const isDraggableTrunkDevice =
+        !isGroundTrunkDevice && !isDcBusBranchDevice && !isHostedFeederDevice
       return (
         <>
           <TrunkDeviceSymbol

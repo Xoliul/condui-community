@@ -5,6 +5,9 @@ import type {
   SymbolLabelDisplayConfig,
 } from '@/types/schema'
 import { isSymbolLabelVisible } from '@/lib/symbolLabels'
+import { getScopedRowAddress } from '@/lib/controlLink/controlLinkNoteContext'
+
+const ROW_ADDRESS_SEPARATOR = ' · '
 
 export const DOMOTICA_ROW_LABEL_VISIBILITY_KEY = 'domoticaRowLabel'
 
@@ -88,4 +91,17 @@ export function isDomoticaRowLabelShown(endpoints: Endpoint[], endpoint: Endpoin
   const rootId = parent?.domoticaProps?.endpointChildEndpointIds?.[ref.outputIndex]
   const root = rootId ? endpoints.find((e) => e.id === rootId) : undefined
   return isDomoticaRowLabelVisible(root ?? endpoint)
+}
+
+/**
+ * Text painted next to a domotica output row: the row label, followed by the row's address
+ * (channel) once one is entered. Measurement, envelopes and rendering all use this one text.
+ */
+export function getDomoticaRowDisplayLabel(
+  endpoint: Pick<Endpoint, 'id' | 'label'>
+): string {
+  const label = endpoint.label?.trim() ?? ''
+  if (!label) return ''
+  const address = getScopedRowAddress(endpoint.id)
+  return address ? `${label}${ROW_ADDRESS_SEPARATOR}${address}` : label
 }

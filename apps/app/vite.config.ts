@@ -219,6 +219,7 @@ function stripDisabledElectricalVisionScanSource(source: string): string {
 }
 
 const aliases = {
+  '@/components/import/TrikMergeMenuItem': './src/editions/community/communityTrikMergeMenuItem.tsx',
   '@/stores/wallScanStore': './src/editions/community/communityWallScan.tsx',
   './WallRecognitionControls': './src/editions/community/communityWallScan.tsx',
   './plan/WallScanReview': './src/editions/community/communityWallScan.tsx',

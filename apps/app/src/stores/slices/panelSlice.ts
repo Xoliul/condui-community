@@ -22,6 +22,8 @@ import {
   getAllCircuits,
   isTerminalStripDevice,
   setTerminalStripPanelId,
+  findTerminalStripEntity,
+  isTerminalStripEndpoint,
 } from '@/lib/eendraad/projectElectricalDomain'
 import { isModularSocket } from '@/lib/socket/modularSocket'
 import { ensureInstallationFeedTopology, getAllSupplyTrunkDevices } from '@/lib/feedTopology'
@@ -55,7 +57,6 @@ import type { Circuit, PanelGridSlot } from '@/types/schema'
 import { getTerminalStripId } from '@/lib/terminalStrip/labels'
 import { ensurePanelPlacement } from '@/utils/panelPlacement'
 import { ensureDefaultEarthingSeparators, generateId } from '@/utils/project'
-import { findTrunkDeviceInProject } from '@/utils/project'
 import { resetAllManualEendraadLabelOverrides } from '@/lib/eendraad/automaticMainBusNaming'
 import { resolveInstallationProfile } from '@/lib/installationProfile'
 import { movePanelToCircuitInProject, promotePanelToRootSupply } from '@/lib/panel/panelSupplyMove'
@@ -453,18 +454,24 @@ export const createPanelSlice: ProjectSliceCreator = (set, get) => ({
       const project = state.currentProject
       if (!project) return
       const targetPanel = findPanelById(getEditableProjectElectricalPanels(project), panelId)
-      const device = findTrunkDeviceInProject(project, deviceId)
+      const device = findTerminalStripEntity(project, deviceId)
       const enclosures = editProjectAuxiliaryElectricalEnclosures(project)
       const targetEnclosure = enclosureId ? enclosures.find((entry) => entry.id === enclosureId) : undefined
-      if ((!targetPanel && !targetEnclosure) || (enclosureId && !targetEnclosure) || !isTerminalStripDevice(device)) return
+      if ((!targetPanel && !targetEnclosure) || (enclosureId && !targetEnclosure) || !device) return
 
       const identity = (getTerminalStripId(device) || device.id).trim().toUpperCase()
       const panels = getEditableProjectElectricalPanels(project)
       const isMatchingTerminalRef = (module: PanelGridSlot['module']): boolean => {
-        if (module.kind !== 'trunkDevice' || module.scope !== 'circuit') return false
-        const candidate = findTrunkDeviceInProject(project, module.id)
+        const candidateId =
+          module.kind === 'domotica'
+            ? module.endpointId
+            : module.kind === 'trunkDevice' && module.scope === 'circuit'
+              ? module.id
+              : undefined
+        if (!candidateId) return false
+        const candidate = findTerminalStripEntity(project, candidateId)
         return (
-          isTerminalStripDevice(candidate) &&
+          candidate != null &&
           (getTerminalStripId(candidate) || candidate.id).trim().toUpperCase() === identity
         )
       }
@@ -479,6 +486,15 @@ export const createPanelSlice: ProjectSliceCreator = (set, get) => ({
               continue
             }
             matchingKeys.add(`trunkDevice:${candidate.id}:circuit${circuit.id}`)
+          }
+          for (const candidate of circuit.endpoints) {
+            if (!isTerminalStripEndpoint(candidate)) continue
+            if ((getTerminalStripId(candidate) || candidate.id).trim().toUpperCase() !== identity) {
+              continue
+            }
+            matchingKeys.add(
+              panelGridModuleRefKey({ kind: 'domotica', endpointId: candidate.id, circuitId: circuit.id })
+            )
           }
         }
       }

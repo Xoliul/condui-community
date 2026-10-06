@@ -12,6 +12,18 @@ import type {
   TrunkDevice,
 } from '@/types/schema'
 import { calculateBottomUpLayout } from '@/lib/layout/bottomUpLayout'
+import { buildLayoutTree, type LayoutNode } from '@/lib/layout/layoutTree'
+import { deriveWires } from '@/lib/layout/deriveWires'
+import { getAllCircuits } from '@/lib/eendraad/projectElectricalDomain'
+import {
+  getProjectElectricalPanels,
+  selectProjectElectricalInstallation,
+} from '@/lib/projectV2/electrical'
+import {
+  collectOneWireNoteObstacles,
+  getNoteBox,
+  placeNotesAvoiding,
+} from '@/lib/import/trik/oneWireNotePlacement'
 import { ensureInstallationFeedTopology } from '@/lib/feedTopology'
 import { normalizeStoredProjectToV2 } from '@/lib/projectV2/migration'
 import { endpointSupportsMultiplier } from '@/utils/endpointMultipliers'
@@ -44,41 +56,67 @@ import {
   roundRotationDeg,
   scaledPoint,
   trikNotasMentionPanel,
-  TRIK_NOTA_DEFAULT_FONT_SIZE_PX,
+  TRIK_ONE_WIRE_NOTA_FONT_SIZE_PX,
   TRIK_SATELLITE_UNITS_TO_PX,
 } from '@/lib/import/trik/shared'
 
 export function finalizePendingTrikEendraadNotes(project: Project, pending: PendingTrikEendraadNote[]): void {
   if (pending.length === 0) return
   if (!project.eendraadNotes) project.eendraadNotes = []
-  const layout = calculateBottomUpLayout(
-    normalizeStoredProjectToV2(structuredClone(project)),
+  const normalized = normalizeStoredProjectToV2(structuredClone(project))
+  const layout = calculateBottomUpLayout(normalized)
+  const panels = getProjectElectricalPanels(normalized)
+  const endpointsById = new Map(
+    panels.flatMap((panel) => getAllCircuits(panel).flatMap((circuit) => circuit.endpoints)).map(
+      (endpoint) => [endpoint.id, endpoint] as const,
+    ),
   )
-  const endpointPosByPanel = new Map<string, Map<string, { x: number; y: number }>>()
+  const tree = buildLayoutTree(layout)
+  const endpointCenters = new Map<string, { x: number; y: number }>()
   for (const pl of layout.panels) {
-    const m = new Map<string, { x: number; y: number }>()
     for (const el of pl.elements) {
       if (el.type === 'endpoint' && el.endpointId) {
-        m.set(el.endpointId, { x: el.position.x, y: el.position.y })
+        endpointCenters.set(el.endpointId, { x: el.position.x, y: el.position.y })
       }
     }
-    endpointPosByPanel.set(pl.panel.id, m)
   }
-  for (const p of pending) {
-    const posMap = endpointPosByPanel.get(p.panelId)
-    const base = posMap?.get(p.endpointId)
-    if (!base) continue
-    project.eendraadNotes.push({
-      id: generateId(),
-      text: p.text,
-      fontSize: TRIK_NOTA_DEFAULT_FONT_SIZE_PX,
-      pos: {
+  // Converter DC output chains exist only in the layout tree (bounds are symbol centers).
+  const collectTreeEndpoints = (node: LayoutNode) => {
+    if (node.type === 'endpoint' && node.domainId && !endpointCenters.has(node.domainId)) {
+      endpointCenters.set(node.domainId, { x: node.bounds.x, y: node.bounds.y })
+    }
+    node.children.forEach(collectTreeEndpoints)
+  }
+  tree.panels.forEach(collectTreeEndpoints)
+  const placeable = pending.flatMap((p) => {
+    const base = endpointCenters.get(p.endpointId)
+    if (!base) return []
+    return [{
+      note: p,
+      desired: {
         x: base.x + p.offsetX * TRIK_SATELLITE_UNITS_TO_PX,
         y: base.y + p.offsetY * TRIK_SATELLITE_UNITS_TO_PX,
       },
-      panelId: p.panelId,
+      box: getNoteBox(p.text, TRIK_ONE_WIRE_NOTA_FONT_SIZE_PX),
+    }]
+  })
+  // TRiK free text is often large and drawn over the schematic; keep it readable but out of the way.
+  const wires = deriveWires(
+    tree,
+    panels,
+    selectProjectElectricalInstallation(normalized) ?? undefined,
+  )
+  const { rects, frames } = collectOneWireNoteObstacles(layout, endpointsById, endpointCenters, wires)
+  const positions = placeNotesAvoiding(placeable, rects, frames)
+  placeable.forEach(({ note }, index) => {
+    project.eendraadNotes!.push({
+      id: generateId(),
+      text: note.text,
+      fontSize: TRIK_ONE_WIRE_NOTA_FONT_SIZE_PX,
+      pos: positions[index]!,
+      panelId: note.panelId,
     })
-  }
+  })
 }
 
 export function finalizePendingTrikSatelliteMarkFrames(project: Project, pendingCorners: PendingTrikFrameMarkCorner[]): void {
@@ -468,6 +506,9 @@ export function addTrikCircuits(
     const satelliteMarksPerNode: Array<TrikNode['satelliteMarks'] | undefined> = []
     const sourceNodeByEndpointId = new Map<string, TrikNode>()
     const endpointIdByNodeId = new Map<string, string>()
+    const trunkDeviceIdByTrikId = new Map(
+      (trikCircuit.trunkDevices ?? []).map((device) => [device.id, generateId()]),
+    )
     for (const node of trikCircuit.nodes) {
       const endpointId = generateId()
       const endpoint: Endpoint = {
@@ -513,6 +554,15 @@ export function addTrikCircuits(
       if (node.solarPanelProps) endpoint.solarPanelProps = node.solarPanelProps
       if (node.batteryProps) endpoint.batteryProps = node.batteryProps
       if (node.energyConversionProps) endpoint.energyConversionProps = node.energyConversionProps
+      const converterId = node.converterDcConnection
+        ? trunkDeviceIdByTrikId.get(node.converterDcConnection.converterTrunkDeviceId)
+        : undefined
+      if (converterId && node.converterDcConnection) {
+        endpoint.converterDcConnection = {
+          converterId,
+          connectionIndex: node.converterDcConnection.connectionIndex,
+        }
+      }
 
       const planNodePlacements: Array<{ floorId: string; planNode: TrikPlanNode }> = []
       for (const [placementFloorId, floorPlanNodes] of planNodesByFloor) {
@@ -638,7 +688,8 @@ export function addTrikCircuits(
     const domoticaChildIdsByParentNodeId = new Map<string, string[]>()
     for (const [endpointId, sourceNode] of sourceNodeByEndpointId.entries()) {
       const parentNodeId = sourceNode.domoticaParentNodeId
-      if (!parentNodeId || sourceNode.type === 'domotica') continue
+      if (!parentNodeId) continue
+      // Direct children include nested modules (TRiK PLC → expansion module stacks).
       if (!sourceNode.domoticaDirectChild) continue
       const remappedChildId = remapEndpointId(endpointId)
       const list = domoticaChildIdsByParentNodeId.get(parentNodeId) ?? []
@@ -664,10 +715,14 @@ export function addTrikCircuits(
       const parentBranchKey = branchKeyByEndpointId.get(parentEndpoint.id) ?? '1'
       // Keep all descendants on the same branch as the domotica module (no extra A2/A3… flattening).
       for (const [endpointId, sourceNode] of sourceNodeByEndpointId.entries()) {
-        if (sourceNode.domoticaParentNodeId !== parentNodeId || sourceNode.type === 'domotica') continue
+        if (sourceNode.domoticaParentNodeId !== parentNodeId) continue
+        if (sourceNode.type === 'domotica' && !sourceNode.domoticaDirectChild) continue
         const remappedId = remapEndpointId(endpointId)
         const idx = endpointIndexById.get(remappedId)
-        if (idx != null) endpointBranchKeys[idx] = parentBranchKey
+        if (idx == null) continue
+        endpointBranchKeys[idx] = parentBranchKey
+        // Parents are visited before nested modules, which then inherit this branch.
+        branchKeyByEndpointId.set(remappedId, parentBranchKey)
       }
       for (let idx = 1; idx < chunkedChildIds.length; idx += 1) {
         const clone: Endpoint = {
@@ -711,6 +766,7 @@ export function addTrikCircuits(
             parentEndpointId: moduleEndpoint.id,
             outputGroup: 'endpoint',
             outputIndex,
+            ...(sourceNode?.controlChannel ? { channel: sourceNode.controlChannel } : {}),
           }
         })
       })
@@ -793,6 +849,32 @@ export function addTrikCircuits(
     })
 
     const circuitTrunkDevices = (trikCircuit.trunkDevices ?? []).map((device, index): TrunkDevice => {
+      if (device.kind === 'converter') {
+        // The inverter keeps the plan position TRiK gave the module.
+        const placements: Placement[] = []
+        for (const [placementFloorId, floorPlanNodes] of planNodesByFloor) {
+          for (const planNode of floorPlanNodes.get(device.id) ?? []) {
+            placements.push({
+              id: generateId(),
+              floorId: placementFloorId,
+              layer: 'electrical',
+              pos: scaledPoint({ x: planNode.x, y: planNode.y }),
+              rotationDeg: roundRotationDeg(planNode.rotationRad),
+              scale: 1,
+            })
+          }
+        }
+        return {
+          ...(placements.length > 0 ? { placements } : {}),
+          id: trunkDeviceIdByTrikId.get(device.id) ?? generateId(),
+          type: 'conversion',
+          symbol: device.converterSymbol ?? 'inverter',
+          label: device.label?.trim() || '',
+          notes: device.notes,
+          conversionProps: { ...device.conversionProps, dcConnectionCount: device.dcConnectionCount ?? 1 },
+          trunkPosition: index,
+        }
+      }
       if (device.kind === 'transformer') {
         return {
           id: generateId(),

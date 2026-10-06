@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Folder, Grid2X2, List, MoreHorizontal, Plus } from 'lucide-react'
+import { Folder, Grid2X2, List, MoreHorizontal, Plus, Server } from 'lucide-react'
 import { useLocalizedNavigate } from '@/hooks/useLocalizedNavigate'
 import { createEmptyProjectV2, generateId } from '@/utils/project'
 import {
@@ -10,11 +10,7 @@ import {
   saveProject,
   type ProjectMetadata,
 } from '@/lib/db'
-import {
-  loadHomeProjectLayout,
-  saveHomeProjectLayout,
-  type HomeProjectLayout,
-} from '@/lib/homeProjectLayout'
+import { loadHomeProjectLayout, type HomeProjectLayout } from '@/lib/homeProjectLayout'
 import NewProjectDialog from '@/components/home/NewProjectDialog'
 import DeleteConfirmDialog from '@/components/home/DeleteConfirmDialog'
 import { LocalProjectBrowser } from '@/components/home/LocalProjectBrowser'
@@ -31,6 +27,9 @@ import {
   exportCommunityProject,
   importCommunityProject,
 } from './communityProjectPackage'
+import { listBrowserOnlyProjects, moveBrowserProjectsToServer } from './communityDb'
+import { loadCommunityHomeLayout, saveCommunityHomeLayout } from './communityHomeLayout'
+import { isServerStorageEnabled } from './communityServerStorage'
 import { buildTimestampedExportFilename } from '@/lib/export/exportFilename'
 
 const communityPrimaryButtonClass =
@@ -128,13 +127,16 @@ export default function CommunityHome() {
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<ProjectMetadata | null>(null)
   const [isTrikImporting, setIsTrikImporting] = useState(false)
+  const [serverStorage, setServerStorage] = useState(false)
+  const [browserOnlyCount, setBrowserOnlyCount] = useState(0)
+  const [isMovingToServer, setIsMovingToServer] = useState(false)
 
   const setHomeLayout = useCallback(
     (updater: HomeProjectLayout | ((previous: HomeProjectLayout) => HomeProjectLayout)) => {
       setLayout((previous) => {
         const next = typeof updater === 'function' ? updater(previous) : updater
         layoutRef.current = next
-        saveHomeProjectLayout(next, null)
+        saveCommunityHomeLayout(next)
         return next
       })
     },
@@ -148,6 +150,7 @@ export default function CommunityHome() {
 
   const refresh = useCallback(async () => {
     setProjects(await getRecentProjects(100))
+    setBrowserOnlyCount((await listBrowserOnlyProjects()).length)
     setLoading(false)
   }, [])
 
@@ -157,6 +160,40 @@ export default function CommunityHome() {
       setLoading(false)
     })
   }, [refresh])
+
+  useEffect(() => {
+    let cancelled = false
+    void isServerStorageEnabled().then((enabled) => {
+      if (!cancelled) setServerStorage(enabled)
+    })
+    void loadCommunityHomeLayout()
+      .then((stored) => {
+        if (cancelled) return
+        layoutRef.current = stored
+        setLayout(stored)
+      })
+      .catch((error) => logger.error('Failed to load the project folders:', error))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const moveProjectsToServer = async () => {
+    setIsMovingToServer(true)
+    try {
+      await moveBrowserProjectsToServer()
+    } catch (error) {
+      window.alert(
+        t('home.serverStorage.moveFailed', {
+          defaultValue: 'Moving projects failed: {{error}}',
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      )
+    } finally {
+      setIsMovingToServer(false)
+      await refresh()
+    }
+  }
 
   const handleCreateProject = async (
     name: string,
@@ -280,9 +317,20 @@ export default function CommunityHome() {
         `}</style>
         <section>
           <div className="mb-6 flex items-center justify-between gap-3">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h2 className="flex items-center gap-3 text-2xl font-bold text-gray-900 dark:text-white">
               <span className="sm:hidden">{t('project.recent')}</span>
               <span className="hidden sm:inline">{t('project.recentProjects')}</span>
+              {serverStorage && (
+                <span
+                  className="inline-flex items-center gap-1.5 text-sm font-normal text-slate-500 dark:text-slate-400"
+                  data-testid="home-server-storage"
+                >
+                  <Server className="h-4 w-4" aria-hidden />
+                  <span className="hidden sm:inline">
+                    {t('home.serverStorage.storedOnServer', { defaultValue: 'Stored on server' })}
+                  </span>
+                </span>
+              )}
             </h2>
             <div className="flex items-center gap-3">
               <CommunityViewModeDropdown
@@ -392,6 +440,26 @@ export default function CommunityHome() {
               </div>
             </div>
           </div>
+
+          {browserOnlyCount > 0 && (
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-800 dark:border-sky-900 dark:bg-sky-950/40 dark:text-slate-100">
+              <span>
+                {t('home.serverStorage.browserOnly', {
+                  defaultValue: 'Projects only in this browser: {{total}}',
+                  total: browserOnlyCount,
+                })}
+              </span>
+              <button
+                type="button"
+                disabled={isMovingToServer}
+                onClick={() => void moveProjectsToServer()}
+                className={`px-4 py-2 text-sm disabled:opacity-60 ${communityPrimaryButtonClass}`}
+                data-testid="home-move-to-server"
+              >
+                {t('home.serverStorage.moveToServer', { defaultValue: 'Move to server' })}
+              </button>
+            </div>
+          )}
 
           {loading ? (
             <div className="flex items-center justify-center py-20">

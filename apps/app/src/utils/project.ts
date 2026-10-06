@@ -40,6 +40,7 @@ import {
 } from '@/lib/projectV2/electrical'
 import { findPanelById, walkPanels } from '@/lib/panel/panelTree'
 import { DEFAULT_INSTALLATION_PROFILE } from '@/lib/installationProfile'
+import { applyNonHouseholdPanelDefaults } from '@/lib/panel/panelEarthingSync'
 import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
 import { validatePanelBusSectionTopology } from '@/lib/panel/panelBusSectionValidation'
 
@@ -155,7 +156,12 @@ function addDefaultTrunkDevicesAndPanelGrid(installation: Installation, mainPane
 
   const supplyProtectionLabel = i18n.t('panels.supply', { defaultValue: 'Supply' })
   const mainProtectionLabel = i18n.t('supply.mainProtectionLabel', { defaultValue: 'Main' })
-  const mcbDefaults = getDefaultTrunkDeviceProtectionProps('MCB', polesConfig)
+  const mcbDefaults = {
+    ...getDefaultTrunkDeviceProtectionProps('MCB', polesConfig),
+    breakingCapacityKa: installation.installationProfile === 'non_household' ? 10 : 6,
+    breakingCapacityOption:
+      installation.installationProfile === 'non_household' ? '10000' : '6000',
+  }
   const rcdDefaults = getDefaultTrunkDeviceProtectionProps('RCD', polesConfig)
   delete rcdDefaults.ratingA
   const hiddenSupplyProtectionNameLabel = {
@@ -280,6 +286,9 @@ export function createEmptyProjectV2(
   const inst = installation ?? getDefaultInstallation()
   const panels = [mainPanel]
   const floors = [{ id: floorId, name: 'Ground Floor', layers: ['electrical'] }]
+  if (inst.installationProfile === 'non_household') {
+    applyNonHouseholdPanelDefaults(inst, panels)
+  }
   addDefaultTrunkDevicesAndPanelGrid(inst, mainPanel)
   ensureInstallationFeedTopology(inst, panels)
 

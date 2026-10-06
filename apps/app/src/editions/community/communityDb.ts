@@ -4,6 +4,15 @@ import {
   normalizeStoredProjectToV2,
   projectToStoredProjectV2,
 } from '@/lib/projectV2/migration'
+import {
+  deleteServerProject,
+  getServerProject,
+  isServerStorageEnabled,
+  listServerProjects,
+  putServerProject,
+  ServerStorageConflictError,
+  type ServerProjectMetadata,
+} from './communityServerStorage'
 
 export type ProjectStorageMode = 'local'
 
@@ -48,17 +57,40 @@ export class EendraDatabase extends Dexie {
 
 export const db = new EendraDatabase()
 
+function toProjectMetadata(metadata: ServerProjectMetadata): ProjectMetadata {
+  return {
+    id: metadata.id,
+    name: metadata.name,
+    createdAt: metadata.createdAt,
+    updatedAt: metadata.updatedAt,
+    lastOpened: metadata.lastOpened,
+    storageMode: 'local',
+  }
+}
+
+function byLastOpenedDescending(left: ProjectMetadata, right: ProjectMetadata): number {
+  return (right.lastOpened ?? right.updatedAt).localeCompare(left.lastOpened ?? left.updatedAt)
+}
+
 export async function saveProject(
   project: ProjectV2,
   options?: { lastOpened?: string; storageMode?: ProjectStorageMode },
 ): Promise<void> {
   const stored = projectToStoredProjectV2(project)
+  if (await isServerStorageEnabled()) {
+    await putServerProject(stored.project.id, stored, { lastOpened: options?.lastOpened })
+    return
+  }
+  await saveBrowserProject(stored, options?.lastOpened)
+}
+
+async function saveBrowserProject(stored: ProjectV2, lastOpened?: string): Promise<void> {
   const metadata: ProjectMetadata = {
     id: stored.project.id,
     name: stored.project.name,
     createdAt: stored.project.createdAt,
     updatedAt: stored.project.updatedAt,
-    lastOpened: options?.lastOpened ?? new Date().toISOString(),
+    lastOpened: lastOpened ?? new Date().toISOString(),
     storageMode: 'local',
   }
   await db.transaction('rw', [db.projects, db.projectMetadata], async () => {
@@ -68,6 +100,10 @@ export async function saveProject(
 }
 
 export async function loadProject(projectId: string): Promise<ProjectV2 | undefined> {
+  if (await isServerStorageEnabled()) {
+    const result = await getServerProject(projectId, { touch: true })
+    return result ? normalizeStoredProjectToV2(result.project as ProjectV2) : undefined
+  }
   const stored = await db.projects.get(projectId)
   if (!stored) return undefined
   await db.projectMetadata.update(projectId, { lastOpened: new Date().toISOString() })
@@ -75,6 +111,14 @@ export async function loadProject(projectId: string): Promise<ProjectV2 | undefi
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
+  if (await isServerStorageEnabled()) {
+    await deleteServerProject(projectId)
+    return
+  }
+  await deleteBrowserProject(projectId)
+}
+
+async function deleteBrowserProject(projectId: string): Promise<void> {
   await db.transaction('rw', [db.projects, db.projectAssetBlobs, db.projectMetadata], async () => {
     await db.projects.delete(projectId)
     await db.projectAssetBlobs.where('projectId').equals(projectId).delete()
@@ -83,6 +127,13 @@ export async function deleteProject(projectId: string): Promise<void> {
 }
 
 export async function listProjects(): Promise<ProjectMetadata[]> {
+  if (await isServerStorageEnabled()) {
+    return (await listServerProjects()).map(toProjectMetadata).sort(byLastOpenedDescending)
+  }
+  return listBrowserProjects()
+}
+
+function listBrowserProjects(): Promise<ProjectMetadata[]> {
   return db.projectMetadata.orderBy('lastOpened').reverse().toArray()
 }
 
@@ -95,11 +146,45 @@ export async function getCachedRecentProjects(limit = 50): Promise<ProjectMetada
 }
 
 export async function getProjectMetadataById(projectId: string): Promise<ProjectMetadata | undefined> {
+  if (await isServerStorageEnabled()) {
+    return (await listProjects()).find((project) => project.id === projectId)
+  }
   return db.projectMetadata.get(projectId)
 }
 
 export async function getProjectRemoteRevision(projectId: string): Promise<string | undefined> {
-  return (await db.projectMetadata.get(projectId))?.updatedAt
+  return (await getProjectMetadataById(projectId))?.updatedAt
+}
+
+/** Projects still kept in this browser while the server stores projects. */
+export async function listBrowserOnlyProjects(): Promise<ProjectMetadata[]> {
+  if (!(await isServerStorageEnabled())) return []
+  return listBrowserProjects()
+}
+
+/**
+ * Copies this browser's projects to the server and removes the browser copies that arrived.
+ * A project the server already has is left untouched on both sides.
+ */
+export async function moveBrowserProjectsToServer(): Promise<{ moved: number; skipped: number }> {
+  let moved = 0
+  let skipped = 0
+  for (const metadata of await listBrowserProjects()) {
+    const stored = await db.projects.get(metadata.id)
+    if (!stored) continue
+    try {
+      await putServerProject(metadata.id, stored, { lastOpened: metadata.lastOpened, createOnly: true })
+    } catch (error) {
+      if (error instanceof ServerStorageConflictError) {
+        skipped += 1
+        continue
+      }
+      throw error
+    }
+    await deleteBrowserProject(metadata.id)
+    moved += 1
+  }
+  return { moved, skipped }
 }
 
 export async function prepareProjectForCloudMove(project: ProjectV2): Promise<ProjectV2> {

@@ -2,7 +2,7 @@ name: Community CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, 'preview/**']
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -66,9 +66,18 @@ jobs:
           )"
           test "$unavailable_status" = "404"
 
+          curl --fail --silent http://127.0.0.1:8080/api/storage | grep --fixed-strings '"enabled":false'
+
+          outside_status="$(
+            curl --silent --output /dev/null --write-out '%{http_code}'               --header 'X-Forwarded-For: 203.0.113.7' http://127.0.0.1:8080/
+          )"
+          test "$outside_status" = "403"
+
   publish-container:
     name: Publish container
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/preview/'))
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -89,13 +98,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve preview name
+        id: preview
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_NAME" == preview/* ]]; then
+            echo "name=${GITHUB_REF_NAME#preview/}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create container metadata
         id: metadata
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/xoliul/condui-community
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+            type=raw,value=preview-${{ steps.preview.outputs.name }},enable=${{ steps.preview.outputs.name != '' }}
             type=sha,prefix=sha-,format=long
           labels: |
             org.opencontainers.image.title=Condui Community

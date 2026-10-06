@@ -24,10 +24,10 @@ export function SettingsPanel({ showDebug = import.meta.env.DEV }: { showDebug?:
   const setPanelRelationDebug = useSettingsStore((state) => state.setPanelRelationDebug)
   const leftDragPansCanvas = useSettingsStore((state) => state.leftDragPansCanvas)
   const setLeftDragPansCanvas = useSettingsStore((state) => state.setLeftDragPansCanvas)
+  const wheelBehavior = useSettingsStore((state) => state.wheelBehavior)
+  const setWheelBehavior = useSettingsStore((state) => state.setWheelBehavior)
   const placePlanSymbolsManually = useSettingsStore((state) => state.placePlanSymbolsManually)
-  const setPlacePlanSymbolsManually = useSettingsStore(
-    (state) => state.setPlacePlanSymbolsManually
-  )
+  const setPlacePlanSymbolsManually = useSettingsStore((state) => state.setPlacePlanSymbolsManually)
 
   const handleLanguageChange = (newLanguage: string) => {
     setLanguage(newLanguage)
@@ -88,6 +88,24 @@ export function SettingsPanel({ showDebug = import.meta.env.DEV }: { showDebug?:
           {t('settings.navigation.title', 'Canvas navigation')}
         </h3>
         <div className="space-y-3">
+          <div>
+            <label
+              htmlFor="settings-wheel-behavior"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              {t('settings.navigation.wheelBehavior')}
+            </label>
+            <CustomDropdown
+              id="settings-wheel-behavior"
+              value={wheelBehavior}
+              onChange={(value) => setWheelBehavior(value === 'pan' ? 'pan' : 'zoom')}
+              options={[
+                { value: 'zoom', label: t('settings.navigation.wheelBehaviorZoom') },
+                { value: 'pan', label: t('settings.navigation.wheelBehaviorPan') },
+              ]}
+              className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500"
+            />
+          </div>
           <div className="space-y-1">
             <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input

@@ -64,6 +64,7 @@ const NON_VALIDATION_KEYS = new Set([
   'startPoint',
   'endPoint',
   'wireRoute',
+  'metadataCalloutOffset',
 ])
 
 // These affect documentation rules even though their names look like display-only flags.

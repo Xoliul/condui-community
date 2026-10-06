@@ -9,6 +9,7 @@ import { getEndpointMultiplier } from '@/utils/endpointMultipliers'
 import { getSupplyDeviceMultiplier } from '@/lib/supplyAssembly/inverterMultipliers'
 import { getMultiplierBadgeWidth } from '@/lib/eendraad/multiplierBadgeGeometry'
 import { DOMOTICA_BOX_WIDTH, DOMOTICA_CHILD_LABEL_GAP } from '@/lib/domoticaLayout'
+import { getDomoticaRowDisplayLabel } from '@/lib/eendraad/domoticaRowLabel'
 import {
   getCollisionSafeLabelWidth,
   getCrowdedEndpointNoteLabelBounds,
@@ -472,7 +473,7 @@ function getBranchesEnvelope(circuit: Circuit, config: CircuitEnvelopeConfig): H
       envelope = unionEnvelope(envelope, endpointEnvelope.left, endpointEnvelope.right)
 
       const domoticaRef = endpoint.domoticaChildProps
-      const label = endpoint.label?.trim()
+      const label = getDomoticaRowDisplayLabel(endpoint)
       if (domoticaRef && label) {
         const hasRowEndpointToRight = endpoints.some((candidate, candidateIndex) => {
           const candidateRef = candidate.domoticaChildProps

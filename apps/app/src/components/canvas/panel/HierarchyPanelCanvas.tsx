@@ -79,7 +79,7 @@ import {
   isRootSupplyTailOrSharedSupplyTailRef,
   validatePanelRewireOperation,
 } from '@/lib/panel/panelRewire'
-import { isTerminalStripDevice } from '@/lib/eendraad/projectElectricalDomain'
+import { isTerminalStripDevice, resolveTerminalStripModule } from '@/lib/eendraad/projectElectricalDomain'
 import {
   createDefaultAcCircuitCable,
   DEFAULT_AC_CIRCUIT_WIRE_LABEL_FLAGS,
@@ -1822,12 +1822,13 @@ export function HierarchyPanelCanvas({
   const detectHierarchyModuleDropTarget = useCallback(
     (position: Point, ref: PanelGridModuleRef) => {
       if (!scene || !currentProject) return null
-      const device =
-        ref.kind === 'trunkDevice' ? findTrunkDeviceInProject(currentProject, ref.id) : undefined
-      const isTerminalStrip =
-        ref.kind === 'trunkDevice' && ref.scope === 'circuit' && isTerminalStripDevice(device)
+      const stripModule = resolveTerminalStripModule(currentProject, ref)
+      const isTerminalStrip = stripModule != null
+      // Endpoint-form strips can move between panels but have no auxiliary mounting.
+      const isEndpointStrip = stripModule?.form === 'endpoint'
+      const trunkRefId = ref.kind === 'trunkDevice' ? ref.id : ''
       if (!isTerminalStrip && !(ref.kind === 'trunkDevice' && ref.scope === 'supply')) return null
-      if (!isTerminalStrip && !isAuxiliaryMountableSupplyDevice(currentProject, ref.id)) return null
+      if (!isTerminalStrip && !isAuxiliaryMountableSupplyDevice(currentProject, trunkRefId)) return null
 
       for (const surface of scene.surfaces) {
         if (surface.kind === 'auxiliary' && surface.enclosure) {
@@ -1837,11 +1838,12 @@ export function HierarchyPanelCanvas({
             position.y >= surface.y - 10 &&
             position.y <= surface.y + surface.height + 10
           if (!inside) continue
+          if (isEndpointStrip) continue
           const ownerPanelId = surface.enclosure.ownerPanelId
           const ownerPanel = ownerPanelId
             ? panelOptions.find((option) => option.panel.id === ownerPanelId)?.panel
             : panelOptions[0]?.panel
-          if (!ownerPanel || (!isTerminalStrip && !isAuxiliaryMountableSupplyDevice(currentProject, ref.id))) return null
+          if (!ownerPanel || (!isTerminalStrip && !isAuxiliaryMountableSupplyDevice(currentProject, trunkRefId))) return null
           return { surface, panel: ownerPanel, area: 'auxiliary' as const }
         }
         if (surface.kind === 'shared_supply') {
@@ -2612,11 +2614,10 @@ export function HierarchyPanelCanvas({
         }
       }
 
-      const terminalDevice =
-        placement.ref.kind === 'trunkDevice' && currentProject
-          ? findTrunkDeviceInProject(currentProject, placement.ref.id)
-          : undefined
-      const isTerminalStrip = !placement.inSupplyPanel && isTerminalStripDevice(terminalDevice)
+      const isTerminalStrip =
+        !placement.inSupplyPanel &&
+        currentProject != null &&
+        resolveTerminalStripModule(currentProject, placement.ref) != null
       if (isTerminalStrip) {
         const canvasPos = { x: surface.x + rawX, y: surface.y + rawY }
         const target = detectHierarchyModuleDropTarget(canvasPos, placement.ref)
@@ -2826,12 +2827,8 @@ export function HierarchyPanelCanvas({
         (surface.enclosure && panelOptions[0]
           ? { ...panelOptions[0].panel, gridView: surface.enclosure.gridView }
           : null)
-      const previewDevice =
-        placement.ref.kind === 'trunkDevice' && currentProject
-          ? findTrunkDeviceInProject(currentProject, placement.ref.id)
-          : undefined
       const previewIsTerminal =
-        previewDevice?.symbol === 'terminal_strip' || previewDevice?.type === 'terminal_strip'
+        currentProject != null && resolveTerminalStripModule(currentProject, placement.ref) != null
       const previewTopRail =
         previewIsTerminal &&
         panel?.gridView?.terminalStripTopRail === true &&
@@ -3296,15 +3293,13 @@ export function HierarchyPanelCanvas({
 
       if (!panel) return
 
-      const terminalRef = placement.ref.kind === 'trunkDevice' ? placement.ref : null
-      const terminalDevice =
-        terminalRef && currentProject
-          ? findTrunkDeviceInProject(currentProject, terminalRef.id)
-          : undefined
-      const isTerminalStrip = terminalRef != null && isTerminalStripDevice(terminalDevice)
-      if (terminalRef && isTerminalStrip) {
+      const terminalStrip = currentProject
+        ? resolveTerminalStripModule(currentProject, placement.ref)
+        : undefined
+      const isTerminalStrip = terminalStrip != null
+      if (terminalStrip) {
         const canvasPos = { x: surface.x + rawX, y: surface.y + rawY }
-        const target = detectHierarchyModuleDropTarget(canvasPos, terminalRef)
+        const target = detectHierarchyModuleDropTarget(canvasPos, placement.ref)
         const targetSurfaceId = target?.surface.panel?.id ?? target?.surface.id
         const currentSurfaceId = surface.panel?.id ?? surface.id
         if (
@@ -3355,8 +3350,11 @@ export function HierarchyPanelCanvas({
                 }
               : {}),
           }
-          if (moveTerminalStripToPanel(terminalRef.id, targetPanel.id, targetSlot, target.surface.enclosure?.id)) {
-            setSelection({ type: 'trunkDevice', ids: [terminalRef.id] })
+          if (moveTerminalStripToPanel(terminalStrip.id, targetPanel.id, targetSlot, target.surface.enclosure?.id)) {
+            setSelection({
+              type: terminalStrip.form === 'endpoint' ? 'endpoint' : 'trunkDevice',
+              ids: [terminalStrip.id],
+            })
           }
           return
         }

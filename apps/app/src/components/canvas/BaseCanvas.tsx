@@ -50,13 +50,12 @@ import {
   shouldScheduleTouchLongPress,
 } from '@/lib/canvas/touchGestureIntent'
 import {
-  TRACKPAD_WHEEL_CLASSIFY_DELAY_MS,
-  TRACKPAD_WHEEL_GESTURE_RESET_MS,
-  getTrackpadWheelZoomFactor,
-  hasMeaningfulTrackpadHorizontalPan,
-  isLikelyMouseWheelEvent,
-  type WheelGestureMode,
+  TRACKPAD_EVIDENCE_EVENTS,
+  WHEEL_GESTURE_RESET_MS,
+  isDiagonalPixelScroll,
+  resolveWheelAction,
 } from './wheelGesture'
+import { useWheelBehaviorHintStore } from '@/stores/wheelBehaviorHintStore'
 
 type KonvaSceneContextWithNativeCanvas = {
   _context?: CanvasRenderingContext2D
@@ -383,6 +382,8 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
   )
   const themeMode = useSettingsStore((state) => state.theme.mode)
   const leftDragPansCanvas = useSettingsStore((state) => state.leftDragPansCanvas)
+  const wheelBehavior = useSettingsStore((state) => state.wheelBehavior)
+  const wheelBehaviorHintDone = useSettingsStore((state) => state.wheelBehaviorHintDone)
   const isDark = themeMode === 'dark'
   const viewportResizePreviewActive = useViewportResizePreviewActive()
   const appDialogOpen = useDialogStore(selectIsAppDialogOpen)
@@ -498,12 +499,9 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
   const wheelZoomRafRef = useRef<number | null>(null)
   const wheelZoomAccumFactorRef = useRef(1)
   const wheelZoomPointerRef = useRef<Point | null>(null)
-  const wheelGestureModeRef = useRef<WheelGestureMode>('idle')
-  const wheelPendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wheelGestureResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const wheelPendingPanAccumRef = useRef({ dx: 0, dy: 0 })
-  const wheelPendingZoomFactorRef = useRef(1)
-  const wheelPendingPointerRef = useRef<Point | null>(null)
+  const lastWheelEventAtRef = useRef(0)
+  const trackpadEvidenceCountRef = useRef(0)
   const suppressTouchContextMenuUntilRef = useRef(0)
   /** True while wheel-zoom updates the Konva layer imperatively; suppresses React prop sync so stale store zoom cannot overwrite the layer. */
   const wheelZoomGestureActiveRef = useRef(false)
@@ -1508,69 +1506,15 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
     wheelZoomRafRef.current = requestAnimationFrame(flushWheelZoomFrame)
   }, [flushWheelZoomFrame])
 
-  const clearPendingWheelGesture = useCallback(() => {
-    if (wheelPendingTimerRef.current != null) {
-      clearTimeout(wheelPendingTimerRef.current)
-      wheelPendingTimerRef.current = null
-    }
-    wheelPendingPanAccumRef.current = { dx: 0, dy: 0 }
-    wheelPendingZoomFactorRef.current = 1
-    wheelPendingPointerRef.current = null
-    if (wheelGestureModeRef.current === 'pending-vertical') {
-      wheelGestureModeRef.current = 'idle'
-    }
-  }, [])
-
   const scheduleWheelGestureReset = useCallback(() => {
     if (wheelGestureResetTimerRef.current != null) {
       clearTimeout(wheelGestureResetTimerRef.current)
     }
     wheelGestureResetTimerRef.current = setTimeout(() => {
       wheelGestureResetTimerRef.current = null
-      clearPendingWheelGesture()
-      wheelGestureModeRef.current = 'idle'
       pushLiveCameraToStore(true)
-    }, TRACKPAD_WHEEL_GESTURE_RESET_MS)
-  }, [clearPendingWheelGesture, pushLiveCameraToStore])
-
-  const flushPendingWheelGestureAsPan = useCallback(() => {
-    if (
-      wheelPendingPanAccumRef.current.dx === 0 &&
-      wheelPendingPanAccumRef.current.dy === 0
-    ) {
-      clearPendingWheelGesture()
-      return
-    }
-    wheelPanAccumRef.current.dx += wheelPendingPanAccumRef.current.dx
-    wheelPanAccumRef.current.dy += wheelPendingPanAccumRef.current.dy
-    clearPendingWheelGesture()
-    wheelGestureModeRef.current = 'pan'
-    scheduleWheelPanCoalesced()
-    scheduleWheelGestureReset()
-  }, [clearPendingWheelGesture, scheduleWheelGestureReset, scheduleWheelPanCoalesced])
-
-  const flushPendingWheelGestureAsZoom = useCallback(() => {
-    if (Math.abs(wheelPendingZoomFactorRef.current - 1) < 1e-9) {
-      clearPendingWheelGesture()
-      return
-    }
-    wheelZoomAccumFactorRef.current *= wheelPendingZoomFactorRef.current
-    if (wheelPendingPointerRef.current) {
-      wheelZoomPointerRef.current = wheelPendingPointerRef.current
-    }
-    clearPendingWheelGesture()
-    wheelGestureModeRef.current = 'zoom'
-    scheduleWheelZoomCoalesced()
-    scheduleWheelGestureReset()
-  }, [clearPendingWheelGesture, scheduleWheelGestureReset, scheduleWheelZoomCoalesced])
-
-  const schedulePendingWheelGestureClassification = useCallback(() => {
-    if (wheelPendingTimerRef.current != null) return
-    wheelPendingTimerRef.current = setTimeout(() => {
-      wheelPendingTimerRef.current = null
-      flushPendingWheelGestureAsPan()
-    }, TRACKPAD_WHEEL_CLASSIFY_DELAY_MS)
-  }, [flushPendingWheelGestureAsPan])
+    }, WHEEL_GESTURE_RESET_MS)
+  }, [pushLiveCameraToStore])
 
   const scheduleMousePanDraw = useCallback(() => {
     if (mousePanDrawRafRef.current != null) return
@@ -1585,7 +1529,6 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
       if (viewRafRef.current != null) cancelAnimationFrame(viewRafRef.current)
       viewRafRef.current = null
       pendingViewRef.current = { pan: null, zoom: null }
-      clearPendingWheelGesture()
       if (cameraSyncTimeoutRef.current != null) {
         clearTimeout(cameraSyncTimeoutRef.current)
         cameraSyncTimeoutRef.current = null
@@ -1623,7 +1566,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
         panUiRafRef.current = null
       }
     }
-  }, [clearPendingWheelGesture])
+  }, [])
   // Clear live gesture zoom once the view store matches the Konva layer (wheel or pinch).
   useEffect(() => {
     const layer = contentLayerRef.current
@@ -1778,91 +1721,55 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
       if (!layer) return
 
       const evt = e.evt
+      const now = performance.now()
+      const msSincePreviousWheel = now - lastWheelEventAtRef.current
+      lastWheelEventAtRef.current = now
+      const wheelInput = {
+        deltaMode: evt.deltaMode,
+        deltaX: evt.deltaX,
+        deltaY: evt.deltaY,
+        ctrlKey: evt.ctrlKey,
+        metaKey: evt.metaKey,
+        shiftKey: evt.shiftKey,
+        msSincePreviousWheel,
+        pageHeightPx: stage.height(),
+      }
 
-      // Trackpad pinch-to-zoom: browsers fire wheel with ctrlKey=true
-      // Discrete mouse wheel: no ctrlKey (unless user is holding ctrl)
-      // Cmd + wheel zooms like Ctrl + wheel: macOS mouse wheels emit small pixel deltas
-      // that are otherwise classified as trackpad panning.
-      const isTrackpadPinch = evt.ctrlKey || evt.metaKey
-
-      if (!isTrackpadPinch && evt.deltaMode === 0) {
-        // Precision trackpads emit pixel wheel deltas for both pan and pinch.
-        // Default these gestures to pan, then upgrade a short ambiguous vertical burst to zoom
-        // only if the browser starts marking the gesture as pinch via ctrlKey.
-        const absDeltaY = Math.abs(evt.deltaY)
-        const isLikelyMouseWheel = isLikelyMouseWheelEvent(evt.deltaMode, evt.deltaX, evt.deltaY)
-
-        if (!isLikelyMouseWheel) {
-          const hasHorizontalPan = hasMeaningfulTrackpadHorizontalPan(evt.deltaX)
-          if (hasHorizontalPan) {
-            if (wheelGestureModeRef.current === 'pending-vertical') {
-              flushPendingWheelGestureAsPan()
-            }
-            wheelPanAccumRef.current.dx -= evt.deltaX
-            wheelPanAccumRef.current.dy -= evt.deltaY
-            wheelGestureModeRef.current = 'pan'
-            scheduleWheelPanCoalesced()
-            scheduleWheelGestureReset()
-          } else if (absDeltaY > 0) {
-            if (wheelGestureModeRef.current === 'zoom') {
-              const pointer = stage.getPointerPosition()
-              if (pointer) {
-                wheelZoomPointerRef.current = pointer
-              }
-              wheelZoomAccumFactorRef.current *= getTrackpadWheelZoomFactor(evt.deltaY)
-              scheduleWheelZoomCoalesced()
-              scheduleWheelGestureReset()
-            } else if (wheelGestureModeRef.current === 'pan') {
-              wheelPanAccumRef.current.dx -= evt.deltaX
-              wheelPanAccumRef.current.dy -= evt.deltaY
-              scheduleWheelPanCoalesced()
-              scheduleWheelGestureReset()
-            } else {
-              const pointer = stage.getPointerPosition()
-              if (pointer) {
-                wheelPendingPointerRef.current = pointer
-              }
-              wheelPendingPanAccumRef.current.dx -= evt.deltaX
-              wheelPendingPanAccumRef.current.dy -= evt.deltaY
-              wheelPendingZoomFactorRef.current *= getTrackpadWheelZoomFactor(evt.deltaY)
-              wheelGestureModeRef.current = 'pending-vertical'
-              schedulePendingWheelGestureClassification()
-              scheduleWheelGestureReset()
-            }
+      // Offer pan mode once when a trackpad is evidently scrolling in zoom mode.
+      if (wheelBehavior === 'zoom' && !wheelBehaviorHintDone) {
+        if (isDiagonalPixelScroll(wheelInput)) {
+          trackpadEvidenceCountRef.current += 1
+          if (trackpadEvidenceCountRef.current >= TRACKPAD_EVIDENCE_EVENTS) {
+            useWheelBehaviorHintStore.getState().show()
           }
-          return
+        } else if (msSincePreviousWheel > WHEEL_GESTURE_RESET_MS) {
+          trackpadEvidenceCountRef.current = 0
         }
       }
 
-      // Zoom: either mouse wheel, trackpad pinch, or line-mode scroll (coalesced to one draw/frame)
-      const pointer = stage.getPointerPosition()
-      if (!pointer) return
-      wheelZoomPointerRef.current = pointer
-
-      if (isTrackpadPinch) {
-        if (wheelGestureModeRef.current === 'pending-vertical') {
-          flushPendingWheelGestureAsZoom()
-        }
-        wheelZoomAccumFactorRef.current *= getTrackpadWheelZoomFactor(evt.deltaY)
-        wheelGestureModeRef.current = 'zoom'
-        scheduleWheelGestureReset()
+      const action = resolveWheelAction(wheelInput, wheelBehavior)
+      if (action.kind === 'pan') {
+        wheelPanAccumRef.current.dx += action.dx
+        wheelPanAccumRef.current.dy += action.dy
+        scheduleWheelPanCoalesced()
+      } else if (action.kind === 'zoom') {
+        // Coalesced to one draw per frame.
+        const pointer = stage.getPointerPosition()
+        if (!pointer) return
+        wheelZoomPointerRef.current = pointer
+        wheelZoomAccumFactorRef.current *= action.factor
+        scheduleWheelZoomCoalesced()
       } else {
-        clearPendingWheelGesture()
-        wheelGestureModeRef.current = 'idle'
-        const scaleBy = 1.1
-        wheelZoomAccumFactorRef.current *= evt.deltaY > 0 ? 1 / scaleBy : scaleBy
-        scheduleWheelGestureReset()
+        return
       }
-      scheduleWheelZoomCoalesced()
+      scheduleWheelGestureReset()
     },
     [
-      clearPendingWheelGesture,
-      flushPendingWheelGestureAsPan,
-      flushPendingWheelGestureAsZoom,
-      schedulePendingWheelGestureClassification,
       scheduleWheelGestureReset,
       scheduleWheelPanCoalesced,
       scheduleWheelZoomCoalesced,
+      wheelBehavior,
+      wheelBehaviorHintDone,
     ]
   )
 

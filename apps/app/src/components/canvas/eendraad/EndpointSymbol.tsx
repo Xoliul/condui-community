@@ -98,6 +98,8 @@ import {
 } from '@/lib/converterArtwork'
 import { resolveMetadataCalloutSelection } from '@/lib/ui/metadataCalloutSelection'
 import { applyMetadataCalloutMultiplier } from '@/lib/metadataCalloutGrouping'
+import { translateMetadataCalloutLeaderStarts } from '@/lib/metadataCalloutOffset'
+import { useMetadataCalloutDrag } from './useMetadataCalloutDrag'
 import {
   clampDomoticaEndpointCount,
   isDomoticaEndpointOnDcBus,
@@ -166,6 +168,19 @@ export const EndpointMetadataCallout = memo(function EndpointMetadataCallout({
     const multiplier = endpointSupportsMultiplier(endpoint) ? getEndpointMultiplier(endpoint) : 1
     return applyMetadataCalloutMultiplier(items, metadataCallout.totalMultiplier ?? multiplier)
   }, [controlLinkNote, endpoint, metadataCallout.totalMultiplier])
+  const calloutDrag = useMetadataCalloutDrag(
+    { type: 'endpoint', id: endpoint.id },
+    { x: metadataCallout.x, y: metadataCallout.y }
+  )
+  const leaderSegments = useMemo(
+    () =>
+      translateMetadataCalloutLeaderStarts(
+        metadataCallout.leaderSegments ?? [metadataCallout.leaderPoints],
+        calloutDrag.dx,
+        calloutDrag.dy
+      ),
+    [calloutDrag.dx, calloutDrag.dy, metadataCallout.leaderPoints, metadataCallout.leaderSegments]
+  )
 
   const handleClick = useCallback(
     (event: unknown) => {
@@ -220,7 +235,7 @@ export const EndpointMetadataCallout = memo(function EndpointMetadataCallout({
 
   return (
     <Group x={position.x} y={position.y}>
-      {(metadataCallout.leaderSegments ?? [metadataCallout.leaderPoints]).map(
+      {leaderSegments.map(
         (leaderPoints, index) => (
           <Line
             key={`metadata-leader-${index}`}
@@ -233,8 +248,10 @@ export const EndpointMetadataCallout = memo(function EndpointMetadataCallout({
         )
       )}
       <Group
-        x={metadataCallout.x}
-        y={metadataCallout.y}
+        x={calloutDrag.x}
+        y={calloutDrag.y}
+        draggable={calloutDrag.draggable}
+        {...calloutDrag.dragHandlers}
         onClick={handleClick}
         onTap={handleClick}
         onMouseEnter={handleMouseEnter}

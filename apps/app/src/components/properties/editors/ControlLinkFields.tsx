@@ -326,7 +326,10 @@ export function DomoticaChildAddressFields({
   )
 }
 
-/** "Operated by" section for a contact endpoint: pick a domotica module and its channel. */
+/**
+ * "Operated by" section for a contact (or "Connected to" for a switch or pushbutton): pick a
+ * domotica module or relay and the channel on it.
+ */
 export function ControlLinkOperatedByFields({
   endpointId,
   endpoint,
@@ -340,6 +343,7 @@ export function ControlLinkOperatedByFields({
   const { panels, index, issues } = useControlDeviceState()
   const pickTarget = useControlDevicePickTarget()
   const link = endpoint.controlLink
+  const direction = getConnectionDirection(endpoint, 'linked')
   const devices = useMemo(() => [...index.devices.values()], [index])
   const linkedDevice = link ? index.devices.get(link.deviceId) : undefined
   const contextCircuitId = useMemo(
@@ -361,7 +365,11 @@ export function ControlLinkOperatedByFields({
       warning={connectionIssues.length > 0 || (link != null && !linkedDevice)}
     >
       <div>
-        <label className={labelClass}>{t('endpoints.controlLink.operatedBy', 'Operated by')}</label>
+        <label className={labelClass}>
+          {direction === 'input'
+            ? t('endpoints.controlLink.connectedTo', 'Connected to')
+            : t('endpoints.controlLink.operatedBy', 'Operated by')}
+        </label>
         <ControlDevicePicker
           value={link?.deviceId}
           devices={devices}
@@ -371,7 +379,7 @@ export function ControlLinkOperatedByFields({
           onChange={(deviceId) =>
             onUpdate(endpointId, {
               controlLink: deviceId
-                ? { deviceId, channel: getNextFreeChannel(panels, deviceId, endpointId) || undefined }
+                ? { deviceId, channel: getNextFreeChannel(panels, deviceId, endpointId, direction) || undefined }
                 : undefined,
             })
           }
@@ -394,7 +402,7 @@ export function ControlLinkOperatedByFields({
         <ControlAddressingInputs
           endpointId={endpointId}
           device={linkedDevice?.fields}
-          chipsDevice={linkedDevice}
+          chipsDevice={direction === 'output' ? linkedDevice : undefined}
           addressing={link}
           issues={connectionIssues}
           onChange={({ channel, groups }) =>
@@ -527,24 +535,36 @@ export function ControlDeviceAddressingFields({
   )
 }
 
-/** Contacts operated by a relay (an impulse relay's coil drives contacts on other circuits). */
+/** Connections of a relay: contacts it operates on other circuits and the switches that signal it. */
 export function RelayOperatedContactsFields({ endpointId }: { endpointId: string }) {
   const { t } = useTranslation()
   const { index, issues } = useControlDeviceState()
   const device = index.devices.get(endpointId)
   if (device?.kind !== 'relay' || device.connections.length === 0) return null
+  const operated = device.connections.filter((entry) => entry.direction === 'output')
+  const signalling = device.connections.filter((entry) => entry.direction === 'input')
   return (
     <DomoticaGroup
       title={t('endpoints.controlLink.controlSection', 'Control')}
       summary={String(device.connections.length)}
       warning={device.connections.some((entry) => issuesForConnection(issues, entry.endpoint.id).length > 0)}
     >
-      <ConnectionRows
-        title={t('endpoints.controlLink.operates', 'Operates')}
-        count={String(device.connections.length)}
-        connections={device.connections}
-        issues={issues}
-      />
+      {operated.length > 0 && (
+        <ConnectionRows
+          title={t('endpoints.controlLink.operates', 'Operates')}
+          count={String(operated.length)}
+          connections={operated}
+          issues={issues}
+        />
+      )}
+      {signalling.length > 0 && (
+        <ConnectionRows
+          title={t('endpoints.controlLink.inputs', 'Inputs')}
+          count={String(signalling.length)}
+          connections={signalling}
+          issues={issues}
+        />
+      )}
     </DomoticaGroup>
   )
 }

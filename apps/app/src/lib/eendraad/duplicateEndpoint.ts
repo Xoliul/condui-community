@@ -15,6 +15,7 @@ import { initializeBranchesIfNeeded } from '@/lib/layout/endpointChains'
 import { isInBetweenEndpoint } from '@/utils/symbolMapping'
 import { resolvePanelSupplyLinksForSourcePanel } from '@/lib/eendraad/panelSupplyLink'
 import { clamp } from '@/lib/geometry'
+import { clearDuplicatedControlChannel } from '@/lib/controlLink/duplicateAddress'
 import {
   getProjectElectricalPanels,
   type ProjectWithOptionalV2Electrical,
@@ -135,7 +136,7 @@ function cloneEndpointForDuplicate(
       controlChildEndpointIds: undefined,
     }
   }
-  return clone
+  return clearDuplicatedControlChannel(clone)
 }
 
 function repairNewBranch(

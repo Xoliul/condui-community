@@ -2,6 +2,7 @@ node_modules/
 apps/app/node_modules/
 apps/app/dist/
 apps/app/.community-module-audit.local.json
+condui-data/
 
 .env
 .env.*

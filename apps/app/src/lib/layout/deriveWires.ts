@@ -30,6 +30,7 @@ import type {
   CircuitPhaseAssignment,
 } from '@/types/schema'
 import { resolveSymbolPortsForWire, DEFAULT_ELECTRICAL_DOMAIN } from '@/lib/symbols'
+import { applyHostedFeederSectionCut, FEED_STUB_FEEDER_GEOMETRY } from './feedStubFeeders'
 import { getDomoticaEndpointInputDomain } from '@/lib/eendraad/domoticaOutputOrdering'
 import {
   createDefaultAcCircuitCable,
@@ -1131,6 +1132,32 @@ function derivePanelWires(
   const busSegmentStartIndex = segments.length
   if (hasExplicitPanelBusSections(panel) && connectionEntries.length > 0) {
     const splitGap = PANEL_BUS_FEED_GAP
+    // Hosted feeders leave a gap before their section (see layoutTree).
+    const hostedFeederCounts = new Map<string, number>()
+    for (const node of panelNode.children) {
+      const sectionId = node.feedStubTap?.busSectionId
+      if (sectionId) hostedFeederCounts.set(sectionId, (hostedFeederCounts.get(sectionId) ?? 0) + 1)
+    }
+    const sectionCut = (left: number, right: number) => {
+      const previous = connectionEntries[left]!
+      const entry = connectionEntries[right]!
+      const boundaryX = getSecondaryBusSectionBoundaryX(
+        secondaryBusSectionRanges,
+        previous.busSectionId,
+        entry.busSectionId,
+        (previous.x + entry.x) / 2
+      )
+      const firstOfSection = connectionEntries.findIndex((candidate) =>
+        candidate.busSectionId === entry.busSectionId) === right
+      return applyHostedFeederSectionCut(
+        { leftEndX: boundaryX - splitGap / 2, rightStartX: boundaryX + splitGap / 2 },
+        previous.x,
+        Math.min(entry.x, ...secondaryBusSectionRanges
+          .filter((range) => range.sectionId === entry.busSectionId && range.startX > previous.x)
+          .map((range) => range.startX)),
+        firstOfSection ? hostedFeederCounts.get(entry.busSectionId) ?? 0 : 0
+      )
+    }
     for (let index = 0; index < connectionEntries.length; index += 1) {
       const entry = connectionEntries[index]!
       const previous = connectionEntries[index - 1]
@@ -1138,22 +1165,10 @@ function derivePanelWires(
       let startX = previous ? (previous.x + entry.x) / 2 : busStartX
       let endX = next ? (entry.x + next.x) / 2 : busEndX
       if (previous && previous.busSectionId !== entry.busSectionId) {
-        const sectionBoundaryX = getSecondaryBusSectionBoundaryX(
-          secondaryBusSectionRanges,
-          previous.busSectionId,
-          entry.busSectionId,
-          startX
-        )
-        startX = sectionBoundaryX + splitGap / 2
+        startX = sectionCut(index - 1, index).rightStartX
       }
       if (next && next.busSectionId !== entry.busSectionId) {
-        const sectionBoundaryX = getSecondaryBusSectionBoundaryX(
-          secondaryBusSectionRanges,
-          entry.busSectionId,
-          next.busSectionId,
-          endX
-        )
-        endX = sectionBoundaryX - splitGap / 2
+        endX = sectionCut(index, index + 1).leftEndX
       }
       if (endX <= startX) continue
       const sectionPhaseState = getPanelIncomingPhaseState(
@@ -1335,19 +1350,46 @@ function derivePanelWires(
               )
               .map((node) => node.bounds.y + node.bounds.height)
           )
-        : mainBusY + LAYOUT_CONSTANTS.SUPPLY_VERTICAL_DROP
+        : Math.max(
+            mainBusY + LAYOUT_CONSTANTS.SUPPLY_VERTICAL_DROP,
+            ...mainBusNode.children
+              .filter((node) =>
+                node.id.startsWith('supply-wire-feed-stub-') &&
+                Math.abs(node.bounds.x + node.bounds.width / 2 - stubX) < 0.01
+              )
+              .map((node) => node.bounds.y + node.bounds.height)
+          )
+      // A stub fed through a protection in another panel names that panel
+      // instead of drawing a supply marker.
+      const fedFromPanel = panelNode.children.some((node) =>
+        node.id.startsWith(`feed-stub-source-label-${panel.id}-${run.busSectionId}-`) &&
+        Math.abs(node.bounds.x - stubX) < 0.01
+      )
       if (stubDevices.length > 0) {
         const waypoints = [
           { y: mainBusY, node: undefined as LayoutNode | undefined },
           ...stubDevices.map((node) => ({ y: node.bounds.y, node })),
           { y: stubEndY, node: undefined as LayoutNode | undefined },
         ]
+        // A stub protection may be mounted in another panel; mark where the
+        // chain leaves this panel's enclosure, as on the horizontal supply lane.
+        const waypointEnclosures = waypoints.map(({ node }, step) =>
+          step === 0
+            ? `panel:${panel.id}`
+            : node ? getDeviceEnclosureKey(node.domainRef as TrunkDevice) : undefined
+        )
         for (let step = 0; step < waypoints.length - 2; step++) {
           const from = waypoints[step]!
           const to = waypoints[step + 1]!
           const start = { x: stubX, y: from.y }
           const end = { x: stubX, y: to.y }
+          const fromEnclosure = waypointEnclosures[step]
+          const toEnclosure = waypointEnclosures[step + 1]
           segments.push({
+            supplyEnclosureBoundary:
+              fromEnclosure != null && toEnclosure != null && fromEnclosure !== toEnclosure
+                ? true
+                : undefined,
             id: `bus-feed-protection-wire-${diagramKey}-${run.busSectionId}-${index}-${step}`,
             type: 'vertical',
             startPoint: from.node ? applyNodeWireInset(start, end, from.node) : start,
@@ -1382,7 +1424,7 @@ function derivePanelWires(
         panelId: panel.id,
         busSectionId: run.busSectionId,
         busFeedKind: section?.role === 'backup' ? 'backup' : 'grid',
-        showBusFeedMarker: !usesInlineEmptySplitAssembly,
+        showBusFeedMarker: !usesInlineEmptySplitAssembly && !fedFromPanel,
         domain: DEFAULT_ELECTRICAL_DOMAIN,
         phaseAssignment: run.phaseAssignment,
         forcePhaseLabel: forceStubPhaseLabel,
@@ -1396,6 +1438,59 @@ function derivePanelWires(
           : 'mainBus',
         fromElementId: stubDevices.at(-1)?.domainId,
       })
+    }
+  }
+
+  // Feeders hosted in this panel for another main panel's stub hang from a
+  // distribution bar on the supply side of this panel's own stub, like a bus.
+  const feederPanelsByTap = new Map<string, LayoutNode[]>()
+  for (const node of panelNode.children) {
+    if (!node.feedStubTap) continue
+    const key = `${node.feedStubTap.x}:${node.feedStubTap.y}`
+    feederPanelsByTap.set(key, [...(feederPanelsByTap.get(key) ?? []), node])
+  }
+  for (const feederPanels of feederPanelsByTap.values()) {
+    const tap = feederPanels[0]!.feedStubTap!
+    const base = {
+      cable: defaultCable,
+      panelId: panel.id,
+      domain: DEFAULT_ELECTRICAL_DOMAIN,
+      hideWireLabel: true,
+    }
+    const branchXs = feederPanels.map((node) => node.bounds.x)
+    segments.push({
+      ...base,
+      id: `feed-stub-feeder-bus-${diagramKey}-${tap.x}-${tap.y}`,
+      type: 'mainBus',
+      startPoint: { x: Math.min(tap.x, ...branchXs) - FEED_STUB_FEEDER_GEOMETRY.busOverhang, y: tap.y },
+      endPoint: { x: Math.max(tap.x, ...branchXs) + FEED_STUB_FEEDER_GEOMETRY.busOverhang, y: tap.y },
+    })
+    for (const panelSymbol of feederPanels) {
+      const branchX = panelSymbol.bounds.x
+      const devices = panelNode.children
+        .filter((node) =>
+          node.type === 'trunkDevice' && node.id.includes('--feed-stub-feeder-') &&
+          Math.abs(node.bounds.x - branchX) < 0.01
+        )
+        .sort((left, right) => right.bounds.y - left.bounds.y)
+      const waypoints: Array<{ y: number; node?: LayoutNode }> = [
+        { y: tap.y },
+        ...devices.map((node) => ({ y: node.bounds.y, node })),
+        { y: panelSymbol.bounds.y },
+      ]
+      for (let step = 0; step < waypoints.length - 1; step++) {
+        const from = waypoints[step]!
+        const to = waypoints[step + 1]!
+        const start = { x: branchX, y: from.y }
+        const end = { x: branchX, y: to.y }
+        segments.push({
+          ...base,
+          id: `feed-stub-feeder-wire-${diagramKey}-${panelSymbol.id}-${step}`,
+          type: 'vertical',
+          startPoint: from.node ? applyNodeWireInset(start, end, from.node) : start,
+          endPoint: to.node ? applyNodeWireInset(end, start, to.node) : end,
+        })
+      }
     }
   }
 

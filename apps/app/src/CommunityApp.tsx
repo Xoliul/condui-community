@@ -11,9 +11,11 @@ import {
   UnprefixedLanguageRedirect,
 } from '@/components/routing/LanguageRouteShell'
 import { useBaseAppEffects } from '@/hooks/useBaseAppEffects'
+import { useCommunitySymbolFavoritesSync } from '@/editions/community/communitySymbolFavorites'
 
 export default function CommunityApp() {
   useBaseAppEffects()
+  useCommunitySymbolFavoritesSync()
   const basename = import.meta.env.BASE_URL ?? '/'
 
   return (

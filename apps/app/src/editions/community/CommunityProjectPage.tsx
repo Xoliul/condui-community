@@ -10,6 +10,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { DEFAULT_LAYOUTS, useUIStore } from '@/stores/uiStore'
 import { useValidationStore } from '@/stores/validationStore'
 import CommunityLayout from './CommunityLayout'
+import CommunityStorageConflictDialog from './CommunityStorageConflictDialog'
 
 function saveEditorState(projectId: string): void {
   const ui = useUIStore.getState()
@@ -80,7 +81,14 @@ export default function CommunityProjectPage() {
     return () => window.clearTimeout(timer)
   }, [currentProject, id])
 
-  if (phase === 'ready') return <CommunityLayout />
+  if (phase === 'ready' && id) {
+    return (
+      <>
+        <CommunityLayout />
+        <CommunityStorageConflictDialog projectId={id} />
+      </>
+    )
+  }
   return (
     <main className="flex min-h-dvh items-center justify-center bg-slate-100 p-6 dark:bg-slate-950">
       <p className="text-slate-700 dark:text-slate-200">

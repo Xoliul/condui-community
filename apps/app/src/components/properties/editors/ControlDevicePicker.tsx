@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Crosshair, Search, Unlink } from 'lucide-react'
@@ -90,6 +90,8 @@ export function ControlDevicePicker({
   const contextPanelId = contextCircuitId ? findOwningPanel(panels, contextCircuitId)?.id : undefined
   const ranked = rankPickerItems(items, { query, contextPanelId, recentIds: recentDeviceIds })
   const flat = [...ranked.suggested, ...ranked.rest]
+  // Domotica modules and relays are listed as two groups once both exist.
+  const mixedKinds = new Set(ranked.rest.map((item) => item.device.kind)).size > 1
   const selected = devices.find((device) => device.endpoint.id === value)
 
   const describe = (item: ControlDevicePickerItem) => {
@@ -261,8 +263,20 @@ export function ControlDevicePicker({
               {ranked.suggested.map((item, index) => renderRow(item, index))}
               {ranked.suggested.length > 0 &&
                 ranked.rest.length > 0 &&
+                !mixedKinds &&
                 sectionTitle(t('endpoints.controlLink.allDevices', 'All devices'))}
-              {ranked.rest.map((item, index) => renderRow(item, ranked.suggested.length + index))}
+              {ranked.rest.map((item, index) => (
+                <Fragment key={item.device.endpoint.id}>
+                  {mixedKinds &&
+                    ranked.rest[index - 1]?.device.kind !== item.device.kind &&
+                    sectionTitle(
+                      item.device.kind === 'relay'
+                        ? t('endpoints.controlLink.groupRelays', 'Relays')
+                        : t('endpoints.controlLink.groupDomotica', 'Domotica modules')
+                    )}
+                  {renderRow(item, ranked.suggested.length + index)}
+                </Fragment>
+              ))}
               {flat.length === 0 && (
                 <li className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
                   {t('endpoints.controlLink.noDevices', 'No devices found')}

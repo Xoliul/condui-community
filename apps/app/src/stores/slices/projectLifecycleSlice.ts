@@ -52,6 +52,14 @@ export const createProjectLifecycleSlice: ProjectSliceCreator = (set, get) => ({
     })
   },
 
+  replaceProjectContent: (project) =>
+    set((state) => {
+      if (!state.currentProject) return
+      state.currentProject = hydrateProjectForEditor(project).project
+      state.currentProject.project.updatedAt = new Date().toISOString()
+      state.isDirty = true
+    }),
+
   setCurrentProjectStorageMode: (mode) =>
     set((state) => {
       state.currentProjectStorageMode = mode

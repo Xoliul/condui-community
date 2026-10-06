@@ -668,6 +668,11 @@ export interface TrunkDevice {
    * `visibility.supplyProtectionNameLabel` toggles the device `label` above the symbol on the diagram.
    */
   symbolLabelDisplay?: SymbolLabelDisplayConfig
+  /**
+   * User-dragged one-wire metadata card position: card top-left relative to the
+   * rendered symbol centre. Missing means automatic placement.
+   */
+  metadataCalloutOffset?: { x: number; y: number }
 }
 
 /** Domotica control option keys (any combination) */
@@ -989,6 +994,8 @@ export interface Endpoint {
   terminalStripPin?: number
   /** Optional outgoing pin when an endpoint representation gains a second connection. */
   terminalStripOutgoingPin?: number
+  /** Physical panel-canvas owner of an endpoint-form terminal strip; independent from circuit ownership. */
+  terminalStripPanelId?: string
   symbol?: SymbolKey
   /**
    * Virtual "operated by" link to another device (currently a domotica module endpoint).
@@ -1055,6 +1062,12 @@ export interface Endpoint {
   rulesetDateOverride?: number
   /** Generic one-wire label rendering options next to this endpoint symbol. */
   symbolLabelDisplay?: SymbolLabelDisplayConfig
+  /**
+   * User-dragged one-wire metadata card position: card top-left relative to the
+   * rendered symbol centre. A shared card stores it on its first target.
+   * Missing means automatic placement.
+   */
+  metadataCalloutOffset?: { x: number; y: number }
 }
 
 export interface AttachedPoint {

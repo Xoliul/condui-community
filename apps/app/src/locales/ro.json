@@ -82,6 +82,12 @@
       "dragHandle": "Trageți pentru a muta",
       "dragFolderHandle": "Trageți pentru a rearanja folderul",
       "selectProject": "Selectați {{name}}"
+    },
+    "serverStorage": {
+      "storedOnServer": "Salvat pe server",
+      "browserOnly": "Proiecte doar în acest browser: {{total}}",
+      "moveToServer": "Mută pe server",
+      "moveFailed": "Mutarea proiectelor a eșuat: {{error}}"
     }
   },
   "dialog": {
@@ -103,7 +109,8 @@
     "contactSupport": "Contactați asistența",
     "documentation": "Documentație",
     "areiGuide": "Ghid AREI",
-    "tutorial": "Tutorial"
+    "tutorial": "Tutorial",
+    "addTrikFile": "Adaugă fișier TRiK"
   },
   "pwaInstall": {
     "iosTitle": "Adăugați la ecranul de pornire",
@@ -349,7 +356,10 @@
     "navigation": {
       "title": "Navigare canvas",
       "leftDragPansCanvas": "Trageți la stânga pentru deplasare (desktop)",
-      "leftDragPansCanvasHint": "Pe laptop și desktop: trageți cu butonul stâng al mouse-ului pentru a muta pânza (ca la atingere). Țineți apăsată Shift și trageți pentru selectarea dreptunghiului. Schimbarea cu butoanele din mijloc și din dreapta mouse-ului continuă să funcționeze."
+      "leftDragPansCanvasHint": "Pe laptop și desktop: trageți cu butonul stâng al mouse-ului pentru a muta pânza (ca la atingere). Țineți apăsată Shift și trageți pentru selectarea dreptunghiului. Schimbarea cu butoanele din mijloc și din dreapta mouse-ului continuă să funcționeze.",
+      "wheelBehavior": "Rotița de derulare",
+      "wheelBehaviorZoom": "Zoom (mouse)",
+      "wheelBehaviorPan": "Deplasare (touchpad)"
     },
     "debug": {
       "title": "Depanare",
@@ -612,7 +622,13 @@
     "openingBody": "Vă rugăm să așteptați.",
     "notFoundTitle": "Proiectul nu a fost găsit",
     "notFoundBody": "Link nevalid sau șters.",
-    "notFoundBack": "Pornire"
+    "notFoundBack": "Pornire",
+    "serverConflict": {
+      "title": "Modificat pe alt dispozitiv",
+      "message": "Acest proiect a fost salvat în altă parte după ce l-ați deschis. Ultimele modificări de aici nu sunt salvate.",
+      "reload": "Încarcă ultima versiune",
+      "overwrite": "Păstrează versiunea mea"
+    }
   },
   "infoBlock": {
     "madeWith": "Creat cu {{brand}}",
@@ -923,6 +939,9 @@
       "controlSection": "Comandă",
       "operates": "Comandă",
       "operatedBy": "Comandat de",
+      "connectedTo": "Conectat la",
+      "groupDomotica": "Module de automatizare",
+      "groupRelays": "Relee",
       "channel": "Canal",
       "channelPlaceholder": "3, C, Q7",
       "notesReplaced": "Înlocuit pe schemă de dispozitivul asociat",
@@ -1940,6 +1959,12 @@
           "details": "Fiecare protecție de pe o singură placă de distribuție (bară principală, magistrală secundară, multiplă sau sursă de alimentare de intrare) trebuie să aibă o denumire unică, astfel încât circuitele să rămână recunoscute pe diagrama uniliniară și pe prezentarea panoului. Acesta nu este un orfan de cablare - este un conflict de denumire.",
           "remediation": "Redenumiți una dintre protecțiile aflate în conflict sau activați denumirea automată, astfel încât literele să fie atribuite fără duplicate."
         },
+        "control-link-integrity": {
+          "shortTitle": "Problemă la legătura de comandă",
+          "message": "O legătură de comandă sau o adresă de domotică necesită atenție",
+          "details": "Un contact trimite la un dispozitiv care nu mai există, două conexiuni folosesc același canal al unui dispozitiv sau o adresă nu se potrivește cu sistemul de domotică.",
+          "remediation": "Alegeți un dispozitiv existent la Comandat de, dați fiecărei conexiuni un canal propriu sau corectați adresa."
+        },
         "converter-backup-labels": {
           "shortTitle": "Eticheta de pe sursa de alimentare de rezervă lipsește",
           "message": "O protecție sau un consumator de pe sursa de alimentare de rezervă nu are o etichetă",
@@ -1984,6 +2009,20 @@
       "duplicatePanelProtectionLabels": {
         "message": "Denumirea dispozitivului de protecție „{{label}}” este utilizată de {{count}} ori în acest tablou de distribuție",
         "details": "Denumirile duplicate ale dispozitivelor de protecție din același tablou de distribuție (bara principală, bara secundară sau alimentarea de intrare) îngreunează identificarea circuitelor. Redenumiți un dispozitiv de protecție sau activați denumirea automată."
+      },
+      "controlLinkIntegrity": {
+        "dangling": {
+          "message": "{{endpoint}} este comandat de un dispozitiv care nu mai există",
+          "details": "Alegeți alt dispozitiv la Comandat de sau ștergeți legătura."
+        },
+        "duplicateChannel": {
+          "message": "{{count}} conexiuni de pe {{device}} folosesc canalul {{channel}}",
+          "details": "Fiecare canal de intrare sau de ieșire al unui dispozitiv poate fi folosit o singură dată. Dați fiecărei conexiuni un canal propriu."
+        },
+        "invalidAddress": {
+          "message": "{{endpoint}} pe {{device}}: adresa {{address}} nu se potrivește cu acest sistem",
+          "details": "Introduceți adresa în notația sistemului de domotică ales sau schimbați sistemul."
+        }
       },
       "converterBackupLabels": {
         "protection": {
@@ -2385,6 +2424,7 @@
     "paste": "Pastă",
     "delete": "Ștergeți",
     "deleteAll": "Ștergeți tot",
+    "resetCardPosition": "Resetează poziția fișei",
     "assignToCircuit": "Atribuire căii curente",
     "alignLeft": "Aliniați la stânga",
     "alignRight": "Aliniați la dreapta",
@@ -3048,5 +3088,19 @@
     "allBoards": "Toate tablourile",
     "issuesOnly": "Doar modulele de verificat",
     "hideRelays": "Ascunde releele"
+  },
+  "trikMerge": {
+    "floors": "Etaje",
+    "floorsMatch": "Adaugă la etajele existente",
+    "floorsAppend": "Adaugă ca etaje noi",
+    "feed": "Alimentat din",
+    "feedSupply": "Alimentare principală",
+    "add": "Adaugă",
+    "error": "Fișierul TRiK nu a putut fi adăugat."
+  },
+  "wheelBehaviorHint": {
+    "question": "Folosești un touchpad?",
+    "usePan": "Derulează pentru deplasare",
+    "dismiss": "Închide"
   }
 }

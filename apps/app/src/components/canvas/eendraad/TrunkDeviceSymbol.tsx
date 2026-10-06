@@ -141,6 +141,11 @@ import {
 import { isVerticalSupplyDevice } from '@/lib/layout/supplyDeviceOrientation'
 import type { SupplyTopLabelPlacement } from '@/lib/layout/supplyTopLabelLayout'
 import { ConverterResizeViewportContext } from './ConverterResizeViewportContext'
+import {
+  getMetadataCalloutOffset,
+  translateMetadataCalloutLeaderStarts,
+} from '@/lib/metadataCalloutOffset'
+import { useMetadataCalloutDrag } from './useMetadataCalloutDrag'
 
 type EendraadPointerEvent = {
   cancelBubble: boolean
@@ -895,8 +900,18 @@ export function TrunkDeviceSymbol({
     metadataCallout?.height ??
     metadataCalloutGroup.get(device.id)?.height ??
     metadataCalloutVisualLineCount * 10 + 10
+  // Supply cards are placed here in rendered space; a user-dragged card keeps its stored offset.
+  const storedMetadataCalloutOffset = device.metadataCalloutOffset
+  const userMetadataCalloutOffset = useMemo(
+    () =>
+      metadataCallout
+        ? null
+        : getMetadataCalloutOffset({ metadataCalloutOffset: storedMetadataCalloutOffset }),
+    [metadataCallout, storedMetadataCalloutOffset]
+  )
   const metadataCalloutPlacement = useMemo(() => {
     if (metadataCallout) return { x: metadataCallout.x, y: metadataCallout.y }
+    if (userMetadataCalloutOffset) return userMetadataCalloutOffset
     const groupPlacement = metadataCalloutGroup.get(device.id)
     if (groupPlacement) return { x: groupPlacement.x, y: groupPlacement.y }
     return getSupplyMetadataCalloutPlacement({
@@ -910,6 +925,7 @@ export function TrunkDeviceSymbol({
     device.id,
     metadataCalloutHeight,
     metadataCallout,
+    userMetadataCalloutOffset,
     metadataCalloutGroup,
     metadataCalloutPlacementKind,
     metadataCalloutWidth,
@@ -964,7 +980,8 @@ export function TrunkDeviceSymbol({
       symbolHeight: renderedSymbolSize.height,
       placementKind: metadataCalloutPlacementKind,
       mirrorHorizontally: supplyMirrorAxisX != null,
-      adaptiveAnchors: ownSupplyPosition?.metadataCalloutRect != null,
+      adaptiveAnchors:
+        ownSupplyPosition?.metadataCalloutRect != null || userMetadataCalloutOffset != null,
     })
   const metadataCalloutTargetIds =
     metadataCallout?.targetIds ??
@@ -1007,6 +1024,19 @@ export function TrunkDeviceSymbol({
     position.y,
     supplyDevicePositions,
   ])
+  const metadataCalloutDrag = useMetadataCalloutDrag(
+    { type: 'trunkDevice', id: device.id },
+    metadataCalloutPlacement
+  )
+  const renderedMetadataCalloutLeaderPointSets = useMemo(
+    () =>
+      translateMetadataCalloutLeaderStarts(
+        metadataCalloutLeaderPointSets,
+        metadataCalloutDrag.dx,
+        metadataCalloutDrag.dy
+      ),
+    [metadataCalloutDrag.dx, metadataCalloutDrag.dy, metadataCalloutLeaderPointSets]
+  )
 
   const certificationSideLabelExtraOffset = useMemo(
     () =>
@@ -2009,7 +2039,7 @@ export function TrunkDeviceSymbol({
 
       {useMetadataCallout && renderedMetadataCalloutLines.length > 0 && (
         <>
-          {metadataCalloutLeaderPointSets.map((points, index) => (
+          {renderedMetadataCalloutLeaderPointSets.map((points, index) => (
             <Line
               key={`${device.id}-metadata-leader-${index}`}
               points={points}
@@ -2020,13 +2050,25 @@ export function TrunkDeviceSymbol({
             />
           ))}
           <Group
-            x={metadataCalloutPlacement.x}
-            y={metadataCalloutPlacement.y}
-            {...metadataCalloutGestureHandlers}
+            x={metadataCalloutDrag.x}
+            y={metadataCalloutDrag.y}
+            // A draggable card selects on click (Konva skips click after a drag);
+            // otherwise a press-drag on the card pans the canvas.
+            {...(metadataCalloutDrag.draggable ? {} : metadataCalloutGestureHandlers)}
+            draggable={metadataCalloutDrag.draggable}
+            {...metadataCalloutDrag.dragHandlers}
             onMouseEnter={handleMetadataCalloutMouseEnter}
             onMouseLeave={handleMetadataCalloutMouseLeave}
-            onClick={stopMetadataCalloutClickBubble}
-            onTap={stopMetadataCalloutClickBubble}
+            onClick={
+              metadataCalloutDrag.draggable
+                ? handleMetadataCalloutClick
+                : stopMetadataCalloutClickBubble
+            }
+            onTap={
+              metadataCalloutDrag.draggable
+                ? handleMetadataCalloutClick
+                : stopMetadataCalloutClickBubble
+            }
           >
             <Rect
               width={metadataCalloutWidth}

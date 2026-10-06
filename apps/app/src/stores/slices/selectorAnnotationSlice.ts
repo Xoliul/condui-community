@@ -13,9 +13,8 @@ import {
   getAllEndpoints,
   getAllProtections,
   getDefaultPanelGridModuleRefs,
-  getTerminalStripPanelId,
+  resolveTerminalStripModule,
   getPanelPathFromRoot,
-  isTerminalStripDevice,
   isModuleRefValid,
   normalizeDomoticaCircuit,
   panelGridModuleIsVisibleByDefault,
@@ -141,6 +140,8 @@ function isDownstreamOfJunctionPanel(
   }
 
   if (ref.kind === 'domotica') {
+    // A terminal strip assigned to this panel is physically here, whatever its circuit does.
+    if (resolveTerminalStripModule(project, ref)?.panelId === panel.id) return false
     return boundaryCircuitIds.has(ref.circuitId) || downstreamCircuitIds.has(ref.circuitId)
   }
   if (ref.kind === 'protection') {
@@ -148,11 +149,7 @@ function isDownstreamOfJunctionPanel(
     return (protection?.circuits ?? []).some((circuit) => downstreamCircuitIds.has(circuit.id))
   }
   if (ref.scope === 'circuit' && ref.circuitId) {
-    const terminalDevice = findTrunkDeviceInProject(project, ref.id)
-    if (
-      isTerminalStripDevice(terminalDevice) &&
-      getTerminalStripPanelId(terminalDevice) === panel.id
-    ) {
+    if (resolveTerminalStripModule(project, ref)?.panelId === panel.id) {
       return false
     }
     if (downstreamCircuitIds.has(ref.circuitId)) return true
@@ -395,22 +392,12 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
       inSupplyPanel?: boolean
     }> = defaultRefs
       .filter((ref) => {
-        const terminalDevice =
-          ref.kind === 'trunkDevice' && ref.scope === 'circuit'
-            ? findTrunkDeviceInProject(currentProject, ref.id)
-            : undefined
-        if (
-          isTerminalStripDevice(terminalDevice) &&
-          getTerminalStripPanelId(terminalDevice) != null &&
-          getTerminalStripPanelId(terminalDevice) !== panel.id
-        ) {
+        const assignedStripPanelId = resolveTerminalStripModule(currentProject, ref)?.panelId
+        if (assignedStripPanelId != null && assignedStripPanelId !== panel.id) {
           return false
         }
         if (
-          !(
-            isTerminalStripDevice(terminalDevice) &&
-            getTerminalStripPanelId(terminalDevice) === panel.id
-          ) &&
+          assignedStripPanelId !== panel.id &&
           isDownstreamOfJunctionPanel(ref, panel, currentProject)
         )
           return false
@@ -566,21 +553,10 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
     // Final safety net: never return duplicate module keys.
     const seen = new Set<string>()
     return result.filter((m) => {
-      const terminalDevice =
-        m.ref.kind === 'trunkDevice' && m.ref.scope === 'circuit'
-          ? findTrunkDeviceInProject(currentProject, m.ref.id)
-          : undefined
+      const assignedStripPanelId = resolveTerminalStripModule(currentProject, m.ref)?.panelId
+      if (assignedStripPanelId != null && assignedStripPanelId !== panel.id) return false
       if (
-        isTerminalStripDevice(terminalDevice) &&
-        getTerminalStripPanelId(terminalDevice) != null &&
-        getTerminalStripPanelId(terminalDevice) !== panel.id
-      )
-        return false
-      if (
-        !(
-          isTerminalStripDevice(terminalDevice) &&
-          getTerminalStripPanelId(terminalDevice) === panel.id
-        ) &&
+        assignedStripPanelId !== panel.id &&
         isDownstreamOfJunctionPanel(m.ref, panel, currentProject)
       )
         return false

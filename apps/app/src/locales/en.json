@@ -82,6 +82,12 @@
       "dragHandle": "Drag to move",
       "dragFolderHandle": "Drag to reorder folder",
       "selectProject": "Select {{name}}"
+    },
+    "serverStorage": {
+      "storedOnServer": "Stored on server",
+      "browserOnly": "Projects only in this browser: {{total}}",
+      "moveToServer": "Move to server",
+      "moveFailed": "Moving projects failed: {{error}}"
     }
   },
   "dialog": {
@@ -103,7 +109,8 @@
     "contactSupport": "Contact support",
     "documentation": "Documentation",
     "areiGuide": "AREI guide",
-    "tutorial": "Tutorial"
+    "tutorial": "Tutorial",
+    "addTrikFile": "Add TRiK file"
   },
   "pwaInstall": {
     "iosTitle": "Add to Home Screen",
@@ -349,7 +356,10 @@
     "navigation": {
       "title": "Canvas navigation",
       "leftDragPansCanvas": "Left-drag to pan (desktop)",
-      "leftDragPansCanvasHint": "On laptop and desktop, drag with the left mouse button to pan the canvas (like touch). Hold Shift and drag to select with a rectangle. Middle- and right-button pan still work."
+      "leftDragPansCanvasHint": "On laptop and desktop, drag with the left mouse button to pan the canvas (like touch). Hold Shift and drag to select with a rectangle. Middle- and right-button pan still work.",
+      "wheelBehavior": "Scroll wheel",
+      "wheelBehaviorZoom": "Zoom (mouse)",
+      "wheelBehaviorPan": "Pan (trackpad)"
     },
     "debug": {
       "title": "Debug",
@@ -612,7 +622,13 @@
     "openingBody": "One moment.",
     "notFoundTitle": "Project not found",
     "notFoundBody": "Invalid or removed link.",
-    "notFoundBack": "Home"
+    "notFoundBack": "Home",
+    "serverConflict": {
+      "title": "Changed on another device",
+      "message": "This project was saved elsewhere after you opened it. Your latest changes here are not saved.",
+      "reload": "Load latest version",
+      "overwrite": "Keep my version"
+    }
   },
   "infoBlock": {
     "madeWith": "Made with {{brand}}",
@@ -923,6 +939,9 @@
       "controlSection": "Control",
       "operates": "Operates",
       "operatedBy": "Operated by",
+      "connectedTo": "Connected to",
+      "groupDomotica": "Domotica modules",
+      "groupRelays": "Relays",
       "channel": "Channel",
       "channelPlaceholder": "3, C, Q7",
       "notesReplaced": "Replaced by the linked device on the diagram",
@@ -1940,6 +1959,12 @@
           "details": "Each protection on one panel (main bus, secondary bus, supply strip, or incoming feed) must have a unique label so circuits stay identifiable on the one-line diagram and panel layout. This is not a wiring orphan — it is a naming conflict.",
           "remediation": "Rename one of the conflicting protections, or turn on automatic naming so letters are reassigned without duplicates."
         },
+        "control-link-integrity": {
+          "shortTitle": "Control link problem",
+          "message": "A control link or domotica address needs attention",
+          "details": "A contact points to a device that no longer exists, two connections use the same channel on one device, or an address does not fit the device system.",
+          "remediation": "Choose an existing device in Operated by, give each connection its own channel, or correct the address."
+        },
         "converter-backup-labels": {
           "shortTitle": "Missing backup-supply label",
           "message": "A protection or endpoint on the backup supply is not labeled",
@@ -1984,6 +2009,20 @@
       "duplicatePanelProtectionLabels": {
         "message": "Protection label \"{{label}}\" is used {{count}} times on this panel",
         "details": "Duplicate protection names on the same panel (main bus, secondary bus, or supply) make circuits hard to identify. Rename one protection or enable automatic naming."
+      },
+      "controlLinkIntegrity": {
+        "dangling": {
+          "message": "{{endpoint}} is operated by a device that no longer exists",
+          "details": "Pick another device in Operated by, or clear the link."
+        },
+        "duplicateChannel": {
+          "message": "{{count}} connections on {{device}} use channel {{channel}}",
+          "details": "Each input or output channel of a device can be used once. Give each connection its own channel."
+        },
+        "invalidAddress": {
+          "message": "{{endpoint}} on {{device}}: address {{address}} does not fit this system",
+          "details": "Enter the address in the notation of the selected domotica system, or change the system."
+        }
       },
       "converterBackupLabels": {
         "protection": {
@@ -2418,6 +2457,7 @@
     "paste": "Paste",
     "delete": "Delete",
     "deleteAll": "Delete all",
+    "resetCardPosition": "Reset card position",
     "assignToCircuit": "Assign to circuit",
     "alignLeft": "Align left",
     "alignRight": "Align right",
@@ -3048,5 +3088,19 @@
     "allBoards": "All boards",
     "issuesOnly": "Only modules to check",
     "hideRelays": "Hide relays"
+  },
+  "trikMerge": {
+    "floors": "Floors",
+    "floorsMatch": "Add to existing floors",
+    "floorsAppend": "Add as new floors",
+    "feed": "Fed from",
+    "feedSupply": "Main supply",
+    "add": "Add",
+    "error": "Could not add the TRiK file."
+  },
+  "wheelBehaviorHint": {
+    "question": "Using a trackpad?",
+    "usePan": "Scroll to pan",
+    "dismiss": "Dismiss"
   }
 }
