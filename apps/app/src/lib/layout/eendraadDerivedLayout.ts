@@ -1,5 +1,10 @@
 import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
-import { calculateBottomUpLayout, type BottomUpLayoutResult } from './bottomUpLayout'
+import {
+  calculateBottomUpLayout,
+  type BottomUpLayoutOptions,
+  type BottomUpLayoutResult,
+} from './bottomUpLayout'
+import { getInfoBlockColumns, type InfoBlockColumns } from '@/lib/infoBlockLayout'
 import {
   buildLayoutTree,
   getLayoutNodeIdentityKey,
@@ -17,7 +22,9 @@ import type { ProjectV2 } from '@/types/projectV2'
 import type { WireSegment } from '@/types/schema'
 import type { Point } from '@/types/ui'
 
-type OverrideCache = WeakMap<Map<string, Point>, BottomUpLayoutResult>
+/** Keyed by info block columns: project metadata and installer logo widen the frame. */
+type InfoBlockVariantCache = Map<string, BottomUpLayoutResult>
+type OverrideCache = WeakMap<Map<string, Point>, InfoBlockVariantCache>
 type AssemblyCache = WeakMap<object, OverrideCache>
 type PanelCache = WeakMap<object, AssemblyCache>
 
@@ -186,6 +193,10 @@ function wireTopologyKey(segment: WireSegment): string {
   ])
 }
 
+function getInfoBlockVariantKey(columns: InfoBlockColumns): string {
+  return `${columns.inspectionAgency ? 'agency' : ''}|${columns.logo ? 'logo' : ''}`
+}
+
 function getOrCreateWeakMap<K extends object, V>(cache: WeakMap<K, V>, key: K, create: () => V): V {
   const cached = cache.get(key)
   if (cached) return cached
@@ -243,12 +254,13 @@ export function hasInheritedEendraadLayout(project: ProjectV2): boolean {
  */
 export function getCachedEendraadLayout(
   project: ProjectV2,
-  overrides: Map<string, Point>
+  overrides: Map<string, Point>,
+  layoutOptions: BottomUpLayoutOptions = {}
 ): BottomUpLayoutResult {
   const layoutSource = resolveEquivalentLayoutSource(project)
   const installation = getProjectElectricalInstallation(layoutSource)
   if (!installation) {
-    return calculateBottomUpLayout(project, new Map(overrides))
+    return calculateBottomUpLayout(project, new Map(overrides), layoutOptions)
   }
 
   const panels = getProjectElectricalPanels(layoutSource)
@@ -257,11 +269,15 @@ export function getCachedEendraadLayout(
   const panelCache = getOrCreateWeakMap(layoutCache, installation, () => new WeakMap())
   const assemblyCache = getOrCreateWeakMap(panelCache, panels, () => new WeakMap())
   const overrideCache = getOrCreateWeakMap(assemblyCache, supplyAssembliesCacheKey, () => new WeakMap())
-  const cached = overrideCache.get(overrides)
+  const variantCache = getOrCreateWeakMap(overrideCache, overrides, () => new Map())
+  const variantKey = getInfoBlockVariantKey(
+    getInfoBlockColumns(project, { hasLogo: layoutOptions.infoBlockLogo })
+  )
+  const cached = variantCache.get(variantKey)
   if (cached) return cached
 
   const layoutStartedAt = import.meta.env.VITE_E2E ? performance.now() : 0
-  const layout = calculateBottomUpLayout(project, new Map(overrides))
+  const layout = calculateBottomUpLayout(project, new Map(overrides), layoutOptions)
   if (import.meta.env.VITE_E2E) {
     performance.measure('eendra:layout-derivation', {
       start: layoutStartedAt,
@@ -269,7 +285,7 @@ export function getCachedEendraadLayout(
     })
   }
   projectIdByLayout.set(layout, projectCacheKey(project))
-  overrideCache.set(overrides, layout)
+  variantCache.set(variantKey, layout)
   return layout
 }
 

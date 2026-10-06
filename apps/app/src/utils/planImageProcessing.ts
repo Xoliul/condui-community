@@ -8,7 +8,7 @@
 import {
   detectWhiteFromRgba,
   detectWhitePageBackgroundFromRgba,
-  invertRgbInPlace,
+  invertForDarkModeInPlace,
   removeWhitePixelsInPlace,
 } from '@/lib/image/planImagePixelOps'
 import {
@@ -220,7 +220,7 @@ export function invertImageColors(image: HTMLImageElement): string {
 
   ctx.drawImage(image, 0, 0)
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  invertRgbInPlace(imageData.data)
+  invertForDarkModeInPlace(imageData.data)
   ctx.putImageData(imageData, 0, 0)
   return canvas.toDataURL('image/png')
 }

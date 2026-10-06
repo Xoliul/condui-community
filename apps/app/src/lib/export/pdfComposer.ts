@@ -39,6 +39,7 @@ function getEendraadSchematicPlacement(
   bounds: { x: number; y: number; width: number; height: number; space?: 'scene' },
   globalScale: number,
   paperSize: ExportPaperSize = 'A4',
+  infoBlockNativeWidth?: number,
 ): {
   scale: number
   viewBox: string
@@ -52,7 +53,12 @@ function getEendraadSchematicPlacement(
   // Never shrink to fit a wide leftover. Clip horizontally instead so symbols
   // stay large relative to the title and QR. Vertical scale must still clear
   // the info-box obstacle because the bus occupies the bottom of every page.
-  const scale = limitEendraadScaleToInfoBlockCollision(bounds.height, globalScale, undefined, paperSize)
+  const scale = limitEendraadScaleToInfoBlockCollision(
+    bounds.height,
+    globalScale,
+    infoBlockNativeWidth,
+    paperSize,
+  )
   const viewWidth = Math.min(bounds.width, contentWidth / Math.max(scale, 0.01))
   const scaledWidth = viewWidth * scale
   const scaledHeight = bounds.height * scale
@@ -60,7 +66,7 @@ function getEendraadSchematicPlacement(
   // but never let it slide down into the info box.
   const topMm = getEendraadSchematicTopMm(paperSize)
   const area = getEendraadSchematicAreaMm('landscape', paperSize)
-  const obstacleTop = getEendraadInfoBlockObstacleMm('landscape', undefined, paperSize).y
+  const obstacleTop = getEendraadInfoBlockObstacleMm('landscape', infoBlockNativeWidth, paperSize).y
   const clearance = Math.max(0, obstacleTop - INFO_BLOCK_GAP_MM - topMm - scaledHeight)
   const offsetY = Math.min(Math.max(0, (area.heightMm - scaledHeight) / 2), clearance)
   return {
@@ -195,7 +201,12 @@ export async function composePdfPage(
     const bounds = page.scene.bounds
     const isEendraadSlice = !!page.scene.eendraadSlice
     const eendraadPlacement = isEendraadSlice
-      ? getEendraadSchematicPlacement(bounds, page.scene.eendraadSlice!.globalScale, paperSize)
+      ? getEendraadSchematicPlacement(
+          bounds,
+          page.scene.eendraadSlice!.globalScale,
+          paperSize,
+          infoBlock?.nativeWidth,
+        )
       : null
     const scale = eendraadPlacement
       ? eendraadPlacement.scale
@@ -468,7 +479,12 @@ export async function composeLimitedRasterPdfPage(
     const bounds = page.scene.bounds
     const isEendraadSlice = !!page.scene.eendraadSlice
     const eendraadPlacement = isEendraadSlice
-      ? getEendraadSchematicPlacement(bounds, page.scene.eendraadSlice!.globalScale, paperSize)
+      ? getEendraadSchematicPlacement(
+          bounds,
+          page.scene.eendraadSlice!.globalScale,
+          paperSize,
+          infoBlock?.nativeWidth,
+        )
       : null
     const scale = eendraadPlacement
       ? eendraadPlacement.scale

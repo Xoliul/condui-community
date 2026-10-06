@@ -1,9 +1,9 @@
+import { useTranslation } from 'react-i18next'
 import { isLayoutPresetAvailable, useUIStore } from '@/stores/uiStore'
 import type { LayoutPreset } from '@/types/ui'
 
 interface PresetDef {
   preset: LayoutPreset
-  title: string
   icon: React.JSX.Element
 }
 
@@ -15,10 +15,10 @@ function LayoutIcon({ children }: { children: React.ReactNode }) {
   )
 }
 
-const PRESETS: PresetDef[] = [
+/** Layout presets in picker order, with their icons. */
+export const LAYOUT_PRESET_DEFS: PresetDef[] = [
   {
     preset: 'single',
-    title: 'Single',
     icon: (
       <LayoutIcon>
         <rect x="1" y="1" width="18" height="18" rx="1.5" />
@@ -27,7 +27,6 @@ const PRESETS: PresetDef[] = [
   },
   {
     preset: 'sideBySide',
-    title: 'Side by side',
     icon: (
       <LayoutIcon>
         <rect x="1" y="1" width="18" height="18" rx="1.5" />
@@ -37,7 +36,6 @@ const PRESETS: PresetDef[] = [
   },
   {
     preset: 'stacked',
-    title: 'Stacked',
     icon: (
       <LayoutIcon>
         <rect x="1" y="1" width="18" height="18" rx="1.5" />
@@ -47,7 +45,6 @@ const PRESETS: PresetDef[] = [
   },
   {
     preset: 'topPairBottomWide',
-    title: 'Two top, one bottom',
     icon: (
       <LayoutIcon>
         <rect x="1" y="1" width="18" height="18" rx="1.5" />
@@ -58,7 +55,6 @@ const PRESETS: PresetDef[] = [
   },
   {
     preset: 'topWideBottomPair',
-    title: 'One top, two bottom',
     icon: (
       <LayoutIcon>
         <rect x="1" y="1" width="18" height="18" rx="1.5" />
@@ -69,7 +65,6 @@ const PRESETS: PresetDef[] = [
   },
   {
     preset: 'grid',
-    title: 'Two by two',
     icon: (
       <LayoutIcon>
         <rect x="1" y="1" width="18" height="18" rx="1.5" />
@@ -93,19 +88,20 @@ export function LayoutSelector({
   /** Called after a preset is applied (e.g. close the canvas switcher menu). */
   onAfterPresetChange?: () => void
 }) {
+  const { t } = useTranslation()
   const currentPreset = useUIStore((s) => s.viewportLayout.preset)
   const setLayoutPreset = useUIStore((s) => s.setLayoutPreset)
   const presets = compact
-    ? PRESETS.filter(({ preset }) =>
+    ? LAYOUT_PRESET_DEFS.filter(({ preset }) =>
         compactOrientation === 'portrait'
           ? preset === 'single' || preset === 'stacked'
           : preset === 'single' || preset === 'sideBySide'
       )
-    : PRESETS.filter(({ preset }) => isLayoutPresetAvailable(preset))
+    : LAYOUT_PRESET_DEFS.filter(({ preset }) => isLayoutPresetAvailable(preset))
 
   return (
     <div className="flex items-center gap-0.5">
-      {presets.map(({ preset, title, icon }) => (
+      {presets.map(({ preset, icon }) => (
         <button
           key={preset}
           type="button"
@@ -119,7 +115,7 @@ export function LayoutSelector({
               ? 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300'
               : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200'
           }`}
-          title={title}
+          title={t(`layout.presets.${preset}`)}
         >
           {icon}
         </button>

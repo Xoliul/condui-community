@@ -8,6 +8,7 @@ import {
   DOMOTICA_OUTPUT_SPACING,
 } from '@/components/canvas/eendraad/canvasSymbols'
 import { DOMOTICA_CHILD_LABEL_GAP } from '@/lib/domoticaLayout'
+import { getDomoticaRowDisplayLabel } from '@/lib/eendraad/domoticaRowLabel'
 import { getVisibleCertificationLabelParts } from '@/lib/certificationLabels'
 import { getVisibleConversionLabelParts, getVisibleEndpointNoteText } from '@/lib/conversionLabels'
 import { getScopedControlLinkNote } from '@/lib/controlLink/controlLinkNoteContext'
@@ -62,8 +63,13 @@ export function getEndpointXOffsets(
           : endpointSpacing
       const extra =
         ep?.type === 'socket' && next?.type === 'fixed_appliance' ? applianceAfterSocketGap : 0
+      // Multi-gang sockets paint extra arcs to the right; keep the next symbol clear of them.
+      const socketExtra =
+        ep?.type === 'socket'
+          ? Math.max(0, (ep.socketProps?.socketCount ?? 1) - 1) * MULTI_SOCKET_OFFSET
+          : 0
       x = Math.max(
-        x + resolvedEndpointSpacing + extra,
+        x + resolvedEndpointSpacing + extra + socketExtra,
         getControlLinkNoteClearX(ep, x) ?? Number.NEGATIVE_INFINITY
       )
     }
@@ -162,7 +168,7 @@ export function getEndpointLayoutOffsets(
     let right = x + (isModule ? DOMOTICA_BOX_WIDTH / 2 : symbolSize / 2 + socketExtra)
     if (includeLabel && endpoint.label?.trim()) {
       const measuredLabelWidth =
-        measureSymbolLabelTextWidth(endpoint.label.trim(), 'Figtree', DOMOTICA_LABEL_FONT_SIZE) +
+        measureSymbolLabelTextWidth(getDomoticaRowDisplayLabel(endpoint), 'Figtree', DOMOTICA_LABEL_FONT_SIZE) +
         DOMOTICA_LABEL_SAFETY
       right = Math.max(
         right,
@@ -304,12 +310,12 @@ export function calculateBranchWidth(
         ? endpoint.symbol === 'domotica'
           ? offset -
             DOMOTICA_BOX_WIDTH / 2 +
-            measureSymbolLabelTextWidth(endpoint.label.trim(), 'Figtree', DOMOTICA_LABEL_FONT_SIZE) +
+            measureSymbolLabelTextWidth(getDomoticaRowDisplayLabel(endpoint), 'Figtree', DOMOTICA_LABEL_FONT_SIZE) +
             DOMOTICA_LABEL_SAFETY
           : offset +
             15 +
             DOMOTICA_CHILD_LABEL_GAP +
-            measureSymbolLabelTextWidth(endpoint.label.trim(), 'Figtree', DOMOTICA_LABEL_FONT_SIZE) +
+            measureSymbolLabelTextWidth(getDomoticaRowDisplayLabel(endpoint), 'Figtree', DOMOTICA_LABEL_FONT_SIZE) +
             DOMOTICA_LABEL_SAFETY
         : symbolRight
       const noteRight = getDomoticaNoteBounds(endpoint, offset, layoutOffsets[index]?.y ?? 0, 0)?.right ?? symbolRight

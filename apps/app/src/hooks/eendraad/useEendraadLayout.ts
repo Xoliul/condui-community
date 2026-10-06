@@ -6,6 +6,7 @@ import {
   getCachedEendraadLayout,
   getEendraadRenderProjectRevision,
 } from '@/lib/layout/eendraadDerivedLayout'
+import { useInfoBlockLogoVisible } from './useInfoBlockLogoVisible'
 
 /**
  * Calculate the eendraad layout from the current project and layout overrides.
@@ -27,9 +28,10 @@ export function useEendraadLayout(enabled = true): BottomUpLayoutResult | null {
   )
   const renderProject = useDeferredValue(currentProject)
   const eendraadLayoutOverrides = useUIStore((state: UIState) => state.eendraadLayoutOverrides)
+  const infoBlockLogo = useInfoBlockLogoVisible(enabled)
 
   return useMemo(() => {
     if (!enabled || !renderProject) return null
-    return getCachedEendraadLayout(renderProject, eendraadLayoutOverrides)
-  }, [enabled, renderProject, eendraadLayoutOverrides])
+    return getCachedEendraadLayout(renderProject, eendraadLayoutOverrides, { infoBlockLogo })
+  }, [enabled, renderProject, eendraadLayoutOverrides, infoBlockLogo])
 }

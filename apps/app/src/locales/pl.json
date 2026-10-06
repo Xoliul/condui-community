@@ -82,6 +82,19 @@
       "dragHandle": "Przeciągnij, aby przenieść",
       "dragFolderHandle": "Przeciągnij, aby zmienić kolejność folderu",
       "selectProject": "Wybierz {{name}}"
+    },
+    "partnerInvite": {
+      "message_one": "{{team}} zaprasza Cię do utworzenia projektu dla nich.",
+      "message_few": "{{team}} zaprasza Cię do utworzenia {{count}} projektów dla nich.",
+      "message_many": "{{team}} zaprasza Cię do utworzenia {{count}} projektów dla nich.",
+      "message_other": "{{team}} zaprasza Cię do utworzenia {{count}} projektów dla nich.",
+      "create": "Utwórz projekt"
+    },
+    "serverStorage": {
+      "storedOnServer": "Zapisane na serwerze",
+      "browserOnly": "Projekty tylko w tej przeglądarce: {{total}}",
+      "moveToServer": "Przenieś na serwer",
+      "moveFailed": "Przenoszenie projektów nie powiodło się: {{error}}"
     }
   },
   "dialog": {
@@ -103,7 +116,21 @@
     "contactSupport": "Skontaktuj się z pomocą techniczną",
     "documentation": "Dokumentacja",
     "areiGuide": "AREI Przewodnik",
-    "tutorial": "Poradnik"
+    "tutorial": "Poradnik",
+    "addTrikFile": "Dodaj plik TRiK",
+    "importGroup": "Importuj",
+    "exportGroup": "Eksportuj",
+    "importKind": {
+      "plan": "Rzut",
+      "document": "Dokument",
+      "trik": "Plik TRiK"
+    },
+    "exportKind": {
+      "pdf": "PDF",
+      "labels": "Etykiety",
+      "dxf": "DXF",
+      "project": "Plik projektu"
+    }
   },
   "pwaInstall": {
     "iosTitle": "Dodaj do ekranu głównego",
@@ -344,12 +371,16 @@
     "workflow": {
       "title": "Metoda",
       "placePlanSymbolsManually": "Umieść symbole na planie samodzielnie",
-      "placePlanSymbolsManuallyHint": "Nowe symbole pojawiają się na plan rozmieszczenia tylko wtedy, gdy je umieścisz, na przykład za pomocą QuickPlacer."
+      "placePlanSymbolsManuallyHint": "Nowe symbole pojawiają się na plan rozmieszczenia tylko wtedy, gdy je umieścisz, na przykład za pomocą QuickPlacer.",
+      "defaultLayout": "Domyślny układ"
     },
     "navigation": {
       "title": "Nawigacja na płótnie",
       "leftDragPansCanvas": "Przeciągnięcie lewym przyciskiem myszy, aby przesuwać (pulpit)",
-      "leftDragPansCanvasHint": "Na laptopie i komputerze stacjonarnym: przeciągnij lewym przyciskiem myszy, aby przesunąć obszar roboczy (jak przy dotyku). Przytrzymaj klawisz Shift i przeciągnij, aby wybrać prostokąt. Przesuwanie środkowym i prawym przyciskiem myszy nadal działa."
+      "leftDragPansCanvasHint": "Na laptopie i komputerze stacjonarnym: przeciągnij lewym przyciskiem myszy, aby przesunąć obszar roboczy (jak przy dotyku). Przytrzymaj klawisz Shift i przeciągnij, aby wybrać prostokąt. Przesuwanie środkowym i prawym przyciskiem myszy nadal działa.",
+      "wheelBehavior": "Kółko myszy",
+      "wheelBehaviorZoom": "Powiększanie (mysz)",
+      "wheelBehaviorPan": "Przesuwanie (touchpad)"
     },
     "debug": {
       "title": "Odpluskwić",
@@ -401,12 +432,13 @@
       "logo": "Logo",
       "uploadLogo": "Prześlij logo",
       "clearLogo": "Przezroczysty",
-      "showBrandingInSchematics": "Pokaż logo i podpis na schematach",
+      "unlockBranding": "Odblokuj, aby pokazać logo i podpis",
       "logoOptional": "Opcjonalnie. Rozmiar obrazów jest zmniejszany do maks. 500 pikseli do przechowywania.",
       "save": "Zapisz",
       "saving": "Zapisz…",
       "saved": "Zapisano"
-    }
+    },
+    "build": "Kompilacja {{commit}}"
   },
   "visionScan": {
     "title": "Zeskanuj dokument",
@@ -612,7 +644,13 @@
     "openingBody": "Proszę czekać.",
     "notFoundTitle": "Nie znaleziono projektu",
     "notFoundBody": "Nieprawidłowy lub usunięty link.",
-    "notFoundBack": "Uruchom"
+    "notFoundBack": "Uruchom",
+    "serverConflict": {
+      "title": "Zmieniono na innym urządzeniu",
+      "message": "Ten projekt został zapisany gdzie indziej po jego otwarciu. Ostatnie zmiany tutaj nie zostały zapisane.",
+      "reload": "Wczytaj najnowszą wersję",
+      "overwrite": "Zachowaj moją wersję"
+    }
   },
   "infoBlock": {
     "madeWith": "Utworzono za pomocą {{brand}}",
@@ -620,7 +658,7 @@
     "installerPropertiesTitle": "Szczegóły instalatora",
     "installerOverride": "Nadpisz dane instalatora dla tego projektu",
     "installerOverrideHint": "Dane instalatora specyficzne dla projektu. Widoczne tylko w tym projekcie.",
-    "installerGlobalHint": "z Ustawień. Włącz nadpisywanie danych specyficznych dla projektu.",
+    "installerGlobalHint": "Używane są globalne dane instalatora z Ustawień. Włącz nadpisywanie, aby ustawić dane specyficzne dla projektu.",
     "headerInstallation": "Adres instalacyjny",
     "headerInstaller": "Instalator",
     "viewTitle": {
@@ -923,6 +961,9 @@
       "controlSection": "Sterowanie",
       "operates": "Steruje",
       "operatedBy": "Sterowany przez",
+      "connectedTo": "Podłączony do",
+      "groupDomotica": "Moduły automatyki",
+      "groupRelays": "Przekaźniki",
       "channel": "Kanał",
       "channelPlaceholder": "3, C, Q7",
       "notesReplaced": "Na schemacie zastąpione powiązanym urządzeniem",
@@ -1324,7 +1365,15 @@
   "layout": {
     "presetLabel": "Układ",
     "collapseBottomShelf": "Ukryj panel",
-    "expandBottomShelf": "Pokaż panel"
+    "expandBottomShelf": "Pokaż panel",
+    "presets": {
+      "single": "Pojedynczy",
+      "sideBySide": "Obok siebie",
+      "stacked": "Jeden nad drugim",
+      "topPairBottomWide": "Dwa u góry, jeden na dole",
+      "topWideBottomPair": "Jeden u góry, dwa na dole",
+      "grid": "Dwa na dwa"
+    }
   },
   "floorPlanTools": {
     "drawMode": "Tryb rysowania",
@@ -1940,6 +1989,12 @@
           "details": "Każdy ochraniacz na jednej płytce (szyna główna, szyna podrzędna, listwa zasilająca lub zasilacz) musi mieć unikalną nazwę, aby obwody pozostawał rozpoznawalny na jednokreskowym schemacie i mapie paneli. To nie jest sierota z okablowaniem — to konflikt nazewnictwa.",
           "remediation": "Zmień nazwę jednego z zabezpieczeń powodujących konflikt lub włącz automatyczne nadawanie nazw, aby litery były przypisywane bez duplikatów."
         },
+        "control-link-integrity": {
+          "shortTitle": "Problem z powiązaniem sterowania",
+          "message": "Powiązanie sterowania lub adres automatyki wymaga uwagi",
+          "details": "Styk wskazuje urządzenie, które już nie istnieje, dwa połączenia używają tego samego kanału urządzenia albo adres nie pasuje do systemu automatyki.",
+          "remediation": "Wybierz istniejące urządzenie w polu Sterowany przez, przypisz każdemu połączeniu osobny kanał lub popraw adres."
+        },
         "converter-backup-labels": {
           "shortTitle": "Brak etykiety na zasilaczu awaryjnym",
           "message": "Zabezpieczenie lub odbiornik zasilania awaryjnego nie ma etykiety",
@@ -1984,6 +2039,20 @@
       "duplicatePanelProtectionLabels": {
         "message": "Nazwa zabezpieczeń „{{label}}” była używana razy {{count}} na tej płycie",
         "details": "Zduplikowane nazwy zabezpieczeń na tej samej płycie (magistrala główna, magistrala pomocnicza lub zasilacz) utrudniają identyfikację obwody. Zmień nazwę jednego zabezpieczenia lub włącz automatyczne nadawanie nazw."
+      },
+      "controlLinkIntegrity": {
+        "dangling": {
+          "message": "{{endpoint}} jest sterowany przez urządzenie, które już nie istnieje",
+          "details": "Wybierz inne urządzenie w polu Sterowany przez lub usuń powiązanie."
+        },
+        "duplicateChannel": {
+          "message": "Połączenia ({{count}}) na {{device}} używają kanału {{channel}}",
+          "details": "Każdy kanał wejścia lub wyjścia urządzenia można wykorzystać tylko raz. Przypisz każdemu połączeniu osobny kanał."
+        },
+        "invalidAddress": {
+          "message": "{{endpoint}} na {{device}}: adres {{address}} nie pasuje do tego systemu",
+          "details": "Wpisz adres w notacji wybranego systemu automatyki lub zmień system."
+        }
       },
       "converterBackupLabels": {
         "protection": {
@@ -2385,6 +2454,7 @@
     "paste": "Wklej",
     "delete": "Usuń",
     "deleteAll": "Usuń wszystko",
+    "resetCardPosition": "Resetuj położenie karty",
     "assignToCircuit": "Przypisz do obwód",
     "alignLeft": "Wyrównaj w lewo",
     "alignRight": "Wyrównaj w prawo",
@@ -3048,5 +3118,19 @@
     "allBoards": "Wszystkie rozdzielnice",
     "issuesOnly": "Tylko moduły do sprawdzenia",
     "hideRelays": "Ukryj przekaźniki"
+  },
+  "trikMerge": {
+    "floors": "Piętra",
+    "floorsMatch": "Dodaj do istniejących pięter",
+    "floorsAppend": "Dodaj jako nowe piętra",
+    "feed": "Zasilany z",
+    "feedSupply": "Zasilanie główne",
+    "add": "Dodaj",
+    "error": "Nie można dodać pliku TRiK."
+  },
+  "wheelBehaviorHint": {
+    "question": "Używasz touchpada?",
+    "usePan": "Przewijaj, aby przesuwać",
+    "dismiss": "Zamknij"
   }
 }

@@ -82,6 +82,19 @@
       "dragHandle": "Sleep om te verplaatsen",
       "dragFolderHandle": "Sleep om map te herschikken",
       "selectProject": "{{name}} selecteren"
+    },
+    "partnerInvite": {
+      "message_one": "{{team}} nodigde je uit om een project voor hen aan te maken.",
+      "message_few": "{{team}} nodigde je uit om {{count}} projecten voor hen aan te maken.",
+      "message_many": "{{team}} nodigde je uit om {{count}} projecten voor hen aan te maken.",
+      "message_other": "{{team}} nodigde je uit om {{count}} projecten voor hen aan te maken.",
+      "create": "Project aanmaken"
+    },
+    "serverStorage": {
+      "storedOnServer": "Opgeslagen op de server",
+      "browserOnly": "Projecten enkel in deze browser: {{total}}",
+      "moveToServer": "Naar server verplaatsen",
+      "moveFailed": "Projecten verplaatsen mislukt: {{error}}"
     }
   },
   "dialog": {
@@ -103,7 +116,21 @@
     "contactSupport": "Contacteer support",
     "documentation": "Documentatie",
     "areiGuide": "AREI-gids",
-    "tutorial": "Tutorial"
+    "tutorial": "Tutorial",
+    "addTrikFile": "TRiK-bestand toevoegen",
+    "importGroup": "Importeren",
+    "exportGroup": "Exporteren",
+    "importKind": {
+      "plan": "Grondplan",
+      "document": "Document",
+      "trik": "TRiK-bestand"
+    },
+    "exportKind": {
+      "pdf": "PDF",
+      "labels": "Labels",
+      "dxf": "DXF",
+      "project": "Projectbestand"
+    }
   },
   "pwaInstall": {
     "iosTitle": "Toevoegen aan beginscherm",
@@ -344,12 +371,16 @@
     "workflow": {
       "title": "Werkwijze",
       "placePlanSymbolsManually": "Symbolen zelf op het plan plaatsen",
-      "placePlanSymbolsManuallyHint": "Nieuwe symbolen verschijnen pas op het situatieplan wanneer je ze plaatst, bijvoorbeeld met de SnelPlaatser."
+      "placePlanSymbolsManuallyHint": "Nieuwe symbolen verschijnen pas op het situatieplan wanneer je ze plaatst, bijvoorbeeld met de SnelPlaatser.",
+      "defaultLayout": "Standaardindeling"
     },
     "navigation": {
       "title": "Canvasnavigatie",
       "leftDragPansCanvas": "Links slepen om te verschuiven (desktop)",
-      "leftDragPansCanvasHint": "Op laptop en desktop: slepen met de linkermuisknop om het canvas te verschuiven (zoals op touch). Houd Shift ingedrukt en sleep voor rechthoekselectie. Verschuiven met midden- en rechtermuisknop blijft werken."
+      "leftDragPansCanvasHint": "Op laptop en desktop: slepen met de linkermuisknop om het canvas te verschuiven (zoals op touch). Houd Shift ingedrukt en sleep voor rechthoekselectie. Verschuiven met midden- en rechtermuisknop blijft werken.",
+      "wheelBehavior": "Scrollwiel",
+      "wheelBehaviorZoom": "Zoomen (muis)",
+      "wheelBehaviorPan": "Verschuiven (touchpad)"
     },
     "debug": {
       "title": "Debug",
@@ -401,12 +432,13 @@
       "logo": "Logo",
       "uploadLogo": "Logo uploaden",
       "clearLogo": "Wissen",
-      "showBrandingInSchematics": "Logo en handtekening tonen op schema's",
+      "unlockBranding": "Ontgrendel om logo en handtekening te tonen",
       "logoOptional": "Optioneel. Afbeeldingen worden verkleind tot max. 500 px voor opslag.",
       "save": "Opslaan",
       "saving": "Opslaan…",
       "saved": "Opgeslagen"
-    }
+    },
+    "build": "Build {{commit}}"
   },
   "visionScan": {
     "title": "Document scannen",
@@ -612,7 +644,13 @@
     "openingBody": "Even geduld.",
     "notFoundTitle": "Project niet gevonden",
     "notFoundBody": "Ongeldige of verwijderde link.",
-    "notFoundBack": "Start"
+    "notFoundBack": "Start",
+    "serverConflict": {
+      "title": "Gewijzigd op een ander toestel",
+      "message": "Dit project werd elders opgeslagen nadat je het opende. Je laatste wijzigingen hier zijn niet bewaard.",
+      "reload": "Laatste versie laden",
+      "overwrite": "Mijn versie behouden"
+    }
   },
   "infoBlock": {
     "madeWith": "Gemaakt met {{brand}}",
@@ -923,6 +961,9 @@
       "controlSection": "Bediening",
       "operates": "Bedient",
       "operatedBy": "Bediend door",
+      "connectedTo": "Verbonden met",
+      "groupDomotica": "Domoticamodules",
+      "groupRelays": "Relais",
       "channel": "Kanaal",
       "channelPlaceholder": "3, C, Q7",
       "notesReplaced": "Op het schema vervangen door het gekoppelde toestel",
@@ -1324,7 +1365,15 @@
   "layout": {
     "presetLabel": "Layout",
     "collapseBottomShelf": "Paneel verbergen",
-    "expandBottomShelf": "Paneel tonen"
+    "expandBottomShelf": "Paneel tonen",
+    "presets": {
+      "single": "Enkel",
+      "sideBySide": "Naast elkaar",
+      "stacked": "Boven elkaar",
+      "topPairBottomWide": "Twee boven, één onder",
+      "topWideBottomPair": "Eén boven, twee onder",
+      "grid": "Twee bij twee"
+    }
   },
   "floorPlanTools": {
     "drawMode": "Tekenmodus",
@@ -1940,6 +1989,12 @@
           "details": "Elke beveiliging op één bord (hoofdbusbalk, secundaire bus, voedingsstrook of inkomende voeding) moet een unieke naam hebben zodat stroombanen herkenbaar blijven op het éénlijnschema en paneeloverzicht. Dit is geen bedradingswees — het is een naamconflict.",
           "remediation": "Hernoem één van de conflicterende beveiligingen, of schakel automatische naamgeving in zodat letters zonder duplicaten worden toegewezen."
         },
+        "control-link-integrity": {
+          "shortTitle": "Probleem met bedieningslink",
+          "message": "Een bedieningslink of domoticaadres vraagt aandacht",
+          "details": "Een contact verwijst naar een toestel dat niet meer bestaat, twee verbindingen gebruiken hetzelfde kanaal op één toestel, of een adres past niet bij het domoticasysteem.",
+          "remediation": "Kies een bestaand toestel bij Bediend door, geef elke verbinding een eigen kanaal of corrigeer het adres."
+        },
         "converter-backup-labels": {
           "shortTitle": "Label op back-upvoeding ontbreekt",
           "message": "Een beveiliging of verbruiker op de back-upvoeding heeft geen label",
@@ -1984,6 +2039,20 @@
       "duplicatePanelProtectionLabels": {
         "message": "Beveiligingsnaam \"{{label}}\" wordt {{count}} keer gebruikt op dit bord",
         "details": "Dubbele beveiligingsnamen op hetzelfde bord (hoofdbus, secundaire bus of voeding) maken stroombanen moeilijk herkenbaar. Hernoem één beveiliging of schakel automatische naamgeving in."
+      },
+      "controlLinkIntegrity": {
+        "dangling": {
+          "message": "{{endpoint}} wordt bediend door een toestel dat niet meer bestaat",
+          "details": "Kies een ander toestel bij Bediend door, of wis de link."
+        },
+        "duplicateChannel": {
+          "message": "{{count}} verbindingen op {{device}} gebruiken kanaal {{channel}}",
+          "details": "Elk ingangs- of uitgangskanaal van een toestel kan maar één keer gebruikt worden. Geef elke verbinding een eigen kanaal."
+        },
+        "invalidAddress": {
+          "message": "{{endpoint}} op {{device}}: adres {{address}} past niet bij dit systeem",
+          "details": "Voer het adres in volgens de notatie van het gekozen domoticasysteem, of wijzig het systeem."
+        }
       },
       "converterBackupLabels": {
         "protection": {
@@ -2385,6 +2454,7 @@
     "paste": "Plakken",
     "delete": "Verwijderen",
     "deleteAll": "Alles verwijderen",
+    "resetCardPosition": "Kaartpositie herstellen",
     "assignToCircuit": "Toewijzen aan stroombaan",
     "alignLeft": "Links uitlijnen",
     "alignRight": "Rechts uitlijnen",
@@ -3048,5 +3118,19 @@
     "allBoards": "Alle borden",
     "issuesOnly": "Enkel na te kijken modules",
     "hideRelays": "Relais verbergen"
+  },
+  "trikMerge": {
+    "floors": "Verdiepingen",
+    "floorsMatch": "Toevoegen aan bestaande verdiepingen",
+    "floorsAppend": "Als nieuwe verdiepingen toevoegen",
+    "feed": "Gevoed vanuit",
+    "feedSupply": "Hoofdvoeding",
+    "add": "Toevoegen",
+    "error": "Kon het TRiK-bestand niet toevoegen."
+  },
+  "wheelBehaviorHint": {
+    "question": "Gebruik je een touchpad?",
+    "usePan": "Scrollen om te verschuiven",
+    "dismiss": "Sluiten"
   }
 }

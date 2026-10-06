@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { FileText, Library, Lock, Paperclip } from 'lucide-react'
 import {
   canExportProjectDocument,
+  canRemoveProjectDocument,
   getProjectDocumentSizeBytes,
   type ProjectDocument,
 } from '@/lib/documents/projectDocuments'
@@ -142,7 +143,8 @@ export const DocumentCard = memo(function DocumentCard({
           >
             {document.name}
           </span>
-          {(document.origin === 'projectAsset' || document.origin === 'builtIn') && (
+          {(document.origin === 'builtIn' ||
+            (document.origin === 'projectAsset' && !canRemoveProjectDocument(document))) && (
             <span
               className="shrink-0"
               title={

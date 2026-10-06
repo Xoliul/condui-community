@@ -15,17 +15,29 @@ import {
   DOMOTICA_MAX_ENDPOINT_OUTPUTS,
   DOMOTICA_MIN_ENDPOINT_OUTPUTS,
   DOMOTICA_OUTPUT_SPACING,
+  EENDRAAD_PANEL_SYMBOL_HEIGHT,
   EENDRAAD_PANEL_SYMBOL_WIDTH,
 } from '@/components/canvas/eendraad/canvasSymbols'
 import {
+  getInfoBlockColumns,
   getInfoBlockMinFrameSize,
   getInfoBlockTotalWidth,
+  hasOptionalInfoBlockColumns,
   INFO_BLOCK_HEIGHT,
   INFO_BLOCK_FRAME_MARGIN,
-  isInspectionAgencyInfoBlockVisible,
+  type InfoBlockColumns,
 } from '@/lib/infoBlockLayout'
 import { ensureInstallationFeedTopology, getPanelFeedProjection } from '@/lib/feedTopology'
 import { getPrimaryPanelBusSectionId } from '@/lib/panel/panelBusSections'
+import {
+  assignHostedFeedStubFeeders,
+  collectHostedFeedStubFeeders,
+  getHostedFeederColumnShift,
+  FEED_STUB_FEEDER_GEOMETRY,
+  getFeedStubFeederReserve,
+  getFeedStubSourcePanelId,
+  type FeedStubFeeder,
+} from './feedStubFeeders'
 import { PANEL_BUS_FEED_GAP } from '@/lib/panel/panelBusFeedPreview'
 import { BUS_FEED_MARKER_STUB_BOTTOM, getSplitSupplyRailPaintBounds } from './busFeedMarkerGeometry'
 import {
@@ -820,6 +832,11 @@ export interface BottomUpPanelLayout {
     busSectionId: string
     insertBase: number
     devices: TrunkDevice[]
+    /** Other main panels' stub devices mounted in this panel, tapped from this stub. */
+    feeders?: FeedStubFeeder[]
+    /** Panel feeding this stub when its supply-side device is mounted there. */
+    sourcePanelId?: string
+    sourcePanelName?: string
   }>
   /** Empty inline split rails follow the mirrored supply risers. */
   inlineEmptySplitRails?: boolean
@@ -1296,7 +1313,16 @@ interface BottomUpPanelLayoutOptions {
   supplyEndpointKind?: 'mains' | 'continuation'
   /** Render the compact detached-feed destination label and frame geometry. */
   feedOutput?: boolean
-  showInspectionAgencyInInfoBlock?: boolean
+  infoBlockColumns?: InfoBlockColumns
+}
+
+/** Inputs that live outside the project but change the drawing's geometry. */
+export interface BottomUpLayoutOptions {
+  /**
+   * The effective installer profile has a logo that the project may show.
+   * Widens every frame's info block, so callers must pass the value the canvas renders.
+   */
+  infoBlockLogo?: boolean
 }
 
 export interface BottomUpLayoutResult {
@@ -1305,6 +1331,8 @@ export interface BottomUpLayoutResult {
   totalHeight: number
   /** Resolved control-link note text per endpoint id; lets later passes re-enter the same scope. */
   controlLinkNotes?: ReadonlyMap<string, string>
+  /** Laid out with the installer logo column; derived previews must reuse it. */
+  infoBlockLogo?: boolean
 }
 
 /**
@@ -2241,6 +2269,19 @@ function calculateBottomUpPanelLayout(
     }
   }
   let previousMainBusSectionId: string | undefined
+  // Feeders hosted here for other main panels' stubs; a later section that
+  // hosts some needs room on the bus before it for their legs and panels.
+  const hostedFeedersBySection =
+    !parentMcbInfo && panel.isMain !== false && hasExplicitPanelBusSections(panel) &&
+      installation && rootPanels
+      ? assignHostedFeedStubFeeders(
+          panel, collectHostedFeedStubFeeders(project, installation, rootPanels, panel))
+      : new Map<string, FeedStubFeeder[]>()
+  const reservesHostedFeederGaps =
+    options.supplyEndpointKind === 'continuation' ||
+    ((options.supplyEndpointKind ?? 'mains') === 'mains' &&
+      (options.frameRole ?? 'panel') === 'panel' && panel.isMain)
+  const enteredMainBusSectionIds = new Set<string>()
 
   for (const circuit of panelCircuits) {
     const protection = findProtectionForCircuit(panel, circuit)
@@ -2342,7 +2383,12 @@ function calculateBottomUpPanelLayout(
         if (previousReach && nextReach) {
           currentX += Math.max(0, previousReach.right + nextReach.left + 8 - 110)
         }
+        if (reservesHostedFeederGaps && !enteredMainBusSectionIds.has(sectionId)) {
+          currentX += getHostedFeederColumnShift(
+            hostedFeedersBySection.get(sectionId)?.length ?? 0)
+        }
       }
+      if (!override) enteredMainBusSectionIds.add(sectionId)
       previousMainBusSectionId = sectionId
     }
     const x = override ? override.x : currentX
@@ -2673,15 +2719,27 @@ function calculateBottomUpPanelLayout(
         )
         const devices = feed?.trunkDevices ?? []
         const insertBase = getPanelInputDeviceStartIndex(project, devices)
+        const sourcePanelId = rootPanels
+          ? getFeedStubSourcePanelId(project, rootPanels, panel, devices)
+          : undefined
         return {
           busSectionId: section.id,
+          role: section.role ?? 'normal',
           insertBase,
           devices: devices.slice(insertBase).filter((device) =>
             device.supplyPath == null || device.supplyPath === 'serial'
           ),
+          feeders: [] as FeedStubFeeder[],
+          sourcePanelId,
+          sourcePanelName: sourcePanelId
+            ? rootPanels?.find((candidate) => candidate.id === sourcePanelId)?.name
+            : undefined,
         }
       })
     : undefined
+  for (const stack of panelLocalFeedStubStacks ?? []) {
+    stack.feeders.push(...(hostedFeedersBySection.get(stack.busSectionId) ?? []))
+  }
   const receivingInputDevices =
     !isSubPanel && options.includeSupplyTopology === false
       ? [
@@ -3713,9 +3771,7 @@ function calculateBottomUpPanelLayout(
     LAYOUT_CONSTANTS.SUPPLY_VERTICAL_DROP +
     BUS_FEED_MARKER_STUB_BOTTOM +
     8
-  const feedStubStackHeight = Math.max(
-    usesInlineEmptySplitRails ? LAYOUT_CONSTANTS.SUPPLY_VERTICAL_DROP + 38 : emptyFeedStubStackHeight,
-    ...(panelLocalFeedStubStacks ?? []).map((stack) => {
+  const ownFeedStubStackHeights = (panelLocalFeedStubStacks ?? []).map((stack) => {
       if (stack.devices.length === 0) return emptyFeedStubStackHeight
       const extraLabelHeight = stack.devices.reduce((total, device) => {
         const leftLines = [device.label, device.notes]
@@ -3731,6 +3787,17 @@ function calculateBottomUpPanelLayout(
       }, 0)
       return 44 + (stack.devices.length - 1) * 50 + 42 + 41 + 12 + extraLabelHeight
     })
+  const feedStubFeederReserves = (panelLocalFeedStubStacks ?? []).map((stack) => {
+    const extraLabelHeight = stack.devices.reduce((total, device) => {
+      const lines = [device.label, device.notes].filter((line): line is string => !!line?.trim())
+      return total + Math.max(0, lines.length - 2) * 24
+    }, 0)
+    return getFeedStubFeederReserve(stack.devices.length, extraLabelHeight, stack.feeders)
+  })
+  const feedStubStackHeight = Math.max(
+    usesInlineEmptySplitRails ? LAYOUT_CONSTANTS.SUPPLY_VERTICAL_DROP + 38 : emptyFeedStubStackHeight,
+    ...ownFeedStubStackHeights,
+    ...feedStubFeederReserves
   )
   if (
     (options.supplyEndpointKind === 'continuation' ||
@@ -3738,7 +3805,8 @@ function calculateBottomUpPanelLayout(
         (options.frameRole ?? 'panel') === 'panel' && panel.isMain)) &&
     hasExplicitPanelBusSections(panel) &&
     (usesInlineEmptySplitRails ||
-      (longestFeedStubStack > 0 && feedStubDevices.some((device) => device.type === 'protection')))
+      (longestFeedStubStack > 0 && feedStubDevices.some((device) => device.type === 'protection')) ||
+      (panelLocalFeedStubStacks ?? []).some((stack) => stack.feeders.length > 0))
   ) {
     // Repeated panel-feed instances stand upright on their bus stubs. Reserve
     // the last symbol, terminal marker and caption below the main bus.
@@ -5338,9 +5406,9 @@ function calculateBottomUpPanelLayout(
       : 28
   let frameY = minY - frameTopTitlePadding
   let frameWidth = totalWidthWithSupply + FRAME_PADDING * 2
-  const infoBlockWidth = getInfoBlockTotalWidth(options.showInspectionAgencyInInfoBlock)
+  const infoBlockWidth = getInfoBlockTotalWidth(options.infoBlockColumns)
   const { minWidth: minFrameWidth, minHeight: minFrameHeight } = getInfoBlockMinFrameSize(
-    options.showInspectionAgencyInInfoBlock
+    options.infoBlockColumns
   )
   frameWidth = Math.max(frameWidth, minFrameWidth) + (options.feedOutput ? 36 : 0)
 
@@ -5935,6 +6003,35 @@ function calculateBottomUpPanelLayout(
       debugVisible: true,
     })
   }
+  // Hosted feeder legs stick out left of their stub (mirrors layoutTree), with
+  // the fed panel's name above its symbol beside the main bus. Reserving them
+  // grows the frame to the left.
+  const drawsFeedStubStacks =
+    options.supplyEndpointKind === 'continuation' ||
+    ((options.supplyEndpointKind ?? 'mains') === 'mains' &&
+      (options.frameRole ?? 'panel') === 'panel' && panel.isMain)
+  for (const stack of drawsFeedStubStacks ? panelLocalFeedStubStacks ?? [] : []) {
+    if (stack.feeders.length === 0) continue
+    const hostColumns = circuitLayouts.filter((layout) => !layout.parentCircuit &&
+      (layout.protection?.busSectionId ?? getPrimaryPanelBusSectionId(panel)) ===
+        stack.busSectionId)
+    const hostStubX = Math.max(mainBusX,
+      hostColumns.length > 0 ? Math.min(...hostColumns.map((layout) => layout.x)) : mainBusX) + 20
+    const leftLegX = hostStubX - FEED_STUB_FEEDER_GEOMETRY.columnSpacing * stack.feeders.length
+    const nameHalfWidth = Math.max(...stack.feeders.map((feeder) =>
+      measureSymbolLabelTextWidth(feeder.panelName, 'Figtree', 11) / 2))
+    const left = leftLegX - Math.max(EENDRAAD_PANEL_SYMBOL_WIDTH / 2, nameHalfWidth) - 8
+    layoutObstacles.push({
+      id: `${options.diagramId ?? panel.id}-hosted-feeders-${stack.busSectionId}`,
+      kind: 'supply-stub',
+      label: 'hosted panel feeders',
+      x: left,
+      y: renderedMainBusY - EENDRAAD_PANEL_SYMBOL_HEIGHT - 16,
+      width: hostStubX - left,
+      height: feedStubStackHeight + EENDRAAD_PANEL_SYMBOL_HEIGHT + 8,
+      debugVisible: true,
+    })
+  }
   if (isSubPanel && parentMcbInfo) {
     const parentMcbAnchorY = Math.max(supplyY, mainBusY + 60 * 2)
     const localFeedDevice = getSubPanelMainBusFeedDevice(panel)?.device
@@ -6047,7 +6144,7 @@ function calculateBottomUpPanelLayout(
     preferBelow:
       options.feedOutput === true ||
       options.supplyEndpointKind === 'continuation' ||
-      options.showInspectionAgencyInInfoBlock === true ||
+      hasOptionalInfoBlockColumns(options.infoBlockColumns) ||
       layoutObstacles.some((block) => block.kind === 'supply-stub'),
   })
   frameWidth = infoArrangement.frameRight - frameX
@@ -6383,26 +6480,29 @@ function clonePanelForDiagramRole(panel: Panel, role: 'panel' | 'supply'): Panel
  */
 export function calculateBottomUpLayout(
   project: ProjectWithOptionalV2Electrical,
-  manualOverrides?: Map<string, Point>
+  manualOverrides?: Map<string, Point>,
+  layoutOptions: BottomUpLayoutOptions = {}
 ): BottomUpLayoutResult {
   // Linked endpoints replace their notes with the resolved link text; measurement,
   // envelopes and layout elements all read it through this one scope.
   const controlLinkNotes = buildControlLinkNoteMap(getProjectElectricalPanels(project))
   const result = runWithControlLinkNotes(controlLinkNotes, () =>
-    calculateBottomUpLayoutScoped(project, manualOverrides)
+    calculateBottomUpLayoutScoped(project, manualOverrides, layoutOptions)
   )
   return controlLinkNotes.size > 0 ? { ...result, controlLinkNotes } : result
 }
 
 function calculateBottomUpLayoutScoped(
   project: ProjectWithOptionalV2Electrical,
-  manualOverrides?: Map<string, Point>
+  manualOverrides: Map<string, Point> | undefined,
+  layoutOptions: BottomUpLayoutOptions
 ): BottomUpLayoutResult {
   const panels = getProjectElectricalPanels(project)
   const installation = getProjectElectricalInstallation(project)
   if (!installation) {
     throw new Error('Cannot calculate bottom-up layout without electrical installation data')
   }
+  const infoBlockColumns = getInfoBlockColumns(project, { hasLogo: layoutOptions.infoBlockLogo })
   ensureInstallationFeedTopology(installation, panels)
 
   const PANEL_SPACING = 125
@@ -6456,7 +6556,6 @@ function calculateBottomUpLayoutScoped(
     const renderPanelOnly =
       !isSubPanel && rootPanelCount > 1 && supplyAssemblyRole.linked && !detachSupply
     const suppressInlineSupplyTopology = detachSupply || renderPanelOnly
-    const showInspectionAgencyInInfoBlock = isInspectionAgencyInfoBlockVisible(project)
     const panelForMainDiagram = detachSupply
       ? clonePanelForDiagramRole(flatPanel.panel, 'panel')
       : flatPanel.panel
@@ -6469,7 +6568,7 @@ function calculateBottomUpLayoutScoped(
       installation,
       panels,
       {
-        showInspectionAgencyInInfoBlock,
+        infoBlockColumns,
         ...(suppressInlineSupplyTopology
           ? ({
               includeSupplyTopology: false,
@@ -6506,7 +6605,7 @@ function calculateBottomUpLayoutScoped(
         installation,
         panels,
         {
-          showInspectionAgencyInInfoBlock,
+          infoBlockColumns,
           diagramId: `${flatPanel.panel.id}--supply`,
           ownerPanelId: flatPanel.panel.id,
           frameRole: 'supply',
@@ -6831,5 +6930,6 @@ function calculateBottomUpLayoutScoped(
     panels: panelLayouts,
     totalWidth,
     totalHeight,
+    ...(infoBlockColumns.logo ? { infoBlockLogo: true } : {}),
   }
 }

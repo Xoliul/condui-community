@@ -98,6 +98,7 @@ export function useDialog() {
       id?: string
       title?: string
       titleIcon?: React.ReactNode
+      titleAside?: React.ReactNode
       content: React.ReactNode
       buttons?: Array<{
         label: string

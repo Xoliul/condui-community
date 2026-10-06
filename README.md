@@ -9,7 +9,8 @@ Belgian electrical installation diagrams. It is intended for people who want to 
 files and working environment under their own control.
 
 The Community edition works without sign-in or a managed Condui service. Projects are stored in the
-browser on the device running the application and can be downloaded as portable project archives.
+browser on the device running the application, or optionally in a folder on the server that runs
+it, and can be downloaded as portable project archives.
 These archives are fully compatible in both directions with the hosted, paid Condui edition: the
 same project can be opened and edited in either edition and moved between them without conversion.
 
@@ -19,7 +20,8 @@ Condui Community includes the local editing workflow:
 
 - create and edit one-wire diagrams;
 - create and edit situation plans and panel layouts;
-- store projects locally in the browser;
+- store projects locally in the browser, or on your own server so every device on your network sees
+  the same projects;
 - import and download portable Condui project archives;
 - import supported plan files using the bundled local conversion service;
 - export finished diagrams to PDF; and
@@ -29,8 +31,10 @@ The interface is available in Dutch, French, and English.
 
 ## What is different from the hosted Condui product
 
-Condui Community is deliberately local. Managed storage, synchronization, multi-user collaboration,
-sharing, server-backed project history, and hosted integrations are not included.
+Condui Community is deliberately local and meant for a single user. Accounts, managed storage,
+multi-user collaboration, sharing, project history, managed backups, and hosted integrations are
+not included. Optional server storage keeps one shared project list for everyone who can reach the
+installation; it has no user accounts.
 
 Project templates are a hosted Condui feature and are not included in Community. Community projects
 start from an empty local project or an imported project archive.
@@ -79,6 +83,46 @@ docker build -t condui-community:local .
 docker run --rm -p 8080:8080 condui-community:local
 ```
 
+## Server storage and access
+
+By default every browser keeps its own project list. To keep projects, folders, the installer
+profile, favourite symbols, and editor preferences (language, theme, placing symbols manually,
+default layout) on the server instead, map a folder to `/data`:
+
+```yaml
+services:
+  condui:
+    image: ghcr.io/xoliul/condui-community:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./condui-data:/data
+```
+
+Server storage is only active when that folder is mapped. Each project is a JSON file in
+`condui-data/projects`; back up the whole folder to back up your projects. The first time a browser
+opens an installation with server storage, it offers to move the projects it already has to the
+server. If two devices edit the same project, the second save asks which version to keep instead of
+overwriting the other.
+
+Without a password, Condui Community only answers devices on its own network (including private
+overlays such as Tailscale) and refuses visitors from the internet. To use it from elsewhere, set a
+password of at least eight characters:
+
+```yaml
+    environment:
+      CONDUI_PASSWORD: "your own password"
+```
+
+Once set, the password is required on every device, also at home. The browser asks for it once.
+Over plain HTTP the password is sent unencrypted, so put Condui behind a reverse proxy with HTTPS
+before reaching it over the internet.
+
+Condui decides whether a visitor is on your network from their address and, when Docker hides that
+address (Docker Desktop on Windows and macOS), from the address typed in the browser. A real
+internet domain name then counts as outside your network, even when it points to a local address.
+
 ## Run from source
 
 Condui Community requires Node.js 24 and npm.
@@ -92,14 +136,16 @@ npm start
 Then open <http://localhost:8080>.
 
 `npm start` listens on loopback only by default; use `HOST=0.0.0.0 npm start` to expose it on the LAN.
+Set `CONDUI_DATA_DIR` to an existing folder to enable server storage when running from source.
 
 This repository is generated from Condui's private development repository. Generated Community
 snapshots contain only the source and assets required by the local edition.
 
 ## Project data and backups
 
-Projects created in the application are stored in the browser profile used to open Condui Community.
+Without server storage, projects are stored in the browser profile used to open Condui Community.
 Clearing browser data, deleting that profile, or losing the device can remove locally stored projects.
+With server storage, projects live in the mapped folder; back up that folder.
 
 Use the project download function regularly and keep the resulting archive somewhere you back up.
 The portable archive is the editable source of the project. The PDF is an output document, not a

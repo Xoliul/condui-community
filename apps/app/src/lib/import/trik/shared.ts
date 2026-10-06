@@ -7,6 +7,7 @@ import type {
   ProtectionDevice,
   ResidualCurrentType,
   Rotation,
+  TrunkDevice,
 } from '@/types/schema'
 import { createLegacyEmptyProject } from '@/lib/import/createLegacyEmptyProject'
 
@@ -70,6 +71,10 @@ export type TrikNode = {
   domoticaDirectChild?: boolean
   /** Node id of the direct DomoticaModule child that owns this output chain. */
   domoticaOutputRootNodeId?: string
+  /** TRiK `Adres` of a wired domotica output, imported as its control channel. */
+  controlChannel?: string
+  /** DC output (1-based beyond the primary output 0) of the circuit-trunk converter feeding this node. */
+  converterDcConnection?: { converterTrunkDeviceId: string; connectionIndex: number }
 }
 
 export type TrikCircuit = {
@@ -117,8 +122,13 @@ export type TrikBranchDevice = {
 /** Device on the circuit vertical trunk ahead of endpoint branches. */
 export type TrikCircuitTrunkDevice = {
   id: string
-  kind: 'transformer' | 'energy_meter' | 'protection'
+  kind: 'transformer' | 'energy_meter' | 'protection' | 'converter'
   label?: string
+  /** Converter only: symbol and number of DC outputs (TRiK output leidingen, max 4). */
+  converterSymbol?: 'inverter' | 'rectifier' | 'dc_dc_converter'
+  dcConnectionCount?: number
+  notes?: string
+  conversionProps?: TrunkDevice['conversionProps']
   ratingA?: number
   sensitivityMa?: number
   residualCurrentType?: ResidualCurrentType
@@ -243,6 +253,8 @@ export const TRIK_PLAN_COMPOSITE_RENDER_SCALE = 2
 
 /** Match default note size when adding a note on eendraad or sitplan (see EendraadCanvas / dropHandlers). */
 export const TRIK_NOTA_DEFAULT_FONT_SIZE_PX = 14
+/** TRiK schematic notes: one-wire label size so imported free text does not dominate the drawing. */
+export const TRIK_ONE_WIRE_NOTA_FONT_SIZE_PX = 9
 
 /**
  * TRiK <Satellites><Nota><Position> offsets are schematic units relative to the host node.

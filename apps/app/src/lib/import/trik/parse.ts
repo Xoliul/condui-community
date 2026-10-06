@@ -4,6 +4,7 @@ import type {
   ProjectPartyContact,
   ProtectionDevice,
   ResidualCurrentType,
+  TrunkDevice,
 } from '@/types/schema'
 import { generateId } from '@/utils/project'
 import type {
@@ -27,15 +28,29 @@ import {
   parseTrikFase,
   readElementText,
   TRIK_NOTA_DEFAULT_FONT_SIZE_PX,
+  TRIK_ONE_WIRE_NOTA_FONT_SIZE_PX,
 } from '@/lib/import/trik/shared'
 import {
+  buildAddressNote,
+  combineEndpointNotes,
   getTraversalChildren,
   isDubbeleAansteking,
   isDubbeleWissel,
+  isTrikDomoticaModuleConverter,
   mapCombiNodeToDomoticaNode,
   mapTrikElementToNode,
+  parseConversionSymbol,
   resolveDubbeleWisselBranchStarts,
 } from '@/lib/import/trik/parseNodes'
+import { CIRCUIT_CONVERTER_MAX_CONNECTIONS } from '@/lib/layout/circuitConverterGeometry'
+import {
+  hasTrikEquipmentFacts,
+  parseTrikEquipmentNota,
+  toBatteryFacts,
+  toConversionProps,
+  toSolarPanelFacts,
+  unmappedFactsText,
+} from '@/lib/import/trik/equipmentNota'
 
 export function parseSatelliteNotasFromElement(element: Element): Array<{ text: string; offsetX: number; offsetY: number }> {
   const satellites = element.querySelector(':scope > Satellites')
@@ -74,6 +89,99 @@ export function attachSatelliteNotasToNode(node: TrikNode, sourceElement: Elemen
   if (satelliteNotas.length > 0) node.satelliteNotas = satelliteNotas
 }
 
+/** Offset (TRiK satellite units) placing a child Nota label beside its device symbol. */
+const TRIK_CHILD_NOTA_OFFSET = { x: 8, y: -4, lineStep: 6 }
+
+function collectChildNotaTexts(element: Element): string[] {
+  return getTraversalChildren(element)
+    .filter((child) => child.tagName === 'Nota')
+    .map((nota) => nota.getAttribute('Tekst')?.trim() ?? '')
+    .filter(Boolean)
+}
+
+/** TRiK `<Children><Nota>` under a device is a text label for that device, not a load. */
+export function attachChildNotasToNode(node: TrikNode, sourceElement: Element): void {
+  const texts = collectChildNotaTexts(sourceElement).flatMap((text) => {
+    if (node.symbol !== 'solar_panel' && node.symbol !== 'battery') return [text]
+    // Recognised equipment facts fill the device fields; the rest of the text stays on the
+    // device itself (shown on its spec card) rather than as a loose note on the canvas.
+    const facts = parseTrikEquipmentNota(text)
+    if (!hasTrikEquipmentFacts(facts)) return [text]
+    if (node.symbol === 'solar_panel') {
+      node.solarPanelProps = { ...toSolarPanelFacts(facts), ...node.solarPanelProps }
+    } else {
+      node.batteryProps = { ...toBatteryFacts(facts), ...node.batteryProps }
+    }
+    const leftover = [...unmappedFactsText(facts, node.symbol), facts.remainingText].filter(
+      (line): line is string => !!line,
+    )
+    if (leftover.length > 0) node.endpointNote = combineEndpointNotes(node.endpointNote, leftover.join('\n'))
+    return []
+  })
+  if (texts.length === 0) return
+  node.satelliteNotas = [
+    ...(node.satelliteNotas ?? []),
+    ...texts.map((text, index) => ({
+      text,
+      offsetX: TRIK_CHILD_NOTA_OFFSET.x,
+      offsetY: TRIK_CHILD_NOTA_OFFSET.y + index * TRIK_CHILD_NOTA_OFFSET.lineStep,
+    })),
+  ]
+}
+
+/** A TRiK `Adres` on a module's wired output is its channel (`I1-I4`, `Q7`), not a plan address. */
+function moveTrikAddressToControlChannel(node: TrikNode, element: Element): void {
+  const channel = element.getAttribute('Adres')?.trim()
+  if (!channel) return
+  node.controlChannel = channel
+  const addressNote = buildAddressNote(element)
+  const remaining = (node.endpointNote ?? '')
+    .split('\n')
+    .filter((line) => line.trim() !== addressNote)
+    .join('\n')
+    .trim()
+  node.endpointNote = remaining || undefined
+}
+
+function getTrikTrunkConverterSymbol(element: Element): TrikCircuitTrunkDevice['converterSymbol'] {
+  const isConverter =
+    element.tagName === 'Omvormer' ||
+    (element.tagName === 'DomoticaModule' && isTrikDomoticaModuleConverter(element))
+  if (!isConverter) return undefined
+  return parseConversionSymbol(element) === 'inverter' ? 'inverter' : undefined
+}
+
+/**
+ * Equipment facts for a trunk converter. TRiK users often annotate the cable feeding the
+ * inverter rather than the inverter, so a note there counts only when it holds equipment facts.
+ */
+function collectTrikConverterFacts(
+  converter: Element,
+  feedingLeiding: Element,
+): Pick<TrikCircuitTrunkDevice, 'notes' | 'conversionProps'> {
+  const ownTexts = [
+    ...parseSatelliteNotasFromElement(converter).map((nota) => nota.text),
+    ...collectChildNotaTexts(converter),
+  ]
+  const leidingTexts = parseSatelliteNotasFromElement(feedingLeiding).map((nota) => nota.text)
+  const notes: string[] = []
+  let conversionProps: TrunkDevice['conversionProps']
+  for (const text of [...ownTexts, ...leidingTexts]) {
+    const facts = parseTrikEquipmentNota(text)
+    if (!hasTrikEquipmentFacts(facts)) {
+      if (ownTexts.includes(text)) notes.push(text)
+      continue
+    }
+    conversionProps ??= toConversionProps(facts)
+    notes.push(...unmappedFactsText(facts, 'inverter'))
+    if (facts.remainingText) notes.push(facts.remainingText)
+  }
+  return {
+    notes: notes.length > 0 ? notes.join('\n') : undefined,
+    conversionProps,
+  }
+}
+
 export function attachSatelliteMarksToNode(node: TrikNode, sourceElement: Element): void {
   const satelliteMarks = parseSatelliteMarksFromElement(sourceElement)
   if (satelliteMarks.length > 0) node.satelliteMarks = satelliteMarks
@@ -102,8 +210,8 @@ export function parseTrikAddress(addressElement: Element | null | undefined): Pr
   const country = normalizeCountryCode(readElementText(addressElement, 'Land')) ?? ''
   if (!street && !number && !postalCode && !city && !country) return undefined
   return {
-    street,
-    number,
+    // The editor has one street line; keep the house number in it instead of a hidden field.
+    street: [street.trim(), number?.trim()].filter(Boolean).join(' '),
     postalCode,
     city,
     country,
@@ -331,6 +439,8 @@ function buildTrikCircuitFromBreaker(
   const trunkDevices: TrikCircuitTrunkDevice[] = []
   const branchDevices: TrikBranchDevice[] = []
   const controls: Array<{ switchId: string; lightId: string }> = []
+  // At most one converter per circuit sits on the trunk; its DC outputs are TRiK child leidingen.
+  let trunkConverter: { element: Element; id: string } | undefined
 
   if (firstLeiding) {
     const walk = (
@@ -339,11 +449,33 @@ function buildTrikCircuitFromBreaker(
       forceLinearBranch = false,
       activeDomoticaModuleId?: string,
       activeDomoticaOutputRootNodeId?: string,
+      converterOutput?: TrikNode['converterDcConnection'],
     ): void => {
       const traversalChildren = getTraversalChildren(current)
       if (traversalChildren.length === 0) return
       const splitHere = !forceLinearBranch && traversalChildren.length > 1
+      const converterOutputChildren =
+        trunkConverter?.element === current
+          ? traversalChildren.filter((child) => child.tagName !== 'Nota')
+          : undefined
       traversalChildren.forEach((child, index) => {
+        const childConverterOutput =
+          converterOutputChildren && trunkConverter
+            ? {
+                converterTrunkDeviceId: trunkConverter.id,
+                connectionIndex: Math.max(
+                  0,
+                  Math.min(converterOutputChildren.indexOf(child), CIRCUIT_CONVERTER_MAX_CONNECTIONS - 1),
+                ),
+              }
+            : converterOutput
+        const pushNode = (node: TrikNode) => {
+          // Output 0 is the converter's ordinary branch; only extra outputs need an explicit link.
+          if (childConverterOutput && childConverterOutput.connectionIndex > 0) {
+            node.converterDcConnection = childConverterOutput
+          }
+          nodes.push(node)
+        }
         const isDirectDomoticaChild = !!activeDomoticaModuleId && current.tagName === 'DomoticaModule'
         const directOutputRootNodeId = isDirectDomoticaChild
           ? (child.getAttribute('Id')?.trim() || activeDomoticaOutputRootNodeId)
@@ -371,8 +503,8 @@ function buildTrikCircuitFromBreaker(
                 attachSatelliteNotasToNode(splitNode, child)
                 attachSatelliteMarksToNode(splitNode, child)
               }
-              nodes.push(splitNode)
-              walk(branchStart, splitKey || '1', false, activeDomoticaModuleId, activeDomoticaOutputRootNodeId)
+              pushNode(splitNode)
+              walk(branchStart, splitKey || '1', false, activeDomoticaModuleId, activeDomoticaOutputRootNodeId, childConverterOutput)
             })
             return
           }
@@ -389,10 +521,10 @@ function buildTrikCircuitFromBreaker(
               mappedNode.domoticaOutputRootNodeId = directOutputRootNodeId
               attachSatelliteNotasToNode(mappedNode, child)
               attachSatelliteMarksToNode(mappedNode, child)
-              nodes.push(mappedNode)
+              pushNode(mappedNode)
             }
             branchStarts.forEach((branchStart) => {
-              walk(branchStart, linearKey, true, activeDomoticaModuleId, activeDomoticaOutputRootNodeId)
+              walk(branchStart, linearKey, true, activeDomoticaModuleId, activeDomoticaOutputRootNodeId, childConverterOutput)
             })
             return
           }
@@ -406,7 +538,7 @@ function buildTrikCircuitFromBreaker(
             combiNode.domoticaOutputRootNodeId = directOutputRootNodeId
             attachSatelliteNotasToNode(combiNode, child)
             attachSatelliteMarksToNode(combiNode, child)
-            nodes.push(combiNode)
+            pushNode(combiNode)
             return
           }
         }
@@ -427,6 +559,7 @@ function buildTrikCircuitFromBreaker(
             forceLinearBranch,
             activeDomoticaModuleId,
             directOutputRootNodeId,
+            childConverterOutput,
           )
           return
         }
@@ -446,8 +579,34 @@ function buildTrikCircuitFromBreaker(
             true,
             activeDomoticaModuleId,
             directOutputRootNodeId,
+            childConverterOutput,
           )
           return
+        }
+        // An inverter alone at the head of the circuit is the circuit-trunk converter; each TRiK
+        // output leiding becomes one of its DC connections (strings, battery, ...).
+        if (
+          !trunkConverter &&
+          !activeDomoticaModuleId &&
+          current === firstLeiding &&
+          traversalChildren.length === 1
+        ) {
+          const converterSymbol = getTrikTrunkConverterSymbol(child)
+          const outputs = getTraversalChildren(child).filter((output) => output.tagName !== 'Nota')
+          if (converterSymbol && outputs.length > 0) {
+            const converterId = child.getAttribute('Id') ?? generateId()
+            trunkConverter = { element: child, id: converterId }
+            trunkDevices.push({
+              id: converterId,
+              kind: 'converter',
+              converterSymbol,
+              dcConnectionCount: Math.min(outputs.length, CIRCUIT_CONVERTER_MAX_CONNECTIONS),
+              label: child.getAttribute('NaamKring')?.trim() || undefined,
+              ...collectTrikConverterFacts(child, current),
+            })
+            walk(child, normalizedStructuralKey, false, activeDomoticaModuleId, directOutputRootNodeId)
+            return
+          }
         }
         const mappedNode = mapTrikElementToNode(child)
         if (mappedNode) {
@@ -455,9 +614,11 @@ function buildTrikCircuitFromBreaker(
           mappedNode.domoticaParentNodeId = activeDomoticaModuleId
           mappedNode.domoticaDirectChild = isDirectDomoticaChild
           mappedNode.domoticaOutputRootNodeId = directOutputRootNodeId
+          if (isDirectDomoticaChild) moveTrikAddressToControlChannel(mappedNode, child)
           attachSatelliteNotasToNode(mappedNode, child)
+          attachChildNotasToNode(mappedNode, child)
           attachSatelliteMarksToNode(mappedNode, child)
-          nodes.push(mappedNode)
+          pushNode(mappedNode)
         }
         if (
           child.tagName === 'Schakelaar' ||
@@ -486,6 +647,7 @@ function buildTrikCircuitFromBreaker(
           nextForceLinear,
           nextDomoticaModuleId,
           nextDomoticaOutputRootNodeId,
+          childConverterOutput,
         )
       })
     }
@@ -589,16 +751,34 @@ function buildTrikCircuitRecordOnly(breaker: Element): TrikCircuit {
   }
 }
 
-function findIncomingFeederAboveBoard(board: Element): TrikCircuit | undefined {
+function findIncomingFeederElementAboveBoard(board: Element): Element | undefined {
   let ancestor: Element | null = board.parentElement
   while (ancestor) {
-    if (isTrikProtectionElement(ancestor)) {
-      return buildTrikCircuitRecordOnly(ancestor)
-    }
+    if (isTrikProtectionElement(ancestor)) return ancestor
     if (ancestor.tagName === 'StartNode' || ancestor.tagName === 'RootNodes') break
     ancestor = ancestor.parentElement
   }
   return undefined
+}
+
+function findIncomingFeederAboveBoard(board: Element): TrikCircuit | undefined {
+  const feeder = findIncomingFeederElementAboveBoard(board)
+  return feeder ? buildTrikCircuitRecordOnly(feeder) : undefined
+}
+
+/** True when `element` is one of the supply devices that collectSupplyInfo already imports. */
+function isOnTrikSupplySpine(element: Element): boolean {
+  let cursor: Element | null =
+    element.ownerDocument.querySelector('RootNodes > StartNode > Children > Leiding')
+  while (cursor) {
+    const next: Element | undefined = Array.from(cursor.querySelector(':scope > Children')?.children ?? []).find(
+      (child) => isTrikProtectionElement(child) || child.tagName === 'Teller' || child.tagName === 'Verdeelbord',
+    )
+    if (!next || next.tagName === 'Verdeelbord') return false
+    if (next === element) return true
+    cursor = next
+  }
+  return false
 }
 
 function trikCircuitTrunkFromBreaker(breaker: Element): TrikCircuitTrunkDevice {
@@ -683,12 +863,50 @@ export function collectTrikCircuits(doc: Document): TrikCircuit[] {
     .flatMap((board) => collectTrikCircuitsFromBoard(board))
 }
 
+/** A board `NaamKring` such as `L1+N` or `L1,L2,L3+N` names its phases, not the board. */
+export function isTrikPhaseDescriptor(value: string): boolean {
+  return /^\s*L[1-3](\s*[,/]\s*L[1-3])*\s*(\+\s*N)?\s*$/i.test(value)
+}
+
+/** TRiK automatic letters: A..Z, then AA, AB, ... */
+function trikAutomaticLetter(index: number): string {
+  let letters = ''
+  let rest = index
+  do {
+    letters = String.fromCharCode(65 + (rest % 26)) + letters
+    rest = Math.floor(rest / 26) - 1
+  } while (rest >= 0)
+  return letters
+}
+
+/**
+ * TRiK names unlettered circuits automatically as the board number plus the next free letter,
+ * in drawing order, skipping letters that are already fixed on another circuit of the board
+ * (board 1: 1A, [1B fixed], 1C, ...). Only applied when the board carries a number.
+ */
+export function assignTrikAutomaticCircuitLetters(circuits: TrikCircuit[], boardNumber: string): void {
+  const used = new Set(circuits.map((circuit) => circuit.fixedLetter?.trim().toUpperCase()).filter(Boolean))
+  let next = 0
+  for (const circuit of circuits) {
+    if (circuit.fixedLetter?.trim()) continue
+    let code: string
+    do {
+      code = `${boardNumber}${trikAutomaticLetter(next)}`
+      next += 1
+    } while (used.has(code.toUpperCase()))
+    used.add(code.toUpperCase())
+    circuit.fixedLetter = code
+  }
+}
+
 export function collectTrikPanelBoards(doc: Document): TrikPanelBoard[] {
   const rootBoards = Array.from(doc.querySelectorAll('Verdeelbord')).filter(isVerdeelbordPanelRoot)
   return rootBoards.map((board, index) => {
     const vasteLetter = board.getAttribute('VasteLetter')?.trim() || undefined
-    const naamKring = board.getAttribute('NaamKring')?.trim() || undefined
-    const explicitName = vasteLetter || naamKring || undefined
+    const rawNaamKring = board.getAttribute('NaamKring')?.trim() || undefined
+    const naamKring = rawNaamKring && !isTrikPhaseDescriptor(rawNaamKring) ? rawNaamKring : undefined
+    const boardNumber = board.getAttribute('Nummer')?.trim() || undefined
+    const explicitName = vasteLetter || naamKring || (boardNumber ? `Panel ${boardNumber}` : undefined)
     const name = explicitName ?? `Panel ${index + 1}`
     const trikBoardId = board.getAttribute('Id')?.trim() || generateId()
     const { breakers, unwrappedSupplyDevices } = getBoardRootBreakers(board)
@@ -696,9 +914,16 @@ export function collectTrikPanelBoards(doc: Document): TrikPanelBoard[] {
     for (const breaker of breakers) {
       buildTrikCircuitFromBreaker(breaker, circuits)
     }
+    if (boardNumber) assignTrikAutomaticCircuitLetters(circuits, boardNumber)
     const incomingFeeder = findIncomingFeederAboveBoard(board)
+    const incomingFeederElement = findIncomingFeederElementAboveBoard(board)
     const localSupplyDevices: TrikCircuitTrunkDevice[] = [...unwrappedSupplyDevices]
-    if (incomingFeeder && !boardHasSupplyTellerAncestor(board)) {
+    if (
+      incomingFeeder &&
+      !boardHasSupplyTellerAncestor(board) &&
+      // A breaker on the supply line is already a supply device; do not repeat it on the panel.
+      !(incomingFeederElement && isOnTrikSupplySpine(incomingFeederElement))
+    ) {
       // Subpanel incoming AS (often 40A 30mA) belongs on the child PANEL wire.
       localSupplyDevices.unshift({
         id: incomingFeeder.id,
@@ -883,7 +1108,10 @@ export function collectSupplyInfo(doc: Document): TrikSupplyInfo {
           | 'D'
           | undefined
         const protection = {
-          label: nextProtection.getAttribute('NaamKring') ?? undefined,
+          label:
+            nextProtection.getAttribute('VasteLetter')?.trim() ||
+            nextProtection.getAttribute('NaamKring') ||
+            undefined,
           protectionType: classifyProtectionType(nextProtection),
           ratingA: parseNumber(nextProtection.getAttribute('NominaleStroomsterkte')),
           sensitivityMa: parseNumber(nextProtection.getAttribute('VerliesStroomsterkte')),
@@ -1027,6 +1255,35 @@ export function parseVectorRects(scope: Element): TrikVectorRect[] {
 }
 
 
+
+function hasTrikAncestor(element: Element, tagName: string): boolean {
+  for (let cursor = element.parentElement; cursor; cursor = cursor.parentElement) {
+    if (cursor.tagName === tagName) return true
+  }
+  return false
+}
+
+/**
+ * Notes TRiK users attach to a device (spec lists next to a battery or inverter). Only those
+ * TRiK also placed on a floor plan become plan notes; their text stays on the device as well.
+ */
+export function parseTrikPlacedDeviceNotes(doc: Document): PendingTrikSitplanNote[] {
+  const notes: PendingTrikSitplanNote[] = []
+  for (const note of Array.from(doc.getElementsByTagName('Nota'))) {
+    // Device notes sit in a device's Children; StartNode-level notes are handled as plan labels.
+    const owner = note.parentElement?.tagName === 'Children' ? note.parentElement.parentElement : null
+    if (!owner || owner.tagName === 'StartNode' || !hasTrikAncestor(owner, 'RootNodes')) continue
+    const nodeId = note.getAttribute('Id')?.trim() ?? ''
+    const text = (note.getAttribute('Tekst') ?? '').replace(/\r\n?/g, '\n').trim()
+    if (!nodeId || !text) continue
+    const sizeRaw = parseNumber(note.getAttribute('TekstGrootte'))
+    const fontSize = sizeRaw != null
+      ? Math.max(8, Math.min(36, Math.round(sizeRaw * 3)))
+      : TRIK_ONE_WIRE_NOTA_FONT_SIZE_PX
+    notes.push({ nodeId, text, fontSize })
+  }
+  return notes
+}
 
 export function parseTrikSitplanNotes(doc: Document): PendingTrikSitplanNote[] {
   const notes: PendingTrikSitplanNote[] = []

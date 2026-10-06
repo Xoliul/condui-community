@@ -34,7 +34,9 @@ export interface RankedPickerItems {
   rest: ControlDevicePickerItem[]
 }
 
+/** Domotica modules before relays, then by label, so a mixed list reads as two groups. */
 function byLabel(left: ControlDevicePickerItem, right: ControlDevicePickerItem): number {
+  if (left.device.kind !== right.device.kind) return left.device.kind === 'domotica' ? -1 : 1
   return left.device.endpoint.label.localeCompare(right.device.endpoint.label, undefined, {
     numeric: true,
     sensitivity: 'base',

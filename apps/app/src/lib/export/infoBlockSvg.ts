@@ -29,9 +29,9 @@ import {
   formatInspectionAgencyDetails,
   formatInstallerAddress,
   getInfoBlockColumnPositions,
+  getInfoBlockColumns,
   getInfoBlockTotalWidth,
   getVoltageLabel,
-  isInspectionAgencyInfoBlockVisible,
 } from '@/lib/infoBlockLayout'
 import { getThemeColors } from '@/lib/theme/colors'
 
@@ -94,10 +94,11 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
   const textColor = colors.textColor
   const secondaryColor = colors.secondaryText
 
-  const showInspectionAgency = isInspectionAgencyInfoBlockVisible(project)
-  const infoBlockWidth = getInfoBlockTotalWidth(showInspectionAgency)
-  const columnPositions = getInfoBlockColumnPositions(showInspectionAgency)
+  const columns = getInfoBlockColumns(project, { hasLogo: Boolean(profile?.logoDataUrl) })
+  const infoBlockWidth = getInfoBlockTotalWidth(columns)
+  const columnPositions = getInfoBlockColumnPositions(columns)
   const inspectionAgencyBoxX = columnPositions.inspectionAgency
+  const logoBoxX = columnPositions.logo
   const installerBoxX = columnPositions.installer
   const addressBoxX = columnPositions.address
   const generalBoxX = columnPositions.general
@@ -116,8 +117,8 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
   const col3Right = generalBoxX + INFO_BLOCK_BOX_WIDTHS.general
 
   const halfImageHeight = INFO_BLOCK_IMAGE_AREA_HEIGHT / 2
-  const logoY = INFO_BLOCK_PADDING + INFO_BLOCK_INSTALLER_TOP_HEIGHT
-  const signatureY = logoY + halfImageHeight
+  const imageAreaY = INFO_BLOCK_PADDING + INFO_BLOCK_INSTALLER_TOP_HEIGHT
+  const signatureY = imageAreaY + halfImageHeight
 
   const projectName = project?.project?.name ?? ''
   const installation = project ? getProjectElectricalInstallation(project) : undefined
@@ -193,6 +194,12 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
     })
   }
 
+  if (logoBoxX != null && profile?.logoDataUrl) {
+    lines.push(
+      `<image href="${profile.logoDataUrl}" x="${logoBoxX + INFO_BLOCK_PADDING}" y="${INFO_BLOCK_PADDING}" width="${INFO_BLOCK_BOX_WIDTHS.logo - INFO_BLOCK_PADDING * 2}" height="${INFO_BLOCK_HEIGHT - INFO_BLOCK_PADDING * 2}" preserveAspectRatio="xMidYMid meet"/>`
+    )
+  }
+
   // Installer column
   lines.push(
     `<text x="${installerBoxX + INFO_BLOCK_PADDING}" y="${headerY + INFO_BLOCK_FONT_SIZE_HEADER}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="${INFO_BLOCK_FONT_SIZE_HEADER}" font-weight="bold" fill="${textColor}">${escapeXml(headerInstaller)}</text>`
@@ -215,12 +222,6 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
       `<text x="${installerBoxX + INFO_BLOCK_PADDING}" y="${y}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="${INFO_BLOCK_FONT_SIZE_BODY}" fill="${secondaryColor}">${escapeXml(line)}</text>`
     )
   })
-  // Logo
-  if (profile?.logoDataUrl) {
-    lines.push(
-      `<image href="${profile.logoDataUrl}" x="${installerBoxX + INFO_BLOCK_BOX_WIDTHS.installer - INFO_BLOCK_PADDING - 50}" y="${logoY}" width="50" height="${halfImageHeight}" preserveAspectRatio="xMidYMid meet"/>`
-    )
-  }
   // Signature
   if (profile?.signatureDataUrl) {
     lines.push(

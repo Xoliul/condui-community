@@ -16,6 +16,8 @@ export interface BaseDialogConfig {
   id?: string
   title: string
   titleIcon?: React.ReactNode
+  /** Small secondary text shown after the title in the header. */
+  titleAside?: React.ReactNode
   message?: string
   type?: DialogType
   size?: 'sm' | 'md' | 'lg' | 'xl'

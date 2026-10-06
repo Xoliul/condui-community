@@ -36,7 +36,8 @@ import { prepareEendraadScene } from './sceneProviders/eendraadSceneProvider'
 import { calculateEendraadSlices } from './slicing/eendraadSlicing'
 import { A4_LANDSCAPE, A4_PORTRAIT, getPageDimensions, type ExportPaperSize } from './pageSizes'
 import { buildInfoBlockSvg } from './infoBlockSvg'
-import { getInfoBlockTotalWidth, isInspectionAgencyInfoBlockVisible } from '@/lib/infoBlockLayout'
+import { getInfoBlockColumns, getInfoBlockTotalWidth } from '@/lib/infoBlockLayout'
+import { resolveInfoBlockLogoForExport } from '@/lib/infoBlockLogoImage'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import { yieldToBrowser } from './yieldToBrowser'
@@ -439,7 +440,7 @@ export async function exportToPDF(
       const rawEffectiveProfile = normalizeInstallerProfile(
         project.project.installerOverride ?? (await getInstallerProfile())
       )
-      const effectiveProfile =
+      const brandedProfile =
         isLimitedRasterExport && rawEffectiveProfile
           ? {
               ...rawEffectiveProfile,
@@ -456,6 +457,13 @@ export async function exportToPDF(
                 ? rawEffectiveProfile.signatureDataUrl
                 : null,
             }
+      // Only a logo that decodes gets the info-block column (matches the canvas).
+      const effectiveProfile = brandedProfile?.logoDataUrl
+        ? {
+            ...brandedProfile,
+            logoDataUrl: await resolveInfoBlockLogoForExport(brandedProfile.logoDataUrl),
+          }
+        : brandedProfile
       const { language } = useSettingsStore.getState()
       const countryLabel = i18n.t('installation.countryBelgium', 'Belgium')
       const madeWithText = i18n.t('infoBlock.madeWith', {
@@ -465,7 +473,7 @@ export async function exportToPDF(
       const headerInstallation = i18n.t('infoBlock.headerInstallation', 'Installation address')
       const headerInspectionAgency = i18n.t('project.inspectionAgency', 'Inspection agency')
       const infoBlockNativeWidth = getInfoBlockTotalWidth(
-        isInspectionAgencyInfoBlockVisible(project)
+        getInfoBlockColumns(project, { hasLogo: Boolean(effectiveProfile?.logoDataUrl) })
       )
       const fontFamily = getExportFontFamily()
 

@@ -10,6 +10,7 @@ import {
   validateDeviceChannel,
   validateDeviceGroup,
 } from './controlAddress'
+import { rowAddressKey } from './controlLinkNoteContext'
 
 export { normalizeChannel } from './controlAddress'
 
@@ -39,9 +40,14 @@ export function getOperatingDeviceKind(endpoint: Endpoint | undefined): Operatin
   return undefined
 }
 
-/** Endpoints that may be operated through a control link. */
+/**
+ * Endpoints that may carry a control link: contacts operated by a module or relay (outputs),
+ * and switches or pushbuttons that signal one (inputs). Wired domotica children are connected
+ * through their parent instead.
+ */
 export function canHaveControlLink(endpoint: Endpoint | undefined): boolean {
-  return endpoint?.symbol === 'contact'
+  if (!endpoint || endpoint.domoticaChildProps) return false
+  return endpoint.symbol === 'contact' || isSwitchSymbol(endpoint.symbol)
 }
 
 export function collectControlLinkEntries(panels: Panel[]): ControlLinkEntry[] {
@@ -107,10 +113,33 @@ export function getControlLinkLabel(
   return formatControlLinkLabel(device, link)
 }
 
+/**
+ * Wired domotica outputs show their channel after the row label. A row may hold several
+ * endpoints; the first entered channel is shared by all of them, so the address follows
+ * whichever endpoint carries the row label.
+ */
+function addRowAddressNotes(entries: ControlLinkEntry[], notes: Map<string, string>): void {
+  const rows = new Map<string, { ids: string[]; channel?: string }>()
+  for (const { endpoint } of entries) {
+    const child = endpoint.domoticaChildProps
+    if (!child) continue
+    const key = `${child.parentEndpointId}:${child.outputGroup}:${child.outputIndex}`
+    const row = rows.get(key) ?? { ids: [] }
+    row.ids.push(endpoint.id)
+    row.channel ??= normalizeChannel(child.channel)
+    rows.set(key, row)
+  }
+  for (const row of rows.values()) {
+    if (row.channel == null) continue
+    for (const id of row.ids) notes.set(rowAddressKey(id), row.channel)
+  }
+}
+
 /** Resolved one-wire note text per endpoint id for every endpoint with a valid control link. */
 export function buildControlLinkNoteMap(panels: Panel[]): Map<string, string> {
   const notes = new Map<string, string>()
   const entries = collectControlLinkEntries(panels)
+  addRowAddressNotes(entries, notes)
   if (!entries.some(({ endpoint }) => endpoint.controlLink)) return notes
   const devices = new Map(
     entries
@@ -163,7 +192,7 @@ export type ConnectedEndpointSource = 'wired' | 'linked'
  */
 export type ConnectionDirection = 'input' | 'output'
 
-/** Wired symbols that signal the module instead of being switched by it. */
+/** Symbols that signal the module instead of being switched by it. */
 const INPUT_SYMBOLS = new Set([
   'switch',
   'switch_1p_twoway',
@@ -176,14 +205,18 @@ const INPUT_SYMBOLS = new Set([
   'smoke_detector',
 ])
 
-/** Direction of a connection: control-linked contacts are always outputs. */
+const DETECTOR_SYMBOLS = new Set(['motion_detector', 'smoke_detector'])
+
+function isSwitchSymbol(symbol: Endpoint['symbol']): boolean {
+  return symbol != null && INPUT_SYMBOLS.has(symbol) && !DETECTOR_SYMBOLS.has(symbol)
+}
+
+/** Direction of a connection: switches and detectors signal the device, everything else is switched by it. */
 export function getConnectionDirection(
   endpoint: Endpoint,
-  source: ConnectedEndpointSource
+  _source?: ConnectedEndpointSource
 ): ConnectionDirection {
-  return source === 'wired' && endpoint.symbol != null && INPUT_SYMBOLS.has(endpoint.symbol)
-    ? 'input'
-    : 'output'
+  return endpoint.symbol != null && INPUT_SYMBOLS.has(endpoint.symbol) ? 'input' : 'output'
 }
 
 export interface ConnectedEndpointEntry extends ControlLinkEntry {
@@ -232,7 +265,7 @@ export function buildControlDeviceIndex(panels: Panel[]): ControlDeviceIndex {
       device.connections.push({
         ...entry,
         source: 'linked',
-        direction: 'output',
+        direction: getConnectionDirection(endpoint, 'linked'),
         channel: normalizeChannel(link.channel),
         groups: normalizeGroups(link.groups),
       })

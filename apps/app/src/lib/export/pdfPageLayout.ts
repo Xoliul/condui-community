@@ -22,6 +22,8 @@ export const EENDRAAD_TOP_CHROME_HEIGHT_MM = Math.max(
 
 /** Keep the info box secondary to the schematic; do not stretch it to half the sheet. */
 const INFO_BLOCK_MAX_WIDTH_MM = 96
+/** A widened info box (optional columns) may take at most this share of a landscape sheet. */
+const INFO_BLOCK_MAX_SHEET_SHARE = 0.6
 
 /** Title band height for the paper size (chrome shrinks on A3). */
 export function getPanelTitleHeightMm(paperSize: ExportPaperSize = 'A4'): number {
@@ -38,17 +40,22 @@ export function getInfoBlockReservedZoneMm(
   nativeWidth = INFO_BLOCK_TOTAL_WIDTH,
   paperSize: ExportPaperSize = 'A4'
 ): { widthMm: number; heightMm: number } {
-  // The info box has the same absolute width cap on every sheet; A3 shrinks it
-  // so it takes a smaller share of the larger page.
+  // The standard info box has the same absolute width cap on every sheet; A3
+  // shrinks it so it takes a smaller share of the larger page. Optional columns
+  // (inspection agency, installer logo) widen the box at the same text size, up
+  // to a share of the sheet; only beyond that does the whole box scale down.
   const landscapeUsableWidth = A4_LANDSCAPE.width - PAGE_MARGIN * 2
-  const reservedWidthMm =
-    Math.min(landscapeUsableWidth * 0.36, INFO_BLOCK_MAX_WIDTH_MM) * getChromeScale(paperSize)
+  const chromeScale = getChromeScale(paperSize)
+  const standardWidthMm =
+    Math.min(landscapeUsableWidth * 0.36, INFO_BLOCK_MAX_WIDTH_MM) * chromeScale
+  const grownWidthMm = standardWidthMm * Math.max(1, nativeWidth / INFO_BLOCK_TOTAL_WIDTH)
   const aspect = INFO_BLOCK_HEIGHT / nativeWidth
   if (orientation === 'landscape') {
-    return { widthMm: reservedWidthMm, heightMm: reservedWidthMm * aspect }
+    const widthMm = Math.min(grownWidthMm, landscapeUsableWidth * INFO_BLOCK_MAX_SHEET_SHARE)
+    return { widthMm, heightMm: widthMm * aspect }
   }
   const portraitUsableWidth = A4_PORTRAIT.width - PAGE_MARGIN * 2
-  const widthMm = Math.min(reservedWidthMm, portraitUsableWidth)
+  const widthMm = Math.min(grownWidthMm, portraitUsableWidth)
   return { widthMm, heightMm: widthMm * aspect }
 }
 

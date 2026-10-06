@@ -104,7 +104,7 @@ export const DEFAULT_LAYOUTS: Record<LayoutPreset, () => ViewportLayout> = {
         { canvas: 'eendraad' },
         { canvas: 'plan' },
         { canvas: 'panel' },
-        { canvas: canvases[3] ?? 'eendraad' },
+        { canvas: canvases.includes('documents') ? 'documents' : (canvases[3] ?? 'eendraad') },
       ],
       primaryRatio: 0.5,
       secondaryRatio: 0.5,

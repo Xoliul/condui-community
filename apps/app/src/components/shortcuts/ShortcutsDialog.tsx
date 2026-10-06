@@ -215,35 +215,37 @@ function ShortcutKeys({
 export function ShortcutsDialog() {
   const { t } = useTranslation()
   const leftDragPansCanvas = useSettingsStore((state) => state.leftDragPansCanvas)
+  const wheelBehavior = useSettingsStore((state) => state.wheelBehavior)
 
   const shortcutGroups = useMemo(() => {
-    if (!leftDragPansCanvas) return BASE_SHORTCUT_GROUPS
+    const adjustEntry = (entry: ShortcutEntry): ShortcutEntry | null => {
+      if (leftDragPansCanvas && entry.id === 'panCanvas') {
+        return { ...entry, keys: ['leftDragEmptyCanvas', 'middleDrag', 'rightDrag'] }
+      }
+      if (leftDragPansCanvas && entry.id === 'rectangleSelect') {
+        return { ...entry, keys: ['shiftDragSelect'] }
+      }
+      if (wheelBehavior === 'pan' && entry.id === 'mouseWheelZoom') {
+        return { ...entry, keys: ['ctrlWheel'] }
+      }
+      // In zoom mode two-finger scroll zooms like a wheel, so it is not a pan gesture.
+      if (wheelBehavior === 'zoom' && entry.id === 'trackpadPan') return null
+      return entry
+    }
 
     return BASE_SHORTCUT_GROUPS.map((group) => {
       if (group.id !== 'viewport') return group
       return {
         ...group,
-        sections: group.sections.map((section) => {
-          if (section.id !== 'mouseSelection') return section
-          return {
-            ...section,
-            entries: section.entries.map((entry) => {
-              if (entry.id === 'panCanvas') {
-                return {
-                  ...entry,
-                  keys: ['leftDragEmptyCanvas', 'middleDrag', 'rightDrag'] as ShortcutKeyId[],
-                }
-              }
-              if (entry.id === 'rectangleSelect') {
-                return { ...entry, keys: ['shiftDragSelect'] as ShortcutKeyId[] }
-              }
-              return entry
-            }),
-          }
-        }),
+        sections: group.sections.map((section) => ({
+          ...section,
+          entries: section.entries
+            .map(adjustEntry)
+            .filter((entry): entry is ShortcutEntry => entry !== null),
+        })),
       }
     })
-  }, [leftDragPansCanvas])
+  }, [leftDragPansCanvas, wheelBehavior])
 
   return (
     <div className="space-y-4 text-sm text-gray-700 dark:text-gray-200 sm:space-y-5">

@@ -88,6 +88,10 @@ const VALIDATION_AREI_LINKS: Record<string, ValidationAreiLink> = {
     path: '/issues/documentation-inspection-responsibility',
     hash: 'schema_eigenschappen',
   },
+  'be.areibook1.2025.control-link-integrity': {
+    path: '/issues/documentation-inspection-responsibility',
+    hash: 'schema_eigenschappen',
+  },
   'be.areibook1.2025.converter-backup-labels': {
     path: '/issues/special-environments',
     hash: 'pv_batterij',

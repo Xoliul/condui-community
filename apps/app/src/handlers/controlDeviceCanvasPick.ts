@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { getNextFreeChannel, canOperateControlLinks } from '@/lib/controlLink/controlLink'
+import { getConnectionDirection, getNextFreeChannel, canOperateControlLinks } from '@/lib/controlLink/controlLink'
 import { findEndpointById } from '@/lib/eendraad/projectElectricalDomain'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { useProjectStore } from '@/stores/projectStore'
@@ -50,8 +50,12 @@ export function startControlDevicePick(endpointId: string) {
     cancelControlDevicePick()
     if (!target || !deviceId || !device || !canOperateControlLinks(device.endpoint)) return
     if (deviceId === target) return
+    const direction = getConnectionDirection(findDevice(target)?.endpoint ?? device.endpoint, 'linked')
     useProjectStore.getState().updateEndpoint(target, {
-      controlLink: { deviceId, channel: getNextFreeChannel(device.panels, deviceId, target) || undefined },
+      controlLink: {
+        deviceId,
+        channel: getNextFreeChannel(device.panels, deviceId, target, direction) || undefined,
+      },
     })
     useUIStore.getState().setSelection({ type: 'endpoint', ids: [target] })
   })

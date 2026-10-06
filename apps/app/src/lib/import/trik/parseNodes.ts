@@ -223,18 +223,33 @@ export function parseConversionSymbol(element: Element): Endpoint['symbol'] {
   return 'inverter'
 }
 
-export function hasConversionSymbolAttributes(element: Element): boolean {
-  return !!(
+function readConversionDomain(raw: string | null): 'AC' | 'DC' | undefined {
+  const value = (raw ?? '').trim().toUpperCase()
+  if (value.includes('AC') || value.includes('~')) return 'AC'
+  if (value.includes('DC') || value.includes('=')) return 'DC'
+  return undefined
+}
+
+/**
+ * TRiK draws PV/battery inverters as a DomoticaModule whose input and output symbols differ
+ * (AC → DC). A module with only an input symbol, or AC on both sides, is a real controller
+ * such as a PLC and its expansion modules.
+ */
+export function isTrikDomoticaModuleConverter(element: Element): boolean {
+  const input = readConversionDomain(
     element.getAttribute('IngangSymbool') ??
-    element.getAttribute('SymboolIngang') ??
-    element.getAttribute('InputSymbol') ??
-    element.getAttribute('Ingang') ??
-    element.getAttribute('UitgangSymbool') ??
-    element.getAttribute('SymboolUitgangen') ??
-    element.getAttribute('SymboolUitgang') ??
-    element.getAttribute('OutputSymbol') ??
-    element.getAttribute('Uitgang')
+      element.getAttribute('SymboolIngang') ??
+      element.getAttribute('InputSymbol') ??
+      element.getAttribute('Ingang')
   )
+  const output = readConversionDomain(
+    element.getAttribute('UitgangSymbool') ??
+      element.getAttribute('SymboolUitgangen') ??
+      element.getAttribute('SymboolUitgang') ??
+      element.getAttribute('OutputSymbol') ??
+      element.getAttribute('Uitgang')
+  )
+  return !!input && !!output && input !== output
 }
 
 export function parseSolarPanelProps(element: Element): Endpoint['solarPanelProps'] | undefined {
@@ -532,7 +547,7 @@ export function mapTrikElementToNode(element: Element): TrikNode | null {
   if (tag === 'DomoticaModule') {
     // TRiK models PV inverters and other AC↔DC blocks as DomoticaModule with SymboolIngang/Uitgangen,
     // not only as <Omvormer>. Same mapping as Omvormer — no converted-from note.
-    if (hasConversionSymbolAttributes(element)) {
+    if (isTrikDomoticaModuleConverter(element)) {
       return {
         id,
         type: 'fixed_appliance',
@@ -541,7 +556,14 @@ export function mapTrikElementToNode(element: Element): TrikNode | null {
         endpointNote,
       }
     }
-    return { id, type: 'domotica', symbol: 'domotica', branchKey, endpointNote }
+    const moduleName = element.getAttribute('NaamModule')?.trim()
+    return {
+      id,
+      type: 'domotica',
+      symbol: 'domotica',
+      branchKey,
+      endpointNote: combineEndpointNotes(moduleName, endpointNote),
+    }
   }
   if (tag === 'DomoticaSturing') {
     const controls: DomoticaControlKey[] = []
@@ -701,6 +723,8 @@ export function mapTrikElementToNode(element: Element): TrikNode | null {
   }
   // Smeltveiligheid is handled as a branch device during walk, not as an endpoint.
   if (tag === 'Smeltveiligheid') return null
+  // A Nota inside a device's Children is a text label on that device, attached during walk.
+  if (tag === 'Nota') return null
   // Fallback: import unknown endpoint-like nodes as static appliances.
   if (tag !== 'Leiding' && tag !== 'AutomatischeSchakelaar' && tag !== 'CombiNode' && tag !== 'Verdeelbord') {
     return {

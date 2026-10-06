@@ -155,7 +155,8 @@ export function useEendraadPreviewGraph(
       overrides.set(key, value)
     })
 
-    const preliminaryLayout = calculateBottomUpLayout(sim.project, overrides)
+    const layoutOptions = { infoBlockLogo: currentLayout?.infoBlockLogo === true }
+    const preliminaryLayout = calculateBottomUpLayout(sim.project, overrides, layoutOptions)
     const stableOverrides = currentLayout
       ? buildStablePreviewCircuitOverrides(
           currentLayout,
@@ -165,7 +166,7 @@ export function useEendraadPreviewGraph(
         )
       : overrides
     const layout = currentLayout
-      ? calculateBottomUpLayout(sim.project, stableOverrides)
+      ? calculateBottomUpLayout(sim.project, stableOverrides, layoutOptions)
       : preliminaryLayout
     if (!layout) return null
 

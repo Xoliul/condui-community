@@ -82,6 +82,19 @@
       "dragHandle": "Zum Verschieben ziehen",
       "dragFolderHandle": "Ziehen Sie, um den Ordner neu anzuordnen",
       "selectProject": "Wählen Sie {{name}}"
+    },
+    "partnerInvite": {
+      "message_one": "{{team}} hat Sie eingeladen, ein Projekt für sie zu erstellen.",
+      "message_few": "{{team}} hat Sie eingeladen, {{count}} Projekte für sie zu erstellen.",
+      "message_many": "{{team}} hat Sie eingeladen, {{count}} Projekte für sie zu erstellen.",
+      "message_other": "{{team}} hat Sie eingeladen, {{count}} Projekte für sie zu erstellen.",
+      "create": "Projekt erstellen"
+    },
+    "serverStorage": {
+      "storedOnServer": "Auf dem Server gespeichert",
+      "browserOnly": "Projekte nur in diesem Browser: {{total}}",
+      "moveToServer": "Auf den Server verschieben",
+      "moveFailed": "Verschieben der Projekte fehlgeschlagen: {{error}}"
     }
   },
   "dialog": {
@@ -103,7 +116,21 @@
     "contactSupport": "Kontaktieren Sie den Support",
     "documentation": "Dokumentation",
     "areiGuide": "AREI Anleitung",
-    "tutorial": "Tutorial"
+    "tutorial": "Tutorial",
+    "addTrikFile": "TRiK-Datei hinzufügen",
+    "importGroup": "Importieren",
+    "exportGroup": "Exportieren",
+    "importKind": {
+      "plan": "Grundriss",
+      "document": "Dokument",
+      "trik": "TRiK-Datei"
+    },
+    "exportKind": {
+      "pdf": "PDF",
+      "labels": "Etiketten",
+      "dxf": "DXF",
+      "project": "Projektdatei"
+    }
   },
   "pwaInstall": {
     "iosTitle": "Zum Startbildschirm hinzufügen",
@@ -344,12 +371,16 @@
     "workflow": {
       "title": "Methode",
       "placePlanSymbolsManually": "Platzieren Sie selbst Symbole auf dem Plan",
-      "placePlanSymbolsManuallyHint": "Neue Symbole erscheinen auf dem Lageplan erst, wenn Sie sie platzieren, beispielsweise mit dem QuickPlacer."
+      "placePlanSymbolsManuallyHint": "Neue Symbole erscheinen auf dem Lageplan erst, wenn Sie sie platzieren, beispielsweise mit dem QuickPlacer.",
+      "defaultLayout": "Standardlayout"
     },
     "navigation": {
       "title": "Canvas-Navigation",
       "leftDragPansCanvas": "Ziehen nach links zum Schwenken (Desktop)",
-      "leftDragPansCanvasHint": "Auf Laptop und Desktop: Ziehen Sie mit der linken Maustaste, um die Leinwand zu verschieben (wie bei Berührung). Halten Sie die Umschalttaste gedrückt und ziehen Sie, um ein Rechteck auszuwählen. Das Verschieben mit der mittleren und rechten Maustaste funktioniert weiterhin."
+      "leftDragPansCanvasHint": "Auf Laptop und Desktop: Ziehen Sie mit der linken Maustaste, um die Leinwand zu verschieben (wie bei Berührung). Halten Sie die Umschalttaste gedrückt und ziehen Sie, um ein Rechteck auszuwählen. Das Verschieben mit der mittleren und rechten Maustaste funktioniert weiterhin.",
+      "wheelBehavior": "Mausrad",
+      "wheelBehaviorZoom": "Zoomen (Maus)",
+      "wheelBehaviorPan": "Verschieben (Touchpad)"
     },
     "debug": {
       "title": "Debug",
@@ -401,12 +432,13 @@
       "logo": "Logo",
       "uploadLogo": "Logo hochladen",
       "clearLogo": "Klar",
-      "showBrandingInSchematics": "Logo und Signatur auf Diagrammen anzeigen",
+      "unlockBranding": "Freischalten, um Logo und Unterschrift anzuzeigen",
       "logoOptional": "Optional. Bilder werden auf max. verkleinert. 500 px zur Speicherung.",
       "save": "Speichern",
       "saving": "Speichern…",
       "saved": "Gespeichert"
-    }
+    },
+    "build": "Build {{commit}}"
   },
   "visionScan": {
     "title": "Dokument scannen",
@@ -612,7 +644,13 @@
     "openingBody": "Bitte warten.",
     "notFoundTitle": "Projekt nicht gefunden",
     "notFoundBody": "Ungültiger oder gelöschter Link.",
-    "notFoundBack": "Start"
+    "notFoundBack": "Start",
+    "serverConflict": {
+      "title": "Auf einem anderen Gerät geändert",
+      "message": "Dieses Projekt wurde nach dem Öffnen anderswo gespeichert. Ihre letzten Änderungen hier sind nicht gespeichert.",
+      "reload": "Neueste Version laden",
+      "overwrite": "Meine Version behalten"
+    }
   },
   "infoBlock": {
     "madeWith": "Erstellt mit {{brand}}",
@@ -923,6 +961,9 @@
       "controlSection": "Steuerung",
       "operates": "Steuert",
       "operatedBy": "Gesteuert von",
+      "connectedTo": "Verbunden mit",
+      "groupDomotica": "Hausautomations-Module",
+      "groupRelays": "Relais",
       "channel": "Kanal",
       "channelPlaceholder": "3, C, Q7",
       "notesReplaced": "Im Schema durch das verknüpfte Gerät ersetzt",
@@ -1324,7 +1365,15 @@
   "layout": {
     "presetLabel": "Layout",
     "collapseBottomShelf": "Blende ausblenden",
-    "expandBottomShelf": "Panel anzeigen"
+    "expandBottomShelf": "Panel anzeigen",
+    "presets": {
+      "single": "Einzeln",
+      "sideBySide": "Nebeneinander",
+      "stacked": "Übereinander",
+      "topPairBottomWide": "Zwei oben, eins unten",
+      "topWideBottomPair": "Eins oben, zwei unten",
+      "grid": "Zwei mal zwei"
+    }
   },
   "floorPlanTools": {
     "drawMode": "Zeichenmodus",
@@ -1940,6 +1989,12 @@
           "details": "Jedes Schutzgerät in einem Verteiler (Hauptsammelschiene, Unterverteilungsschiene, Einspeisebereich oder Einspeisung) braucht eine eindeutige Bezeichnung, damit Stromkreise im Stromlaufplan und in der Verteilerzuordnung erkennbar bleiben. Es handelt sich nicht um eine fehlende Verkabelungsverbindung, sondern um doppelte Bezeichnungen.",
           "remediation": "Ändern Sie eine der doppelten Schutzgerätebezeichnungen oder aktivieren Sie die automatische Benennung, damit alle Bezeichnungen eindeutig sind."
         },
+        "control-link-integrity": {
+          "shortTitle": "Problem mit Steuerverknüpfung",
+          "message": "Eine Steuerverknüpfung oder Domotik-Adresse braucht Aufmerksamkeit",
+          "details": "Ein Kontakt verweist auf ein nicht mehr vorhandenes Gerät, zwei Verbindungen nutzen denselben Kanal eines Geräts, oder eine Adresse passt nicht zum Domotik-System.",
+          "remediation": "Wählen Sie unter Gesteuert von ein vorhandenes Gerät, geben Sie jeder Verbindung einen eigenen Kanal oder korrigieren Sie die Adresse."
+        },
         "converter-backup-labels": {
           "shortTitle": "Etikett auf der Notstromversorgung fehlt",
           "message": "Ein Hinweis auf die Back-up-Funktion mit einem Etikett",
@@ -1984,6 +2039,20 @@
       "duplicatePanelProtectionLabels": {
         "message": "Die Schutzgerätebezeichnung „{{label}}“ kommt in diesem Verteiler {{count}}-mal vor",
         "details": "Doppelte Schutzgerätebezeichnungen im selben Verteiler (Hauptsammelschiene, Unterverteilungsschiene oder Einspeisung) erschweren die Zuordnung der Stromkreise. Ändern Sie eine Bezeichnung oder aktivieren Sie die automatische Benennung."
+      },
+      "controlLinkIntegrity": {
+        "dangling": {
+          "message": "{{endpoint}} wird von einem nicht mehr vorhandenen Gerät gesteuert",
+          "details": "Wählen Sie unter Gesteuert von ein anderes Gerät oder löschen Sie die Verknüpfung."
+        },
+        "duplicateChannel": {
+          "message": "{{count}} Verbindungen an {{device}} verwenden Kanal {{channel}}",
+          "details": "Jeder Ein- oder Ausgangskanal eines Geräts kann nur einmal verwendet werden. Geben Sie jeder Verbindung einen eigenen Kanal."
+        },
+        "invalidAddress": {
+          "message": "{{endpoint}} an {{device}}: Adresse {{address}} passt nicht zu diesem System",
+          "details": "Geben Sie die Adresse in der Schreibweise des gewählten Domotik-Systems ein oder ändern Sie das System."
+        }
       },
       "converterBackupLabels": {
         "protection": {
@@ -2385,6 +2454,7 @@
     "paste": "Einfügen",
     "delete": "Löschen",
     "deleteAll": "Alle löschen",
+    "resetCardPosition": "Kartenposition zurücksetzen",
     "assignToCircuit": "Stromkreis zuweisen",
     "alignLeft": "Links ausrichten",
     "alignRight": "Rechts ausrichten",
@@ -3048,5 +3118,19 @@
     "allBoards": "Alle Verteiler",
     "issuesOnly": "Nur zu prüfende Module",
     "hideRelays": "Relais ausblenden"
+  },
+  "trikMerge": {
+    "floors": "Etagen",
+    "floorsMatch": "Zu bestehenden Etagen hinzufügen",
+    "floorsAppend": "Als neue Etagen hinzufügen",
+    "feed": "Versorgt von",
+    "feedSupply": "Hauptversorgung",
+    "add": "Hinzufügen",
+    "error": "Die TRiK-Datei konnte nicht hinzugefügt werden."
+  },
+  "wheelBehaviorHint": {
+    "question": "Nutzen Sie ein Touchpad?",
+    "usePan": "Zum Verschieben scrollen",
+    "dismiss": "Schließen"
   }
 }

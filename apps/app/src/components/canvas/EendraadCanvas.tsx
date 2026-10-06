@@ -45,6 +45,12 @@ import { NoteSymbol } from './eendraad/NoteSymbol'
 import { SYMBOL_SIZE } from './eendraad/canvasSymbols'
 import { CanvasPanOrClickProvider } from './eendraad/CanvasPanOrClickProvider'
 import { ConverterResizeViewportContext } from './eendraad/ConverterResizeViewportContext'
+import { MetadataCalloutDragContext } from './eendraad/MetadataCalloutDragContext'
+import {
+  getStoredMetadataCalloutOffset,
+  setMetadataCalloutOffset,
+  type MetadataCalloutOwnerRef,
+} from '@/handlers/eendraad/metadataCalloutOffset'
 import { linkedSubPanelDisplayNamesForProtectionIds } from '@/lib/panel/linkedSubPanelDeleteWarning'
 import { createLinkedProtectionDeleteDialog } from '@/lib/panel/linkedProtectionDeleteDialog'
 import { panelHasModularChangeover } from '@/lib/panel/panelFeedOrganization'
@@ -6038,9 +6044,49 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
         exitDateMarkingMode()
         return []
       }
-      return handleGetContextMenuItems(position, elementId)
+      const items = handleGetContextMenuItems(position, elementId)
+      if (!canEditProject || !canDragItems) return items
+      // Dragged metadata cards can return to automatic placement. Card owners are
+      // part of the card's selection, so check the selection and the hit element.
+      const { getEndpointById, getTrunkDeviceById } = useProjectStore.getState()
+      const candidateIds = new Set([
+        ...useUIStore.getState().selection.ids,
+        ...(elementId ? [elementId] : []),
+      ])
+      const movedOwners = [...candidateIds].flatMap((id): MetadataCalloutOwnerRef[] => {
+        const owner: MetadataCalloutOwnerRef | null = getEndpointById(id)
+          ? { type: 'endpoint', id }
+          : getTrunkDeviceById(id)
+            ? { type: 'trunkDevice', id }
+            : null
+        return owner && getStoredMetadataCalloutOffset(owner) ? [owner] : []
+      })
+      if (movedOwners.length === 0) return items
+      const resetItem: ContextMenuItem = {
+        label: t('contextMenu.resetCardPosition'),
+        onClick: () =>
+          withSingleUndoEntry(() => {
+            movedOwners.forEach((owner) => setMetadataCalloutOffset(owner, null))
+            return true
+          }),
+      }
+      const firstDangerIndex = items.findIndex((item) => item.variant === 'danger')
+      if (firstDangerIndex < 0) return [...items, resetItem]
+      const insertIndex =
+        firstDangerIndex > 0 && items[firstDangerIndex - 1]?.separator
+          ? firstDangerIndex - 1
+          : firstDangerIndex
+      return [...items.slice(0, insertIndex), resetItem, ...items.slice(insertIndex)]
     },
-    [eendraadDateMarkingMode, exitDateMarkingMode, handleGetContextMenuItems]
+    [
+      canDragItems,
+      canEditProject,
+      eendraadDateMarkingMode,
+      exitDateMarkingMode,
+      handleGetContextMenuItems,
+      t,
+      withSingleUndoEntry,
+    ]
   )
 
   const handleAddElementSelect = useCallback(
@@ -6393,9 +6439,11 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
         >
           <Group name="canvas-content">
             <ConverterResizeViewportContext.Provider value={resizeConverterWithViewportAnchor}>
-              <CanvasPanOrClickProvider onBeginPan={beginInteractiveOverlayPan}>
-                {normalScene}
-              </CanvasPanOrClickProvider>
+              <MetadataCalloutDragContext.Provider value={canEditProject && canDragItems}>
+                <CanvasPanOrClickProvider onBeginPan={beginInteractiveOverlayPan}>
+                  {normalScene}
+                </CanvasPanOrClickProvider>
+              </MetadataCalloutDragContext.Provider>
             </ConverterResizeViewportContext.Provider>
 
             {/* Preview overlay: show only the changed circuits and wires for the current drag preview. */}

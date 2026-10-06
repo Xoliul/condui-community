@@ -210,7 +210,10 @@ A circuit terminal-strip occurrence may persist `terminalStripPanelId`, identify
 physical panel-canvas frame that contains the strip. This value is independent from the
 occurrence's circuit and one-wire ownership. Occurrences with the same `junctionIdentity`
 represent one physical strip and move together; missing values retain the historical
-behavior of showing the strip on its circuit-owning panel.
+behavior of showing the strip on its circuit-owning panel. A strip stored as an endpoint
+(`symbol: "terminal_strip"`) may persist the same `terminalStripPanelId` on the endpoint; it
+moves together with trunk-device occurrences of the same `junctionIdentity`, but has no
+auxiliary-enclosure mounting.
 
 Panel label editing is module-owned rather than slot-owned. Protection devices, endpoints,
 and trunk devices may contain an optional `labelNotes` string and optional `panelLabel`
@@ -322,6 +325,11 @@ same archive: the ZIP importer removes only those dangling handoff records and t
 graph-only handoff nodes/connections, then reports the repaired handoff count to the
 user. The original archive is not modified, and all surviving project data remains
 available for import.
+
+An endpoint or trunk device may persist `metadataCalloutOffset` as `{ "x": number, "y": number }`:
+the user-dragged top-left corner of its one-wire metadata card, relative to the rendered
+centre of that symbol. A card shared by several identical targets stores it on its first
+target. Missing or malformed values use automatic card placement.
 
 Supply changeovers may persist independent `changeoverProps.port1Label` and
 `changeoverProps.port2Label` display text. Their visibility uses the device's generic

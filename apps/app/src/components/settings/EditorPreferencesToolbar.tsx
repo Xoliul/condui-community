@@ -1,13 +1,7 @@
 import { LANGUAGE_OPTIONS } from '@/utils/languageRouting'
-import { startTransition } from 'react'
 import { useTranslation } from 'react-i18next'
-import i18n from '@/i18n'
+import { switchEditorLanguage } from '@/lib/preferences/switchEditorLanguage'
 import { useSettingsStore } from '@/stores/settingsStore'
-import {
-  buildPathForLanguageForHostname,
-  normalizeSupportedLanguage,
-  stripLanguagePrefixFromPath,
-} from '@/utils/languageRouting'
 import { ThemeToggleButton } from './ThemeToggleButton'
 
 
@@ -15,29 +9,8 @@ import { ThemeToggleButton } from './ThemeToggleButton'
 export function EditorPreferencesToolbar() {
   const { t } = useTranslation()
   const language = useSettingsStore((state) => state.language)
-  const setLanguage = useSettingsStore((state) => state.setLanguage)
 
-  const changeLanguage = (value: string) => {
-    const nextLanguage = normalizeSupportedLanguage(value) ?? 'nl-BE'
-    setLanguage(nextLanguage)
-    startTransition(() => {
-      void i18n.changeLanguage(nextLanguage)
-    })
-
-    if (typeof window === 'undefined') return
-    const pathWithoutLanguage = stripLanguagePrefixFromPath(window.location.pathname)
-    const nextPath = buildPathForLanguageForHostname(
-      pathWithoutLanguage,
-      nextLanguage,
-      window.location.hostname,
-    )
-    window.history.replaceState(
-      window.history.state,
-      '',
-      `${nextPath}${window.location.search}${window.location.hash}`,
-    )
-    window.dispatchEvent(new PopStateEvent('popstate'))
-  }
+  const changeLanguage = switchEditorLanguage
 
   return (
     <div className="inline-flex items-center gap-2">

@@ -1,4 +1,5 @@
 import { getVisibleCertificationLabelParts } from '@/lib/certificationLabels'
+import { getEndpointBranchLabelPrefix } from '@/lib/eendraad/automaticEndpointBranchNaming'
 import { getVisibleConversionLabelParts, getVisibleEndpointNoteText } from '@/lib/conversionLabels'
 import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
 import { isSymbolLabelVisible } from '@/lib/symbolLabels'
@@ -7,6 +8,10 @@ import {
   getMetadataCalloutGroups,
   getMetadataCalloutWidth,
 } from '@/lib/metadataCalloutGrouping'
+import {
+  getMetadataCalloutOffset,
+  getMetadataCalloutRectAtOffset,
+} from '@/lib/metadataCalloutOffset'
 import {
   getSupplyMetadataCalloutGroupPlacements,
   getSupplyMetadataCalloutLeaderPoints,
@@ -26,7 +31,12 @@ import {
 } from './circuitConverterGeometry'
 
 const LEADER_SYMBOL_CLEARANCE = 0.5
+/** Matches the right-aligned output row label drawn left of the converter anchor in layoutTree. */
+const OUTPUT_LABEL_OFFSET = 20
+const OUTPUT_LABEL_FONT_SIZE = 12
 const CONVERTER_METADATA_CARD_GAP = 3
+/** Space between the rightmost symbol of a converter's output chains and its card column. */
+const CONVERTER_METADATA_COLUMN_GAP = 12
 const BRANCH_CONVERSION_SYMBOLS = new Set([
   'transformer',
   'rectifier',
@@ -184,9 +194,19 @@ export function getBranchConverterMetadataCallouts({
   })
 
   return new Map(
-    candidates.flatMap(({ endpoint, width, height, multiplier }) => {
-      const placement = placements.get(endpoint.id)
-      if (!placement) return []
+    candidates.flatMap(({ endpoint, position, width, height, multiplier }) => {
+      const automaticPlacement = placements.get(endpoint.id)
+      if (!automaticPlacement) return []
+      // A user-dragged card keeps its stored offset; the leader is re-solved below.
+      const userOffset = getMetadataCalloutOffset(endpoint)
+      const placement = userOffset
+        ? {
+            ...automaticPlacement,
+            x: userOffset.x,
+            y: userOffset.y,
+            rect: getMetadataCalloutRectAtOffset(position, userOffset, width, height),
+          }
+        : automaticPlacement
       const leaderPoints = getSupplyMetadataCalloutLeaderPoints({
         placement: { x: placement.x, y: placement.y },
         width,
@@ -257,23 +277,6 @@ function rectsOverlap(
   )
 }
 
-function segmentOverlapsRect(
-  segment: SupplyMetadataCalloutSegment,
-  rect: SupplyMetadataCalloutRect,
-  clearance = 0
-): boolean {
-  const left = Math.min(segment.startPoint.x, segment.endPoint.x)
-  const right = Math.max(segment.startPoint.x, segment.endPoint.x)
-  const top = Math.min(segment.startPoint.y, segment.endPoint.y)
-  const bottom = Math.max(segment.startPoint.y, segment.endPoint.y)
-  return !(
-    right + clearance <= rect.left ||
-    left >= rect.right + clearance ||
-    bottom + clearance <= rect.top ||
-    top >= rect.bottom + clearance
-  )
-}
-
 function getSegmentRectInterval(
   segment: [number, number, number, number],
   rect: SupplyMetadataCalloutRect
@@ -300,6 +303,53 @@ function getSegmentRectInterval(
     if (start > end) return null
   }
   return [start, end]
+}
+
+/**
+ * One-dimensional label stacking: every card wants to be centred on its target height; cards
+ * that would overlap are merged into a group that is centred on its targets as a whole, so the
+ * offset is shared evenly instead of pushing every later card down.
+ */
+export function stackCardsNearTargets(
+  cards: Array<{ id: string; height: number; targetY: number }>,
+  gap: number
+): Map<string, number> {
+  type Group = { items: typeof cards; top: number; height: number }
+  const groups: Group[] = []
+  for (const card of [...cards].sort((left, right) => left.targetY - right.targetY)) {
+    let group: Group = {
+      items: [card],
+      top: card.targetY - card.height / 2,
+      height: card.height,
+    }
+    // Merge backwards while the new group overlaps the previous one.
+    while (groups.length > 0) {
+      const previous = groups[groups.length - 1]!
+      if (previous.top + previous.height + gap <= group.top) break
+      groups.pop()
+      const items = [...previous.items, ...group.items]
+      const height = previous.height + gap + group.height
+      // Each item's desired top relative to the group top; centre the group on their mean.
+      let offsetWithinGroup = 0
+      const desiredGroupTops = items.map((item) => {
+        const desired = item.targetY - item.height / 2 - offsetWithinGroup
+        offsetWithinGroup += item.height + gap
+        return desired
+      })
+      const top = desiredGroupTops.reduce((total, value) => total + value, 0) / items.length
+      group = { items, top, height }
+    }
+    groups.push(group)
+  }
+  const tops = new Map<string, number>()
+  for (const group of groups) {
+    let top = group.top
+    for (const item of group.items) {
+      tops.set(item.id, top)
+      top += item.height + gap
+    }
+  }
+  return tops
 }
 
 export function clipCircuitConverterMetadataLeaderBehindRects(
@@ -393,6 +443,21 @@ export function getCircuitConverterMetadataCallouts({
       endpointIndex,
     }))
     segments.push({ startPoint: port, endPoint: { x: port.x, y: rowY } })
+    if (outputIndex === 0 || endpoints.length > 0) {
+      // Output row labels (A1, A2, ...) sit left of the anchor; cards must not cover them.
+      const labelRight = anchor.x - OUTPUT_LABEL_OFFSET + 2
+      const labelWidth = measureSymbolLabelTextWidth(
+        `${getEndpointBranchLabelPrefix(circuit)}${outputIndex + 1}`,
+        'Figtree',
+        OUTPUT_LABEL_FONT_SIZE
+      )
+      symbolRects.push({
+        left: labelRight - labelWidth - 2,
+        top: rowY - OUTPUT_LABEL_FONT_SIZE,
+        right: labelRight,
+        bottom: rowY + 4,
+      })
+    }
     if (positions.length > 1) {
       segments.push({
         startPoint: { x: port.x, y: rowY },
@@ -570,43 +635,70 @@ export function getCircuitConverterMetadataCallouts({
   // Search nearby Y positions before moving farther right; the circuit envelope
   // consumes the chosen rectangles and moves neighboring trunks out of the way.
   const occupiedCardRects: SupplyMetadataCalloutRect[] = []
+  // User-dragged cards are fixed obstacles: apply their stored offset (relative
+  // to the first target) before the remaining automatic side cards are solved.
+  const userPlacedTargetIds = new Set<string>()
   for (const candidate of candidates) {
     const placement = placements.get(candidate.targetId)
     if (!placement) continue
-    if (candidate.preferSide) {
-      const sideX = candidate.targetWidth / 2 + 4
-      const centeredY = -candidate.height / 2
-      const staggerY = candidate.targetId === device.id ? 0 : (candidate.outputIndex - 2) * 6
-      const yOffsets = [staggerY, staggerY + 12, staggerY - 12, staggerY + 24, staggerY - 24]
-      const xOffsets = [0, 12, 24, 36, 48]
-      const nearbyCandidates = xOffsets.flatMap((xOffset) =>
-        yOffsets.map((yOffset) => ({ x: sideX + xOffset, y: centeredY + yOffset }))
+    const offsetOwner =
+      candidate.targetId === device.id
+        ? device
+        : circuit.endpoints.find((endpoint) => endpoint.id === candidate.targetId)
+    const userOffset = getMetadataCalloutOffset(offsetOwner)
+    if (!userOffset) continue
+    const owner = candidate.targets[0] as MetadataTarget
+    placement.rect = getMetadataCalloutRectAtOffset(
+      owner,
+      userOffset,
+      candidate.width,
+      candidate.height
+    )
+    placement.x = placement.rect.left - candidate.x
+    placement.y = placement.rect.top - candidate.y
+    userPlacedTargetIds.add(candidate.targetId)
+    occupiedCardRects.push(placement.rect)
+  }
+  // Automatic cards form one column right of the converter and its output chains, each
+  // card as close as possible to the height of its own target(s), stacked top to bottom
+  // without overlap. Dragged cards stay where the user put them; the stack steps around them.
+  const columnLeft =
+    Math.max(geometry.right, ...symbolRects.map((rect) => rect.right)) + CONVERTER_METADATA_COLUMN_GAP
+  const columnRectAt = (candidate: (typeof candidates)[number], top: number) => ({
+    left: columnLeft,
+    top,
+    right: columnLeft + candidate.width,
+    bottom: top + candidate.height,
+  })
+  // Stack every card as if none were dragged, so dragging one card does not reflow the rest.
+  const stackedTopById = stackCardsNearTargets(
+    candidates
+      .filter((candidate) => placements.has(candidate.targetId))
+      .map((candidate) => ({
+        id: candidate.targetId,
+        height: candidate.height,
+        targetY:
+          candidate.targets.reduce((total, target) => total + target.y, 0) / candidate.targets.length,
+      })),
+    CONVERTER_METADATA_CARD_GAP
+  )
+  // Automatic cards keep their stacked spot unless a dragged card now covers it.
+  const automaticCandidates = candidates
+    .filter((candidate) => !userPlacedTargetIds.has(candidate.targetId) && stackedTopById.has(candidate.targetId))
+    .sort((left, right) => stackedTopById.get(left.targetId)! - stackedTopById.get(right.targetId)!)
+  for (const candidate of automaticCandidates) {
+    const placement = placements.get(candidate.targetId)!
+    let top = stackedTopById.get(candidate.targetId)!
+    for (let guard = 0; guard <= occupiedCardRects.length; guard += 1) {
+      const blocking = occupiedCardRects.find((rect) =>
+        rectsOverlap(columnRectAt(candidate, top), rect, CONVERTER_METADATA_CARD_GAP)
       )
-      const chosen =
-        nearbyCandidates.find((position) => {
-          const rect = {
-            left: candidate.x + position.x,
-            top: candidate.y + position.y,
-            right: candidate.x + position.x + candidate.width,
-            bottom: candidate.y + position.y + candidate.height,
-          }
-          return (
-            !symbolRects.some((symbolRect) => rectsOverlap(rect, symbolRect)) &&
-            !segments.some((segment) => segmentOverlapsRect(segment, rect, 2)) &&
-            !occupiedCardRects.some((cardRect) =>
-              rectsOverlap(rect, cardRect, CONVERTER_METADATA_CARD_GAP)
-            )
-          )
-        }) ?? nearbyCandidates.at(-1)!
-      placement.x = chosen.x
-      placement.y = chosen.y
-      placement.rect = {
-        left: candidate.x + chosen.x,
-        top: candidate.y + chosen.y,
-        right: candidate.x + chosen.x + candidate.width,
-        bottom: candidate.y + chosen.y + candidate.height,
-      }
+      if (!blocking) break
+      top = blocking.bottom + CONVERTER_METADATA_CARD_GAP
     }
+    placement.rect = columnRectAt(candidate, top)
+    placement.x = placement.rect.left - candidate.x
+    placement.y = placement.rect.top - candidate.y
     occupiedCardRects.push(placement.rect)
   }
 

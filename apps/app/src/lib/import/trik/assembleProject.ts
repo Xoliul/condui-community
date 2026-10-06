@@ -10,6 +10,8 @@ import type { PlanGraphicElement } from '@/types/schema'
 import { generateId, validateProjectStructure } from '@/utils/project'
 import { createLegacyEmptyProject } from '@/lib/import/createLegacyEmptyProject'
 import { buildFigureAsset } from '@/lib/import/trik/planAssets'
+import { linkTrikControlAddresses } from '@/lib/import/trik/linkControlAddresses'
+import { getEditableProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { buildFloorPlan } from '@/lib/import/trik/planGeometry'
 import {
   collectGroundInfo,
@@ -20,6 +22,7 @@ import {
   parseFigures,
   parseTrikGrondplanPages,
   parseTrikMetadata,
+  parseTrikPlacedDeviceNotes,
   parseTrikSitplanNotes,
   parseVectorLines,
   parseVectorRects,
@@ -127,6 +130,7 @@ export async function importProjectFromTrikLocal(file: File): Promise<ProjectV2>
 
   const grondplanPages = parseTrikGrondplanPages(doc)
   const pendingTrikSitplanNotes = parseTrikSitplanNotes(doc)
+  const placedTrikDeviceNotes = parseTrikPlacedDeviceNotes(doc)
   project.floors = grondplanPages.map((page, index) => ({
     id: index === 0 ? defaultFloorId : generateId(),
     name: resolveTrikGrondplanFloorName(page, index, pendingTrikSitplanNotes),
@@ -304,7 +308,10 @@ export async function importProjectFromTrikLocal(file: File): Promise<ProjectV2>
       floor.planImageOffset = importedFigureAsset.offset
     }
 
-    applyTrikSitplanNotes(project, floor.id, page.planNodes, pendingTrikSitplanNotes)
+    applyTrikSitplanNotes(project, floor.id, page.planNodes, [
+      ...pendingTrikSitplanNotes,
+      ...placedTrikDeviceNotes,
+    ])
   }
   // Rebuild topology from imported legacy supply fields so shared-feed cable/devices stay in sync.
   project.installation.feedTopology = undefined
@@ -319,6 +326,7 @@ export async function importProjectFromTrikLocal(file: File): Promise<ProjectV2>
   project.project.updatedAt = importedAt
 
   const normalized = normalizeStoredProjectToV2(project)
+  linkTrikControlAddresses(getEditableProjectElectricalPanels(normalized))
   const electricalDevices = normalized.disciplines.electrical?.devices ?? []
   const panelsNeedingDevices: Array<{ id: string; name: string; pos: { x: number; y: number } }> = []
   const collectPanelsNeedingDevices = (

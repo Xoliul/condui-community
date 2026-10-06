@@ -13,6 +13,7 @@ import {
   useSetSelection,
 } from '@/editions/community/communityHooks'
 import { useThemeColors } from '@/lib/theme/hooks'
+import { useInfoBlockLogoImage } from '@/hooks/eendraad/useInfoBlockLogoImage'
 import {
   getFrameColor,
   getTextColor,
@@ -41,9 +42,9 @@ import {
   formatInspectionAgencyDetails,
   formatInstallerAddress,
   getInfoBlockColumnPositions,
+  getInfoBlockColumns,
   getInfoBlockTotalWidth,
   getVoltageLabel,
-  isInspectionAgencyInfoBlockVisible,
 } from '@/lib/infoBlockLayout'
 import {
   getProjectElectricalInstallation,
@@ -103,7 +104,7 @@ export function InfoBlock({
   const textColor = getTextColor(isDark)
   const secondaryColor = getSecondaryTextColor(isDark)
 
-  const [logoImage, setLogoImage] = useState<HTMLImageElement | null>(null)
+  const logoImage = useInfoBlockLogoImage(profile?.logoDataUrl)
   const [signatureImage, setSignatureImage] = useState<HTMLImageElement | null>(null)
   const installerNameRef = useRef<Konva.Text>(null)
   const [installerNameHeight, setInstallerNameHeight] = useState(INFO_BLOCK_BODY_LINE_HEIGHT)
@@ -136,19 +137,6 @@ export function InfoBlock({
     },
     []
   )
-
-  useEffect(() => {
-    if (!profile?.logoDataUrl) {
-      setLogoImage(null)
-      return
-    }
-    const img = new window.Image()
-    img.onload = () => setLogoImage(img)
-    img.src = profile.logoDataUrl
-    return () => {
-      img.src = ''
-    }
-  }, [profile?.logoDataUrl])
 
   useEffect(() => {
     if (!profile?.signatureDataUrl) {
@@ -192,11 +180,11 @@ export function InfoBlock({
   const headerInstallation = t('infoBlock.headerInstallation', 'Installation address')
   const headerInstaller = t('infoBlock.headerInstaller', 'Installer')
   const headerInspectionAgency = t('project.inspectionAgency', 'Inspection agency')
-  const showInspectionAgency = isInspectionAgencyInfoBlockVisible(project)
+  const columns = getInfoBlockColumns(project, { hasLogo: logoImage != null })
   const inspectionAgency = project?.project?.inspectionAgency
   const inspectionAgencyDetails = formatInspectionAgencyDetails(inspectionAgency, countryLabel)
   const inspectionAgencyCompanyNumber = inspectionAgency?.companyNumber?.trim() ?? ''
-  const infoBlockWidth = getInfoBlockTotalWidth(showInspectionAgency)
+  const infoBlockWidth = getInfoBlockTotalWidth(columns)
 
   const isSelected = (id: InfoBlockBoxId) =>
     id === 'installer' ? installerSelected : id === 'address' ? addressSelected : eanSelected
@@ -212,8 +200,9 @@ export function InfoBlock({
     [interactive, setSelection]
   )
 
-  const columnPositions = getInfoBlockColumnPositions(showInspectionAgency)
+  const columnPositions = getInfoBlockColumnPositions(columns)
   const inspectionAgencyBoxX = columnPositions.inspectionAgency
+  const logoBoxX = columnPositions.logo
   const installerBoxX = columnPositions.installer
   const addressBoxX = columnPositions.address
   const generalBoxX = columnPositions.general
@@ -233,16 +222,25 @@ export function InfoBlock({
   const col3Right = generalBoxX + INFO_BLOCK_BOX_WIDTHS.general
 
   const halfImageHeight = INFO_BLOCK_IMAGE_AREA_HEIGHT / 2
-  const logoY = INFO_BLOCK_PADDING + INFO_BLOCK_INSTALLER_TOP_HEIGHT
-  const signatureY = logoY + halfImageHeight
+  const imageAreaY = INFO_BLOCK_PADDING + INFO_BLOCK_INSTALLER_TOP_HEIGHT
+  const signatureY = imageAreaY + halfImageHeight
   const mediaBoxWidth = 50
   const mediaBoxX =
     installerBoxX + INFO_BLOCK_BOX_WIDTHS.installer - INFO_BLOCK_PADDING - mediaBoxWidth
   const installerTextWidth =
     INFO_BLOCK_BOX_WIDTHS.installer -
     INFO_BLOCK_PADDING * 2 -
-    (logoImage || signatureImage ? mediaBoxWidth + INFO_BLOCK_PADDING : 0)
-  const logoRect = fitImageInBox(logoImage, mediaBoxWidth, halfImageHeight, mediaBoxX, logoY)
+    (signatureImage ? mediaBoxWidth + INFO_BLOCK_PADDING : 0)
+  const logoRect =
+    logoBoxX != null
+      ? fitImageInBox(
+          logoImage,
+          INFO_BLOCK_BOX_WIDTHS.logo - INFO_BLOCK_PADDING * 2,
+          INFO_BLOCK_HEIGHT - INFO_BLOCK_PADDING * 2,
+          logoBoxX + INFO_BLOCK_PADDING,
+          INFO_BLOCK_PADDING
+        )
+      : null
   const signatureRect = fitImageInBox(
     signatureImage,
     mediaBoxWidth,
@@ -379,6 +377,32 @@ export function InfoBlock({
         </Group>
       )}
 
+      {/* Logo column when the effective installer profile includes an uploaded logo */}
+      {logoBoxX != null && logoRect && logoImage && (
+        <Group>
+          {interactive && (
+            <Rect
+              x={logoBoxX}
+              y={0}
+              width={INFO_BLOCK_BOX_WIDTHS.logo}
+              height={INFO_BLOCK_HEIGHT}
+              fill="transparent"
+              listening={true}
+              onClick={(ev) => handleBoxClick(ev, 'installer')}
+              onTap={(ev) => handleBoxClick(ev, 'installer')}
+            />
+          )}
+          <Image
+            image={logoImage}
+            x={logoRect.x}
+            y={logoRect.y}
+            width={logoRect.width}
+            height={logoRect.height}
+            listening={false}
+          />
+        </Group>
+      )}
+
       {/* Installer column */}
       <Group>
         {/* Header + underline */}
@@ -458,18 +482,7 @@ export function InfoBlock({
           wrap="word"
           lineHeight={installeradressLineHeight}
         />
-        {/* Logo (right side, half height) */}
-        {logoImage && (
-          <Image
-            image={logoImage}
-            x={logoRect.x}
-            y={logoRect.y}
-            width={logoRect.width}
-            height={logoRect.height}
-            listening={false}
-          />
-        )}
-        {/* Signature (below logo, half height) */}
+        {/* Signature (right side, lower half of the image area) */}
         {signatureImage && (
           <Image
             image={signatureImage}

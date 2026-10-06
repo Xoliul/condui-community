@@ -8,6 +8,7 @@
  *   INFO_BLOCK_BOX_WIDTHS.installer — width of left column (Installer)
  *   INFO_BLOCK_BOX_WIDTHS.address   — width of middle column (Installation address)
  *   INFO_BLOCK_BOX_WIDTHS.general   — width of right column (view title, date, voltage, EAN)
+ *   INFO_BLOCK_BOX_WIDTHS.inspectionAgency / .logo — optional columns (see InfoBlockColumns)
  *   (Total width = installer + address + general + 2× INFO_BLOCK_GAP.)
  *   INFO_BLOCK_INSTALLER_TOP_HEIGHT — height of name+address block in installer column
  *   INFO_BLOCK_IMAGE_AREA_HEIGHT    — height of logo+signature area
@@ -44,6 +45,8 @@ import { getVoltageSummaryLabel } from '@/utils/voltageLabel'
 /** Column widths (px). Change these to resize columns; total frame width is derived automatically. */
 export const INFO_BLOCK_BOX_WIDTHS = {
   inspectionAgency: 150,
+  /** Installer logo, shown left of the installer column when the effective profile includes one. */
+  logo: 110,
   installer: 150,
   address: 120,
   general: 120,
@@ -78,11 +81,22 @@ export const INFO_BLOCK_TOTAL_WIDTH =
   INFO_BLOCK_BOX_WIDTHS.general +
   INFO_BLOCK_GAP * 2
 
-export function getInfoBlockTotalWidth(showInspectionAgency = false): number {
+/** Optional columns that widen the info block. Layout, canvas and export must agree. */
+export type InfoBlockColumns = {
+  inspectionAgency?: boolean
+  logo?: boolean
+}
+
+export function getInfoBlockTotalWidth(columns: InfoBlockColumns = {}): number {
   return (
     INFO_BLOCK_TOTAL_WIDTH +
-    (showInspectionAgency ? INFO_BLOCK_BOX_WIDTHS.inspectionAgency + INFO_BLOCK_GAP : 0)
+    (columns.inspectionAgency ? INFO_BLOCK_BOX_WIDTHS.inspectionAgency + INFO_BLOCK_GAP : 0) +
+    (columns.logo ? INFO_BLOCK_BOX_WIDTHS.logo + INFO_BLOCK_GAP : 0)
   )
+}
+
+export function hasOptionalInfoBlockColumns(columns: InfoBlockColumns = {}): boolean {
+  return columns.inspectionAgency === true || columns.logo === true
 }
 
 export function isInspectionAgencyInfoBlockVisible(project: unknown): boolean {
@@ -92,25 +106,42 @@ export function isInspectionAgencyInfoBlockVisible(project: unknown): boolean {
   )
 }
 
-export function getInfoBlockColumnPositions(showInspectionAgency = false): {
+/** Columns for a project; the logo column needs the caller's access-filtered installer profile. */
+export function getInfoBlockColumns(
+  project: unknown,
+  options: { hasLogo?: boolean } = {}
+): InfoBlockColumns {
+  return {
+    inspectionAgency: isInspectionAgencyInfoBlockVisible(project),
+    logo: options.hasLogo === true,
+  }
+}
+
+/** Column order, left to right: inspection agency, logo, installer, address, general. */
+export function getInfoBlockColumnPositions(columns: InfoBlockColumns = {}): {
   inspectionAgency: number | null
+  logo: number | null
   installer: number
   address: number
   general: number
   separators: number[]
 } {
-  const inspectionAgency = showInspectionAgency ? 0 : null
-  const installer = showInspectionAgency
-    ? INFO_BLOCK_BOX_WIDTHS.inspectionAgency + INFO_BLOCK_GAP
-    : 0
-  const address = installer + INFO_BLOCK_BOX_WIDTHS.installer + INFO_BLOCK_GAP
-  const general = address + INFO_BLOCK_BOX_WIDTHS.address + INFO_BLOCK_GAP
-  const separators = [
-    ...(showInspectionAgency ? [INFO_BLOCK_BOX_WIDTHS.inspectionAgency + INFO_BLOCK_GAP / 2] : []),
-    installer + INFO_BLOCK_BOX_WIDTHS.installer + INFO_BLOCK_GAP / 2,
-    address + INFO_BLOCK_BOX_WIDTHS.address + INFO_BLOCK_GAP / 2,
-  ]
-  return { inspectionAgency, installer, address, general, separators }
+  const separators: number[] = []
+  let cursor = 0
+  const place = (width: number): number => {
+    const x = cursor
+    cursor += width + INFO_BLOCK_GAP
+    separators.push(cursor - INFO_BLOCK_GAP / 2)
+    return x
+  }
+  const inspectionAgency = columns.inspectionAgency
+    ? place(INFO_BLOCK_BOX_WIDTHS.inspectionAgency)
+    : null
+  const logo = columns.logo ? place(INFO_BLOCK_BOX_WIDTHS.logo) : null
+  const installer = place(INFO_BLOCK_BOX_WIDTHS.installer)
+  const address = place(INFO_BLOCK_BOX_WIDTHS.address)
+  const general = cursor
+  return { inspectionAgency, logo, installer, address, general, separators }
 }
 
 /** Height-building blocks (px). Adjust to change total frame height. */
@@ -130,12 +161,12 @@ export const INFO_BLOCK_HEIGHT = INFO_BLOCK_INSTALLER_HEIGHT
 export const INFO_BLOCK_FRAME_MARGIN = 10
 
 /** Minimum panel frame width/height so the info block fits inside. Use in layout for dynamic min size. */
-export function getInfoBlockMinFrameSize(showInspectionAgency = false): {
+export function getInfoBlockMinFrameSize(columns: InfoBlockColumns = {}): {
   minWidth: number
   minHeight: number
 } {
   return {
-    minWidth: getInfoBlockTotalWidth(showInspectionAgency) + INFO_BLOCK_FRAME_MARGIN * 2,
+    minWidth: getInfoBlockTotalWidth(columns) + INFO_BLOCK_FRAME_MARGIN * 2,
     minHeight: INFO_BLOCK_HEIGHT + INFO_BLOCK_FRAME_MARGIN * 2,
   }
 }

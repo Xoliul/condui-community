@@ -15,6 +15,7 @@ import {
 import type { Branch, Circuit, Endpoint, Panel, TrunkDevice } from '@/types/schema'
 import type { Selection } from '@/types/ui'
 import { generateId } from '@/utils'
+import { clearDuplicatedControlChannel } from '@/lib/controlLink/duplicateAddress'
 import { useProjectStore } from '@/stores/projectStore'
 import { useUIStore } from '@/stores/uiStore'
 import {
@@ -164,7 +165,7 @@ function cloneBranchEndpointForDuplicate(
     }
   }
   clone.domoticaChildProps = undefined
-  return clone
+  return clearDuplicatedControlChannel(clone)
 }
 
 function duplicateDcBusBranchSuffix(

@@ -358,6 +358,18 @@ export const beAreiBook1_2025: RulePack = {
       tags: ['naming', 'panel', 'consistency'],
     },
     {
+      id: 'be.areibook1.2025.control-link-integrity',
+      title: 'Control links and addresses',
+      severity: 'warning',
+      appliesTo: ['board'],
+      checks: [{ name: 'controlLinkIntegrity' }],
+      message: 'validation.rules.be.areibook1.2025.control-link-integrity.message',
+      details: 'validation.rules.be.areibook1.2025.control-link-integrity.details',
+      remediation: 'validation.rules.be.areibook1.2025.control-link-integrity.remediation',
+      citations: [],
+      tags: ['domotica', 'control-link', 'documentation'],
+    },
+    {
       id: 'be.areibook1.2025.converter-backup-labels',
       title: 'Backup-supply labels',
       severity: 'error',

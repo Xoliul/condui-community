@@ -8,6 +8,13 @@ import { pwaManifest } from './pwa.config.mjs'
 
 const repoRoot = path.resolve(import.meta.dirname, '../..')
 const appRoot = import.meta.dirname
+const { resolveAppBuildCommit, resolveAppBuildDate } = createRequire(import.meta.url)(
+  './scripts/resolve-app-build-commit.cjs',
+) as {
+  resolveAppBuildCommit: (cwd: string) => string
+  resolveAppBuildDate: (cwd: string, commit?: string) => string
+}
+const appBuildCommit = resolveAppBuildCommit(appRoot)
 
 /**
  * pdf.js decodes JBIG2/CCITT fax images, JPEG 2000, and ICC colour with WebAssembly modules it
@@ -219,6 +226,7 @@ function stripDisabledElectricalVisionScanSource(source: string): string {
 }
 
 const aliases = {
+  '@/components/import/TrikMergeMenuItem': './src/editions/community/communityTrikMergeMenuItem.tsx',
   '@/stores/wallScanStore': './src/editions/community/communityWallScan.tsx',
   './WallRecognitionControls': './src/editions/community/communityWallScan.tsx',
   './plan/WallScanReview': './src/editions/community/communityWallScan.tsx',
@@ -395,6 +403,10 @@ export default defineConfig({
       '@eendra/app-edition': path.resolve(repoRoot, 'packages/app-edition/src/index.ts'),
       '@eendra/ui': path.resolve(repoRoot, 'packages/ui/src'),
     },
+  },
+  define: {
+    'import.meta.env.VITE_APP_BUILD_COMMIT': JSON.stringify(appBuildCommit),
+    'import.meta.env.VITE_APP_BUILD_DATE': JSON.stringify(resolveAppBuildDate(appRoot, appBuildCommit)),
   },
   build: { sourcemap: false },
 })

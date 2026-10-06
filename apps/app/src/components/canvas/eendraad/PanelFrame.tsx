@@ -32,10 +32,11 @@ import {
   HOVER_OUTLINE_STROKE_PX_MAX,
 } from '@/constants/canvasConstants'
 import { InfoBlock, INFO_BLOCK_HEIGHT } from './InfoBlock'
+import { getDecodedInfoBlockLogo } from '@/lib/infoBlockLogoImage'
 import {
+  getInfoBlockColumns,
   getInfoBlockTotalWidth,
   INFO_BLOCK_FRAME_MARGIN,
-  isInspectionAgencyInfoBlockVisible,
 } from '@/lib/infoBlockLayout'
 import {
   buildPanelDiagramHeaderLines,
@@ -149,7 +150,11 @@ export function PanelFrame({ panelLayout, children }: PanelFrameProps) {
     HOVER_OUTLINE_DASH_PX_MAX
   )
   const explicitInfoBlock = panelLayout.layoutBlocks?.find((block) => block.kind === 'info-block')
-  const infoBlockWidth = getInfoBlockTotalWidth(isInspectionAgencyInfoBlockVisible(currentProject))
+  const infoBlockWidth =
+    explicitInfoBlock?.width ??
+    getInfoBlockTotalWidth(
+      getInfoBlockColumns(currentProject, { hasLogo: getDecodedInfoBlockLogo(profile?.logoDataUrl) != null })
+    )
   const infoBlockX = explicitInfoBlock?.x ?? fx + fw - infoBlockWidth - INFO_BLOCK_FRAME_MARGIN
   const infoBlockY = explicitInfoBlock?.y ?? fy + fh - INFO_BLOCK_HEIGHT - INFO_BLOCK_FRAME_MARGIN
 

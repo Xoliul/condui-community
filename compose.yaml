@@ -5,3 +5,9 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
+    # Optional: store projects, folders and the installer profile on this server.
+    # volumes:
+    #   - ./condui-data:/data
+    # Optional: required for access from outside your own network.
+    # environment:
+    #   CONDUI_PASSWORD: "choose-your-own-password"

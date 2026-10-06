@@ -3,6 +3,8 @@ import { createReadStream, existsSync, statSync } from 'node:fs'
 import { extname, join, normalize } from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
+import { createAccessGuard, sendAccessDenied, validateConfiguredPassword } from './access.mjs'
+import { handleStorageRequest, openStorage, resolveDataDirectory } from './storage.mjs'
 
 const require = createRequire(import.meta.url)
 const communityRoot = fileURLToPath(new URL('.', import.meta.url))
@@ -13,6 +15,15 @@ if (!host) {
   console.error('HOST must not be empty (use 127.0.0.1, localhost, 0.0.0.0, or an explicit IP).')
   process.exit(1)
 }
+
+const passwordCheck = validateConfiguredPassword(process.env.CONDUI_PASSWORD)
+if (!passwordCheck.ok) {
+  console.error(passwordCheck.reason)
+  process.exit(1)
+}
+const accessGuard = createAccessGuard({ password: passwordCheck.password })
+const dataDirectory = resolveDataDirectory()
+const storage = openStorage(dataDirectory)
 
 const conversionHandlers = new Map([
   ['/api/convert-pdf', '../netlify/functions-offline/convert-pdf.cjs'],
@@ -116,6 +127,14 @@ const server = createServer(async (request, response) => {
     return
   }
 
+  const access = accessGuard.check(request)
+  if (access !== 'allow') {
+    sendAccessDenied(response, access)
+    return
+  }
+
+  if (await handleStorageRequest(storage, request, response, url.pathname)) return
+
   const conversionModule = conversionHandlers.get(url.pathname)
   if (conversionModule) {
     await runConversion(request, response, conversionModule)
@@ -142,4 +161,14 @@ const server = createServer(async (request, response) => {
 
 server.listen(port, host, () => {
   console.log(`Condui Community listening on http://${host}:${port}`)
+  console.log(
+    storage
+      ? `Projects are stored on the server in ${dataDirectory}.`
+      : 'Projects are stored in each browser. Map a folder to /data to store them on the server.',
+  )
+  console.log(
+    accessGuard.requiresPassword
+      ? 'Access requires CONDUI_PASSWORD.'
+      : 'Only devices on this network can connect. Set CONDUI_PASSWORD to allow access from elsewhere.',
+  )
 })

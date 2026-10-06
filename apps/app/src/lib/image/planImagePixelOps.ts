@@ -107,6 +107,21 @@ export function detectWhitePageBackgroundFromRgba(
   return sideIsWhite('top') && sideIsWhite('right') && sideIsWhite('bottom') && sideIsWhite('left')
 }
 
+/**
+ * Dark-mode plan rendering: clear the white paper with the same mask as white-page removal,
+ * then invert what remains at its original opacity. Linework and grey fills stay solid (they
+ * hide the canvas grid); only the paper becomes transparent, whether or not a white page was
+ * detected for the plan.
+ */
+export function invertForDarkModeInPlace(
+  data: Uint8ClampedArray,
+  threshold: number = 240,
+  tolerance: number = 20,
+): void {
+  removeWhitePixelsInPlace(data, threshold, tolerance)
+  invertRgbInPlace(data)
+}
+
 export function invertRgbInPlace(data: Uint8ClampedArray): void {
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] === 0) continue

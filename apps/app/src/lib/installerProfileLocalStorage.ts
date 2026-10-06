@@ -69,7 +69,7 @@ function normalizeProfile(profile: InstallerProfile): InstallerProfile {
   }
 }
 
-function parseStoredRecord(raw: unknown): InstallerProfileLocalRecord | null {
+export function parseInstallerProfileLocalRecord(raw: unknown): InstallerProfileLocalRecord | null {
   if (!raw || typeof raw !== 'object') return null
 
   const value = raw as Record<string, unknown>
@@ -99,7 +99,7 @@ export async function readLocalInstallerProfileRecord(
   const key = installerProfileStorageKey(scopedUserId)
   const row = await db.settings.get(key)
   if (!row) return null
-  return parseStoredRecord(row.value)
+  return parseInstallerProfileLocalRecord(row.value)
 }
 
 export async function getLocalInstallerProfile(
@@ -119,23 +119,28 @@ export async function setLocalInstallerProfile(
   profile: InstallerProfile,
   scopedUserId: string | null | undefined,
 ): Promise<void> {
-  const normalized = normalizeProfile(profile)
-  const ownerUserId = scopedUserId ?? null
-
   await db.settings.put({
     key: installerProfileStorageKey(scopedUserId),
-    value: {
-      ownerUserId,
-      profile: {
-        name: normalized.name,
-        address: normalized.address,
-        companyNumber: normalized.companyNumber,
-        email: normalized.email,
-        mobile: normalized.mobile,
-        phone: normalized.phone,
-        signatureDataUrl: normalized.signatureDataUrl,
-        logoDataUrl: normalized.logoDataUrl,
-      },
-    } satisfies InstallerProfileLocalRecord,
+    value: toInstallerProfileLocalRecord(profile, scopedUserId),
   })
+}
+
+export function toInstallerProfileLocalRecord(
+  profile: InstallerProfile,
+  scopedUserId: string | null | undefined,
+): InstallerProfileLocalRecord {
+  const normalized = normalizeProfile(profile)
+  return {
+    ownerUserId: scopedUserId ?? null,
+    profile: {
+      name: normalized.name,
+      address: normalized.address,
+      companyNumber: normalized.companyNumber,
+      email: normalized.email,
+      mobile: normalized.mobile,
+      phone: normalized.phone,
+      signatureDataUrl: normalized.signatureDataUrl,
+      logoDataUrl: normalized.logoDataUrl,
+    },
+  }
 }

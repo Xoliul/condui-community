@@ -182,16 +182,31 @@ function getPackBounds(
  */
 export function chooseEendraadPanelScale(
   packHeightPx: number,
-  paperSize: ExportPaperSize = 'A4'
+  paperSize: ExportPaperSize = 'A4',
+  infoBlockNativeWidth?: number
 ): number {
   // A3 keeps the A4 physical scale so the wider sheet carries more circuits per
   // page instead of enlarging the same content. The A3 sheet is larger in both
   // directions, so the A4 scale always clears its (smaller) info box.
   const heightMm = getEendraadSchematicAreaMm('landscape', 'A4').heightMm
   const heightFit = Math.min(EENDRAAD_MAX_SCALE_MM_PER_PX, heightMm / Math.max(packHeightPx, 1))
-  const a4Scale = limitEendraadScaleToInfoBlockCollision(packHeightPx, heightFit)
+  const a4Scale = limitEendraadScaleToInfoBlockCollision(
+    packHeightPx,
+    heightFit,
+    infoBlockNativeWidth
+  )
   if (paperSize === 'A4') return a4Scale
-  return limitEendraadScaleToInfoBlockCollision(packHeightPx, a4Scale, undefined, paperSize)
+  return limitEendraadScaleToInfoBlockCollision(
+    packHeightPx,
+    a4Scale,
+    infoBlockNativeWidth,
+    paperSize
+  )
+}
+
+/** Native width of the panel's laid-out info block (optional columns widen it). */
+function getPanelInfoBlockNativeWidth(panelLayout: BottomUpPanelLayout): number | undefined {
+  return panelLayout.layoutBlocks?.find((block) => block.kind === 'info-block')?.width
 }
 
 interface CoreSlice {
@@ -345,7 +360,11 @@ export function estimateEendraadPageCount(
           },
     } as ExportScene
     const packBounds = getPackBounds(panelLayout, scene.bounds)
-    const scale = chooseEendraadPanelScale(packBounds.height, paperSize)
+    const scale = chooseEendraadPanelScale(
+      packBounds.height,
+      paperSize,
+      getPanelInfoBlockNativeWidth(panelLayout)
+    )
     return count + getSlicingMetrics(panelLayout, scene, scale, paperSize).pageCount
   }, 0)
 }
@@ -366,7 +385,7 @@ export async function calculateEendraadSlices(
         schematicArea.widthMm / sceneBounds.width,
         schematicArea.heightMm / sceneBounds.height
       ),
-      undefined,
+      getPanelInfoBlockNativeWidth(panelLayout),
       paperSize
     )
     return {
@@ -385,7 +404,11 @@ export async function calculateEendraadSlices(
   }
   const blocks = getMainBusBlocks(panelLayout)
   const packBounds = getPackBounds(panelLayout, sceneBounds)
-  const panelScale = chooseEendraadPanelScale(packBounds.height, paperSize)
+  const panelScale = chooseEendraadPanelScale(
+    packBounds.height,
+    paperSize,
+    getPanelInfoBlockNativeWidth(panelLayout)
+  )
   const globalScale = Math.min(scaleOverride ?? panelScale, EENDRAAD_MAX_SCALE_MM_PER_PX)
   const mainBusY = panelLayout.mainBus.y
   const sliceWidthPx = getSliceWidthPxForScale(globalScale, paperSize)

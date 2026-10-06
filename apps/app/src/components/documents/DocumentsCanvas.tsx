@@ -72,6 +72,7 @@ import {
 import { HostedFeatureBadge } from './HostedFeatureBadge'
 import { useListedProjectDocuments } from './useProjectDocuments'
 import { useRemoveProjectDocument } from './useRemoveProjectDocument'
+import { usePendingImportStore } from '@/stores/pendingImportStore'
 import { useReplaceProjectDocumentFile } from './useReplaceProjectDocumentFile'
 import {
   canReduceProjectDocumentSize,
@@ -244,7 +245,7 @@ export default function DocumentsCanvas() {
   }, [openDocumentId])
 
   const handleFiles = useCallback(
-    (fileList: FileList | null) => {
+    (fileList: FileList | File[] | null) => {
       if (!fileList || fileList.length === 0) return
       const noticeFor = (rejected: RejectedProjectDocumentFiles): string[] => {
         const notice: string[] = []
@@ -306,6 +307,14 @@ export default function DocumentsCanvas() {
     },
     [dialog, i18n.language, t]
   )
+
+  // Main menu Import > Document: files picked there are added once this canvas is shown.
+  const pendingDocumentFiles = usePendingImportStore((state) => state.documentFiles)
+  useEffect(() => {
+    if (!pendingDocumentFiles) return
+    const files = usePendingImportStore.getState().takeDocumentFiles()
+    if (files) handleFiles(files)
+  }, [pendingDocumentFiles, handleFiles])
 
   const moveDocument = (documentId: string, category: ProjectDocumentCategory) =>
     updateProjectDocument(documentId, { category })

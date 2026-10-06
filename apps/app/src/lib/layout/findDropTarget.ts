@@ -405,11 +405,19 @@ function findDirectConverterChangeoverSlotInPanel(
 
   const isCanonicalHit = (node: LayoutNode) =>
     node.hitZone?.supplyConverterChangeoverSlot && isPointInCore(node, position)
+  const isOnExpandedPath = (node: LayoutNode) => {
+    if (isPointInCore(node, position)) return true
+    const anchor = node.hitZone?.dropHintAnchor
+    if (!anchor) return false
+    const dx = position.x - anchor.x
+    const dy = position.y - anchor.y
+    return dx * dx + dy * dy <= EXPLICIT_DROP_HINT_RADIUS * EXPLICIT_DROP_HINT_RADIUS
+  }
   const matchesExpandedAcPath = (node: LayoutNode) =>
     expandAcrossConverterAcPaths &&
     (node.hitZone?.type === 'supplyConverterGridWire' ||
       node.hitZone?.type === 'supplyConverterBackupWire') &&
-    isPointInCore(node, position)
+    isOnExpandedPath(node)
   const matches = (node: LayoutNode): boolean => {
     if (!pointCanHitSubtree(node, position)) return false
     return isCanonicalHit(node) || matchesExpandedAcPath(node) || node.children.some(matches)
@@ -670,10 +678,9 @@ function findDropTargetBySegment(
   }
 
   const ctx: WalkContext = { panelId: panelNode.domainId, diagramId: panelNode.diagramId }
-  const explicitDropHint = findExplicitDropHintTargetInPanel(panelNode, position, ctx)
-  if (explicitDropHint) return explicitDropHint
-  const feedStubSlot = findPanelFeedStubSlotInPanel(panelNode, position, ctx)
-  if (feedStubSlot) return feedStubSlot.target
+  // The modular changeover deliberately collapses direct-converter AC paths to
+  // one canonical insertion point. Resolve that before explicit hint anchors,
+  // whose underlying node may describe a different feed (such as backup input).
   const directChangeoverSlot = findDirectConverterChangeoverSlotInPanel(
     panelNode,
     position,
@@ -681,6 +688,20 @@ function findDropTargetBySegment(
     options?.normalizeDirectConverterChangeoverDrop
   )
   if (directChangeoverSlot) return directChangeoverSlot
+  if (options?.normalizeDirectConverterChangeoverDrop) {
+    const directConverterAcWire = findTarget(panelNode, position, ctx, 'core', options)
+    if (
+      directConverterAcWire?.type === 'supplyConverterGridWire' ||
+      directConverterAcWire?.type === 'supplyConverterBackupWire'
+    ) {
+      return directConverterAcWire
+    }
+  }
+
+  const explicitDropHint = findExplicitDropHintTargetInPanel(panelNode, position, ctx)
+  if (explicitDropHint) return explicitDropHint
+  const feedStubSlot = findPanelFeedStubSlotInPanel(panelNode, position, ctx)
+  if (feedStubSlot) return feedStubSlot.target
 
   if (options?.preferSecondaryBusForNestedProtection) {
     const pendingSecondaryBus = findPendingSecondaryBusDropInPanel(panelNode, position, ctx)

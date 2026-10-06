@@ -183,6 +183,7 @@ function Dialog() {
                   {dialog.title}
                 </h2>
               )}
+              {dialog.titleAside}
             </div>
             {dialog.showCloseButton !== false && (
               <button
@@ -199,6 +200,7 @@ function Dialog() {
         {/* Content */}
         {(dialog.type === 'custom' || dialog.type === 'prompt' || !!dialog.message) && (
           <div
+            data-app-scroll="true"
             data-export-scroll={dialog.id === 'label-strip-export' ? 'true' : undefined}
             className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-6 sm:py-4"
             style={{ WebkitOverflowScrolling: 'touch' }}

@@ -28,7 +28,7 @@ import {
   getProtectionOneWireAnchorLineIndex,
   getProtectionOneWireLabelLines,
 } from '@/lib/protectionLabels'
-import { isDomoticaRowLabelShown } from '@/lib/eendraad/domoticaRowLabel'
+import { getDomoticaRowDisplayLabel, isDomoticaRowLabelShown } from '@/lib/eendraad/domoticaRowLabel'
 import { getSymbolLabelVerticalMetrics } from '@/lib/symbolLabelMetrics'
 import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
 import {
@@ -47,6 +47,11 @@ import {
   hasExplicitPanelBusSections,
 } from '@/lib/panel/panelBusSections'
 import { getLeftBiasedBusFeedStubX, PANEL_BUS_FEED_GAP } from '@/lib/panel/panelBusFeedPreview'
+import {
+  applyHostedFeederSectionCut,
+  FEED_STUB_FEEDER_GEOMETRY,
+  getFeedStubFeederLegHeight,
+} from './feedStubFeeders'
 import { getDirectConverterChangeoverInsertIndex } from '@/lib/supplyAssembly/directConverterBackupUpgrade'
 import { getSupplyConverterDcConnectionIndex } from '@/lib/supplyAssembly/converterDcConnections'
 import { getSymbolById, resolveSymbolPortsForWire } from '@/lib/symbols'
@@ -278,6 +283,8 @@ export interface LayoutNode {
   bounds: Bounds
   /** Electrical anchor when it differs from the center of asymmetric painted bounds. */
   connectionAnchor?: { x: number; y: number }
+  /** Supply-stub tap of a hosted feeder branch (see `feedStubFeeders.ts`). */
+  feedStubTap?: { x: number; y: number; busSectionId: string }
   /** Direction occupied by extra converter blocks relative to connectionAnchor. */
   converterGrowthDirection?: 'left' | 'right'
   domainId?: string // panel.id, circuit.id, endpoint.id, protection.id
@@ -1034,8 +1041,10 @@ function getFeedStubDevicePaintRects(device: TrunkDevice, x: number, y: number):
 function layoutFeedStubStack(
   devicesFromBus: readonly TrunkDevice[],
   x: number,
-  busY: number
-): { centers: number[]; endY: number } {
+  busY: number,
+  /** Height of the tallest hosted feeder leg, from the distribution bar to the bus level. */
+  feederLegHeight?: number
+): { centers: number[]; endY: number; tapY?: number } {
   const centers: number[] = []
   const rects: FeedStubPaintRect[] = []
   for (const device of devicesFromBus) {
@@ -1055,8 +1064,25 @@ function layoutFeedStubStack(
   }
   const lastY = centers.at(-1) ?? busY
   const lastBottom = Math.max(lastY + 15, ...rects.map((rect) => rect.bottom))
-  const endY = centers.length === 0 ? busY + 24 : Math.max(lastY + 42, lastBottom + 18)
-  return { centers, endY }
+  // An empty stub is painted down to its feed marker (deriveWires), so its
+  // insertion zone must cover that whole wire, not just the first few pixels.
+  const ownEndY = centers.length === 0
+    ? busY + LAYOUT_CONSTANTS.SUPPLY_VERTICAL_DROP
+    : Math.max(lastY + 42, lastBottom + 18)
+  if (feederLegHeight == null) return { centers, endY: ownEndY }
+  // The distribution bar sits on the supply side, below every device of this
+  // stub and low enough for the feeder legs to reach up to the bus level.
+  const tapY = Math.max(
+    centers.length === 0
+      ? busY + FEED_STUB_FEEDER_GEOMETRY.firstTapOffset
+      : Math.max(lastY + FEED_STUB_FEEDER_GEOMETRY.tapBelowDevice, lastBottom + 10),
+    busY + feederLegHeight
+  )
+  return {
+    centers,
+    endY: Math.max(ownEndY, tapY + FEED_STUB_FEEDER_GEOMETRY.stubBelowTap),
+    tapY,
+  }
 }
 
 function buildPanelNode(panelLayout: BottomUpPanelLayout): LayoutNode {
@@ -1589,16 +1615,78 @@ function buildPanelNode(panelLayout: BottomUpPanelLayout): LayoutNode {
         children.filter((node) => originalIds.has(node.id)).map((node) => [node.id, node])
       )
       const busY = bus.bounds.y + bus.bounds.height / 2
-      const stackLayouts = runs.map((run) => {
+      const stackLayouts = runs.map((run, runIndex) => {
         const stack = stacks.get(run.sectionId)!
         const x = getLeftBiasedBusFeedStubX(run.start, run.end)
+        // A section repeated across runs hosts its feeders on its first stub only.
+        const hostsFeeders = (stack.feeders?.length ?? 0) > 0 &&
+          runs.findIndex((candidate) => candidate.sectionId === run.sectionId) === runIndex
         const layout = layoutFeedStubStack(
           [...stack.devices].reverse(),
           x,
-          busY
+          busY,
+          hostsFeeders ? getFeedStubFeederLegHeight(stack.feeders!) : undefined
         )
         return { x, stack, ...layout }
       })
+      // Every supply marker of a panel ends at one height.
+      const alignedEndY = Math.max(...stackLayouts.map((layout) => layout.endY))
+      for (const layout of stackLayouts) layout.endY = alignedEndY
+      for (const [runIndex, run] of runs.entries()) {
+        const { x, endY, tapY, stack } = stackLayouts[runIndex]!
+        if (stack.sourcePanelId) {
+          children.push({
+            id: `feed-stub-source-label-${panelLayout.panel.id}-${run.sectionId}-${runIndex}`,
+            type: 'label',
+            bounds: { x, y: endY + 6, width: 150, height: 20 },
+            visual: {
+              type: 'label',
+              text: `← ${stack.sourcePanelName ?? ''}`,
+              fontSize: 10,
+              align: 'center',
+            },
+            children: [],
+          })
+        }
+        if (tapY == null) continue
+        // Feeders stick out to the left, away from the other stubs, and rise
+        // to the fed panel's symbol beside the main bus.
+        for (const [feederIndex, feeder] of (stack.feeders ?? []).entries()) {
+          const branchX = x - FEED_STUB_FEEDER_GEOMETRY.columnSpacing * (feederIndex + 1)
+          // Supply-side device sits nearest the bar; the fed panel tops the leg.
+          let y = tapY - FEED_STUB_FEEDER_GEOMETRY.protectionRise
+          for (const device of feeder.devices) {
+            children.push({
+              id: `supplyTrunkDevice-${device.id}--feed-stub-feeder-${panelLayout.panel.id}`,
+              type: 'trunkDevice',
+              bounds: { x: branchX, y, width: LAYOUT_CONSTANTS.SYMBOL_SIZE,
+                height: LAYOUT_CONSTANTS.SYMBOL_SIZE },
+              domainId: device.id,
+              domainRef: device,
+              visual: { type: 'symbol', symbolId: device.symbol, label: device.label },
+              // The device belongs to the fed panel's stub; edit its chain there.
+              hitZone: { type: null, padding: 0 },
+              children: [],
+            })
+            y -= FEED_STUB_FEEDER_GEOMETRY.deviceSpacing
+          }
+          children.push({
+            id: `feed-stub-feeder-panel-${feeder.panelId}-${feeder.busSectionId}`,
+            type: 'endpoint',
+            bounds: {
+              x: branchX,
+              y: busY,
+              width: LAYOUT_CONSTANTS.SYMBOL_SIZE,
+              height: LAYOUT_CONSTANTS.SYMBOL_SIZE,
+            },
+            domainId: feeder.panelId,
+            feedStubTap: { x, y: tapY, busSectionId: run.sectionId },
+            visual: { type: 'symbol', symbolId: 'panel_distribution', label: feeder.panelName },
+            hitZone: { type: null, padding: 5 },
+            children: [],
+          })
+        }
+      }
       for (const runIndex of runs.keys()) {
         const { x, centers, stack } = stackLayouts[runIndex]!
         for (const [deviceIndex, device] of [...stack.devices].reverse().entries()) {
@@ -2819,28 +2907,44 @@ function buildMainBusNode(
       })
     } else if (hasExplicitPanelBusSections(panelLayout.panel) && connectionEntries.length > 0) {
       const splitGap = PANEL_BUS_FEED_GAP
+      const drawsHostedFeeders =
+        panelLayout.supplyEndpointKind === 'continuation' ||
+        (panelLayout.supplyEndpointKind === 'mains' &&
+          panelLayout.frameRole === 'panel' && panelLayout.panel.isMain)
+      const hostedFeederCounts = new Map(drawsHostedFeeders
+        ? (panelLayout.panelLocalFeedStubStacks ?? []).map((stack) =>
+            [stack.busSectionId, stack.feeders?.length ?? 0] as const)
+        : [])
+      const sectionCut = (left: number, right: number) => {
+        const previous = connectionEntries[left]!
+        const entry = connectionEntries[right]!
+        const boundaryX = getSecondaryBusSectionBoundaryX(
+          secondaryBusSectionRanges,
+          previous.busSectionId,
+          entry.busSectionId,
+          (previous.x + entry.x) / 2
+        )
+        const firstOfSection = connectionEntries.findIndex((candidate) =>
+          candidate.busSectionId === entry.busSectionId) === right
+        return applyHostedFeederSectionCut(
+          { leftEndX: boundaryX - splitGap / 2, rightStartX: boundaryX + splitGap / 2 },
+          previous.x,
+          Math.min(entry.x, ...secondaryBusSectionRanges
+            .filter((range) => range.sectionId === entry.busSectionId && range.startX > previous.x)
+            .map((range) => range.startX)),
+          firstOfSection ? hostedFeederCounts.get(entry.busSectionId) ?? 0 : 0
+        )
+      }
       connectionEntries.forEach((entry, index) => {
         const previous = connectionEntries[index - 1]
         const next = connectionEntries[index + 1]
         let startX = previous ? (previous.x + entry.x) / 2 : busStartX
         let endX = next ? (entry.x + next.x) / 2 : busEndX
         if (previous && previous.busSectionId !== entry.busSectionId) {
-          const sectionBoundaryX = getSecondaryBusSectionBoundaryX(
-            secondaryBusSectionRanges,
-            previous.busSectionId,
-            entry.busSectionId,
-            startX
-          )
-          startX = sectionBoundaryX + splitGap / 2
+          startX = sectionCut(index - 1, index).rightStartX
         }
         if (next && next.busSectionId !== entry.busSectionId) {
-          const sectionBoundaryX = getSecondaryBusSectionBoundaryX(
-            secondaryBusSectionRanges,
-            entry.busSectionId,
-            next.busSectionId,
-            endX
-          )
-          endX = sectionBoundaryX - splitGap / 2
+          endX = sectionCut(index, index + 1).leftEndX
         }
         const pushSegment = (
           suffix: 'before' | 'after',
@@ -4457,7 +4561,7 @@ function buildBranchNode(
             },
             visual: {
               type: 'label',
-              text: endpoint.label,
+              text: getDomoticaRowDisplayLabel(endpoint),
               align: 'left',
             },
             children: [],

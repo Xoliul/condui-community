@@ -43,7 +43,7 @@ import { ResizableDivider } from '@/components/layout/ResizableDivider'
 import { COLLAPSED_PANEL_SIGNIFIER_WIDTH_PX } from '@/constants/layoutConstants'
 import { clamp } from '@/lib/geometry'
 import { EditorPreferencesToolbar } from '@/components/settings/EditorPreferencesToolbar'
-import { SettingsPanel } from '@/components/settings/SettingsPanel'
+import { SettingsBuildInfo, SettingsPanel } from '@/components/settings/SettingsPanel'
 import { ShortcutsDialog } from '@/components/shortcuts/ShortcutsDialog'
 import { useDialog } from '@/hooks/useDialog'
 import { LabelStripExportDialog } from '@/components/export/LabelStripExportDialog'
@@ -134,6 +134,7 @@ export default function CommunityLayout({ demoMode = false }: { demoMode?: boole
     setMenuOpen(false)
     dialog.custom({
       title: t('settings.title'),
+      titleAside: <SettingsBuildInfo />,
       content: <SettingsPanel showDebug={false} />,
       size: 'md',
       showCloseButton: true,

@@ -8,6 +8,7 @@ import {
 } from '@/utils/planImageProcessing'
 import { importedPlanAssetUsesSvgContent, type Floor } from '@/types/schema'
 import { logger } from '@/lib/logger'
+import { flushPendingProjectHistory } from '@/stores/slices/projectStoreHistory'
 
 export function resolvePlanImageDataUrls(activeFloor: Floor | null): {
   sourceDataUrl: string | undefined
@@ -163,16 +164,21 @@ export function usePlanImage(
   ])
 
   const setPlanImagePositionPersisted = useCallback((update: React.SetStateAction<{ x: number; y: number }>) => {
-    setPlanImagePosition((prev) => {
-      const next = typeof update === 'function' ? update(prev) : update
-      const id = activeFloorIdRef.current
-      if (id) {
-        const store = useProjectStore.getState()
-        store.setPlanCanvasPlanImageOffset(id, next)
-        store.updateFloor(id, { planImageOffset: { x: next.x, y: next.y } })
-      }
-      return next
+    const id = activeFloorIdRef.current
+    if (!id) return
+    const store = useProjectStore.getState()
+    const prev = store.getFloorById(id)?.planImageOffset ??
+      store.planCanvasPlanImageOffsetByFloorId[id] ?? { x: 0, y: 0 }
+    const next = typeof update === 'function' ? update(prev) : update
+    if (next.x === prev.x && next.y === prev.y) return
+    // Persist synchronously, outside React's state updater (which may run again).
+    // Leave the legacy fallback cache alone: undo may restore an undefined offset.
+    flushPendingProjectHistory()
+    store.withSingleUndoEntry(() => {
+      store.updateFloor(id, { planImageOffset: { x: next.x, y: next.y } })
+      return true
     })
+    setPlanImagePosition(next)
   }, [])
 
   return {

@@ -2,7 +2,7 @@
 
 import {
   detectWhiteFromRgba,
-  invertRgbInPlace,
+  invertForDarkModeInPlace,
   removeWhitePixelsInPlace,
 } from '../lib/image/planImagePixelOps'
 
@@ -61,7 +61,7 @@ self.onmessage = (e: MessageEvent<WorkerInMessage>) => {
     if (msg.type === 'invert') {
       const { width, height, data } = bitmapToRgba(msg.bitmap)
       msg.bitmap.close()
-      invertRgbInPlace(data)
+      invertForDarkModeInPlace(data)
       const buffer = Uint8ClampedArray.from(data).buffer
       ;(self as unknown as DedicatedWorkerGlobalScope).postMessage(
         { type: 'raster', id: msg.id, width, height, buffer } satisfies WorkerOutMessage,

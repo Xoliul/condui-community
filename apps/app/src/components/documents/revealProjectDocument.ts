@@ -1,4 +1,4 @@
-import { useUIStore } from '@/stores/uiStore'
+import { revealCanvas } from '@/lib/ui/revealCanvas'
 import { useProjectDocumentsStore } from '@/stores/projectDocumentsStore'
 
 /**
@@ -7,13 +7,5 @@ import { useProjectDocumentsStore } from '@/stores/projectDocumentsStore'
  */
 export function revealProjectDocument(documentId: string): void {
   useProjectDocumentsStore.getState().openDocument(documentId)
-  const ui = useUIStore.getState()
-  const { panels } = ui.viewportLayout
-  if (panels.some((panel) => panel.canvas === 'documents')) return
-  if (panels.length === 1) {
-    ui.setLayoutPreset('sideBySide', { sourcePanelIndex: 0 })
-    useUIStore.getState().setPanelCanvas(1, 'documents')
-    return
-  }
-  ui.setPanelCanvas(panels.length - 1, 'documents')
+  revealCanvas('documents')
 }

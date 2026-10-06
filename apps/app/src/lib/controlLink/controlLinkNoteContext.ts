@@ -25,3 +25,16 @@ export function runWithControlLinkNotes<T>(
     activeNotes = previous
   }
 }
+
+/** Map key of the address shown after a wired domotica output row's label. */
+export function rowAddressKey(endpointId: string): string {
+  return `row-address:${endpointId}`
+}
+
+/**
+ * Address (channel) of the output row a wired domotica child sits on, for the layout scope.
+ * Shared by measurement, envelopes and the label node so every reader sees the same text.
+ */
+export function getScopedRowAddress(endpointId: string): string | undefined {
+  return activeNotes?.get(rowAddressKey(endpointId))
+}

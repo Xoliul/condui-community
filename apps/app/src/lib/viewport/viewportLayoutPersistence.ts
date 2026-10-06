@@ -1,23 +1,14 @@
 import { VIEWPORT_RATIO_MAX, VIEWPORT_RATIO_MIN } from '@/constants/layoutConstants'
 import { getResponsiveEditorMode } from '@/hooks/useResponsiveEditorMode'
-import { DEFAULT_LAYOUTS } from '@/stores/uiStore'
+import { DEFAULT_LAYOUTS, isLayoutPresetAvailable } from '@/stores/uiStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import type { CanvasType, LayoutPreset, ViewportLayout, ViewportPanel } from '@/types/ui'
 import { isAvailableCanvasType } from '@/lib/viewport/availableCanvasTypes'
+import { isLayoutPreset } from '@/lib/viewport/layoutPresets'
 import { clamp } from '@/lib/geometry'
 
 function isCanvasType(value: string): value is CanvasType {
   return isAvailableCanvasType(value)
-}
-
-function isLayoutPreset(value: string): value is LayoutPreset {
-  return (
-    value === 'single' ||
-    value === 'sideBySide' ||
-    value === 'stacked' ||
-    value === 'topPairBottomWide' ||
-    value === 'topWideBottomPair' ||
-    value === 'grid'
-  )
 }
 
 function expectedPanelCount(preset: LayoutPreset): number {
@@ -67,6 +58,15 @@ export function sanitizeViewportLayoutSnapshot(raw: unknown): ViewportLayout | n
     secondaryRatio: normalizeRatio(o.secondaryRatio, 0.5),
     focusReturnLayout: null,
   }
+}
+
+/**
+ * Layout for a project without a saved layout: the user's default layout setting,
+ * falling back to side by side when that preset is unavailable in this edition.
+ */
+export function getPreferredDefaultLayout(): ViewportLayout {
+  const preset = useSettingsStore.getState().defaultLayoutPreset
+  return (isLayoutPresetAvailable(preset) ? DEFAULT_LAYOUTS[preset] : DEFAULT_LAYOUTS.sideBySide)()
 }
 
 /**

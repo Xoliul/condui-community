@@ -17,6 +17,7 @@ import {
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import { findPanelById } from '@/lib/panel/panelTree'
+import { resolveTerminalStripModule } from '@/lib/eendraad/projectElectricalDomain'
 import { findGroundTrunkDeviceOwner } from '@/lib/eendraad/panelGround'
 import { panelGridModuleRefKey } from './panelGridLayout'
 import { assemblyOwnsPanelInput, buildSupplyElectricalTopology } from '@/lib/supplyAssembly/electricalTopology'
@@ -235,7 +236,9 @@ export function findPanelContainingModuleRef(
   }
 
   if (ref.kind === 'domotica') {
-    return findPanelOwningCircuitInTree(projectPanels(project), ref.circuitId)
+    const owner = findPanelOwningCircuitInTree(projectPanels(project), ref.circuitId)
+    const assigned = resolveTerminalStripModule(project, ref)?.panelId
+    return (assigned ? findPanelById(projectPanels(project), assigned) : null) ?? owner
   }
 
   return null

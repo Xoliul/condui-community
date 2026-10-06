@@ -65,6 +65,7 @@ import {
 } from '../shared/propertiesSharedUtils'
 import { EndpointCertificationSection } from './EndpointControls'
 import { useControlLinkNote } from '@/lib/controlLink/useControlLinkNote'
+import { canHaveControlLink } from '@/lib/controlLink/controlLink'
 import {
   ControlDeviceAddressingFields,
   RelayOperatedContactsFields,
@@ -1759,7 +1760,7 @@ export function EndpointProperties({
       />
       <EndpointMountingField endpointId={endpointId} />
       {/* Domotica addressing stays low, just above notes */}
-      {symbol === 'contact' && (
+      {canHaveControlLink(endpoint) && (
         <ControlLinkOperatedByFields endpointId={endpointId} endpoint={endpoint} onUpdate={onUpdate} />
       )}
       {symbol === 'domotica' && !endpoint.domoticaChildProps && (

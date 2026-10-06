@@ -61,6 +61,7 @@ import type {
 import BaseCanvas, { type BaseCanvasHandle } from './BaseCanvas'
 import ViewNavigationToolbar from './ViewNavigationToolbar'
 import ImportPlanImageDialog from '../plan/ImportPlanImageDialog'
+import { usePendingImportStore } from '@/stores/pendingImportStore'
 import FloorPlanTools from '../plan/FloorPlanTools'
 import ScaleIndicator from '../plan/ScaleIndicator'
 import { QuickPlacerToolIcon, useAwaitingPlanPlacementCount } from '../plan/QuickPlacerToolIcon'
@@ -6613,6 +6614,15 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
     applyIsImportDialogOpen(false)
     setPendingImportFile(null)
   }, [applyIsImportDialogOpen])
+
+  // Main menu Import > Floor plan: the menu reveals this canvas, then asks it to open the dialog.
+  const pendingPlanImport = usePendingImportStore((state) => state.planImport)
+  useEffect(() => {
+    if (!pendingPlanImport || !canEditFloorPlan) return
+    if (!usePendingImportStore.getState().takePlanImport()) return
+    setPendingImportFile(null)
+    applyIsImportDialogOpen(true)
+  }, [pendingPlanImport, canEditFloorPlan, applyIsImportDialogOpen])
 
   const openContextAssignCircuitPanel = useCallback(
     (endpointIds: string[], planAnchor: Point) => {

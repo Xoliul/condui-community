@@ -4,6 +4,7 @@
  */
 
 import { ensureSitplanPlacementsForEndpoints } from '@/lib/eendraad/duplicateSitplanHelpers'
+import { clearDuplicatedControlChannel } from '@/lib/controlLink/duplicateAddress'
 import { endpointSymbolCanBeDuplicated } from '@/lib/eendraad/duplicateEndpoint'
 import {
   getMainBusItemsWithIndices,
@@ -408,7 +409,9 @@ export function runEendraadEndpointAltDragDuplicate(
       addEendraadNote: store.addEendraadNote,
       addEndpoint: (circuitId, endpoint, insertAfterEndpointId, branchOpts) => {
         const latestSource = store.getEndpointById(sourceEndpointId) ?? sourceEndpoint
-        const clonedSource = JSON.parse(JSON.stringify(latestSource)) as Endpoint
+        const clonedSource = clearDuplicatedControlChannel(
+          JSON.parse(JSON.stringify(latestSource)) as Endpoint
+        )
         const isDomoticaChildDrop = !!endpoint.domoticaChildProps
         const merged: Endpoint = domoticaGroupClone
           ? {

@@ -1133,6 +1133,19 @@ export function getDefaultPanelGridModuleRefs(
   const existingKeys = new Set(refs.map((ref) => panelGridModuleRefKey(ref)))
   for (const candidatePanel of allPanels) {
     for (const candidateCircuit of getAllCircuits(candidatePanel)) {
+      for (const endpoint of candidateCircuit.endpoints) {
+        if (!isTerminalStripEndpoint(endpoint) || endpoint.terminalStripPanelId !== panel.id) continue
+        const ref: PanelGridModuleRef = {
+          kind: 'domotica',
+          endpointId: endpoint.id,
+          circuitId: candidateCircuit.id,
+        }
+        const key = panelGridModuleRefKey(ref)
+        if (!existingKeys.has(key)) {
+          refs.push(ref)
+          existingKeys.add(key)
+        }
+      }
       for (const device of candidateCircuit.trunkDevices ?? []) {
         if (!isTerminalStripDevice(device) || device.terminalStripPanelId !== panel.id) {
           continue
@@ -1152,6 +1165,14 @@ export function getDefaultPanelGridModuleRefs(
     }
   }
   return refs.filter((ref) => {
+    if (ref.kind === 'domotica') {
+      const endpoint = allPanels
+        .flatMap((candidatePanel) => getAllCircuits(candidatePanel))
+        .flatMap((candidateCircuit) => candidateCircuit.endpoints)
+        .find((candidate) => candidate.id === ref.endpointId)
+      const assigned = isTerminalStripEndpoint(endpoint) ? endpoint?.terminalStripPanelId : undefined
+      return assigned == null || assigned === panel.id
+    }
     if (ref.kind !== 'trunkDevice' || ref.scope !== 'circuit') return true
     const device = allPanels
       .flatMap((candidatePanel) => getAllCircuits(candidatePanel))
@@ -1175,6 +1196,62 @@ export function getTerminalStripPanelId(
   return isTerminalStripDevice(device) ? device?.terminalStripPanelId : undefined
 }
 
+/** Terminal strip by id, whichever form it takes: a circuit trunk device or an endpoint. */
+export function findTerminalStripEntity(
+  project: ProjectWithOptionalV2Electrical,
+  id: string
+): TrunkDevice | Endpoint | undefined {
+  const seen = new Set<string>()
+  for (const panel of getProjectElectricalPanels(project)) {
+    for (const circuit of getAllCircuits(panel)) {
+      if (seen.has(circuit.id)) continue
+      seen.add(circuit.id)
+      const device = circuit.trunkDevices?.find((candidate) => candidate.id === id)
+      if (isTerminalStripDevice(device)) return device
+      const endpoint = circuit.endpoints.find((candidate) => candidate.id === id)
+      if (isTerminalStripEndpoint(endpoint)) return endpoint
+    }
+  }
+  return undefined
+}
+
+function findEndpointInPanels(panels: Panel[], endpointId: string): Endpoint | undefined {
+  for (const panel of panels) {
+    const found = findEndpointById(panel, endpointId)
+    if (found) return found.endpoint
+  }
+  return undefined
+}
+
+/**
+ * The terminal strip behind a panel-grid module ref: a circuit trunk device or an
+ * endpoint-form strip. Undefined for every other module.
+ */
+export function resolveTerminalStripModule(
+  project: ProjectWithOptionalV2Electrical,
+  ref: PanelGridModuleRef
+): { id: string; form: 'device' | 'endpoint'; panelId: string | undefined } | undefined {
+  if (ref.kind === 'domotica') {
+    const endpoint = findEndpointInPanels(getProjectElectricalPanels(project), ref.endpointId)
+    return isTerminalStripEndpoint(endpoint)
+      ? { id: ref.endpointId, form: 'endpoint', panelId: endpoint?.terminalStripPanelId }
+      : undefined
+  }
+  if (ref.kind === 'trunkDevice' && ref.scope === 'circuit') {
+    for (const panel of getProjectElectricalPanels(project)) {
+      for (const circuit of getAllCircuits(panel)) {
+        const device = circuit.trunkDevices?.find((candidate) => candidate.id === ref.id)
+        if (device) {
+          return isTerminalStripDevice(device)
+            ? { id: device.id, form: 'device', panelId: device.terminalStripPanelId }
+            : undefined
+        }
+      }
+    }
+  }
+  return undefined
+}
+
 /**
  * Set the physical panel-canvas owner for a circuit terminal strip. Equal
  * `junctionIdentity` values represent one physical strip, so all occurrences
@@ -1187,9 +1264,10 @@ export function setTerminalStripPanelId(
   enclosureId?: string
 ): boolean {
   const panels = getProjectElectricalPanels(project)
-  let target: TrunkDevice | undefined
+  type Carrier = { device: TrunkDevice; endpoint?: undefined } | { endpoint: Endpoint; device?: undefined }
+  let target: Carrier | undefined
   let targetIdentity: string | undefined
-  const devices: TrunkDevice[] = []
+  const carriers: Carrier[] = []
   const seenCircuitIds = new Set<string>()
 
   for (const rootPanel of panels) {
@@ -1198,40 +1276,68 @@ export function setTerminalStripPanelId(
       seenCircuitIds.add(circuit.id)
       for (const device of circuit.trunkDevices ?? []) {
         if (!isTerminalStripDevice(device)) continue
-        devices.push(device)
+        const carrier: Carrier = { device }
+        carriers.push(carrier)
         if (device.id === deviceId) {
-          target = device
+          target = carrier
           targetIdentity = getTerminalStripIdentity(device)
+        }
+      }
+      // A strip dropped after an endpoint is an endpoint. It is the same physical strip as
+      // every trunk-device occurrence sharing its identity, so both forms move together.
+      for (const endpoint of circuit.endpoints) {
+        if (!isTerminalStripEndpoint(endpoint)) continue
+        const carrier: Carrier = { endpoint }
+        carriers.push(carrier)
+        if (endpoint.id === deviceId) {
+          target = carrier
+          targetIdentity = getTerminalStripIdentity(endpoint)
         }
       }
     }
   }
 
   if (!target) return false
-  const changed = devices.reduce((didChange, device) => {
+  // Endpoint strips have no auxiliary mounting; only ordinary panels can hold them.
+  if (enclosureId && target.endpoint) return false
+  let changed = false
+  for (const carrier of carriers) {
+    const entity = carrier.device ?? carrier.endpoint
     if (
-      device !== target &&
+      carrier !== target &&
       targetIdentity &&
-      getTerminalStripIdentity(device) !== targetIdentity
+      getTerminalStripIdentity(entity) !== targetIdentity
     ) {
-      return didChange
+      continue
     }
+    if (carrier.endpoint) {
+      if (carrier.endpoint.terminalStripPanelId === panelId) continue
+      if (panelId) carrier.endpoint.terminalStripPanelId = panelId
+      else delete carrier.endpoint.terminalStripPanelId
+      changed = true
+      continue
+    }
+    const device = carrier.device
     if (enclosureId) {
       delete device.terminalStripPanelId
       device.panelMounting = { kind: 'auxiliary', enclosureId }
-      return true
+      changed = true
+      continue
     }
     const removedMounting = device.panelMounting != null
     delete device.panelMounting
-    if (device.terminalStripPanelId === panelId) return didChange || removedMounting
+    if (device.terminalStripPanelId === panelId) {
+      changed = changed || removedMounting
+      continue
+    }
     if (panelId) device.terminalStripPanelId = panelId
     else delete device.terminalStripPanelId
-    return true
-  }, false)
+    changed = true
+  }
   return changed
 }
 
-function getTerminalStripIdentity(device: TrunkDevice): string {
+function getTerminalStripIdentity(device: TrunkDevice | Endpoint): string {
   return (getTerminalStripId(device) || device.id).trim().toUpperCase()
 }
 

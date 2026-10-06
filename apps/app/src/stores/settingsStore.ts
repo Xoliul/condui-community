@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Theme, FontFamily } from '@/types/ui'
+import type { Theme, FontFamily, LayoutPreset, WheelBehavior } from '@/types/ui'
+import { isLayoutPreset } from '@/lib/viewport/layoutPresets'
 import { getThemeColor } from '@/lib/theme/colors'
 import { clearSymbolCache, warmSymbolSvgCache } from '@/lib/symbolImage'
 import { setManualPlanPlacement } from '@/lib/plan/manualPlanPlacementPreference'
@@ -34,6 +35,12 @@ interface Settings {
   leftDragPansCanvas: boolean
   /** New symbols wait off the situation plan until the user places them (Quick Placer, drag). */
   placePlanSymbolsManually: boolean
+  /** Viewport layout a project opens with when it has no saved layout. */
+  defaultLayoutPreset: LayoutPreset
+  /** Plain wheel / two-finger scroll: zoom (mouse) or pan (trackpad). Pinch and Ctrl/Cmd + wheel always zoom. */
+  wheelBehavior: WheelBehavior
+  /** The one-time "using a trackpad?" hint was answered or dismissed, or the user chose a mode. */
+  wheelBehaviorHintDone: boolean
 }
 
 const getDefaultLanguage = (): string => {
@@ -67,6 +74,9 @@ interface SettingsState extends Settings {
   setPanelRelationDebug: (enabled: boolean) => void
   setLeftDragPansCanvas: (enabled: boolean) => void
   setPlacePlanSymbolsManually: (enabled: boolean) => void
+  setDefaultLayoutPreset: (preset: LayoutPreset) => void
+  setWheelBehavior: (behavior: WheelBehavior) => void
+  dismissWheelBehaviorHint: () => void
   reset: () => void
 }
 
@@ -97,6 +107,9 @@ const defaultSettings: Settings = {
   panelRelationDebug: false,
   leftDragPansCanvas: true,
   placePlanSymbolsManually: false,
+  defaultLayoutPreset: 'sideBySide',
+  wheelBehavior: 'zoom',
+  wheelBehaviorHintDone: false,
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -126,6 +139,9 @@ export const useSettingsStore = create<SettingsState>()(
       setPanelRelationDebug: (enabled) => set({ panelRelationDebug: enabled }),
       setLeftDragPansCanvas: (enabled) => set({ leftDragPansCanvas: enabled }),
       setPlacePlanSymbolsManually: (enabled) => set({ placePlanSymbolsManually: enabled }),
+      setDefaultLayoutPreset: (preset) => set({ defaultLayoutPreset: preset }),
+      setWheelBehavior: (behavior) => set({ wheelBehavior: behavior, wheelBehaviorHintDone: true }),
+      dismissWheelBehaviorHint: () => set({ wheelBehaviorHintDone: true }),
       reset: () => set(defaultSettings),
     }),
     {
@@ -140,6 +156,9 @@ export const useSettingsStore = create<SettingsState>()(
           ...currentState,
           ...persisted,
           font: 'Figtree',
+          defaultLayoutPreset: isLayoutPreset(persisted.defaultLayoutPreset)
+            ? persisted.defaultLayoutPreset
+            : currentState.defaultLayoutPreset,
         }
       },
     }

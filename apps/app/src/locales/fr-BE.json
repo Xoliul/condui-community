@@ -82,6 +82,19 @@
       "dragHandle": "Glisser pour déplacer",
       "dragFolderHandle": "Glisser pour réordonner le dossier",
       "selectProject": "Sélectionner {{name}}"
+    },
+    "partnerInvite": {
+      "message_one": "{{team}} vous a invité à créer un projet pour eux.",
+      "message_few": "{{team}} vous a invité à créer {{count}} projets pour eux.",
+      "message_many": "{{team}} vous a invité à créer {{count}} projets pour eux.",
+      "message_other": "{{team}} vous a invité à créer {{count}} projets pour eux.",
+      "create": "Créer le projet"
+    },
+    "serverStorage": {
+      "storedOnServer": "Enregistré sur le serveur",
+      "browserOnly": "Projets uniquement dans ce navigateur : {{total}}",
+      "moveToServer": "Déplacer vers le serveur",
+      "moveFailed": "Échec du déplacement des projets : {{error}}"
     }
   },
   "dialog": {
@@ -103,7 +116,21 @@
     "contactSupport": "Contacter le support",
     "documentation": "Documentation",
     "areiGuide": "Guide RGIE",
-    "tutorial": "Tutoriel"
+    "tutorial": "Tutoriel",
+    "addTrikFile": "Ajouter un fichier TRiK",
+    "importGroup": "Importer",
+    "exportGroup": "Exporter",
+    "importKind": {
+      "plan": "Plan",
+      "document": "Document",
+      "trik": "Fichier TRiK"
+    },
+    "exportKind": {
+      "pdf": "PDF",
+      "labels": "Étiquettes",
+      "dxf": "DXF",
+      "project": "Fichier de projet"
+    }
   },
   "pwaInstall": {
     "iosTitle": "Ajouter à l'écran d'accueil",
@@ -344,12 +371,16 @@
     "workflow": {
       "title": "Méthode de travail",
       "placePlanSymbolsManually": "Placer moi-même les symboles sur le plan",
-      "placePlanSymbolsManuallyHint": "Les nouveaux symboles n'apparaissent sur le plan de situation qu'une fois placés, par exemple avec PlaceRapide."
+      "placePlanSymbolsManuallyHint": "Les nouveaux symboles n'apparaissent sur le plan de situation qu'une fois placés, par exemple avec PlaceRapide.",
+      "defaultLayout": "Disposition par défaut"
     },
     "navigation": {
       "title": "Navigation du canevas",
       "leftDragPansCanvas": "Glisser à gauche pour déplacer (bureau)",
-      "leftDragPansCanvasHint": "Sur ordinateur portable ou de bureau : glissez avec le bouton gauche pour déplacer le canevas (comme au toucher). Maintenez Maj enfoncée et glissez pour sélectionner avec un rectangle. Le déplacement avec le bouton du milieu ou droit reste disponible."
+      "leftDragPansCanvasHint": "Sur ordinateur portable ou de bureau : glissez avec le bouton gauche pour déplacer le canevas (comme au toucher). Maintenez Maj enfoncée et glissez pour sélectionner avec un rectangle. Le déplacement avec le bouton du milieu ou droit reste disponible.",
+      "wheelBehavior": "Molette",
+      "wheelBehaviorZoom": "Zoomer (souris)",
+      "wheelBehaviorPan": "Déplacer (pavé tactile)"
     },
     "debug": {
       "title": "Debug",
@@ -401,12 +432,13 @@
       "logo": "Logo",
       "uploadLogo": "Télécharger le logo",
       "clearLogo": "Effacer",
-      "showBrandingInSchematics": "Afficher le logo et la signature sur les schémas",
+      "unlockBranding": "Débloquer pour afficher le logo et la signature",
       "logoOptional": "Optionnel. Les images sont redimensionnées à 500 px max avant enregistrement.",
       "save": "Enregistrer",
       "saving": "Enregistrement…",
       "saved": "Enregistré"
-    }
+    },
+    "build": "Build {{commit}}"
   },
   "visionScan": {
     "title": "Scanner un document",
@@ -612,7 +644,13 @@
     "openingBody": "Un instant.",
     "notFoundTitle": "Projet introuvable",
     "notFoundBody": "Lien invalide ou projet supprimé.",
-    "notFoundBack": "Accueil"
+    "notFoundBack": "Accueil",
+    "serverConflict": {
+      "title": "Modifié sur un autre appareil",
+      "message": "Ce projet a été enregistré ailleurs après son ouverture. Vos dernières modifications ici ne sont pas enregistrées.",
+      "reload": "Charger la dernière version",
+      "overwrite": "Garder ma version"
+    }
   },
   "infoBlock": {
     "madeWith": "Réalisé avec {{brand}}",
@@ -923,6 +961,9 @@
       "controlSection": "Commande",
       "operates": "Commande",
       "operatedBy": "Commandé par",
+      "connectedTo": "Connecté à",
+      "groupDomotica": "Modules domotiques",
+      "groupRelays": "Relais",
       "channel": "Canal",
       "channelPlaceholder": "3, C, Q7",
       "notesReplaced": "Remplacé par l'appareil lié sur le schéma",
@@ -1325,7 +1366,15 @@
   "layout": {
     "presetLabel": "Disposition",
     "collapseBottomShelf": "Masquer le panneau",
-    "expandBottomShelf": "Afficher le panneau"
+    "expandBottomShelf": "Afficher le panneau",
+    "presets": {
+      "single": "Simple",
+      "sideBySide": "Côte à côte",
+      "stacked": "Superposé",
+      "topPairBottomWide": "Deux en haut, un en bas",
+      "topWideBottomPair": "Un en haut, deux en bas",
+      "grid": "Deux par deux"
+    }
   },
   "floorPlanTools": {
     "drawMode": "Mode dessin",
@@ -1941,6 +1990,12 @@
           "details": "Chaque protection sur un même tableau (bus principal, bus secondaire, bande d'alimentation ou arrivée) doit avoir un nom unique pour que les circuits restent identifiables sur le schéma unifilaire et le canevas du tableau. Ce n'est pas un orphelin de câblage — c'est un conflit de nommage.",
           "remediation": "Renommez l'une des protections en conflit, ou activez le nommage automatique pour réattribuer les lettres sans doublons."
         },
+        "control-link-integrity": {
+          "shortTitle": "Problème de lien de commande",
+          "message": "Un lien de commande ou une adresse domotique demande votre attention",
+          "details": "Un contact renvoie à un appareil qui n’existe plus, deux connexions utilisent le même canal sur un appareil, ou une adresse ne correspond pas au système domotique.",
+          "remediation": "Choisissez un appareil existant dans Commandé par, donnez à chaque connexion son propre canal ou corrigez l’adresse."
+        },
         "converter-backup-labels": {
           "shortTitle": "Étiquette manquante sur l’alimentation de secours",
           "message": "Une protection ou un récepteur de l’alimentation de secours n’a pas d’étiquette",
@@ -1993,6 +2048,20 @@
       "duplicatePanelProtectionLabels": {
         "message": "Le nom de protection « {{label}} » est utilisé {{count}} fois sur ce tableau",
         "details": "Des noms de protection en double sur le même tableau (bus principal, bus secondaire ou alimentation) rendent les circuits difficiles à identifier. Renommez une protection ou activez le nommage automatique."
+      },
+      "controlLinkIntegrity": {
+        "dangling": {
+          "message": "{{endpoint}} est commandé par un appareil qui n’existe plus",
+          "details": "Choisissez un autre appareil dans Commandé par, ou supprimez le lien."
+        },
+        "duplicateChannel": {
+          "message": "{{count}} connexions sur {{device}} utilisent le canal {{channel}}",
+          "details": "Chaque canal d’entrée ou de sortie d’un appareil ne peut être utilisé qu’une fois. Donnez à chaque connexion son propre canal."
+        },
+        "invalidAddress": {
+          "message": "{{endpoint}} sur {{device}} : l’adresse {{address}} ne convient pas à ce système",
+          "details": "Saisissez l’adresse selon la notation du système domotique choisi, ou changez de système."
+        }
       },
       "converterBackupLabels": {
         "protection": {
@@ -2385,6 +2454,7 @@
     "paste": "Coller",
     "delete": "Supprimer",
     "deleteAll": "Supprimer tout",
+    "resetCardPosition": "Réinitialiser la position de la fiche",
     "assignToCircuit": "Assigner au circuit",
     "alignLeft": "Aligner à gauche",
     "alignRight": "Aligner à droite",
@@ -3048,5 +3118,19 @@
     "allBoards": "Tous les tableaux",
     "issuesOnly": "Seulement les modules à vérifier",
     "hideRelays": "Masquer les relais"
+  },
+  "trikMerge": {
+    "floors": "Étages",
+    "floorsMatch": "Ajouter aux étages existants",
+    "floorsAppend": "Ajouter comme nouveaux étages",
+    "feed": "Alimenté depuis",
+    "feedSupply": "Alimentation principale",
+    "add": "Ajouter",
+    "error": "Impossible d'ajouter le fichier TRiK."
+  },
+  "wheelBehaviorHint": {
+    "question": "Vous utilisez un pavé tactile ?",
+    "usePan": "Défiler pour déplacer",
+    "dismiss": "Fermer"
   }
 }
