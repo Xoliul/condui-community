@@ -1,5 +1,7 @@
 import { createElement, useEffect, useRef, useCallback } from 'react'
 import { ZOOM_MIN, ZOOM_MAX } from '@/constants/canvasConstants'
+import { getPlanZoomMinimum } from '@/lib/plan/planZoom'
+import { resolvePlanPxPerMeter } from '@/lib/plan/planScale'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjectStore } from '@/stores/projectStore'
 import {
@@ -611,10 +613,18 @@ export function useKeyboardShortcuts(options?: { capabilities?: EditorCapabiliti
                 }))
               }
               if (canvas === 'plan') {
+                const activeFloorId = useUIStore.getState().activeFloorId
+                const activeFloor = activeFloorId
+                  ? useProjectStore.getState().getFloorById(activeFloorId)
+                  : null
+                const committedPxPerMeter = activeFloor?.planScaleNeedsCalibration
+                  ? null
+                  : resolvePlanPxPerMeter(activeFloor?.scale)
+                const planMinZoom = getPlanZoomMinimum(committedPxPerMeter)
                 useUIStore.setState((state) => ({
                   planView: {
                     ...state.planView,
-                    zoom: Math.max(ZOOM_MIN, state.planView.zoom / 1.25),
+                    zoom: Math.max(planMinZoom, state.planView.zoom / 1.25),
                   },
                 }))
               }

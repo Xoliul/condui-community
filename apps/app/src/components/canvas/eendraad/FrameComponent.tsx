@@ -20,7 +20,7 @@ import {
   screenPxToCanvasUnits,
 } from '@/constants/canvasConstants'
 import { resolveFrameContentItems } from '@/lib/eendraad/frameContent'
-import { computeEendraadFrameBounds } from '@/lib/eendraad/frameBounds'
+import { computeOneWireFrameBounds, getOneWireFrameTitleY } from '@/lib/eendraad/frameBounds'
 
 type EendraadPointerEvent = {
   cancelBubble: boolean
@@ -32,9 +32,6 @@ interface FrameComponentProps {
   frame: Frame
   panelLayout: BottomUpPanelLayout
 }
-
-/** Extra top padding when title is inside, so it doesn't overlap symbols */
-const TITLE_INSIDE_TOP_PADDING = 14
 
 /**
  * FrameComponent renders a simple sharp-cornered box around grouped items
@@ -58,19 +55,9 @@ export const FrameComponent = memo(function FrameComponent({ frame, panelLayout 
   
   const bounds = useMemo(() => {
     const resolved = resolveFrameContentItems(frame, currentProject ?? undefined)
-    const hasTitle = !!frame.title
-    const topExtra =
-      titlePosition === 'inside' && hasTitle ? TITLE_INSIDE_TOP_PADDING + frame.fontSize : 0
-    return computeEendraadFrameBounds({
-      items: resolved,
-      panelLayout,
-      getEndpointById,
-      topExtra,
-      includeEndpointLabels: false,
-    })
+    return computeOneWireFrameBounds(frame, resolved, panelLayout, getEndpointById)
   }, [
     frame,
-    titlePosition,
     panelLayout,
     getEndpointById,
     currentProject,
@@ -126,17 +113,8 @@ export const FrameComponent = memo(function FrameComponent({ frame, panelLayout 
   ]
   
   // Title positioning
-  let titleX: number
-  let titleY: number
-  if (titlePosition === 'outside') {
-    // Outside: above the frame, top-left
-    titleX = x
-    titleY = y - frame.fontSize - 3
-  } else {
-    // Inside: inside box, top-left with small inset
-    titleX = x + 6
-    titleY = y + 4
-  }
+  const titleX = titlePosition === 'outside' ? x : x + 6
+  const titleY = getOneWireFrameTitleY(frame, bounds)
   
   return (
     <Group name={`frame-${frame.id}`}>

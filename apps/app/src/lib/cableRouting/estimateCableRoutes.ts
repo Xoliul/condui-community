@@ -241,6 +241,8 @@ export interface CableRouteEstimate {
   category: CableRouteCategory
   /** One-wire source of the edge; the physical source is `fromLabel`. */
   fromNodeId: string
+  /** Source node of the physical feed tree, retaining the circuit occurrence of shared devices. */
+  physicalFromNodeId?: string
   toNodeId: string
   fromLabel: string
   toLabel: string
@@ -504,8 +506,7 @@ class RouteBuilder {
     if (units < 1e-6) return
     const { settings } = this.context
     const lowM = units * this.context.metersPerUnit
-    const highM =
-      lowM * (drawn ? settings.drawnDetourFactor : settings.horizontalDetourFactor)
+    const highM = lowM * (drawn ? settings.drawnDetourFactor : settings.horizontalDetourFactor)
     if (!drawn) this.allDrawn = false
     this.horizontalLowM += lowM
     this.horizontalHighM += highM
@@ -576,6 +577,12 @@ class RouteBuilder {
 /** Plan units per metre the editor draws with before any calibration. */
 const EDITOR_PX_PER_METER = 100
 
+/**
+ * Extra cost, in metres, of each wire beyond a box's incoming and outgoing one. It only steers
+ * the shape of a placement tree (chain unless a branch clearly saves cable), never a length.
+ */
+const BRANCH_PENALTY_M = 1.5
+
 /** Same resolution as the editor's scale indicator: explicit value, else the ruler. */
 function calibratedPxPerMeter(scale: Floor['scale'] | undefined): number | undefined {
   return resolvePlanPxPerMeter(scale) ?? undefined
@@ -627,6 +634,35 @@ function categoryFor(circuit: Circuit): CableRouteCategory {
   if (kind === 'subpanel') return 'feeders'
   if (DEVICE_KINDS.has(kind)) return 'devices'
   return 'other'
+}
+
+/** Colour the cable reaching this device, rather than every cable by its final load. */
+function segmentCategory(
+  circuit: Circuit,
+  edge: CircuitCableEdge,
+  target: Pick<Endpoint | TrunkDevice, 'type' | 'symbol'>
+): CableRouteCategory {
+  if (edge.domain === 'DC') return 'dc'
+  if (['junction_box', 'junction_panel', 'terminal_strip', 'dc_bus'].includes(target.symbol ?? ''))
+    return 'other'
+  if (target.symbol === 'panel_distribution') return 'feeders'
+  if (target.type === 'earthing_separator') return 'earthing'
+  if (target.type === 'protection' || target.type === 'changeover') return 'other'
+  if (target.type === 'switch' || target.type === 'light_point') return 'lighting'
+  if (target.type === 'socket') return 'sockets'
+  if (
+    [
+      'fixed_appliance',
+      'conversion',
+      'storage',
+      'generation',
+      'domotica',
+      'relay',
+      'energy_meter',
+    ].includes(target.type)
+  )
+    return 'devices'
+  return categoryFor(circuit)
 }
 
 function routePoint(location: RouteLocation): CableRoutePoint {
@@ -684,10 +720,10 @@ export function estimateCableRoutes(
   const onPlan = (placement: Placement) =>
     floors.has(placement.floorId) && !offPlanPlacementIds.has(placement.id)
 
-  /** Where a junction box or panel on a circuit's feed sits, if it is on the plan. */
-  const trunkJunctionLocation = (device: TrunkDevice): RouteLocation | undefined => {
+  /** A placed circuit device, with shared junction occurrences resolving to their owner. */
+  const circuitDeviceLocation = (device: TrunkDevice): RouteLocation | undefined => {
     const junction = junctionOf(device)
-    if (!junction && device.symbol !== 'junction_box') return undefined
+    if (!junction && device.symbol !== 'junction_box') return supplyDeviceLocation(device)
     const placement = (junction?.placements ?? device.placements ?? []).find(onPlan)
     if (!placement) return undefined
     const owner = junction?.symbol === 'junction_box' ? junction.owner : undefined
@@ -792,18 +828,32 @@ export function estimateCableRoutes(
   routes.push(...estimateBoardFeeders())
   routes.push(...estimateSupplyCables())
   routes.push(...estimateEarthingCables())
-  const uncalibratedFloors = new Set(selectProjectBuildingFloors(project).filter((floor) =>
-    floor.planScaleNeedsCalibration === true || (!calibrated && (
-      ('planAssetId' in floor && !!floor.planAssetId) || ('planAsset' in floor && !!floor.planAsset) || ('planImportAsset' in floor && !!floor.planImportAsset)
-    )),
-  ).map((floor) => floor.id))
+  const uncalibratedFloors = new Set(
+    selectProjectBuildingFloors(project)
+      .filter(
+        (floor) =>
+          floor.planScaleNeedsCalibration === true ||
+          (!calibrated &&
+            (('planAssetId' in floor && !!floor.planAssetId) ||
+              ('planAsset' in floor && !!floor.planAsset) ||
+              ('planImportAsset' in floor && !!floor.planImportAsset)))
+      )
+      .map((floor) => floor.id)
+  )
   if (uncalibratedFloors.size) assumptions.add('plan-scale-assumed')
   const wireRuns = selectProjectWireRuns(project)
   for (const route of routes) {
-    const touched = [route.from?.floorId, route.to?.floorId, ...route.legs.flatMap((leg) => leg.kind === 'riser' ? [leg.fromFloorId, leg.toFloorId] : [leg.floorId])]
+    const touched = [
+      route.from?.floorId,
+      route.to?.floorId,
+      ...route.legs.flatMap((leg) =>
+        leg.kind === 'riser' ? [leg.fromFloorId, leg.toFloorId] : [leg.floorId]
+      ),
+    ]
     route.scaleCalibrated = !touched.some((id) => id && uncalibratedFloors.has(id))
-    route.estimateNeedsReview = [route.anchor, ...(route.aliasAnchors ?? [])].some((anchor) =>
-      findWireRunForAnchor(wireRuns, anchor)?.segmentLengthSources?.[anchor] === 'estimated-stale',
+    route.estimateNeedsReview = [route.anchor, ...(route.aliasAnchors ?? [])].some(
+      (anchor) =>
+        findWireRunForAnchor(wireRuns, anchor)?.segmentLengthSources?.[anchor] === 'estimated-stale'
     )
   }
   return { routes, assumptions: [...assumptions] }
@@ -916,7 +966,9 @@ export function estimateCableRoutes(
   function estimateSupplyCables(): CableRouteEstimate[] {
     const assemblies = selectProjectSupplyAssemblies(project)
     if (assemblies.length === 0) return []
-    const deviceById = new Map(getAllSupplyTrunkDevices(project).map((device) => [device.id, device]))
+    const deviceById = new Map(
+      getAllSupplyTrunkDevices(project).map((device) => [device.id, device])
+    )
     const mainPanel = findMainPanel(getProjectElectricalPanels(project))
     const panelNameById = (panelId: string | undefined) =>
       panelId ? model.panelById.get(panelId)?.name : undefined
@@ -930,7 +982,10 @@ export function estimateCableRoutes(
       if (relationship.kind !== 'supply-assembly-connection') continue
       const fromEntity = entityIdBySnapshotNode.get(relationship.from)
       if (fromEntity && relationship.source.relationshipId) {
-        relationshipByConnection.set(`${fromEntity}|${relationship.source.relationshipId}`, relationship)
+        relationshipByConnection.set(
+          `${fromEntity}|${relationship.source.relationshipId}`,
+          relationship
+        )
       }
     }
 
@@ -1066,7 +1121,6 @@ export function estimateCableRoutes(
           gaps: [],
         })
       }
-
     }
     return results
   }
@@ -1078,7 +1132,9 @@ export function estimateCableRoutes(
   function estimateEarthingCables(): CableRouteEstimate[] {
     const installation = getProjectElectricalInstallation(project)
     const electrodes: RouteLocation[] = (installation?.earthingPlacements ?? [])
-      .filter((placement) => floors.has(placement.floorId) && !offPlanPlacementIds.has(placement.id))
+      .filter(
+        (placement) => floors.has(placement.floorId) && !offPlanPlacementIds.has(placement.id)
+      )
       .map((placement) => ({
         floorId: placement.floorId,
         pos: placement.pos,
@@ -1211,10 +1267,10 @@ export function estimateCableRoutes(
   }
 
   /**
-   * The cable from the board through the junction boxes and panels on a circuit's feed, in
-   * one-wire order. A junction that is not on the plan is passed over.
+   * Placed devices on the circuit feed, following their actual electrical predecessors.
+   * Unplaced devices are passed over; converter outputs remain separate feed paths.
    */
-  function feedJunctionRoutes(
+  function feedDeviceRoutes(
     circuit: Circuit,
     edges: CircuitCableEdge[],
     board: RouteLocation | undefined
@@ -1224,16 +1280,49 @@ export function estimateCableRoutes(
         .filter((edge) => edge.toNodeId.startsWith('trunk-device:'))
         .map((edge) => [edge.toNodeId.slice('trunk-device:'.length), edge] as const)
     )
-    const devices = [...(circuit.trunkDevices ?? [])].sort(
-      (a, b) => (a.trunkPosition ?? 0) - (b.trunkPosition ?? 0)
-    )
+    const devices = [
+      ...(circuit.trunkDevices ?? []),
+      ...(circuit.branches ?? []).flatMap((branch) => branch.branchDevices ?? []),
+    ].sort((a, b) => (a.trunkPosition ?? 0) - (b.trunkPosition ?? 0))
     const routes: CableRouteEstimate[] = []
-    let previous = board
-    let fromBoard = { lowM: 0, highM: 0 }
-    for (const device of devices) {
+    const deviceById = new Map(devices.map((device) => [device.id, device]))
+    const incoming = new Map(edges.map((edge) => [edge.toNodeId, edge]))
+    const reached = new Map<string, CableRouteEstimate>()
+    const visiting = new Set<string>()
+    const visit = (device: TrunkDevice): CableRouteEstimate | undefined => {
+      const cached = reached.get(`trunk-device:${device.id}`)
+      if (cached) return cached
+      if (visiting.has(device.id)) return undefined
+      visiting.add(device.id)
       const edge = edgeByDeviceId.get(device.id)
-      const location = edge ? trunkJunctionLocation(device) : undefined
-      if (!edge || !location) continue
+      const location = edge ? circuitDeviceLocation(device) : undefined
+      if (!edge || !location) {
+        visiting.delete(device.id)
+        return undefined
+      }
+      let source = edge.fromNodeId
+      let upstream: CableRouteEstimate | undefined
+      const seen = new Set<string>()
+      while (source.startsWith('trunk-device:') && !seen.has(source)) {
+        seen.add(source)
+        const parent = deviceById.get(source.slice('trunk-device:'.length))
+        upstream = parent ? visit(parent) : undefined
+        if (upstream) break
+        source = incoming.get(source)?.fromNodeId ?? ''
+      }
+      const sourceEndpoint = source.startsWith('endpoint:')
+        ? model.endpointById.get(source.slice('endpoint:'.length))
+        : undefined
+      const sourceInBoard =
+        sourceEndpoint &&
+        symbolCanAppearInPanelGrid(sourceEndpoint.symbol) &&
+        (sourceEndpoint.placements.length === 0 ||
+          sourceEndpoint.placements.every((placement) => inBoardPlacementIds.has(placement.id)))
+      const previous =
+        upstream?.to ??
+        (sourceEndpoint
+          ? (endpointLocations(sourceEndpoint).at(-1) ?? (sourceInBoard ? board : undefined))
+          : board)
       const builder = new RouteBuilder(context)
       const gaps: CableRouteGap[] = []
       if (previous) builder.connect(previous, location)
@@ -1242,16 +1331,19 @@ export function estimateCableRoutes(
       const fixedM = builder.verticalM + builder.riserM + slackM
       const lowM = previous ? builder.horizontalLowM + fixedM : 0
       const highM = previous ? builder.horizontalHighM + fixedM : 0
-      fromBoard = { lowM: fromBoard.lowM + lowM, highM: fromBoard.highM + highM }
-      routes.push({
+      const fromBoard = {
+        lowM: (upstream?.fromBoardLowM ?? 0) + lowM,
+        highM: (upstream?.fromBoardHighM ?? 0) + highM,
+      }
+      const route: CableRouteEstimate = {
         anchor: edge.anchor,
         circuitId: circuit.id,
         circuitCode: circuit.code,
         boardName: model.panelByCircuitId.get(circuit.id)?.name,
         cable: edge.cable,
         order: routes.length + 1,
-        role: routes.length === 0 ? 'home-run' : 'wire',
-        category: categoryFor(circuit),
+        role: upstream || sourceEndpoint ? 'wire' : 'home-run',
+        category: segmentCategory(circuit, edge, device),
         fromNodeId: edge.fromNodeId,
         toNodeId: edge.toNodeId,
         fromLabel: previous?.label ?? '?',
@@ -1277,9 +1369,13 @@ export function estimateCableRoutes(
         gaps,
         enteredLengthM: edge.lengthM,
         ...(edge.lengthEstimated ? { enteredLengthEstimated: true } : {}),
-      })
-      previous = location
+      }
+      routes.push(route)
+      reached.set(edge.toNodeId, route)
+      visiting.delete(device.id)
+      return route
     }
+    devices.forEach(visit)
     return routes
   }
 
@@ -1337,7 +1433,9 @@ export function estimateCableRoutes(
         return { endpoint, edge, locations: [], offPlan: true }
       }
       // A relay, timer, or contactor in the board: its cable starts and ends inside the board.
-      const board = symbolCanAppearInPanelGrid(endpoint.symbol) ? boardLocation(circuit.id) : undefined
+      const board = symbolCanAppearInPanelGrid(endpoint.symbol)
+        ? boardLocation(circuit.id)
+        : undefined
       if (board) {
         return {
           endpoint,
@@ -1359,6 +1457,14 @@ export function estimateCableRoutes(
     }
 
     const visibleLocationOfNode = (nodeId: string): RouteLocation | undefined => {
+      if (nodeId.startsWith('trunk-device:')) {
+        const id = nodeId.slice('trunk-device:'.length)
+        const device = [
+          ...(circuit.trunkDevices ?? []),
+          ...(circuit.branches ?? []).flatMap((branch) => branch.branchDevices ?? []),
+        ].find((candidate) => candidate.id === id)
+        return device ? circuitDeviceLocation(device) : undefined
+      }
       if (!nodeId.startsWith('endpoint:')) return undefined
       const endpoint = model.endpointById.get(nodeId.slice('endpoint:'.length))
       return endpoint ? endpointLocations(endpoint).at(-1) : undefined
@@ -1398,7 +1504,63 @@ export function estimateCableRoutes(
         return true
       })
 
-    // Units: an ordered lighting branch, or a single free point.
+    const board = boardLocation(circuit.id)
+    const deviceRoutes = feedDeviceRoutes(circuit, edges, board)
+    results.push(...deviceRoutes)
+    const deviceRouteByNode = new Map(
+      deviceRoutes.map((route, index) => [route.toNodeId, { route, link: -index - 2 }])
+    )
+    // Points whose cable starts at the circuit itself hang off the last placed device on the
+    // circuit trunk (board -> junction box -> points), as on the one-wire.
+    const trunkDeviceIds = new Set((circuit.trunkDevices ?? []).map((device) => device.id))
+    const trunkTailIndex = deviceRoutes.reduce(
+      (tail, route, index) =>
+        trunkDeviceIds.has(route.toNodeId.slice('trunk-device:'.length)) ? index : tail,
+      -1
+    )
+    const deviceNodeByLink = new Map(
+      deviceRoutes.map((route, index) => [-index - 2, route.toNodeId])
+    )
+    const incoming = new Map(edges.map((edge) => [edge.toNodeId, edge]))
+    const controllerRoots = new Map<number, string>()
+    const rootFor = (stop: ChainStop) => {
+      let edge: CircuitCableEdge | undefined = stop.edge
+      const visited = new Set<string>()
+      const connection = edge.converterDcConnection
+      const port = connection ? `:${connection.converterId}:${connection.connectionIndex}` : ''
+      while (edge && !visited.has(edge.fromNodeId)) {
+        visited.add(edge.fromNodeId)
+        if (edge.outputKey && edge.fromNodeId.startsWith('endpoint:')) {
+          const parentId = edge.fromNodeId.slice('endpoint:'.length)
+          const parent = model.endpointById.get(parentId)
+          const location = parent ? endpointLocations(parent).at(-1) : undefined
+          const inBoard =
+            parent &&
+            symbolCanAppearInPanelGrid(parent.symbol) &&
+            (parent.placements.length === 0 ||
+              parent.placements.every((placement) => inBoardPlacementIds.has(placement.id)))
+          if (location || (inBoard && board)) {
+            const link =
+              -deviceRoutes.length -
+              circuit.endpoints.findIndex((endpoint) => endpoint.id === parentId) -
+              2
+            controllerRoots.set(link, parentId)
+            return { location: location ?? board, link, group: `${parentId}:${edge.outputKey}` }
+          }
+        }
+        const device = deviceRouteByNode.get(edge.fromNodeId)
+        if (device)
+          return { location: device.route.to, link: device.link, group: `${device.link}${port}` }
+        edge = incoming.get(edge.fromNodeId)
+      }
+      const tail = trunkTailIndex >= 0 ? deviceRoutes[trunkTailIndex] : undefined
+      if (tail?.to && !port)
+        return { location: tail.to, link: -trunkTailIndex - 2, group: `${-trunkTailIndex - 2}` }
+      return { location: board, link: -1, group: `board${port}` }
+    }
+
+    // Units: an ordered lighting branch, or a single free point. Different converter ports
+    // and branch taps cannot be chained together just because they are close on the plan.
     const units: ChainStop[][] = []
     const seen = new Set<string>()
     const sequences = circuit.branches?.length
@@ -1413,8 +1575,18 @@ export function estimateCableRoutes(
         endpoints.map(stopFor).filter((stop): stop is ChainStop => stop != null)
       )
       if (stops.length === 0) continue
-      if (endpoints.some(isLightingSide)) units.push(stops)
-      else units.push(...stops.map((stop) => [stop]))
+      if (endpoints.some(isLightingSide)) {
+        for (const stop of stops) {
+          const previous = units.at(-1)
+          if (
+            previous &&
+            rootFor(previous[0]!).group === rootFor(stop).group &&
+            stops.includes(previous[0]!)
+          )
+            previous.push(stop)
+          else units.push([stop])
+        }
+      } else units.push(...stops.map((stop) => [stop]))
     }
 
     // Pass 1, the feed tree. Live points a new unit may be fed from: the board, every free point,
@@ -1423,24 +1595,27 @@ export function estimateCableRoutes(
     //
     // Wires drawn on the plan decide the physical chain: a drawn wire into a unit's first point
     // makes its start that unit's feeder, as soon as that start is reached. Other units are
-    // attached nearest-first.
+    // attached nearest-first, with the same branch penalty as a placement tree at every live
+    // point but the root, which takes any number of cables.
     interface Link {
       stop: ChainStop
       feeder?: number
       from?: RouteLocation
       role: CableRouteRole
     }
-    type Reached = { location: RouteLocation; link: number }
-    const board = boardLocation(circuit.id)
-    // Junctions on the circuit's feed: the cable runs board -> each junction -> the points, so
-    // the last junction is where the points are fed from.
-    const junctionRoutes = feedJunctionRoutes(circuit, edges, board)
-    results.push(...junctionRoutes)
-    const root = junctionRoutes.at(-1)?.to ?? board
-    const viaJunction = junctionRoutes.length > 0
-    const live: Reached[] = root ? [{ location: root, link: -1 }] : []
+    type Reached = { location: RouteLocation; link: number; group: string }
+    const live: Reached[] = []
     const reachedByPlacement = new Map<string, Reached>()
-    if (root?.placementId) reachedByPlacement.set(root.placementId, live[0]!)
+    const wiresAtLive = new Map<Reached, number>()
+    for (const unit of units) {
+      const root = rootFor(unit[0]!)
+      if (!root.location || live.some((point) => point.group === root.group)) continue
+      const point = { ...root, location: root.location }
+      live.push(point)
+      wiresAtLive.set(point, 1)
+      if (point.location.placementId)
+        reachedByPlacement.set(`${point.group}:${point.location.placementId}`, point)
+    }
     const drawnFeederOf = drawnFeeders(circuit.id)
     const links: Link[] = []
     const pending = [...units]
@@ -1450,8 +1625,9 @@ export function estimateCableRoutes(
       let best = Infinity
       pending.forEach((unit, candidate) => {
         const entry = unit[0]!.locations[0]!
+        const group = rootFor(unit[0]!).group
         const drawn = entry.placementId ? drawnFeederOf.get(entry.placementId) : undefined
-        const drawnFeeder = drawn ? reachedByPlacement.get(drawn) : undefined
+        const drawnFeeder = drawn ? reachedByPlacement.get(`${group}:${drawn}`) : undefined
         if (drawnFeeder && best > -Infinity) {
           best = -Infinity
           unitIndex = candidate
@@ -1459,7 +1635,10 @@ export function estimateCableRoutes(
           return
         }
         for (const point of live) {
-          const cost = linkCostM(point.location, entry)
+          if (point.group !== group) continue
+          const wires = wiresAtLive.get(point)
+          const penaltyM = wires == null ? 0 : Math.max(0, wires - 1) * BRANCH_PENALTY_M
+          const cost = linkCostM(point.location, entry) + penaltyM
           if (cost < best) {
             best = cost
             unitIndex = candidate
@@ -1468,6 +1647,9 @@ export function estimateCableRoutes(
         }
       })
       const [unit] = pending.splice(unitIndex, 1)
+      const group = rootFor(unit![0]!).group
+      // Only cables between units count; a switch's own wire to its lights is not a branch.
+      if (feeder && wiresAtLive.has(feeder)) wiresAtLive.set(feeder, wiresAtLive.get(feeder)! + 1)
       const lightingUnit = unit!.some((stop) => isLightingSide(stop.endpoint))
       let previous = feeder
       unit!.forEach((stop, position) => {
@@ -1475,18 +1657,21 @@ export function estimateCableRoutes(
         const role: CableRouteRole =
           position > 0
             ? 'wire'
-            : previous?.link === -1 && !viaJunction
+            : previous?.link === -1
               ? 'home-run'
               : lightingUnit
                 ? 'branch-feed'
                 : 'wire'
         links.push({ stop, feeder: previous?.link, from: previous?.location, role })
-        const point = { location: stop.locations[stop.locations.length - 1]!, link: index }
-        if (!lightingUnit || position === 0) live.push(point)
+        const point = { location: stop.locations[stop.locations.length - 1]!, link: index, group }
+        if (!lightingUnit || position === 0) {
+          live.push(point)
+          wiresAtLive.set(point, 1)
+        }
         for (const location of stop.locations) {
           // A device in the board shares the board's placement; drawn wires there mean the board.
           if (location.placementId && !location.inBoard) {
-            reachedByPlacement.set(location.placementId, point)
+            reachedByPlacement.set(`${group}:${location.placementId}`, point)
           }
         }
         previous = point
@@ -1495,18 +1680,16 @@ export function estimateCableRoutes(
 
     // Pass 2, each link's route.
     // A point placed more than once is reached through the least wire: a tree from the feeder
-    // that joins each placement to whichever reached spot is nearest, so equidistant placements
-    // get their own wire and aligned ones chain. Wires drawn between them are kept.
+    // that joins each placement to the cheapest reached spot, chaining unless a branch clearly
+    // saves cable. Wires drawn between them are kept.
     const trees = links.map((link) => placementTree(link.from, link.stop.locations, drawnFeederOf))
 
-    const lastJunction = junctionRoutes.at(-1)
     const cumulative = new Map<number, { lowM: number; highM: number } | undefined>([
-      [
-        -1,
-        lastJunction
-          ? { lowM: lastJunction.fromBoardLowM, highM: lastJunction.fromBoardHighM }
-          : { lowM: 0, highM: 0 },
-      ],
+      [-1, { lowM: 0, highM: 0 }],
+      ...deviceRoutes.map(
+        (route, index) =>
+          [-index - 2, { lowM: route.fromBoardLowM, highM: route.fromBoardHighM }] as const
+      ),
     ])
     links.forEach((link, index) => {
       const { stop } = link
@@ -1544,10 +1727,17 @@ export function estimateCableRoutes(
         circuitCode: circuit.code,
         boardName: model.panelByCircuitId.get(circuit.id)?.name,
         cable: stop.edge.cable,
-        order: index + 1 + junctionRoutes.length,
+        order: index + 1 + deviceRoutes.length,
         role: link.role,
-        category: categoryFor(circuit),
+        category: segmentCategory(circuit, stop.edge, stop.endpoint),
         fromNodeId: stop.edge.fromNodeId,
+        physicalFromNodeId:
+          link.feeder != null && link.feeder >= 0
+            ? links[link.feeder]!.stop.edge.toNodeId
+            : link.feeder != null && controllerRoots.has(link.feeder)
+              ? `endpoint:${controllerRoots.get(link.feeder)!}`
+              : deviceNodeByLink.get(link.feeder ?? -1) ??
+                stop.edge.fromNodeId,
         toNodeId: stop.edge.toNodeId,
         fromLabel: link.from?.label ?? '?',
         toLabel: first.label,
@@ -1576,12 +1766,74 @@ export function estimateCableRoutes(
         ...(stop.edge.lengthEstimated ? { enteredLengthEstimated: true } : {}),
       })
     })
+    // Controller outputs and branch devices may be reached before their input in the
+    // nearest-first traversal. Resolve totals afterwards to include every upstream cable.
+    const routeByAnchor = new Map(results.map((route) => [route.anchor, route]))
+    const linkByEndpoint = new Map(links.map((link, index) => [link.stop.endpoint.id, index]))
+    const totals = new Map<number, { lowM: number; highM: number } | undefined>()
+    const visitingTotals = new Set<number>()
+    const totalFor = (index: number): { lowM: number; highM: number } | undefined => {
+      if (totals.has(index)) return totals.get(index)
+      if (visitingTotals.has(index)) return undefined
+      visitingTotals.add(index)
+      const controller = controllerRoots.get(index)
+      const deviceRoute = index < -1 && !controller ? deviceRoutes[-index - 2] : undefined
+      let source = deviceRoute?.fromNodeId
+      let deviceFeeder: number | undefined
+      const visitedSources = new Set<string>()
+      while (source && !visitedSources.has(source)) {
+        visitedSources.add(source)
+        deviceFeeder = source.startsWith('endpoint:')
+          ? linkByEndpoint.get(source.slice('endpoint:'.length))
+          : deviceRouteByNode.get(source)?.link
+        if (deviceFeeder != null) break
+        source = incoming.get(source)?.fromNodeId
+      }
+      const parentLink = controller ? linkByEndpoint.get(controller) : deviceFeeder
+      const link = links[index]
+      const route = deviceRoute ?? (link ? routeByAnchor.get(link.stop.edge.anchor) : undefined)
+      const upstream =
+        parentLink != null
+          ? totalFor(parentLink)
+          : link?.feeder != null
+            ? totalFor(link.feeder)
+            : undefined
+      const total =
+        index < 0 && !controller && parentLink == null
+          ? cumulative.get(index)
+          : upstream
+            ? {
+                lowM: upstream.lowM + (route?.lowM ?? 0),
+                highM: upstream.highM + (route?.highM ?? 0),
+              }
+            : undefined
+      totals.set(index, total)
+      visitingTotals.delete(index)
+      return total
+    }
+    links.forEach((link, index) => {
+      const route = routeByAnchor.get(link.stop.edge.anchor)
+      const total = totalFor(index)
+      if (route && total) {
+        route.fromBoardLowM = total.lowM
+        route.fromBoardHighM = total.highM
+      }
+    })
+    deviceRoutes.forEach((route, index) => {
+      const total = totalFor(-index - 2)
+      if (total) {
+        route.fromBoardLowM = total.lowM
+        route.fromBoardHighM = total.highM
+      }
+    })
     return results
   }
 
   /**
    * Least-wire tree through a point's placements, grown from its feeder (Prim): a placement
-   * with a drawn wire from a reached spot joins there first, otherwise the nearest pair joins.
+   * with a drawn wire from a reached spot joins there first, otherwise the cheapest pair joins.
+   * A box takes its incoming and one outgoing wire for free; every further wire there costs
+   * `BRANCH_PENALTY_M` more, so placements chain unless branching saves real cable.
    * `first` is the placement the feeder's own wire reaches; `hops` are the further wires.
    */
   function placementTree(
@@ -1592,6 +1844,10 @@ export function estimateCableRoutes(
     const reached: RouteLocation[] = from ? [from] : [locations[0]!]
     const remaining = from ? [...locations] : locations.slice(1)
     const edges: Array<{ from: RouteLocation; to: RouteLocation }> = []
+    // Wires already at each reached box; the feeder and a first placement arrive on one.
+    const wiresAt = new Map<RouteLocation, number>([[reached[0]!, 1]])
+    const branchPenaltyM = (spot: RouteLocation) =>
+      Math.max(0, (wiresAt.get(spot) ?? 1) - 1) * BRANCH_PENALTY_M
     while (remaining.length > 0) {
       let pick: { from: RouteLocation; index: number } | undefined
       remaining.some((location, index) => {
@@ -1604,7 +1860,7 @@ export function estimateCableRoutes(
         let best = Infinity
         remaining.forEach((location, index) => {
           for (const spot of reached) {
-            const cost = linkCostM(spot, location)
+            const cost = linkCostM(spot, location) + branchPenaltyM(spot)
             if (cost < best) {
               best = cost
               pick = { from: spot, index }
@@ -1614,6 +1870,8 @@ export function estimateCableRoutes(
       }
       const [to] = remaining.splice(pick!.index, 1)
       edges.push({ from: pick!.from, to: to! })
+      wiresAt.set(pick!.from, (wiresAt.get(pick!.from) ?? 1) + 1)
+      wiresAt.set(to!, 1)
       reached.push(to!)
     }
     if (!from) return { first: locations[0]!, hops: edges }
@@ -1634,7 +1892,7 @@ export function estimateCableRoutes(
       cable: edge.cable,
       order: 0,
       role: 'wire',
-      category: categoryFor(circuit),
+      category: segmentCategory(circuit, edge, endpoint),
       fromNodeId: edge.fromNodeId,
       toNodeId: edge.toNodeId,
       fromLabel: '?',

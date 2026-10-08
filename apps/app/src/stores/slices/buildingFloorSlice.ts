@@ -160,7 +160,7 @@ export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
       state.isDirty = true
     }),
 
-  applyPlanRescale: (floorId, floorUpdates, placementUpdates) =>
+  applyPlanRescale: (floorId, floorUpdates, placementUpdates, options) =>
     set((state) => {
       if (!state.currentProject) return
       const floor = readLegacyCompatibilityFloors(state.currentProject).find(
@@ -168,6 +168,25 @@ export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
       )
       if (floor) {
         if (floorUpdates.scale && resolvePlanPxPerMeter(floorUpdates.scale) == null) return
+        if (options?.scaleScope === 'building' && floorUpdates.scale) {
+          const before = resolvePlanPxPerMeter(selectProjectPlanScale(state.currentProject)) ?? 100
+          const after = resolvePlanPxPerMeter(floorUpdates.scale)
+          if (after == null) return
+
+          setPlanScaleForProject(state.currentProject, floorUpdates.scale)
+          Object.assign(floor, {
+            scale: selectProjectPlanScale(state.currentProject),
+            planScaleNeedsCalibration: false,
+          })
+          if (Math.abs(after / before - 1) > 1e-9) {
+            invalidatePlanLengthEstimates(state.currentProject)
+          }
+          commitBuildingFloorView(state.currentProject, floorId, floor)
+          state.isDirty = true
+          // Building-wide calibration changes the shared units only. It deliberately
+          // leaves every floor's geometry, image assets, and placement coordinates intact.
+          return
+        }
         const before = resolvePlanPxPerMeter(floor.scale) ?? 100
         const after = resolvePlanPxPerMeter(floorUpdates.scale)
         if (floorUpdates.scale) {

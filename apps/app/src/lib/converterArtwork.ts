@@ -27,7 +27,9 @@ export const CONVERTER_ARTWORK_PATHS = {
 export const CONVERTER_DOMAIN_ICON_SIZE_RATIO = 9 / 20
 
 /** Physical corners for the separate grid/load supply inverter, without catalog mirroring. */
-export function getSeparateSupplyInverterArtworkLayout(dcSide: 'left' | 'right'): ConverterArtworkLayout {
+export function getSeparateSupplyInverterArtworkLayout(
+  dcSide: 'left' | 'right'
+): ConverterArtworkLayout {
   return dcSide === 'left'
     ? {
         diagonal: 'bottom-left-to-top-right',
@@ -40,7 +42,11 @@ export function getSeparateSupplyInverterArtworkLayout(dcSide: 'left' | 'right')
 }
 
 /** Outside opposite corners, clear of the horizontal and vertical connection wires. */
-export function getSeparateSupplyInverterDomainMarkers(width: number, height: number, dcSide: 'left' | 'right') {
+export function getSeparateSupplyInverterDomainMarkers(
+  width: number,
+  height: number,
+  dcSide: 'left' | 'right'
+) {
   const dcSign = dcSide === 'left' ? -1 : 1
   return {
     DC: { x: dcSign * (width / 2 + 3.5), y: -height / 2 - 3 },
@@ -68,11 +74,21 @@ function cornerSides(corner: ConverterCorner): readonly ConverterSide[] {
 function scoreCorner(
   corner: ConverterCorner,
   domain: ConverterDomain,
-  connections: ConverterConnectionDomains,
+  connections: ConverterConnectionDomains
 ): number {
-  return cornerSides(corner).reduce(
+  // One-wire renderers mirror the final X coordinate in
+  // getConverterCornerPosition. Score the physical corner after that mirror
+  // so horizontal AC/DC connections keep their marks on the connected side.
+  const physicalCorner: ConverterCorner = corner.endsWith('left')
+    ? corner.startsWith('top')
+      ? 'top-right'
+      : 'bottom-right'
+    : corner.startsWith('top')
+      ? 'top-left'
+      : 'bottom-left'
+  return cornerSides(physicalCorner).reduce(
     (score, side) => score + (connections[side] === domain ? 1 : 0),
-    0,
+    0
   )
 }
 
@@ -80,7 +96,7 @@ function scoreAssignment(
   firstCorner: ConverterCorner,
   secondCorner: ConverterCorner,
   domains: readonly ConverterDomain[],
-  connections: ConverterConnectionDomains,
+  connections: ConverterConnectionDomains
 ): { score: number; assignment: Partial<Record<ConverterDomain, ConverterCorner>> } {
   const firstDomain = domains[0]!
   const secondDomain = domains[1]!
@@ -117,7 +133,7 @@ function scoreAssignment(
 export function getConverterArtworkLayout(
   inputDomain: ConverterDomain,
   outputDomain: ConverterDomain,
-  connections: ConverterConnectionDomains = {},
+  connections: ConverterConnectionDomains = {}
 ): ConverterArtworkLayout {
   const domains = [inputDomain, outputDomain] as const
   // A vertical run has no left/right information. Use one canonical visual
@@ -167,13 +183,22 @@ export function getConverterConnectionDomains(
   segments: readonly WireSegment[],
   deviceId: string,
   position: { x: number; y: number },
-  symbolSize = 20,
+  symbolSize = 20
 ): ConverterConnectionDomains {
   const result: ConverterConnectionDomains = {}
   const maxNearDistance = symbolSize / 2 + 14
+  const attachedSegments = segments.filter(
+    (segment) => segment.fromElementId === deviceId || segment.toElementId === deviceId
+  )
 
-  for (const segment of segments) {
-    const startDistance = Math.hypot(segment.startPoint.x - position.x, segment.startPoint.y - position.y)
+  // Prefer electrical ownership. Nearby trunk wires or sibling output rows
+  // can lie inside the symbol's search radius without connecting to it.
+  // Geometry remains a fallback for renderers without endpoint references.
+  for (const segment of attachedSegments.length > 0 ? attachedSegments : segments) {
+    const startDistance = Math.hypot(
+      segment.startPoint.x - position.x,
+      segment.startPoint.y - position.y
+    )
     const endDistance = Math.hypot(segment.endPoint.x - position.x, segment.endPoint.y - position.y)
     const nearIsStart = startDistance <= endDistance
     const near = nearIsStart ? segment.startPoint : segment.endPoint
@@ -210,7 +235,7 @@ export function getConverterCornerPosition(
   margin: number,
   iconWidth = 0,
   iconHeight = iconWidth,
-  mirrorX = true,
+  mirrorX = true
 ): { x: number; y: number } {
   const leftX = -width / 2 + margin + iconWidth / 2
   const rightX = width / 2 - margin - iconWidth / 2
@@ -228,7 +253,7 @@ export function getConverterCornerPosition(
 /** Canonical artwork used when no surrounding wire geometry is available. */
 export function getCanonicalConverterArtworkLayout(
   inputDomain: ConverterDomain,
-  outputDomain: ConverterDomain,
+  outputDomain: ConverterDomain
 ): ConverterArtworkLayout {
   return {
     diagonal: 'bottom-left-to-top-right',
@@ -241,7 +266,7 @@ export function getCanonicalConverterArtworkLayout(
 
 export function getConverterDomainCorner(
   layout: ConverterArtworkLayout,
-  domain: ConverterDomain,
+  domain: ConverterDomain
 ): ConverterCorner | undefined {
   return layout.domainCorners[domain]
 }

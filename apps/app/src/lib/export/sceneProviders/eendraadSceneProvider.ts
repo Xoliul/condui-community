@@ -18,6 +18,7 @@ import { useCanvasRegistryStore } from '@/stores/canvasRegistryStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import type { BottomUpPanelLayout } from '@/lib/layout/bottomUpLayout'
+import type { WireSegment } from '@/types/schema'
 import type { InstallDateOverlayProject } from '@/components/canvas/eendraad/InstallDateOverlay'
 import { createInstallDateExportNode } from '../installDateExport'
 import type { FrameSlice } from '../slicing/eendraadSlicing'
@@ -62,7 +63,11 @@ export async function prepareEendraadScene(
   slice: FrameSlice | null,
   options: ExportOptions,
   eendraadSliceMeta?: EendraadSliceExportMeta,
-  installDateSource?: { project: InstallDateOverlayProject; panelLayout: BottomUpPanelLayout }
+  installDateSource?: {
+    project: InstallDateOverlayProject
+    panelLayout: BottomUpPanelLayout
+    wireSegments?: readonly WireSegment[]
+  }
 ): Promise<ExportScene> {
   const sourceTheme = useSettingsStore.getState().theme.mode
   const targetTheme = options.theme
@@ -159,7 +164,8 @@ export async function prepareEendraadScene(
     const installDates = createInstallDateExportNode(
       installDateSource.project,
       installDateSource.panelLayout,
-      useUIStore.getState().eendraadDateMarkingVisibility.installDatesMonochrome
+      useUIStore.getState().eendraadDateMarkingVisibility.installDatesMonochrome,
+      installDateSource.wireSegments
     )
     if (installDates) clonedGroup.add(installDates)
   }

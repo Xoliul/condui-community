@@ -16,6 +16,7 @@ import {
 /* @project-documents-strip-start */
 import { isProjectDocumentsEnabled } from '@/lib/documents/availability'
 /* @project-documents-strip-end */
+import { JunctionEditorHost } from '@/components/junctionEditor/junctionEditorHostedFeatures'
 
 const StructuralCanvas =
   
@@ -237,6 +238,7 @@ function ViewLayout({
                 </div>
               )
             })}
+            <JunctionEditorHost />
             <div className="pointer-events-none absolute inset-0" style={{ zIndex: 41 }}>
               {dividerSpecs.map((spec, i) => (
                 <ResizableDivider

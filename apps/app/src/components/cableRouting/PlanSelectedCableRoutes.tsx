@@ -27,10 +27,12 @@ type HorizontalLeg = Extract<CableRouteLeg, { kind: 'horizontal' }>
 export function PlanSelectedCableRoutes({
   floorId,
   zoom,
+  pxPerMeter,
   theme,
 }: {
   floorId: string
   zoom: number
+  pxPerMeter?: number | null
   theme: ThemeMode
 }) {
   const selection = useUIStore((s) => s.selection)
@@ -60,7 +62,7 @@ export function PlanSelectedCableRoutes({
   if (selectedRoutes.length === 0) return null
 
   const stroke = PLAN_WIRE_SELECTED_STROKE
-  const width = planWireStrokeWidth(zoom) * 2
+  const width = planWireStrokeWidth(zoom, pxPerMeter) * 2
   const fontSize = screenPxToCanvasUnits(zoom, 10, 8, 13)
   const marker = screenPxToCanvasUnits(zoom, 4, 3, 7)
   const tagFill = theme === 'dark' ? '#111827' : '#ffffff'

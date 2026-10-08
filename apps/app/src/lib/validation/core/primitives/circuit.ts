@@ -25,6 +25,7 @@ import {
 } from './common'
 import { isHouseholdInstallation } from '@/lib/installationProfile'
 import { selectProjectSupplyAssemblies } from '@/lib/projectV2/electrical'
+import { isHvacDeviceSymbol } from '@/lib/symbols'
 
 // Push/impulse buttons are control-only devices. They commonly operate a
 // remote teleruptor or relay, so they may legitimately have no load on their
@@ -356,9 +357,12 @@ function heavyApplianceRequiresDedicatedCircuit(
   if (!circuit) return { passed: true }
 
   const endpoints = circuit.endpoints ?? []
+  // Domotica output loads belong to the module's circuit. Do not ask for a
+  // separate dedicated circuit for each controlled appliance.
   const heavyEndpoints = endpoints.filter(
     (ep: Endpoint) =>
       ep.type === 'fixed_appliance' &&
+      !ep.domoticaChildProps &&
       ep.symbol &&
       HEAVY_APPLIANCE_SYMBOLS.has(ep.symbol as SymbolKey)
   )
@@ -371,18 +375,12 @@ function heavyApplianceRequiresDedicatedCircuit(
   // circuitHasTooManyEndpoints): a socket and a heavy appliance that live on
   // the same branch count as a single endpoint group.
   const endpointsById = new Map<string, Endpoint>(endpoints.map((ep: Endpoint) => [ep.id, ep]))
+  const heavyEndpointIds = new Set(heavyEndpoints.map((endpoint) => endpoint.id))
   const socketsOnHeavyBranches = new Set<string>()
   if (circuit.branches) {
     for (const branch of circuit.branches) {
       const ids = branch.endpointIds ?? []
-      const hasHeavyOnBranch = ids.some((id: string) => {
-        const ep = endpointsById.get(id)
-        return (
-          ep?.type === 'fixed_appliance' &&
-          ep.symbol &&
-          HEAVY_APPLIANCE_SYMBOLS.has(ep.symbol as SymbolKey)
-        )
-      })
+      const hasHeavyOnBranch = ids.some((id: string) => heavyEndpointIds.has(id))
       if (!hasHeavyOnBranch) continue
       const hasSocketOnBranch = ids.some((id: string) => endpointsById.get(id)?.type === 'socket')
       if (!hasSocketOnBranch) continue
@@ -461,8 +459,10 @@ function fixedApplianceDedicatedCircuitHint(
   // Some fixed_appliance symbols are supporting devices, such as a lighting
   // transformer, and do not warrant a dedicated circuit hint. Other conversion
   // endpoints on a final branch (for example socket → rectifier) still do.
+  // Fixed loads on domotica outputs are exempt, including nested modules.
   const fixedAppliances = endpoints.filter((ep: Endpoint) =>
     ep.type === 'fixed_appliance' &&
+    !ep.domoticaChildProps &&
     ep.symbol !== 'solar_panel' &&
     ep.symbol !== 'battery' &&
     !(ep.symbol && FIXED_APPLIANCE_DEDICATED_HINT_EXCLUDED_SYMBOLS.has(ep.symbol as SymbolKey))
@@ -509,6 +509,31 @@ function fixedApplianceDedicatedCircuitHint(
 
   const isLeaf = !circuit.subCircuitIds || circuit.subCircuitIds.length === 0
 
+  // A heat pump or other HVAC unit can be followed by additional HVAC units or
+  // a generic device on the same circuit. That is one modeled HVAC system,
+  // not a generic set of fixed appliances that should trigger this hint.
+  const hasChainedHvacApplianceGroup =
+    fixedAppliances.length > 1 &&
+    (circuit.branches ?? []).some((branch) => {
+      const branchAppliances = (branch.endpointIds ?? [])
+        .map((id) => endpointsById.get(id))
+        .filter(
+          (endpoint): endpoint is Endpoint =>
+            endpoint != null && fixedAppliances.some((fixed) => fixed.id === endpoint.id),
+        )
+      return (
+        branchAppliances.length === fixedAppliances.length &&
+        branchAppliances.length > 1 &&
+        isHvacDeviceSymbol(branchAppliances[0]?.symbol) &&
+        branchAppliances
+          .slice(1)
+          .every(
+            (endpoint) =>
+              isHvacDeviceSymbol(endpoint.symbol) || endpoint.symbol === 'fixed_appliance_generic',
+          )
+      )
+    })
+
   const otherLoadEndpoints = endpoints.filter((ep: Endpoint) => {
     if (fixedAppliances.some((f: Endpoint) => f.id === ep.id)) return false
     if (ep.type === 'switch') return false
@@ -527,7 +552,11 @@ function fixedApplianceDedicatedCircuitHint(
     return true
   })
 
-  if (isLeaf && otherLoadEndpoints.length === 0 && fixedAppliances.length === 1) {
+  if (
+    isLeaf &&
+    otherLoadEndpoints.length === 0 &&
+    (fixedAppliances.length === 1 || hasChainedHvacApplianceGroup)
+  ) {
     return { passed: true }
   }
 

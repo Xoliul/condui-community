@@ -9,6 +9,7 @@
 import Konva from 'konva'
 import i18n from '@/i18n'
 import type { BottomUpPanelLayout } from '@/lib/layout/bottomUpLayout'
+import type { WireSegment } from '@/types/schema'
 import {
   buildDateFramesForPanel,
   resolveInstallDateFrameDrawing,
@@ -20,9 +21,17 @@ export const INSTALL_DATE_EXPORT_NODE_NAME = 'install-date-export'
 export function createInstallDateExportNode(
   project: InstallDateOverlayProject,
   panelLayout: BottomUpPanelLayout,
-  monochrome: boolean
+  monochrome: boolean,
+  wireSegments: readonly WireSegment[] = []
 ): Konva.Group | null {
-  const frames = buildDateFramesForPanel(project, panelLayout, monochrome, i18n.t)
+  const frames = buildDateFramesForPanel(
+    project,
+    panelLayout,
+    monochrome,
+    i18n.t,
+    undefined,
+    wireSegments
+  )
   if (frames.length === 0) return null
 
   const root = new Konva.Group({ name: INSTALL_DATE_EXPORT_NODE_NAME, listening: false })

@@ -2,6 +2,7 @@ import { isHvacDeviceSymbol, type SymbolMetadata } from '@/lib/symbols'
 import type { Circuit, Endpoint } from '@/types/schema'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
 import {
+  getEndpointTypeFromSymbol,
   isActualEndpoint,
   isActualEndpointSymbol,
   isFixedApplianceSymbol,
@@ -18,6 +19,38 @@ export function isEnergyConversionEndpointSymbol(symbol: string | undefined): bo
     symbol === 'rectifier' ||
     symbol === 'inverter' ||
     symbol === 'dc_dc_converter'
+  )
+}
+
+/** Lights may be chained after other lights on a branch, including after its switches. */
+export function canChainLightOnLightBranch(
+  branchIds: string[],
+  circuit: Circuit,
+  symbol: SymbolMetadata,
+): boolean {
+  if (getEndpointTypeFromSymbol(symbol) !== 'light_point') return false
+
+  const terminalEndpoints = branchIds
+    .map((id) => circuit.endpoints.find((endpoint) => endpoint.id === id))
+    .filter((endpoint) => endpoint?.type === 'light_point' || endpoint?.type === 'socket')
+
+  return (
+    terminalEndpoints.length > 0 &&
+    terminalEndpoints.every((endpoint) => endpoint?.type === 'light_point')
+  )
+}
+
+/** A relay directly downstream of an impulse switch should use the impulse control overlay. */
+export function shouldDefaultRelayToImpulse(
+  circuit: Circuit,
+  symbol: SymbolMetadata,
+  insertAfterEndpointId: string | null | undefined,
+): boolean {
+  if (symbol.id !== 'relay' || typeof insertAfterEndpointId !== 'string') return false
+
+  return circuit.endpoints.some(
+    (endpoint) =>
+      endpoint.id === insertAfterEndpointId && endpoint.symbol === 'switch_impulse',
   )
 }
 
@@ -90,6 +123,13 @@ export function computeEndpointInsertAfter(
     }
 
     if (branchIds?.length) {
+      if (canChainLightOnLightBranch(branchIds, circuit, symbol)) {
+        return {
+          insertAfterEndpointId: branchIds[branchIds.length - 1],
+          createNewBranch: false,
+        }
+      }
+
       const hasTerminalAlready = branchIds.some((id) => {
         const ep = circuit.endpoints.find((e) => e.id === id)
         return ep && (ep.type === 'socket' || ep.type === 'light_point')

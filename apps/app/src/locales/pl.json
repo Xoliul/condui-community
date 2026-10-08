@@ -625,7 +625,7 @@
     "view": "Do obejrzenia",
     "create": "Utwórz projekt",
     "download": "Pobierz projekt",
-    "manageAccess": "Dostęp i wersje",
+    "qrAndSharing": "QR i udostępnianie",
     "localOptions": "Lokalne opcje projektu",
     "newProjectLocalWarningShort": "Osiągnięto limit chmury. Będzie to projekt lokalny.",
     "newProjectLocalChosenWarning": "Będzie to projekt lokalny. Możesz później uaktualnić go do chmury.",
@@ -1355,12 +1355,17 @@
   },
   "planTools": {
     "movePlanImage": "Przesuń obraz planu",
-    "resetScale": "Dostosuj skalę",
+    "resetScale": "Kalibruj skalę planu",
+    "resetScaleTooltip": "Ustaw skalę planu na podstawie znanej odległości.",
     "uploadFloorPlanFirst": "Aby skorzystać z tego narzędzia, najpierw prześlij obraz planu"
   },
   "planWiring": {
     "tool": "Okablowanie",
-    "toolDescription": "Narysuj trasy przewodów pomiędzy symbolami na aktywnej podłodze"
+    "toolDescription": "Narysuj trasy przewodów pomiędzy symbolami na aktywnej podłodze",
+    "focusCircuit": "Obwód",
+    "redraw": "Narysuj ponownie",
+    "redrawDone": "Gotowe",
+    "redrawProgress": "Połączone: {{connected}}/{{total}}"
   },
   "layout": {
     "presetLabel": "Układ",
@@ -1410,6 +1415,7 @@
   "quickPlacer": {
     "title": "SnelPlaatser",
     "panelSelector": "Tablica",
+    "supply": "Zasilanie",
     "mode": {
       "slow": "Wolno",
       "fast": "Szybki",
@@ -2156,6 +2162,16 @@
           "endpoint-device": "ustawienie napięcia akumulatora lub paneli słonecznych"
         }
       },
+      "postMainBusRequiresPeConductor": {
+        "supplyRole": {
+          "crossing": "przejście przez granicę rozdzielnicy",
+          "downstream": "przewód do szyny"
+        },
+        "supplyMessage": "Rozdzielnica {{panelName}}: {{roleLabel}} używa {{conductorLabel}} bez przewodu ochronnego (G). Za główną szyną użyj przewodu G (np. 3G, 4G).",
+        "supplyDetails": "Przewód ochronny jest podłączony do głównej szyny. Odcinek {{roleLabel}} znajduje się po stronie instalacji i powinien zawierać PE w kablu (…G), a nie {{conductorLabel}}.",
+        "circuitMessage": "Obwód {{circuitCode}}: przewody AC na wyjściu używają {{conductorLabel}} bez ścieżki ochronnej PE.",
+        "circuitDetails": "Domowe obwody AC za głównym RCD muszą mieć ciągłą ścieżkę PE. Przewody wyjściowe mogą zawierać PE w kablu (…G) albo używać prawidłowo zainstalowanego niezależnego przewodu ochronnego. Połączenia wewnętrzne między zabezpieczeniami przenoszą tylko przewody czynne; okablowanie DC nie jest sprawdzane."
+      },
       "cascadeProtectionRatings": {
         "message": "Zabezpieczenie odpływu skalibrowane wyżej niż zabezpieczenie odpływu",
         "details": "Parametry znamionowe wyłącznika nadprądowego lub różnicowonadprądowego znajdującego się za innym urządzeniem nie mogą przekraczać parametrów zabezpieczenia nadrzędnego."
@@ -2641,13 +2657,15 @@
     "doorOpeningAngle": "Kąt otwarcia (stopnie)",
     "resetScale": {
       "distance": "Odległość (m)",
-      "confirmRescaleTitle": "Zastosować nową skalę obrazu?",
-      "confirmRescaleIntro": "Zmieniłeś skalę obrazu planu (~{{factor}}x). Wybierz, co chcesz zrobić:",
-      "optionRescale": "Przeskaluj narysowane elementy, aby zachować ich aktualne wymiary w metrach.",
-      "optionKeep": "Pozostaw narysowane elementy na miejscu i przelicz ich wymiary.",
+      "vectorOnlyWarningTitle": "Zmienić wymiary na wszystkich kondygnacjach?",
+      "vectorOnlyWarningIntro": "Nowa skala przeliczy wymiary na wszystkich kondygnacjach. Ściany i symbole pozostaną na swoich miejscach.",
+      "confirmRescaleTitle": "Dostosować rysunek?",
+      "confirmRescaleIntro": "Przy nowej skali mierzone odległości wyniosą {{factor}}× ich obecnej wartości.",
+      "optionRescale": "Przesuń i przeskaluj rysunek, aby zachować jego obecne wymiary.",
+      "optionKeep": "Pozostaw ściany i symbole na swoich miejscach i przelicz ich wymiary.",
       "optionCancel": "Anuluj i pozostaw wszystko bez zmian.",
-      "confirmRescaleConfirm": "Zachowaj wymiary",
-      "confirmRescaleCancel": "Przelicz wymiary"
+      "confirmRescaleConfirm": "Zachowaj obecne wymiary",
+      "confirmRescaleCancel": "Użyj nowych wymiarów"
     }
   },
   "junctionPanel": {
@@ -3132,5 +3150,104 @@
     "question": "Używasz touchpada?",
     "usePan": "Przewijaj, aby przesuwać",
     "dismiss": "Zamknij"
+  },
+  "junctionDocuments": {
+    "title": "Połączenia",
+    "junction_box": "Puszki rozgałęźne",
+    "terminal_strip": "Listwy zaciskowe",
+    "notVerified": "Niesprawdzone",
+    "fieldSide": "Strona obiektowa",
+    "boardSide": "Strona rozdzielnicy",
+    "terminal": "Zacisk",
+    "columns": {
+      "strip": "Listwa",
+      "stripTitle": "Opis",
+      "level": "Poziom",
+      "circuit": "Obwód",
+      "cable": "Kabel",
+      "core": "Żyła"
+    },
+    "terminalList": "Lista zacisków",
+    "downloadTerminalList": "Pobierz listę zacisków",
+    "download": "Pobierz",
+    "downloadPdf": "Pobierz jako PDF"
+  },
+  "junctionEditor": {
+    "openEditor": "Otwórz edytor",
+    "panelTitle": "Edytor połączeń",
+    "cables": "Kable",
+    "kind": {
+      "terminal_strip": "Listwa zaciskowa",
+      "junction_box": "Puszka rozgałęźna",
+      "junction_panel": "Skrzynka połączeniowa"
+    },
+    "open": "Otwórz",
+    "close": "Zamknij",
+    "status": {
+      "derived": "Wstępne",
+      "edited": "Edytowane",
+      "confirmed": "Sprawdzone"
+    },
+    "markChecked": "Oznacz jako sprawdzone",
+    "fixErrorsFirst": "Najpierw popraw błędy",
+    "more": "Więcej",
+    "reset": "Przywróć wstępne",
+    "changedSinceReview": "Zmieniono od sprawdzenia",
+    "dismiss": "Ukryj",
+    "checkDropped": "Już nie sprawdzone",
+    "auto": "Automatycznie",
+    "unassigned": "Niepodłączone",
+    "addConnector": "Dodaj złączkę",
+    "removeConnector": "Usuń złączkę",
+    "title": "Tytuł",
+    "location": "Lokalizacja",
+    "notes": "Notatki",
+    "entries": "Wprowadzenia",
+    "side": {
+      "top": "Góra",
+      "right": "Prawo",
+      "bottom": "Dół",
+      "left": "Lewo"
+    },
+    "addBlock": "Dodaj zacisk",
+    "shape": {
+      "phase": "Faza",
+      "neutral": "Neutralny",
+      "earth": "Ochronny"
+    },
+    "addJumper": "Dodaj mostek",
+    "removeJumper": "Usuń mostek",
+    "groupBreak": "Podział grupy",
+    "remove": "Usuń",
+    "boardWire": "Strona rozdzielnicy",
+    "findings": "Ustalenia",
+    "finding": {
+      "conflict": {
+        "pe-joined-to-live": "Przewód ochronny połączony z czynnym",
+        "neutral-joined-to-live": "Neutralny połączony z fazą",
+        "signal-joined-to-power": "Sygnał połączony z zasilaniem",
+        "different-circuits": "Połączono dwa obwody",
+        "different-rcds": "Połączono neutralne dwóch RCD",
+        "different-phases": "Połączono dwie fazy",
+        "different-outputs": "Połączono oddzielne wyjścia",
+        "different-signal-members": "Połączono obie żyły pary sygnałowej",
+        "unassigned-cores": "Nie można określić, czy wolno je połączyć",
+        "bus-continuation": "Magistrala biegnie do następnego urządzenia"
+      },
+      "unresolved": "Nie można określić, czy wolno je połączyć",
+      "levelRole": "Przewód nie pasuje do tego zacisku",
+      "orphaned": "Przewód już nie istnieje",
+      "unterminated": "Przewód niepodłączony",
+      "unused": "Nieużywane w schemacie jednokreskowym",
+      "duplicate": "Oznaczenie użyte dwukrotnie",
+      "hardware": {
+        "unknown-block": "Nieznany typ zacisku",
+        "unknown-level": "Zacisk nie ma tego poziomu",
+        "no-such-clamp": "Zacisk nie ma tego punktu zaciskowego",
+        "clamp-occupied": "Dwa przewody w jednym punkcie zaciskowym",
+        "unknown-connector": "Złączka już nie istnieje",
+        "pe-without-bonded-rail": "Zaciski ochronne na nieuziemionej szynie"
+      }
+    }
   }
 }

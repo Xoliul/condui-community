@@ -309,6 +309,8 @@ interface BaseCanvasProps {
   onViewportPixelSizeChange?: (size: CanvasSize) => void
   /** Optional max zoom used when fitting an active selection (e.g. keep plan fit at 100%). */
   selectionFitMaxZoom?: number
+  /** Optional lower zoom bound for large plan content; other canvases keep the shared default. */
+  minZoom?: number
   /** Which view store receives live gesture zoom (keeps side-by-side canvases isolated). */
   gestureZoomCanvas: CanvasType
 }
@@ -365,6 +367,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
     enableIsolatedDragLayer = false,
     onViewportPixelSizeChange,
     selectionFitMaxZoom,
+    minZoom: minZoomProp = ZOOM_MIN,
     gestureZoomCanvas,
   }: BaseCanvasProps,
   ref: ForwardedRef<BaseCanvasHandle>
@@ -375,10 +378,15 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
     (n: number, fallback: number) => (typeof n === 'number' && Number.isFinite(n) ? n : fallback),
     [],
   )
+  const minZoom = Number.isFinite(minZoomProp) && minZoomProp > 0
+    ? Math.min(ZOOM_MAX, minZoomProp)
+    : ZOOM_MIN
+  const minZoomRef = useRef(minZoom)
+  minZoomRef.current = minZoom
   const safePan = useMemo(() => ({ x: fin(pan.x, 0), y: fin(pan.y, 0) }), [fin, pan.x, pan.y])
   const safeZoom = useMemo(
-    () => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fin(zoom, ZOOM_100))),
-    [fin, zoom],
+    () => Math.max(minZoom, Math.min(ZOOM_MAX, fin(zoom, ZOOM_100))),
+    [fin, minZoom, zoom],
   )
   const themeMode = useSettingsStore((state) => state.theme.mode)
   const leftDragPansCanvas = useSettingsStore((state) => state.leftDragPansCanvas)
@@ -820,8 +828,8 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
       state.livePan = nextPan
       state.liveZoom = nextZoom
 
-      const startZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fin(state.startZoom, ZOOM_100)))
-      const scale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fin(nextZoom, startZoom))) / startZoom
+      const startZoom = Math.max(minZoomRef.current, Math.min(ZOOM_MAX, fin(state.startZoom, ZOOM_100)))
+      const scale = Math.max(minZoomRef.current, Math.min(ZOOM_MAX, fin(nextZoom, startZoom))) / startZoom
       const translateX = nextPan.x - state.startPan.x * scale
       const translateY = nextPan.y - state.startPan.y * scale
       const transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`
@@ -861,7 +869,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
       if (!state.active) return
 
       const nextPan = state.livePan
-      const nextZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fin(state.liveZoom, state.startZoom)))
+      const nextZoom = Math.max(minZoomRef.current, Math.min(ZOOM_MAX, fin(state.liveZoom, state.startZoom)))
       cssCameraTransformRef.current = {
         active: false,
         startPan: nextPan,
@@ -962,7 +970,15 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
   const prevSizeRef = useRef<CanvasSize | null>(null)
   const panRef = useRef(pan)
   const zoomRef = useRef(zoom)
-  if (!wheelZoomGestureActiveRef.current) {
+  // The store receives mouse pan only on release. Pan UI state and unrelated
+  // renders must not replace the live camera with those stale props mid-drag.
+  if (
+    !isPanningRef.current &&
+    !pendingMouseButtonPanRef.current &&
+    !touchSingleFingerPanActiveRef.current &&
+    !cssCameraTransformRef.current.active &&
+    !wheelZoomGestureActiveRef.current
+  ) {
     panRef.current = pan
     zoomRef.current = zoom
   }
@@ -987,7 +1003,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
       if (!onFind) return
 
       const p = panRef.current
-      const z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fin(zoomRef.current, ZOOM_100)))
+      const z = Math.max(minZoomRef.current, Math.min(ZOOM_MAX, fin(zoomRef.current, ZOOM_100)))
 
       const startCanvasX = (live.startX - p.x) / z
       const startCanvasY = (live.startY - p.y) / z
@@ -1365,7 +1381,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
       const nextZoom = cssCamera.active ? cssCamera.liveZoom : currentLayer.scaleX()
 
       const prev = lastSyncedViewRef.current
-      const zoomClamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fin(nextZoom, safeZoom)))
+      const zoomClamped = Math.max(minZoomRef.current, Math.min(ZOOM_MAX, fin(nextZoom, safeZoom)))
 
       const movedEnough =
         !prev.pan ||
@@ -1397,7 +1413,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
         y: currentLayer.y(),
       }
       const nextZoom = currentLayer.scaleX()
-      const zoomClamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fin(nextZoom, safeZoom)))
+      const zoomClamped = Math.max(minZoomRef.current, Math.min(ZOOM_MAX, fin(nextZoom, safeZoom)))
       const prev = lastSyncedViewRef.current
 
       const movedEnough =
@@ -1475,7 +1491,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
     if (!pointer) return
     wheelZoomGestureActiveRef.current = true
     const oldScale = layer.scaleX() || safeZoom
-    const newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fin(oldScale * mult, safeZoom)))
+    const newScale = Math.max(minZoomRef.current, Math.min(ZOOM_MAX, fin(oldScale * mult, safeZoom)))
     const currentPan: Point = {
       x: layer.x(),
       y: layer.y(),
@@ -2046,7 +2062,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
         const pointer = stage?.getPointerPosition()
         if (stage && e && isCommentNode(e.target, stage)) return
         if (pointer && e?.evt) {
-          const zCommit = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fin(zoom, ZOOM_100)))
+          const zCommit = Math.max(minZoomRef.current, Math.min(ZOOM_MAX, fin(zoom, ZOOM_100)))
           onCanvasPrimaryClickRef.current(
             {
               x: (pointer.x - pan.x) / zCommit,
@@ -2086,7 +2102,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
       } else if (rectSelectActive && rectForCommit && onFindElementsInRectangle) {
         const stage = stageRef.current
         if (stage) {
-          const zCommit = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fin(zoom, ZOOM_100)))
+          const zCommit = Math.max(minZoomRef.current, Math.min(ZOOM_MAX, fin(zoom, ZOOM_100)))
           // Convert screen coordinates to canvas coordinates
           const startCanvasX = (rectForCommit.startX - pan.x) / zCommit
           const startCanvasY = (rectForCommit.startY - pan.y) / zCommit
@@ -2706,7 +2722,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
         : ZOOM_MAX
     const newScale = Math.min(scaleX, scaleY, fitMaxZoom)
 
-    const clampedScale = Math.max(ZOOM_MIN, newScale)
+    const clampedScale = Math.max(minZoomRef.current, newScale)
 
     const contentCenterX = boundsForFit.minX + contentWidth / 2
     const contentCenterY = boundsForFit.minY + contentHeight / 2
@@ -2717,7 +2733,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
     }
 
     emitViewTransformPatch({
-      zoom: Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fin(clampedScale, safeZoom))),
+      zoom: Math.max(minZoomRef.current, Math.min(ZOOM_MAX, fin(clampedScale, safeZoom))),
       pan: { x: fin(newPan.x, safePan.x), y: fin(newPan.y, safePan.y) },
     })
     return true
@@ -3267,7 +3283,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
           return
         }
 
-        const newZoom = clamp(touchStartZoom * scale, ZOOM_MIN, ZOOM_MAX)
+        const newZoom = clamp(touchStartZoom * scale, minZoomRef.current, ZOOM_MAX)
 
         // Zoom towards the INITIAL gesture center point (more natural feeling)
         // Convert initial touch center to world coordinates
@@ -3283,7 +3299,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
 
         const layer = contentLayerRef.current
         if (layer) {
-          const clampedZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fin(newZoom, safeZoom)))
+          const clampedZoom = Math.max(minZoomRef.current, Math.min(ZOOM_MAX, fin(newZoom, safeZoom)))
           const clampedPan: Point = {
             x: fin(newPan.x, safePan.x),
             y: fin(newPan.y, safePan.y),

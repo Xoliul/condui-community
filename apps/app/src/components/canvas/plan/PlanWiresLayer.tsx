@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { isKeyboardTypingTarget } from '@/lib/ui/keyboardTypingTarget'
-import { Circle, Group, Line, Path } from 'react-konva'
+import { Circle, Group, Line, Path, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type {
   Endpoint,
@@ -11,30 +11,28 @@ import type {
   TrunkDevice,
 } from '@/types/schema'
 import { applyWireInset } from '@/lib/layout/wireInsets'
+import { planWireFocusOpacity } from '@/lib/plan/planWiringFocus'
 import {
   PLAN_WIRE_ACTIVE_OPACITY,
-  PLAN_WIRE_DASH,
-  PLAN_WIRE_HIT_STROKE_WIDTH,
   PLAN_WIRE_SELECTED_STROKE,
   PLAN_WIRE_STATIC_HOVER_OPACITY,
   PLAN_WIRE_STATIC_OPACITY,
-  planWireStrokeWidth,
   planWireActiveStroke,
   planWireSpanSetKey,
   planWireStaticStroke,
 } from '@/lib/plan/planWiring'
 import type { ThemeMode } from '@/lib/theme/types'
-import {
-  resolveOrthogonalPolylines,
-  type RoutePointContext,
-} from '@/lib/plan/planWireOrthogonal'
+import { resolveOrthogonalPolylines, type RoutePointContext } from '@/lib/plan/planWireOrthogonal'
 import { distanceSq, projectPointToSegment } from '@/lib/geometry'
 import {
-  offsetPolyline,
+  fanOutBundlePolyline,
   planWireBundleKey,
   planWireBundleOffsets,
+  planWireBundleLanes,
+  planWireBundleLabel,
 } from '@/lib/plan/planWireParallel'
 import { planWireRiserPassageKey as riserPassageKey } from '@/lib/plan/planWiringRouteEdits'
+import { planWireVisualMetrics } from '@/lib/plan/planWireVisualMetrics'
 
 /** A wire end placed through its own placement (junction panel, earth electrode, enclosure). */
 export type PlanWireEndPlacement = Placement & { nodeType?: string }
@@ -61,6 +59,8 @@ interface PlanWiresLayerProps {
   clientToPlan: (clientX: number, clientY: number) => Point2 | null
   /** Plan zoom, so wires keep a minimum on-screen thickness. */
   zoom?: number
+  /** Calibrated canvas units per metre, shared by wire decorations and symbols. */
+  pxPerMeter?: number | null
   onInsertWaypoint?: (route: PlanWireRoute, point: Point2, waypointIndex: number) => void
   onMoveWaypoint?: (route: PlanWireRoute, waypointIndex: number, point: Point2) => void
   onRemoveWaypoint?: (route: PlanWireRoute, waypointIndex: number) => void
@@ -85,6 +85,14 @@ interface PlanWiresLayerProps {
   /** Floor passages selected with a drag rectangle; dragging one of them moves them all. */
   selectedRiserRouteIds?: ReadonlySet<string>
   onMoveRisers?: (moves: Array<{ route: PlanWireRoute; point: Point2 }>) => void
+  /** Wire mode: wires fade back only once a branch is focused. */
+  focusMode?: boolean
+  /** Wire mode's focus branch and its feed to the board, drawn in full. */
+  focusRouteIds?: ReadonlySet<string> | null
+  /** A branch previewed by hovering, a little brighter than the faded ones. */
+  previewRouteIds?: ReadonlySet<string> | null
+  /** The wire under the pointer, so the canvas can preview its circuit. */
+  onHoverRoute?: (route: PlanWireRoute | null) => void
 }
 
 function resolveEndpointAnchor(
@@ -96,7 +104,9 @@ function resolveEndpointAnchor(
   junctionPanelPlacements?: ReadonlyMap<string, PlanWireEndPlacement>
 ): { point: Point2; nodeType: string; symbolId: string | undefined } | null {
   const endpoint = getEndpointById(routeEnd.endpointId)
-  const trunkDevice = routeEnd.trunkDeviceId ? getTrunkDeviceById?.(routeEnd.trunkDeviceId) : undefined
+  const trunkDevice = routeEnd.trunkDeviceId
+    ? getTrunkDeviceById?.(routeEnd.trunkDeviceId)
+    : undefined
   const placement =
     endpoint?.placements.find((candidate) => candidate.id === routeEnd.placementId) ??
     endpoint?.placements.find((candidate) => candidate.floorId === floorId) ??
@@ -213,9 +223,7 @@ function isPrimaryMouseEvent(evt: MouseEvent | TouchEvent | PointerEvent): boole
 }
 
 /** True for desktop right-click / ctrl+click context menu — not touch double-tap synthetic menu. */
-function isExplicitWaypointDeleteContextMenu(
-  evt: MouseEvent | TouchEvent | PointerEvent,
-): boolean {
+function isExplicitWaypointDeleteContextMenu(evt: MouseEvent | TouchEvent | PointerEvent): boolean {
   if (evt instanceof PointerEvent) {
     if (evt.pointerType === 'touch') return false
     return evt.button === 2
@@ -254,6 +262,7 @@ export function PlanWiresLayer({
   active,
   clientToPlan,
   zoom,
+  pxPerMeter,
   onInsertWaypoint,
   onMoveWaypoint,
   onRemoveWaypoint,
@@ -267,10 +276,15 @@ export function PlanWiresLayer({
   onRiserPreviewChange,
   selectedRiserRouteIds,
   onMoveRisers,
+  focusMode = false,
+  focusRouteIds,
+  previewRouteIds,
+  onHoverRoute,
 }: PlanWiresLayerProps) {
-  const wireWidth = planWireStrokeWidth(zoom)
+  const metrics = planWireVisualMetrics(zoom, pxPerMeter)
+  const wireWidth = metrics.strokeWidth
   // Grabbable by finger or cursor at any zoom: never narrower than ~14px on screen.
-  const hitWidth = Math.max(PLAN_WIRE_HIT_STROKE_WIDTH, 14 / (zoom && zoom > 0 ? zoom : 1))
+  const hitWidth = metrics.hitStrokeWidth
   const [hoveredRouteId, setHoveredRouteId] = useState<string | null>(null)
   // A waypoint picked with a click: shown in the selection colour, removed with Delete.
   const [selectedWaypoint, setSelectedWaypoint] = useState<{
@@ -322,7 +336,10 @@ export function PlanWiresLayer({
   useEffect(() => {
     const track = (event: PointerEvent) => {
       pointerRef.current = {
-        down: event.type === 'pointerup' || event.type === 'pointercancel' ? false : event.buttons !== 0,
+        down:
+          event.type === 'pointerup' || event.type === 'pointercancel'
+            ? false
+            : event.buttons !== 0,
         x: event.clientX,
         y: event.clientY,
       }
@@ -387,8 +404,8 @@ export function PlanWiresLayer({
 
   const staticStroke = planWireStaticStroke(theme)
   const activeStroke = planWireActiveStroke(theme)
-  const waypointRadius = 4
-  const previewRadius = 3.5
+  const waypointRadius = metrics.waypointRadius
+  const previewRadius = metrics.previewRadius
 
   const drawableRoutes = useMemo(() => {
     const drafts = routes
@@ -532,6 +549,16 @@ export function PlanWiresLayer({
       ])
     })
     const bundledPoints = new Map<number, Point2[]>()
+    const bundlePresentation = new Map<
+      number,
+      {
+        visible: boolean
+        count?: number
+        dashSlot: number
+        dashSlots: number
+        labelFraction: number
+      }
+    >()
     for (const members of bundles.values()) {
       if (members.length < 2) continue
       const sorted = [...members].sort((a, b) =>
@@ -540,10 +567,37 @@ export function PlanWiresLayer({
       const leader = sorted[0]!
       const leaderLine = lineOf(leader.index)
       const centre = leader.reversed ? [...leaderLine].reverse() : leaderLine
-      const offsets = planWireBundleOffsets(sorted.length)
-      sorted.forEach((member, position) => {
-        const shifted = offsetPolyline(centre, offsets[position]!)
-        bundledPoints.set(member.index, member.reversed ? shifted.reverse() : shifted)
+      const lanes = planWireBundleLanes(
+        sorted.map((member) => {
+          const route = draftContexts[member.index]!.draft.route
+          return {
+            index: member.index,
+            color: routeStrokeFor?.(route) ?? staticStroke,
+            priority: highlightedRouteIds?.has(route.id)
+              ? 2
+              : hoveredRouteIds?.has(route.id) || hoveredRouteId === route.id
+                ? 1
+                : 0,
+          }
+        })
+      )
+      const offsets = planWireBundleOffsets(
+        Math.max(...lanes.map((lane) => lane.lane)) + 1,
+        metrics.parallelSpacing
+      )
+      lanes.forEach((lane) => {
+        for (const index of lane.indices) {
+          const member = members.find((candidate) => candidate.index === index)!
+          const shifted = fanOutBundlePolyline(centre, offsets[lane.lane]!)
+          bundledPoints.set(index, member.reversed ? shifted.reverse() : shifted)
+          bundlePresentation.set(index, {
+            visible: index === lane.representative,
+            count: lane.count,
+            dashSlot: lane.dashSlot,
+            dashSlots: lane.dashSlots,
+            labelFraction: member.reversed ? 0.65 - lane.lane * 0.1 : 0.35 + lane.lane * 0.1,
+          })
+        }
       })
     }
 
@@ -572,6 +626,7 @@ export function PlanWiresLayer({
         style: bundled ? ('orthogonal' as const) : draft.style,
         hitPoints,
         pathData,
+        bundle: bundlePresentation.get(index),
       }
     })
   }, [
@@ -583,14 +638,16 @@ export function PlanWiresLayer({
     junctionPanelPlacements,
     routeStyle,
     routes,
+    routeStrokeFor,
+    staticStroke,
+    highlightedRouteIds,
+    hoveredRouteIds,
+    hoveredRouteId,
+    metrics.parallelSpacing,
   ])
 
   const riserPointOf = (route: PlanWireRoute, basePoints: Point2[]) =>
-    route.riser
-      ? basePoints[0]
-      : route.riserExit
-        ? basePoints[basePoints.length - 1]
-        : undefined
+    route.riser ? basePoints[0] : route.riserExit ? basePoints[basePoints.length - 1] : undefined
 
   /** The passages a drag moves: every selected one when the dragged one is selected. */
   const dragGroup = (route: PlanWireRoute) => {
@@ -671,7 +728,8 @@ export function PlanWiresLayer({
 
   return (
     <Group name="plan-wires-layer" listening={active}>
-      {drawableRoutes.map(({ route, points, basePoints, style, hitPoints, pathData }) => {
+      {drawableRoutes.map(({ route, points, basePoints, style, hitPoints, pathData, bundle }) => {
+        if (bundle?.visible === false) return null
         const hovered = hoveredRouteId === route.id
         const highlighted = highlightedRouteIds?.has(route.id) === true
         const hoveredElsewhere = !highlighted && hoveredRouteIds?.has(route.id) === true
@@ -685,13 +743,31 @@ export function PlanWiresLayer({
             ? wireWidth * 1.5
             : wireWidth
         const riserPoint = riserPointOf(route, basePoints)
+        const countPosition = bundle?.count
+          ? planWireBundleLabel(points, bundle.labelFraction)
+          : undefined
+        const countSize = metrics.countFontSize
+        // More than four colour groups alternate dashes in the same four lanes.
+        const dash =
+          bundle && bundle.dashSlots > 1
+            ? [6 * metrics.decorationScale, (bundle.dashSlots * 11 - 6) * metrics.decorationScale]
+            : metrics.dash
+        const dashOffset = bundle ? -bundle.dashSlot * 11 * metrics.decorationScale : 0
         const passageSelected = selectedRiserRouteIds?.has(route.id) === true
+        const focusOpacity = planWireFocusOpacity(
+          route,
+          focusMode,
+          focusRouteIds,
+          previewRouteIds
+        )
         const opacity =
           highlighted || hoveredElsewhere
-          ? PLAN_WIRE_ACTIVE_OPACITY
-          : hovered
-            ? PLAN_WIRE_STATIC_HOVER_OPACITY
-            : PLAN_WIRE_STATIC_OPACITY
+            ? PLAN_WIRE_ACTIVE_OPACITY
+            : focusOpacity !== undefined
+              ? focusOpacity
+              : hovered
+                ? PLAN_WIRE_STATIC_HOVER_OPACITY
+                : PLAN_WIRE_STATIC_OPACITY
         return (
           <React.Fragment key={route.id}>
             {style === 'spline' ? (
@@ -700,7 +776,8 @@ export function PlanWiresLayer({
                 stroke={stroke}
                 strokeWidth={strokeWidth}
                 opacity={opacity}
-                dash={PLAN_WIRE_DASH}
+                dash={dash}
+                dashOffset={dashOffset}
                 lineCap="round"
                 lineJoin="round"
                 listening={false}
@@ -711,9 +788,21 @@ export function PlanWiresLayer({
                 stroke={stroke}
                 strokeWidth={strokeWidth}
                 opacity={opacity}
-                dash={PLAN_WIRE_DASH}
+                dash={dash}
+                dashOffset={dashOffset}
                 lineCap="round"
                 lineJoin="round"
+                listening={false}
+              />
+            )}
+            {countPosition && bundle && (
+              <Text
+                x={countPosition.x + metrics.countOffset}
+                y={countPosition.y - countSize * (1 + bundle.dashSlot)}
+                text={`×${bundle.count}`}
+                fontSize={countSize}
+                fontStyle="bold"
+                fill={stroke}
                 listening={false}
               />
             )}
@@ -726,6 +815,7 @@ export function PlanWiresLayer({
               lineJoin="round"
               onMouseEnter={(event) => {
                 setHoveredRouteId(route.id)
+                onHoverRoute?.(route)
                 if (!active || route.riserExit) return
                 const point = eventCanvasPoint(event)
                 const insertion = point
@@ -747,6 +837,7 @@ export function PlanWiresLayer({
               }}
               onMouseLeave={() => {
                 setHoveredRouteId(null)
+                onHoverRoute?.(null)
                 setHoverInsertPreview(null)
               }}
               onMouseDown={(event) => {

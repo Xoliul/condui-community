@@ -21,6 +21,7 @@ import { clamp } from '@/lib/geometry'
 import { openHiddenSituationPlanDialogForFloor } from '@/components/plan/openHiddenSituationPlanDialog'
 import { isCableRoutesEnabled } from '@/lib/cableRouting/availability'
 import { PlanWireStyleButtons } from '@/components/cableRouting/PlanWireStyleButtons'
+import { PLAN_WIRE_CATEGORIES } from '@/lib/cableRouting/planWireCategoryVisibility'
 
 /** Symbol category for visibility and hover-highlight */
 export type SitplanSymbolCategory = 'sockets' | 'lights' | 'switches' | 'panels' | 'fixedAppliances'
@@ -128,7 +129,13 @@ const defaultVisibility: PlanVisibilityState = {
   fixedAppliancesVisible: true,
 }
 
-export default function SitplanVisibilityPanel({ readOnly = false }: { readOnly?: boolean }) {
+export default function SitplanVisibilityPanel({
+  readOnly = false,
+  wireToolActive = false,
+}: {
+  readOnly?: boolean
+  wireToolActive?: boolean
+}) {
   const { t } = useTranslation()
   const theme = useSettingsStore((state) => state.theme)
   const planVisibility = useUIStore((s) => s.planVisibility)
@@ -155,6 +162,10 @@ export default function SitplanVisibilityPanel({ readOnly = false }: { readOnly?
     [currentProject]
   )
   const planWiringVisibility = useMemo(() => resolvePlanWiringVisibility(planWiring), [planWiring])
+  const useWireToolVisibility = wireToolActive && isCableRoutesEnabled()
+  const wiresVisible = useWireToolVisibility
+    ? planWiringVisibility.wireToolWiresVisible !== false
+    : planWiringVisibility.wiresVisible
   const setPlanWiringVisibility = useCallback(
     (updates: Partial<PlanWiringVisibility>) => {
       if (readOnly) return
@@ -227,14 +238,13 @@ export default function SitplanVisibilityPanel({ readOnly = false }: { readOnly?
         panelsVisible: on,
         fixedAppliancesVisible: on,
       })
-      setPlanWiringVisibility({
-        wiresVisible: on,
-        lightingVisible: on,
-        socketsVisible: on,
-        otherVisible: on,
-      })
+      setPlanWiringVisibility(
+        useWireToolVisibility
+          ? { wireToolWiresVisible: on, wireToolCategoriesVisible: {} }
+          : { wiresVisible: on, lightingVisible: on, socketsVisible: on, otherVisible: on }
+      )
     },
-    [setPlanVisibility, setPlanWiringVisibility]
+    [setPlanVisibility, setPlanWiringVisibility, useWireToolVisibility]
   )
 
   const allChecked =
@@ -242,13 +252,13 @@ export default function SitplanVisibilityPanel({ readOnly = false }: { readOnly?
     planVisibility.groundPlansVisible &&
     planVisibility.labelsVisible &&
     planVisibility.symbolsVisible &&
-    planWiringVisibility.wiresVisible
+    wiresVisible
 
   const someChecked =
     planVisibility.groundPlansVisible ||
     planVisibility.labelsVisible ||
     planVisibility.symbolsVisible ||
-    planWiringVisibility.wiresVisible
+    wiresVisible
 
   useEffect(() => {
     const el = masterCheckRef.current
@@ -268,7 +278,7 @@ export default function SitplanVisibilityPanel({ readOnly = false }: { readOnly?
   }
 
   const symbolsDisabled = !planVisibility.symbolsVisible
-  const wiresDisabled = !planWiringVisibility.wiresVisible
+  const wiresDisabled = !wiresVisible
   // Reuse same labels as symbol library categories / symbol names
   const subSymbolKeys: { key: SitplanSymbolCategory; labelKey: string }[] = [
     { key: 'sockets', labelKey: 'symbols.categories.outlets' },
@@ -480,68 +490,97 @@ export default function SitplanVisibilityPanel({ readOnly = false }: { readOnly?
           >
             <input
               type="checkbox"
-              checked={planWiringVisibility.wiresVisible}
+              checked={wiresVisible}
               disabled={readOnly}
-              onChange={(e) => setPlanWiringVisibility({ wiresVisible: e.target.checked })}
+              onChange={(e) =>
+                setPlanWiringVisibility(
+                  useWireToolVisibility
+                    ? { wireToolWiresVisible: e.target.checked }
+                    : { wiresVisible: e.target.checked }
+                )
+              }
               className="rounded border-gray-400"
             />
             <span className="text-sm">{t('sitplanVisibility.wires')}</span>
           </label>
           <div className="pl-4 space-y-0.5">
-            {[
-              {
-                key: 'lightingVisible' as const,
-                label: t('sitplanVisibility.wiresLighting'),
-              },
-              {
-                key: 'socketsVisible' as const,
-                label: t('sitplanVisibility.wiresSockets'),
-              },
-              {
-                key: 'otherVisible' as const,
-                label: t('sitplanVisibility.wiresOther'),
-              },
-              ...(isCableRoutesEnabled()
-                ? [
-                    {
-                      key: 'homeRunsVisible' as const,
-                      label: t('sitplanVisibility.wiresHomeRuns', 'From board'),
-                    },
-                    {
-                      key: 'branchFeedsVisible' as const,
-                      label: t('sitplanVisibility.wiresBranchFeeds', 'Between branches'),
-                    },
-                    {
-                      key: 'supplyVisible' as const,
-                      label: t('sitplanVisibility.wiresSupply', 'Supply and earthing'),
-                    },
-                    {
-                      key: 'colorCoded' as const,
-                      label: t('sitplanVisibility.wiresColorCoded', 'Colour by group'),
-                    },
-                  ]
-                : []),
-            ].map((item) => (
-              <label
-                key={item.key}
-                className={`flex items-center gap-2 py-1 px-2 -mx-2 rounded ${readOnly ? '' : `cursor-pointer ${hoverBg}`} ${
-                  wiresDisabled ? 'opacity-50 pointer-events-none' : ''
-                } ${text}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={
-                    item.key === 'supplyVisible'
-                      ? planWiringVisibility.supplyVisible !== false
-                      : planWiringVisibility[item.key]
-                  }
-                  disabled={readOnly || wiresDisabled}
-                  onChange={(e) => setPlanWiringVisibility({ [item.key]: e.target.checked })}
-                  className="rounded border-gray-400"
-                />
-                <span className="text-sm">{item.label}</span>
-              </label>
-            ))}
+            {useWireToolVisibility
+              ? PLAN_WIRE_CATEGORIES.map((category) => (
+                  <label
+                    key={category}
+                    className={`flex items-center gap-2 py-1 px-2 -mx-2 rounded ${readOnly ? '' : `cursor-pointer ${hoverBg}`} ${wiresDisabled ? 'opacity-50' : ''} ${text}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={planWiringVisibility.wireToolCategoriesVisible?.[category] !== false}
+                      disabled={readOnly || wiresDisabled}
+                      onChange={(e) =>
+                        setPlanWiringVisibility({
+                          wireToolCategoriesVisible: {
+                            ...planWiringVisibility.wireToolCategoriesVisible,
+                            [category]: e.target.checked,
+                          },
+                        })
+                      }
+                      className="rounded border-gray-400"
+                    />
+                    <span className="text-sm">{t(`wireLegend.${category}`)}</span>
+                  </label>
+                ))
+              : [
+                  {
+                    key: 'lightingVisible' as const,
+                    label: t('sitplanVisibility.wiresLighting'),
+                  },
+                  {
+                    key: 'socketsVisible' as const,
+                    label: t('sitplanVisibility.wiresSockets'),
+                  },
+                  {
+                    key: 'otherVisible' as const,
+                    label: t('sitplanVisibility.wiresOther'),
+                  },
+                  ...(isCableRoutesEnabled()
+                    ? [
+                        {
+                          key: 'homeRunsVisible' as const,
+                          label: t('sitplanVisibility.wiresHomeRuns', 'From board'),
+                        },
+                        {
+                          key: 'branchFeedsVisible' as const,
+                          label: t('sitplanVisibility.wiresBranchFeeds', 'Between branches'),
+                        },
+                        {
+                          key: 'supplyVisible' as const,
+                          label: t('sitplanVisibility.wiresSupply', 'Supply and earthing'),
+                        },
+                        {
+                          key: 'colorCoded' as const,
+                          label: t('sitplanVisibility.wiresColorCoded', 'Colour by group'),
+                        },
+                      ]
+                    : []),
+                ].map((item) => (
+                  <label
+                    key={item.key}
+                    className={`flex items-center gap-2 py-1 px-2 -mx-2 rounded ${readOnly ? '' : `cursor-pointer ${hoverBg}`} ${
+                      wiresDisabled ? 'opacity-50 pointer-events-none' : ''
+                    } ${text}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={
+                        item.key === 'supplyVisible'
+                          ? planWiringVisibility.supplyVisible !== false
+                          : planWiringVisibility[item.key]
+                      }
+                      disabled={readOnly || wiresDisabled}
+                      onChange={(e) => setPlanWiringVisibility({ [item.key]: e.target.checked })}
+                      className="rounded border-gray-400"
+                    />
+                    <span className="text-sm">{item.label}</span>
+                  </label>
+                ))}
           </div>
           <div className={`mt-2 pl-6 ${wiresDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className={`mb-1 text-xs ${muted}`}>{t('sitplanVisibility.wireStyle')}</div>

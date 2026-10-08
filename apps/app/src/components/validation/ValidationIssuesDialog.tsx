@@ -35,6 +35,7 @@ import {
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import { findPanelById } from '@/lib/panel/panelTree'
+import { useOpenJunctionAsset } from '@/components/junctionEditor/junctionEditorHostedFeatures'
 import {
   HIDDEN_SITUATION_PLAN_RULE_ID,
   openHiddenSituationPlanValidationDialog,
@@ -57,6 +58,7 @@ const DEFAULT_SCOPE_LABELS: Record<ScopeType, string> = {
   placement: 'Plan symbol',
   segment: 'Wire',
   subgraph: 'Supply',
+  junction: 'Junction',
 }
 
 /** Endpoint symbols the DC cross-section heuristic uses for P/U estimates (matches primitives). */
@@ -166,6 +168,7 @@ function ValidationIssuesDialog({
   const errorCount = useValidationStore((state: ValidationState) => state.getErrorCount())
   const warningCount = useValidationStore((state: ValidationState) => state.getWarningCount())
   const setSelection = useUIStore((s) => s.setSelection)
+  const openJunctionAsset = useOpenJunctionAsset()
   const eendraadWireSegments = useEendraadWireSegments()
   const storedWireSegments = currentProject ? queryOneWireSegments(currentProject) : []
   const validationDisabledOutsideBelgium =
@@ -375,6 +378,7 @@ function ValidationIssuesDialog({
   }
 
   const getIssueBadgeLabel = (issue: Issue): string => {
+    if (issue.subject) return issue.subject
     const labels = getIssueLabels(issue)
     if (labels.length > 0) return labels.join(', ')
 
@@ -405,6 +409,19 @@ function ValidationIssuesDialog({
         severity: issue.severity,
         scope_type: issue.scope.type,
         selection_type: 'hidden_situation_plan_dialog',
+        source: 'validation_card',
+        interaction_method: interactionMethod,
+      })
+      return
+    }
+
+    if (issue.scope.type === 'junction') {
+      openJunctionAsset(issue.scope.id)
+      trackGoogleAnalyticsEvent('validation_issue_focus', {
+        rule_id: issue.ruleId,
+        severity: issue.severity,
+        scope_type: issue.scope.type,
+        selection_type: 'junction_editor',
         source: 'validation_card',
         interaction_method: interactionMethod,
       })
@@ -1134,6 +1151,7 @@ function ValidationIssuesDialog({
                     )}
                     <div
                       onClick={() => handleIssueClick(issue)}
+                      data-validation-rule={issue.ruleId}
                       className="w-full cursor-pointer rounded-md border border-gray-200 p-2 text-left transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 sm:p-3"
                       role="button"
                       tabIndex={0}
@@ -1167,9 +1185,11 @@ function ValidationIssuesDialog({
                               {getIssueBadgeLabel(issue)}
                             </span>
                           </div>
-                          <p className="mb-1.5 text-sm text-gray-600 dark:text-gray-400">
-                            {issue.message}
-                          </p>
+                          {issue.scope.type !== 'junction' && (
+                            <p className="mb-1.5 text-sm text-gray-600 dark:text-gray-400">
+                              {issue.message}
+                            </p>
+                          )}
                           {issue.ruleId === HIDDEN_SITUATION_PLAN_RULE_ID && (
                             <button
                               type="button"

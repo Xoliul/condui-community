@@ -181,6 +181,11 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
       (s) => (s.selection.type === 'endpoint' ? s.selection.ids : []),
       selectionIdsEqual
     )
+    const selectedTrunkDeviceIds = useStoreWithEqualityFn(
+      useUIStore,
+      (s) => (s.selection.type === 'trunkDevice' ? s.selection.ids : []),
+      selectionIdsEqual
+    )
     const theme = useSettingsStore((state) => state.theme)
     const colors = useThemeColors()
     const [collapsed, setCollapsed] = useState(false)
@@ -531,8 +536,10 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
       (item: QuickPlacerItem) =>
         currentFastItem?.placement.id === item.placement.id ||
         selectedPlacementIds.includes(item.placement.id) ||
-        selectedEndpointIds.includes(item.endpoint.id),
-      [currentFastItem?.placement.id, selectedEndpointIds, selectedPlacementIds]
+        (item.trunkDeviceId
+          ? selectedTrunkDeviceIds.includes(item.trunkDeviceId)
+          : selectedEndpointIds.includes(item.endpoint.id)),
+      [currentFastItem?.placement.id, selectedEndpointIds, selectedPlacementIds, selectedTrunkDeviceIds]
     )
 
     if (!open || typeof document === 'undefined') return null
@@ -616,11 +623,14 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
           >
             <div className="space-y-1">
               {panelCircuits.map((circuit) => {
+                const circuitLabel = circuit.isSupply
+                  ? t('quickPlacer.supply')
+                  : circuit.identifier
                 const itemCount = circuit.branches.reduce(
                   (sum, branch) => sum + branch.items.length,
                   0
                 )
-                const showItemCount = !compactDockedLayout && circuit.identifier.trim().length <= 6
+                const showItemCount = !compactDockedLayout && circuitLabel.trim().length <= 6
                 const isSelected = circuit.id === selectedCircuit?.id
                 return (
                   <div key={circuit.id}>
@@ -641,13 +651,13 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
                           event.currentTarget.style.color = styles.circuitButton.color
                         }
                       }}
-                      title={`${circuit.identifier} • ${circuit.panelPathLabel}`}
+                      title={`${circuitLabel} • ${circuit.panelPathLabel}`}
                     >
                       <div className="flex min-w-0 items-center gap-2">
                         <div
                           className={`min-w-0 flex-1 truncate font-semibold leading-tight ${compactDockedLayout ? 'text-[15px]' : 'text-[17px]'}`}
                         >
-                          {circuit.identifier}
+                          {circuitLabel}
                         </div>
                         {circuit.awaitingCount > 0 ? (
                           <span
@@ -680,7 +690,9 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
               <div className="space-y-1.5">
                 <div className="flex items-baseline gap-2">
                   <div className="text-base font-semibold" style={styles.title}>
-                    {selectedCircuit.identifier}
+                    {selectedCircuit.isSupply
+                      ? t('quickPlacer.supply')
+                      : selectedCircuit.identifier}
                   </div>
                   <div className="truncate text-xs" style={styles.notes}>
                     {selectedCircuit.notes || t('quickPlacer.noNotes')}
@@ -691,19 +703,21 @@ export const QuickPlacerPanel = forwardRef<HTMLDivElement, QuickPlacerPanelProps
                   const isBranchHighlighted = branch.items.some(isItemHighlighted)
 
                   return (
-                    <section key={branch.id} className="flex items-stretch gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const firstItem = branch.items[0]
-                          if (firstItem) onItemActivate(firstItem)
-                        }}
-                        className="flex w-[2.25rem] shrink-0 items-start justify-center rounded-md px-1 py-1 text-[16px] font-semibold transition-[filter] hover:brightness-95"
-                        style={isBranchHighlighted ? styles.branchLabelActive : styles.branchLabel}
-                        title={branch.label}
-                      >
-                        {branch.label}
-                      </button>
+                    <section key={branch.id} className="flex min-w-0 items-stretch gap-1">
+                      {branch.label && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const firstItem = branch.items[0]
+                            if (firstItem) onItemActivate(firstItem)
+                          }}
+                          className="flex w-[2.25rem] shrink-0 items-start justify-center rounded-md px-1 py-1 text-[16px] font-semibold transition-[filter] hover:brightness-95"
+                          style={isBranchHighlighted ? styles.branchLabelActive : styles.branchLabel}
+                          title={branch.label}
+                        >
+                          {branch.label}
+                        </button>
+                      )}
 
                       <div
                         data-library-scroll="true"

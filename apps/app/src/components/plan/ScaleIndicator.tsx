@@ -33,41 +33,35 @@ function ScaleIndicator() {
 
   return (
     <div
-      className="absolute bottom-4 left-4 z-10"
+      className="pointer-events-none absolute bottom-4 left-4 z-10 select-none"
       style={{ transform: `scale(${scale})`, transformOrigin: 'bottom left' }}
     >
-      <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 shadow-lg">
-        <div className="flex items-center gap-3">
-          {/* Ruler visualization */}
-          <div className="flex items-center">
-            <div
-              className="bg-sky-600 h-3 relative"
-              style={{ width: `${displayPixels}px` }}
-            >
-              {/* Tick marks */}
-              {Array.from({ length: Math.floor(roundedMeters) + 1 }).map((_, i) => {
-                const pos = (i / roundedMeters) * displayPixels
-                return (
-                  <div
-                    key={i}
-                    className="absolute top-0 w-px bg-white"
-                    style={{
-                      left: `${pos}px`,
-                      height: i % 5 === 0 ? '12px' : '6px',
-                      marginTop: '-3px',
-                    }}
-                  />
-                )
-              })}
-            </div>
-          </div>
-          <div className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-            {roundedMeters.toFixed(roundedMeters < 1 ? 1 : 0)} m
-          </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            {scaleAtZoom.toFixed(1)} px/m
-          </div>
-        </div>
+      <div className="flex items-center gap-3 rounded-lg border border-gray-200/80 bg-white/95 px-3 py-2 shadow-sm backdrop-blur-sm dark:border-gray-600/60 dark:bg-gray-800/95">
+        <svg
+          aria-hidden="true"
+          className="h-4 shrink-0 overflow-visible text-sky-600 dark:text-sky-400"
+          width={displayPixels}
+          height={16}
+          viewBox={`0 0 ${displayPixels} 16`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        >
+          <path d={`M 0 12 H ${displayPixels}`} />
+          {/* Fixed subdivisions stay readable at every zoom level. */}
+          {[0, 0.25, 0.5, 0.75, 1].map((fraction) => (
+            <path
+              key={fraction}
+              d={`M ${fraction * displayPixels} ${
+                fraction === 0 || fraction === 1 ? 3 : fraction === 0.5 ? 6 : 9
+              } V 12`}
+            />
+          ))}
+        </svg>
+        <span className="whitespace-nowrap text-xs font-medium tabular-nums text-gray-700 dark:text-gray-200">
+          {roundedMeters.toFixed(roundedMeters < 1 ? 1 : 0)} m
+        </span>
       </div>
     </div>
   )

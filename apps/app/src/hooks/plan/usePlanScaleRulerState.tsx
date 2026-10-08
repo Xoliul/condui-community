@@ -88,20 +88,40 @@ export function usePlanScaleResetController({
     const reference = floor?.scale?.reference
     const ownsReference = reference && !floor?.planScaleNeedsCalibration && (!reference.floorId || reference.floorId === activeFloorId)
     const initialMeters = scaleRulerMeters ?? (ownsReference ? reference.meters : 1)
-    setIsResettingScale(true)
-    setScaleRulerPoints({ p1: null, p2: null })
-    setScaleRulerMeters(initialMeters)
-    setScaleRulerMetersInput(String(initialMeters))
-    setActiveTool('resetScale')
+    const startCalibration = () => {
+      setIsResettingScale(true)
+      setScaleRulerPoints({ p1: null, p2: null })
+      setScaleRulerMeters(initialMeters)
+      setScaleRulerMetersInput(String(initialMeters))
+      setActiveTool('resetScale')
+    }
+
+    const hasPlanImage = !!(floor?.planAsset || floor?.planImportAsset)
+    if (!hasPlanImage && (floor?.floorPlan?.walls.length ?? 0) > 0) {
+      openDialog({
+        type: 'confirm',
+        title: t('plan.resetScale.vectorOnlyWarningTitle'),
+        message: t('plan.resetScale.vectorOnlyWarningIntro'),
+        variant: 'warning',
+        confirmLabel: t('common.continue'),
+        cancelLabel: t('common.cancel'),
+        onConfirm: startCalibration,
+      })
+      return
+    }
+
+    startCalibration()
   }, [
     activeFloorId,
     getFloorById,
+    openDialog,
     scaleRulerMeters,
     setActiveTool,
     setIsResettingScale,
     setScaleRulerMeters,
     setScaleRulerMetersInput,
     setScaleRulerPoints,
+    t,
   ])
 
   const handleScaleRulerCancel = useCallback(() => {
@@ -132,22 +152,25 @@ export function usePlanScaleResetController({
       setScaleRulerMetersInput('')
       setActiveTool('none')
 
-      // The reference is drawn inside the (possibly rotated) plan image group.
+      const hasPlanImage = Boolean(floorBefore.planAsset || floorBefore.planImportAsset)
+      // References on an imported plan are asset-local; drawn-only floors use scene points.
       const rotationDeg = floorBefore.planImageRotationDeg ?? 0
-      const localP1 = scenePointToPlanImageLocal(p1World, currentPlanImagePosition, rotationDeg)
-      const localP2 = scenePointToPlanImageLocal(p2World, currentPlanImagePosition, rotationDeg)
+      const localP1 = hasPlanImage ? scenePointToPlanImageLocal(p1World, currentPlanImagePosition, rotationDeg) : p1World
+      const localP2 = hasPlanImage ? scenePointToPlanImageLocal(p2World, currentPlanImagePosition, rotationDeg) : p2World
       const newScaleReference = createPlanScaleReference(localP1, localP2, meters, activeFloorId)!
-      const hasPlanImage = !!(floorBefore.planAsset || floorBefore.planImportAsset)
+      if (!hasPlanImage) {
+        applyPlanRescale(activeFloorId, { scale: { reference: newScaleReference } }, [], { scaleScope: 'building' })
+        return
+      }
       const floorPlan = floorBefore.floorPlan
       const hasVectorWalls = !!floorPlan && floorPlan.walls.length > 0
-      const oldPxPerMeter = calculatePxPerMeter(floorBefore) ?? 100
+      const oldPxPerMeter = calculatePxPerMeter(floorBefore)
       const dx = p2World.x - p1World.x
       const dy = p2World.y - p1World.y
       const distancePx = Math.sqrt(dx * dx + dy * dy)
       const newPxPerMeter = distancePx > 0 && meters > 0 ? distancePx / meters : null
 
       const shouldAttemptWallRescale =
-        hasPlanImage &&
         hasVectorWalls &&
         !floorBefore.planScaleNeedsCalibration &&
         oldPxPerMeter != null &&
@@ -192,7 +215,7 @@ export function usePlanScaleResetController({
       }
 
       const title = t('plan.resetScale.confirmRescaleTitle')
-      const intro = t('plan.resetScale.confirmRescaleIntro', { factor: scaleFactor.toFixed(2) })
+      const intro = t('plan.resetScale.confirmRescaleIntro', { factor: (1 / scaleFactor).toFixed(2) })
 
       openDialog({
         type: 'custom',
@@ -201,9 +224,8 @@ export function usePlanScaleResetController({
           <div className="text-gray-600 dark:text-gray-400 space-y-3">
             <p>{intro as React.ReactNode}</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>{t('plan.resetScale.optionRescale') as React.ReactNode}</li>
               <li>{t('plan.resetScale.optionKeep') as React.ReactNode}</li>
-              <li>{t('plan.resetScale.optionCancel') as React.ReactNode}</li>
+              <li>{t('plan.resetScale.optionRescale') as React.ReactNode}</li>
             </ul>
           </div>
         ),
@@ -217,7 +239,8 @@ export function usePlanScaleResetController({
           },
           {
             label: t('plan.resetScale.confirmRescaleCancel'),
-            variant: 'secondary',
+            variant: 'primary',
+            autoFocus: true,
             onClick: () => {
               const latestFloor = getFloorById(activeFloorId)
               if (latestFloor) {
@@ -227,8 +250,7 @@ export function usePlanScaleResetController({
           },
           {
             label: t('plan.resetScale.confirmRescaleConfirm'),
-            variant: 'primary',
-            autoFocus: true,
+            variant: 'secondary',
             onClick: () => {
               const latestFloor = getFloorById(activeFloorId)
               const latestPlan = latestFloor?.floorPlan

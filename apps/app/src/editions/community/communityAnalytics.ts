@@ -9,6 +9,9 @@ export function trackProjectVersionsVisibility(): void {}
 export function trackSymbolPlace(): void {}
 export function trackSupplyAssemblyMutation(): void {}
 export function trackSupplyAssembliesPersisted(): void {}
+export function trackReferralDiscountCheckout(): void {}
+export function trackOrphanAutoReport(): void {}
+export function trackOrphanDetectedOncePerSession(): void {}
 export function summarizeProjectSupplyAssemblies(): Record<string, never> {
   return {}
 }

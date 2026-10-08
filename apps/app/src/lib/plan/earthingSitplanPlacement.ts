@@ -1,6 +1,5 @@
 import type { EarthingPlacement, Endpoint, Installation, Panel, Placement, Point2 } from '@/types/schema'
 import { generateId } from '@/utils/project'
-import { useProjectStore } from '@/stores/projectStore'
 import {
   selectProjectBuildingFloors,
   type ProjectWithOptionalV2Building,
@@ -223,36 +222,12 @@ export function healEarthingSitplanPlacements(project: EarthingSitplanProject): 
   return true
 }
 
-/**
- * Ensure the earthing symbol exists on the given sitplan floor when ground is enabled.
- * Returns placement id, or null when ground is disabled or there is no project.
- */
-export function ensureEarthingSitplanPlacement(
+/** New earthing placement at its default sitplan position (next to the main panel when placed). */
+export function buildDefaultEarthingSitplanPlacement(
+  project: EarthingSitplanProject,
   floorId: string,
   pos?: Point2,
-): string | null {
-  const store = useProjectStore.getState()
-  const project = store.currentProject
-  const installation = project ? selectProjectElectricalInstallation(project) : undefined
-  if (
-    !project ||
-    !installation ||
-    !installationHasAnyEarthing(selectProjectElectricalPanels(project), installation)
-  ) {
-    return null
-  }
-
-  const existing = findEarthingPlacementOnFloor(project, floorId)
-  if (existing) {
-    if (pos) store.updateEarthingPlacement(existing.id, { pos })
-    return existing.id
-  }
-
-  const anyExisting = getEarthingPlacements(installation)
-  if (anyExisting.length > 0) {
-    return anyExisting[0]!.id
-  }
-
+): EarthingPlacement {
   const floor = selectProjectBuildingFloors(project).find((f) => f.id === floorId)
   const layer = firstFloorLayer(floor)
   const target = resolveEarthingTargetFloor(project)
@@ -263,17 +238,14 @@ export function ensureEarthingSitplanPlacement(
       : { x: DEFAULT_CENTER_X, y: DEFAULT_CENTER_Y })
   const resolvedFloorId = target?.floorId ?? floorId
 
-  const id = generateId()
-  const placement: EarthingPlacement = {
-    id,
+  return {
+    id: generateId(),
     floorId: resolvedFloorId,
     pos: resolvedPos,
     rotationDeg: 0,
     scale: 1,
     layer,
   }
-  store.addEarthingPlacement(placement)
-  return id
 }
 
 export function isEarthingSitplanPlacementId(

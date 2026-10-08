@@ -1,4 +1,6 @@
 import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
+import { liftCircuitNotesClearOfFrames } from '@/lib/eendraad/circuitNotesFrameClearance'
+import { queryOneWireFrames } from '@/lib/projectV2/annotations'
 import { useMemo, useRef } from 'react'
 import { useProjectStore, type ProjectState } from '@/stores/projectStore'
 import { useUIStore, type UIState } from '@/stores/uiStore'
@@ -169,6 +171,7 @@ export function useEendraadPreviewGraph(
       ? calculateBottomUpLayout(sim.project, stableOverrides, layoutOptions)
       : preliminaryLayout
     if (!layout) return null
+    liftCircuitNotesClearOfFrames(layout, sim.project, queryOneWireFrames(sim.project))
 
     const layoutTree = buildLayoutTree(layout)
     const wireSegments = deriveWires(

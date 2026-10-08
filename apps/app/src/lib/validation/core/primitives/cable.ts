@@ -494,6 +494,19 @@ function isNestedProtectionBusFeedSegment(
 }
 
 /**
+ * The feeder PE terminates on the subpanel's PE bar; links from its local incoming protection
+ * to the bus carry only active conductors and are not outgoing circuit wiring.
+ */
+function isInternalSubPanelProtectionToBusSegment(segment: WireSegment): boolean {
+  return (
+    segment.isSubPanelSupply === true &&
+    segment.fromElementType === 'protection' &&
+    segment.feederProtectionId != null &&
+    segment.fromElementId !== segment.feederProtectionId
+  )
+}
+
+/**
  * Warn when AC wiring on the installation side of the main bus uses conductors without PE.
  * Ground/PE is bonded at the main bus; circuits and the supply drop from the dashed separator
  * to the bus should use a G suffix (e.g. 3G, 4G). DC segments are excluded.
@@ -601,14 +614,11 @@ function postMainBusRequiresPeConductor(
     if (seg.type === 'mainBus' || seg.type === 'secondaryBus') continue
     if ((seg.domain ?? DEFAULT_ELECTRICAL_DOMAIN) === 'DC') continue
     if (seg.supplyWireRole === 'upstream') continue
+    // Bus-to-breaker and breaker-to-breaker links are internal panel wiring;
+    // only the outgoing segment after the final protection needs PE here.
+    if (seg.toElementType === 'protection') continue
     if (!seg.circuitId) continue
-    // Bus-to-protection links carry active conductors inside the panel; the
-    // circuit's PE runs separately from the PE bar to its outgoing wiring.
-    if (
-      (seg.fromElementType === 'mainBus' || seg.fromElementType === 'secondaryBus') &&
-      seg.toElementType === 'protection'
-    )
-      continue
+    if (isInternalSubPanelProtectionToBusSegment(seg)) continue
     if (!cableExplicitlyWithoutPe(seg.cable)) continue
 
     const circuit = query.getCircuitById(seg.circuitId)

@@ -625,7 +625,7 @@
     "view": "Bekijken",
     "create": "Project aanmaken",
     "download": "Project downloaden",
-    "manageAccess": "Toegang & versies",
+    "qrAndSharing": "QR en delen",
     "localOptions": "Lokaal projectopties",
     "newProjectLocalWarningShort": "Cloudlimiet bereikt. Dit wordt een lokaal project.",
     "newProjectLocalChosenWarning": "Dit wordt een lokaal project. Je kunt het later upgraden naar cloud.",
@@ -1355,12 +1355,17 @@
   },
   "planTools": {
     "movePlanImage": "Planafbeelding verplaatsen",
-    "resetScale": "Schaal Aanpassen",
+    "resetScale": "Planschaal kalibreren",
+    "resetScaleTooltip": "Stel de planschaal in met een bekende afstand.",
     "uploadFloorPlanFirst": "Upload eerst een planafbeelding om dit gereedschap te gebruiken"
   },
   "planWiring": {
     "tool": "Bedrading",
-    "toolDescription": "Teken bedradingsroutes tussen symbolen op de actieve verdieping"
+    "toolDescription": "Teken bedradingsroutes tussen symbolen op de actieve verdieping",
+    "focusCircuit": "Kring",
+    "redraw": "Opnieuw tekenen",
+    "redrawDone": "Klaar",
+    "redrawProgress": "{{connected}}/{{total}} verbonden"
   },
   "layout": {
     "presetLabel": "Layout",
@@ -1410,6 +1415,7 @@
   "quickPlacer": {
     "title": "SnelPlaatser",
     "panelSelector": "Bord",
+    "supply": "Voeding",
     "mode": {
       "slow": "Traag",
       "fast": "Snel",
@@ -2156,6 +2162,16 @@
           "endpoint-device": "spanningsinstelling van de batterij of zonnepanelen"
         }
       },
+      "postMainBusRequiresPeConductor": {
+        "supplyRole": {
+          "crossing": "grens van het bord",
+          "downstream": "voeding naar de bus"
+        },
+        "supplyMessage": "Bord {{panelName}}: {{roleLabel}} gebruikt {{conductorLabel}} zonder beschermingsgeleider (G). Voorzie na de hoofdbus een G-geleider (bv. 3G, 4G).",
+        "supplyDetails": "De beschermingsgeleider is verbonden met de hoofdbus. De {{roleLabel}} ligt aan de installatiezijde en moet PE in de kabel (…G) bevatten, niet {{conductorLabel}}.",
+        "circuitMessage": "Stroombaan {{circuitCode}}: uitgaande AC-bekabeling gebruikt {{conductorLabel}} zonder beschermingspad.",
+        "circuitDetails": "Huishoudelijke AC-stroombanen na de hoofddifferentieel hebben een doorlopend PE-pad nodig. De uitgaande bekabeling kan PE in de kabel (…G) bevatten of een correct geplaatste onafhankelijke beschermingsgeleider gebruiken. Interne verbindingen tussen beveiligingstoestellen voeren alleen actieve geleiders; DC-bekabeling wordt niet gecontroleerd."
+      },
       "cascadeProtectionRatings": {
         "message": "Stroomafwaartse beveiliging hoger geijkt dan stroomopwaartse automaat",
         "details": "Een stroomafwaartse automaat of differentieelautomaat mag niet hoger geijkt zijn dan de stroomopwaartse beveiliging."
@@ -2641,13 +2657,15 @@
     "doorOpeningAngle": "Openingshoek (graden)",
     "resetScale": {
       "distance": "Afstand (m)",
-      "confirmRescaleTitle": "Nieuwe afbeeldingsschaal toepassen?",
-      "confirmRescaleIntro": "Je hebt de schaal van de planafbeelding gewijzigd (~{{factor}}x). Kies wat je wilt doen:",
-      "optionRescale": "Herschaal getekende elementen om hun huidige afmetingen in meter te behouden.",
-      "optionKeep": "Laat getekende elementen op hun plaats en bereken hun afmetingen opnieuw.",
+      "vectorOnlyWarningTitle": "Afmetingen op alle verdiepingen wijzigen?",
+      "vectorOnlyWarningIntro": "De nieuwe schaal herberekent de afmetingen op alle verdiepingen. Muren en symbolen blijven op hun plaats.",
+      "confirmRescaleTitle": "Tekening aanpassen?",
+      "confirmRescaleIntro": "Met de nieuwe schaal worden gemeten afstanden {{factor}}× zo groot.",
+      "optionRescale": "Verplaats en herschaal de tekening om de huidige afmetingen te behouden.",
+      "optionKeep": "Laat muren en symbolen staan en herbereken hun afmetingen.",
       "optionCancel": "Annuleer en laat alles ongewijzigd.",
-      "confirmRescaleConfirm": "Afmetingen behouden",
-      "confirmRescaleCancel": "Afmetingen herberekenen"
+      "confirmRescaleConfirm": "Huidige afmetingen behouden",
+      "confirmRescaleCancel": "Nieuwe afmetingen gebruiken"
     }
   },
   "junctionPanel": {
@@ -3132,5 +3150,104 @@
     "question": "Gebruik je een touchpad?",
     "usePan": "Scrollen om te verschuiven",
     "dismiss": "Sluiten"
+  },
+  "junctionDocuments": {
+    "title": "Verbindingen",
+    "junction_box": "Aftakdozen",
+    "terminal_strip": "Klemmenstroken",
+    "notVerified": "Niet nagekeken",
+    "fieldSide": "Veldzijde",
+    "boardSide": "Bordzijde",
+    "terminal": "Klem",
+    "columns": {
+      "strip": "Klemmenstrook",
+      "stripTitle": "Omschrijving",
+      "level": "Niveau",
+      "circuit": "Kring",
+      "cable": "Kabel",
+      "core": "Ader"
+    },
+    "terminalList": "Klemmenlijst",
+    "downloadTerminalList": "Klemmenlijst downloaden",
+    "download": "Downloaden",
+    "downloadPdf": "Downloaden als pdf"
+  },
+  "junctionEditor": {
+    "openEditor": "Editor openen",
+    "panelTitle": "Verbindingseditor",
+    "cables": "Kabels",
+    "kind": {
+      "terminal_strip": "Klemmenstrook",
+      "junction_box": "Aftakdoos",
+      "junction_panel": "Verbindingskast"
+    },
+    "open": "Openen",
+    "close": "Sluiten",
+    "status": {
+      "derived": "Voorlopig",
+      "edited": "Bewerkt",
+      "confirmed": "Nagekeken"
+    },
+    "markChecked": "Markeren als nagekeken",
+    "fixErrorsFirst": "Los eerst de fouten op",
+    "more": "Meer",
+    "reset": "Terugzetten naar voorlopig",
+    "changedSinceReview": "Gewijzigd sinds het nazicht",
+    "dismiss": "Verbergen",
+    "checkDropped": "Niet langer nagekeken",
+    "auto": "Automatisch",
+    "unassigned": "Niet aangesloten",
+    "addConnector": "Verbindingsklem toevoegen",
+    "removeConnector": "Verbindingsklem verwijderen",
+    "title": "Titel",
+    "location": "Locatie",
+    "notes": "Notities",
+    "entries": "Invoeren",
+    "side": {
+      "top": "Boven",
+      "right": "Rechts",
+      "bottom": "Onder",
+      "left": "Links"
+    },
+    "addBlock": "Klem toevoegen",
+    "shape": {
+      "phase": "Fase",
+      "neutral": "Nul",
+      "earth": "Aarding"
+    },
+    "addJumper": "Brug toevoegen",
+    "removeJumper": "Brug verwijderen",
+    "groupBreak": "Groepsscheiding",
+    "remove": "Verwijderen",
+    "boardWire": "Bordzijde",
+    "findings": "Bevindingen",
+    "finding": {
+      "conflict": {
+        "pe-joined-to-live": "Aarding verbonden met een actieve geleider",
+        "neutral-joined-to-live": "Nul verbonden met een fase",
+        "signal-joined-to-power": "Signaal verbonden met voeding",
+        "different-circuits": "Twee kringen verbonden",
+        "different-rcds": "Nullen van twee differentieelschakelaars verbonden",
+        "different-phases": "Twee fasen verbonden",
+        "different-outputs": "Afzonderlijke uitgangen verbonden",
+        "different-signal-members": "Beide aders van een signaalpaar verbonden",
+        "unassigned-cores": "Niet te bepalen of deze verbonden mogen worden",
+        "bus-continuation": "Bus loopt door naar het volgende toestel"
+      },
+      "unresolved": "Niet te bepalen of deze verbonden mogen worden",
+      "levelRole": "Geleider past niet op deze klem",
+      "orphaned": "Geleider bestaat niet meer",
+      "unterminated": "Geleider niet aangesloten",
+      "unused": "Niet gebruikt in het eendraadschema",
+      "duplicate": "Benaming dubbel gebruikt",
+      "hardware": {
+        "unknown-block": "Onbekend klemtype",
+        "unknown-level": "Klem heeft dit niveau niet",
+        "no-such-clamp": "Klem heeft dit klempunt niet",
+        "clamp-occupied": "Twee geleiders in één klempunt",
+        "unknown-connector": "Verbindingsklem bestaat niet meer",
+        "pe-without-bonded-rail": "Aardingsklemmen op een rail zonder aarding"
+      }
+    }
   }
 }

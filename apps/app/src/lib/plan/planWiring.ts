@@ -32,23 +32,21 @@ import { findMainPanel } from '@/lib/panel/panelTree'
 import { isCableRoutesEnabled } from '@/lib/cableRouting/availability'
 import { deriveCablePlanWireRoutes } from '@/lib/cableRouting/cableRoutePlanWires'
 import { isProjectV2 } from '@/lib/projectV2/migration'
+import { planWireVisualMetrics } from './planWireVisualMetrics'
 
 type PlanWiringProject = ProjectWithOptionalV2Electrical &
   ProjectWithOptionalV2Building &
   ProjectWithOptionalV2PlanWiring
 
-/** Plan-space stroke width at 100% zoom (does not scale with zoom). */
+/** Base wire width at the default plan calibration. */
 export const PLAN_WIRE_STROKE_WIDTH = 1
-/** On-screen width (px) a plan wire keeps when zoomed out. */
-const PLAN_WIRE_MIN_SCREEN_WIDTH = 2
 
 /**
- * Plan-space stroke width for a wire at `zoom`: it holds a minimum on-screen width while zoomed
- * out and only grows with the plan once zoomed in far enough that the plan width exceeds it.
+ * Wire width follows physical calibration, keeping a two-pixel screen minimum in the editor.
+ * Omitting zoom uses physical plan units for export.
  */
-export function planWireStrokeWidth(zoom: number | undefined): number {
-  if (!zoom || !Number.isFinite(zoom) || zoom <= 0) return PLAN_WIRE_STROKE_WIDTH
-  return Math.max(PLAN_WIRE_STROKE_WIDTH, PLAN_WIRE_MIN_SCREEN_WIDTH / zoom)
+export function planWireStrokeWidth(zoom: number | undefined, pxPerMeter?: number | null): number {
+  return planWireVisualMetrics(zoom, pxPerMeter).strokeWidth
 }
 export const PLAN_WIRE_DASH: [number, number] = [4, 4]
 /** Invisible hit target width in plan space. */
@@ -604,7 +602,15 @@ export function buildManualPlanWireRoutesForPlacementMove(
   project: PlanWiringProject,
   floorId: string,
   sourcePlacementId: string,
-  targetPlacementId: string
+  targetPlacementId: string,
+  options: {
+    /**
+     * Store only the drawn wire and let automatic wiring fill in the rest of the branch (cable
+     * routing builds its own tree around drawn wires). Without it, the first drawn lighting wire
+     * copies the whole branch, in placement order, into manual wires.
+     */
+    keepAutoSpans?: boolean
+  } = {}
 ): PlanWireRoute[] | null {
   if (sourcePlacementId === targetPlacementId) return null
   const panels = selectProjectElectricalPanels(project)
@@ -684,7 +690,7 @@ export function buildManualPlanWireRoutesForPlacementMove(
   const baseRoutes =
     existingGroup && existingGroup.length > 0
       ? existingGroup
-      : routeKind === 'sockets'
+      : routeKind === 'sockets' || options.keepAutoSpans
         ? []
         : circuitMatch.sequence
             .slice(0, -1)
@@ -959,8 +965,7 @@ export function filterPlanWireRoutesForSymbolVisibility(
   // A trace arriving from another floor starts at a riser; its source symbol is elsewhere. A
   // departure run ends at that riser; its target symbol is elsewhere.
   return routes.filter(
-    (route) =>
-      (route.riser || isVisible(route.from)) && (route.riserExit || isVisible(route.to))
+    (route) => (route.riser || isVisible(route.from)) && (route.riserExit || isVisible(route.to))
   )
 }
 
@@ -989,7 +994,8 @@ export function mergePlanWireRoutes(
     `${route.floorId}|${route.circuitId}|${route.to.placementId}`
   const manualByCableTarget = new Map<string, PlanWireRoute>()
   for (const route of manual) {
-    if (route.to.placementId && !route.riserExit) manualByCableTarget.set(cableTargetKey(route), route)
+    if (route.to.placementId && !route.riserExit)
+      manualByCableTarget.set(cableTargetKey(route), route)
   }
   const adoptedCable = new Map<string, PlanWireRoute>()
 
@@ -997,15 +1003,16 @@ export function mergePlanWireRoutes(
   for (const route of autoRoutes) {
     const spanKey = planWireSpanSetKey(route)
     const manualTargets = manualTargetsBySpan.get(spanKey)
-    if (route.to.placementId && manualTargets?.has(route.to.placementId)) {
-      continue
-    }
     const drawn =
       route.wireAnchor && route.to.placementId
         ? manualByCableTarget.get(cableTargetKey(route))
         : undefined
     if (drawn) {
-      if (!drawn.wireAnchor && drawn.id !== route.id) adoptedCable.set(drawn.id, route)
+      if (!drawn.wireAnchor || drawn.wireAnchor === route.wireAnchor)
+        adoptedCable.set(drawn.id, route)
+      continue
+    }
+    if (route.to.placementId && manualTargets?.has(route.to.placementId)) {
       continue
     }
     byId.set(route.id, route)
@@ -1018,6 +1025,7 @@ export function mergePlanWireRoutes(
       cable
         ? {
             ...route,
+            kind: cable.kind,
             wireAnchor: cable.wireAnchor,
             ...(cable.riser && !route.riser ? { riser: cable.riser } : {}),
           }
@@ -1036,6 +1044,8 @@ type CableRoutingWireToggles =
   | 'branchFeedsVisible'
   | 'supplyVisible'
   | 'colorCoded'
+  | 'wireToolWiresVisible'
+  | 'wireToolCategoriesVisible'
   | 'cableRouteSettings'
 export type ResolvedPlanWiringVisibility = Required<
   Omit<PlanWiringVisibility, CableRoutingWireToggles>
@@ -1069,10 +1079,14 @@ export function resolvePlanWiringVisibility(
     ...(visibility?.branchFeedsVisible !== undefined
       ? { branchFeedsVisible: visibility.branchFeedsVisible }
       : {}),
-    ...(visibility?.supplyVisible !== undefined
-      ? { supplyVisible: visibility.supplyVisible }
-      : {}),
+    ...(visibility?.supplyVisible !== undefined ? { supplyVisible: visibility.supplyVisible } : {}),
     ...(visibility?.colorCoded !== undefined ? { colorCoded: visibility.colorCoded } : {}),
+    ...(visibility?.wireToolWiresVisible !== undefined
+      ? { wireToolWiresVisible: visibility.wireToolWiresVisible }
+      : {}),
+    ...(visibility?.wireToolCategoriesVisible
+      ? { wireToolCategoriesVisible: { ...visibility.wireToolCategoriesVisible } }
+      : {}),
     ...(visibility?.cableRouteSettings
       ? { cableRouteSettings: { ...visibility.cableRouteSettings } }
       : {}),

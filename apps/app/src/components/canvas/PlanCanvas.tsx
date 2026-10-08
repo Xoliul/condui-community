@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState, useEffect, useMemo } from 'react'
+import { useJunctionEditorMenu } from '@/components/junctionEditor/junctionEditorHostedFeatures'
 import { flushSync } from 'react-dom'
 import { useStoreWithEqualityFn } from 'zustand/traditional'
 import { Image, Group, Transformer, Line, Rect, Text, Circle, RegularPolygon } from 'react-konva'
@@ -77,6 +78,7 @@ import {
   PlacementLabel,
   PlanWireDragPreview,
   PlanWiresLayerWithDrag,
+  PlanWiringCircuitBar,
   FloorPlanMode,
   StairRenderer,
   WallRenderer,
@@ -103,6 +105,7 @@ import {
 } from '@/lib/cableRouting/cableRoutePlanWires'
 import { selectedCableBounds } from '@/lib/cableRouting/cableRouteSelection'
 import { PlanWireLegend } from '@/components/cableRouting/PlanWireLegend'
+import { isWireToolTraceVisible } from '@/lib/cableRouting/planWireCategoryVisibility'
 import { useCableHoverStore } from '@/components/cableRouting/cableHoverStore'
 import { FloorPlanDrawDimensionInput } from './plan/FloorPlanDrawDimensionInput'
 import type { PlanWireEndPlacement, PlanWireRiserPreview } from './plan/PlanWiresLayer'
@@ -196,6 +199,7 @@ import {
   usePlanDragHandling,
   usePlanWireEditing,
   usePlanWireInteractionState,
+  usePlanWiringFocus,
   usePlanQuickPlacerState,
   usePlanScaleResetController,
   usePlanCanvasToolState,
@@ -288,7 +292,15 @@ import {
   planWireActiveStroke,
   resolvePlanWiringVisibility,
 } from '@/lib/plan/planWiring'
+import { getElectricalLookupIndex } from '@/lib/projectV2/electricalLookupIndex'
+import {
+  applyPlanWireEditingState,
+  circuitIdForPlanEndpoint,
+  planWireFocusScope,
+  planWireRedrawProgress,
+} from '@/lib/plan/planWiringFocus'
 import { reusePlanWireRoutes } from '@/lib/plan/planWireRouteIdentity'
+import { planWireVisualMetrics } from '@/lib/plan/planWireVisualMetrics'
 import { selectProjectPlanWiringProjection } from '@/lib/projectV2/planWiring'
 import { querySitplanNotes } from '@/lib/projectV2/annotations'
 import { selectProjectBuildingFloors, selectProjectFloorPlan } from '@/lib/projectV2/buildingFloors'
@@ -306,6 +318,7 @@ import {
 import { PlanGridSizeControl } from './plan/PlanGridSizeControl'
 import { PlanScaleRulerCanvasLayer } from './plan/PlanScaleRulerCanvasLayer'
 import { createPlanScaleReference, parsePlanMeters } from '@/lib/plan/planScale'
+import { getPlanZoomMinimum } from '@/lib/plan/planZoom'
 import { isSupportedPlanImportFile } from '@/components/plan/planImportFiles'
 import {
   captureCrossFloorDragClientOffsets,
@@ -377,18 +390,25 @@ function findQuickPlacerStartIndexForSelection(
   selection: Selection
 ): number {
   if (sequence.length === 0) return -1
-  if (selection.type !== 'placement' && selection.type !== 'endpoint') return -1
+  if (
+    selection.type !== 'placement' &&
+    selection.type !== 'endpoint' &&
+    selection.type !== 'trunkDevice'
+  ) return -1
 
   const selectedIds = new Set(selection.ids)
   return sequence.findIndex((item) =>
     selection.type === 'placement'
       ? selectedIds.has(item.placement.id)
-      : selectedIds.has(item.endpoint.id)
+      : selection.type === 'trunkDevice'
+        ? item.trunkDeviceId != null && selectedIds.has(item.trunkDeviceId)
+        : selectedIds.has(item.endpoint.id)
   )
 }
 
 function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) {
   const { t, i18n } = useTranslation()
+  const withJunctionEditorItem = useJunctionEditorMenu()
   const planView = useUIStore((s) => s.planView)
   const effectivePlanZoom = useEffectiveCanvasZoom(planView.zoom, 'plan')
   const applyPlanView = useUIStore((s) => s.setPlanView)
@@ -570,7 +590,8 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
     setIsViewportPanning: applyIsViewportPanning,
     openMenu,
     setOpenMenu: applyOpenMenu,
-  } = usePlanCanvasToolState()
+  } = usePlanCanvasToolState({ readOnly: !canEditFloorPlan })
+
   const movePlanOverlayFloorIds = useMemo(
     function () {
       if (activeTool !== 'move' || !activeFloorId || currentProjectFloors.length === 0) {
@@ -594,6 +615,13 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
     planWirePreviewPoint,
     setPlanWirePreviewPoint: applyPlanWirePreviewPoint,
   } = usePlanWireInteractionState()
+  const wiringFocus = usePlanWiringFocus({
+    wiringMode: activeTool === 'wiring',
+    activeFloorId,
+    currentProject,
+    hoverPlacementId: planWireHoverPlacementId,
+    dragSourcePlacementId: planWireDragSourcePlacementId,
+  })
   const [planImageRef, setPlanImageRef] = useState<Konva.Image | null>(null)
   const [transformerRef, setTransformerRef] = useState<Konva.Transformer | null>(null)
 
@@ -939,7 +967,13 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
   )
 
   // Use hooks for scale, placements, labels, image, and grid
-  const { pxPerMeter, baseSymbolSizePx, planLabelFontSize } = usePlanScale(activeFloor ?? null)
+  const { pxPerMeter, baseSymbolSizePx, planLabelFontSize } = usePlanScale(activeFloor ?? null, tempPxPerMeter)
+  // The zoom floor follows the committed calibration; preview scaling during
+  // ruler editing must not change the navigation range before the user accepts it.
+  const committedPxPerMeter = activeFloor?.planScaleNeedsCalibration
+    ? null
+    : calculatePxPerMeter(activeFloor ?? null)
+  const planMinZoom = getPlanZoomMinimum(committedPxPerMeter)
 
   const wallsForRender = useMemo(
     function () {
@@ -1057,6 +1091,7 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
     gridSize,
     tempPxPerMeter
   )
+  const planWireMetrics = planWireVisualMetrics(planView.zoom, canvasPxPerMeter)
   const theme = useSettingsStore((state) => state.theme)
   const fontFamily = useCanvasFontFamily()
   const touchPrimary = useTouchPrimaryDevice()
@@ -2098,6 +2133,7 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
   )
 
   const hasPlanImage = !!(activeFloor?.planAsset || activeFloor?.planImportAsset)
+  const canResetPlanScale = hasPlanImage || (activeFloor?.floorPlan?.walls.length ?? 0) > 0
 
   useEffect(
     function () {
@@ -3906,7 +3942,7 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
     function () {
       const wiringMode = activeTool === 'wiring'
       let includeKinds = planWireKindsForVisibility(planWiringVisibility)
-      // Wire mode shows every cable, colour-coded, so it can be edited.
+      // Wire mode starts with every cable; its colour-group controls filter below.
       if (isCableRoutesEnabled() && wiringMode) {
         includeKinds = ['lighting-control', 'sockets', 'other']
       }
@@ -3926,9 +3962,16 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
               )
             )
       let routes = mergedRoutesFor(includeKinds)
-      // The selected cable always shows, even when its kind of wire is hidden.
-      if (isCableRoutesEnabled()) {
-        if (!wiringMode && currentProject) {
+      // In wire mode, explicit visibility choices also hide selected/hovered cables.
+      if (isCableRoutesEnabled() && wiringMode && cableInfo && currentProject) {
+        const byCircuit = cableCategoryByCircuit(currentProject)
+        routes = routes.filter((route) =>
+          isWireToolTraceVisible(route, cableInfo, byCircuit, planWiringVisibility)
+        )
+      }
+      // Outside wire mode, the selected cable shows even when its kind is hidden.
+      if (isCableRoutesEnabled() && !wiringMode) {
+        if (currentProject) {
           const info = cableTraceInfoByAnchor(currentProject)
           routes = routes.filter((route) => isCableTraceShown(route, info, planWiringVisibility))
         }
@@ -3941,6 +3984,12 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
         )
         if (selected.length > 0) routes = [...routes, ...selected]
       }
+      // A circuit being redrawn hides its automatic wires; one being edited holds them still.
+      routes = applyPlanWireEditingState(routes, {
+        floorId: activeFloorId,
+        redraw: wiringFocus.redraw,
+        frozen: wiringFocus.frozen,
+      })
       if (routes.length === 0) return []
       const panelFilteredRoutes = sitplanPanelFilterId
         ? filterPlanWireRoutesForPanel(routes, sitplanPanelFilterId, {
@@ -3972,6 +4021,8 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
       visiblePlanEndpointIds,
       visiblePlanPlacementIds,
       visiblePlanTrunkDeviceIds,
+      wiringFocus.frozen,
+      wiringFocus.redraw,
     ]
   )
   // Junction panels, earth electrodes and supply enclosures sit on the plan through their own
@@ -4114,7 +4165,8 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
           currentProject,
           activeFloorId,
           sourcePlacementId,
-          targetPlacementId
+          targetPlacementId,
+          { keepAutoSpans: isCableRoutesEnabled() }
         ))
         ? 'legal'
         : 'illegal'
@@ -4138,6 +4190,108 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
     removeManualOtherPlanWiresFromOrigin,
     hideSocketWireRouteForPlacementDrop,
   } = usePlanWireEditing({ activeFloorId, currentProject })
+  // Shaping a wire makes its branch the working one, like drawing from one of its symbols.
+  const focusWiringPlacement = wiringFocus.focusPlacement
+  const handleInsertFocusedPlanWireWaypoint = useCallback(
+    (route: PlanWireRoute, point: Point2, waypointIndex: number) => {
+      focusWiringPlacement(route.to.placementId, route.circuitId)
+      handleInsertPlanWireWaypoint(route, point, waypointIndex)
+    },
+    [handleInsertPlanWireWaypoint, focusWiringPlacement]
+  )
+  // Cable roles tell where one branch ends and the feed to another begins.
+  const planWireRoleOf = useMemo(() => {
+    if (activeTool !== 'wiring' || !isCableRoutesEnabled() || !currentProject) {
+      return () => undefined
+    }
+    const info = cableTraceInfoByAnchor(currentProject)
+    return (route: PlanWireRoute) =>
+      route.wireAnchor ? info.get(route.wireAnchor)?.role : undefined
+  }, [activeTool, currentProject])
+  const wiringFocusTarget = wiringFocus.focus
+  const wiringRedraw = wiringFocus.redraw
+  // The wires and symbols in focus: one branch and its feed to the board. While that branch is
+  // redrawn its automatic wires are hidden, so the symbols it had when the redraw started count.
+  const wiringFocusScope = useMemo(() => {
+    if (!wiringFocusTarget) return null
+    if (wiringRedraw && wiringRedraw.circuitId === wiringFocusTarget.circuitId) {
+      const placementIds = new Set(wiringRedraw.placementIds)
+      const routeIds = new Set(
+        planWireRoutes
+          .filter(
+            (route) =>
+              route.circuitId === wiringRedraw.circuitId &&
+              [route.from.placementId, route.to.placementId].some(
+                (id) => id != null && placementIds.has(id)
+              )
+          )
+          .map((route) => route.id)
+      )
+      return { circuitId: wiringRedraw.circuitId, placementIds, routeIds }
+    }
+    return planWireFocusScope(
+      planWireRoutes,
+      wiringFocusTarget.circuitId,
+      wiringFocusTarget.placementId,
+      planWireRoleOf
+    )
+  }, [planWireRoleOf, planWireRoutes, wiringFocusTarget, wiringRedraw])
+  const wiringPreview = wiringFocus.preview
+  const wiringPreviewRouteIds = useMemo(
+    () =>
+      wiringPreview
+        ? planWireFocusScope(
+            planWireRoutes,
+            wiringPreview.circuitId,
+            wiringPreview.placementId,
+            planWireRoleOf
+          ).routeIds
+        : null,
+    [planWireRoleOf, planWireRoutes, wiringPreview]
+  )
+  // The focus branch's symbols on this floor (the whole circuit's when no symbol was picked).
+  const wiringFocusPlacementIds = useMemo(() => {
+    if (!wiringFocusScope || !currentProject) return [] as string[]
+    const { circuitId, placementIds } = wiringFocusScope
+    const panels = selectProjectElectricalPanels(currentProject)
+    return visiblePlacements.flatMap((placement: Placement & { endpointId?: string }) =>
+      (placementIds
+        ? placementIds.has(placement.id)
+        : circuitIdForPlanEndpoint(panels, placement.endpointId) === circuitId)
+        ? [placement.id]
+        : []
+    )
+  }, [currentProject, visiblePlacements, wiringFocusScope])
+  const wiringRedrawProgress = useMemo(
+    () =>
+      wiringRedraw
+        ? planWireRedrawProgress(planWireRoutes, wiringRedraw.circuitId, wiringRedraw.placementIds)
+        : null,
+    [planWireRoutes, wiringRedraw]
+  )
+  const wiringFocusPlacementIdSet = useMemo(
+    () => new Set(wiringFocusPlacementIds),
+    [wiringFocusPlacementIds]
+  )
+  // Circuits with a symbol on this floor, for the working-circuit picker.
+  const wiringCircuitOptions = useMemo(() => {
+    if (activeTool !== 'wiring' || !currentProject) return []
+    const panels = selectProjectElectricalPanels(currentProject)
+    const ids = new Set<string>()
+    for (const placement of visiblePlacements as Array<Placement & { endpointId?: string }>) {
+      const circuitId = circuitIdForPlanEndpoint(panels, placement.endpointId)
+      if (circuitId) ids.add(circuitId)
+    }
+    const circuitsById = getElectricalLookupIndex(panels).circuitsById
+    return [...ids]
+      .map((id) => {
+        const code = getCircuitIdentifier(id)
+        const notes = circuitsById.get(id)?.circuit.notes?.split('\n')[0]?.trim()
+        return { id, code, label: notes ? `${code} · ${notes}` : code }
+      })
+      .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))
+      .map(({ id, label }) => ({ id, label }))
+  }, [activeTool, currentProject, getCircuitIdentifier, visiblePlacements])
   useEffect(
     function () {
       if (activeTool !== 'wiring') return
@@ -4287,7 +4441,9 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
       return {
         ...currentQuickPlacerFastItem.placement,
         id: `quick-placer-preview-${currentQuickPlacerFastItem.placement.id}`,
-        endpointId: currentQuickPlacerFastItem.endpoint.id,
+        ...(currentQuickPlacerFastItem.trunkDeviceId
+          ? { trunkDeviceId: currentQuickPlacerFastItem.trunkDeviceId }
+          : { endpointId: currentQuickPlacerFastItem.endpoint.id }),
         floorId: activeFloorId ?? currentQuickPlacerFastItem.placement.floorId,
         pos: quickPlacerFastPreviewPos,
       }
@@ -4657,7 +4813,10 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
           stroke,
           path: `M ${source.x} ${source.y} C ${controlA.x} ${controlA.y} ${controlB.x} ${controlB.y} ${end.x} ${end.y}`,
           points: null,
-          arrowHead: incoming != null ? buildPlanWireVArrowHead(end, incoming) : null,
+          arrowHead: incoming != null ? buildPlanWireVArrowHead(end, incoming, {
+            length: planWireMetrics.arrowLength,
+            width: planWireMetrics.arrowWidth,
+          }) : null,
         }
       }
       const elbow =
@@ -4667,7 +4826,10 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
         stroke,
         path: null,
         points: [source.x, source.y, elbow.x, elbow.y, end.x, end.y],
-        arrowHead: incoming != null ? buildPlanWireVArrowHead(end, incoming) : null,
+        arrowHead: incoming != null ? buildPlanWireVArrowHead(end, incoming, {
+          length: planWireMetrics.arrowLength,
+          width: planWireMetrics.arrowWidth,
+        }) : null,
       }
     },
     [
@@ -4676,6 +4838,8 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
       planWireDragSourcePlacementId,
       planWireHoverPlacementId,
       planWirePreviewPoint,
+      planWireMetrics.arrowLength,
+      planWireMetrics.arrowWidth,
       planDragPositions,
       theme,
       visiblePlacements,
@@ -5386,7 +5550,11 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
   useEffect(
     function () {
       if (!quickPlacerVisible || quickPlacerMode !== 'fast' || !currentQuickPlacerFastItem) return
-      applyHover({ type: 'endpoint', ids: [currentQuickPlacerFastItem.endpoint.id] })
+      applyHover(
+        currentQuickPlacerFastItem.trunkDeviceId
+          ? { type: 'trunkDevice', ids: [currentQuickPlacerFastItem.trunkDeviceId] }
+          : { type: 'endpoint', ids: [currentQuickPlacerFastItem.endpoint.id] }
+      )
     },
     [
       quickPlacerVisible,
@@ -5578,7 +5746,7 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
       trackGoogleAnalyticsEvent('quick_placer_item_select', {
         canvas: 'plan',
         mode: quickPlacerMode,
-        endpoint_type: item.endpoint.type,
+        endpoint_type: item.trunkDeviceId ? 'trunk_device' : item.endpoint.type,
         symbol_id: item.endpoint.symbol,
         is_custom_placement: item.isCustomPlacement,
       })
@@ -5606,7 +5774,11 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
 
   const handleQuickPlacerItemHoverStart = useCallback(
     (item: QuickPlacerItem) => {
-      applyHover({ type: 'endpoint', ids: [item.endpoint.id] })
+      applyHover(
+        item.trunkDeviceId
+          ? { type: 'trunkDevice', ids: [item.trunkDeviceId] }
+          : { type: 'endpoint', ids: [item.endpoint.id] }
+      )
     },
     [applyHover]
   )
@@ -5614,7 +5786,11 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
   const handleQuickPlacerItemHoverEnd = useCallback(
     function () {
       if (quickPlacerMode === 'fast' && currentQuickPlacerFastItem) {
-        applyHover({ type: 'endpoint', ids: [currentQuickPlacerFastItem.endpoint.id] })
+        applyHover(
+          currentQuickPlacerFastItem.trunkDeviceId
+            ? { type: 'trunkDevice', ids: [currentQuickPlacerFastItem.trunkDeviceId] }
+            : { type: 'endpoint', ids: [currentQuickPlacerFastItem.endpoint.id] }
+        )
         return
       }
       clearHover()
@@ -5699,7 +5875,9 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
       trackGoogleAnalyticsEvent('quick_placer_skip', {
         canvas: 'plan',
         mode: 'fast',
-        endpoint_type: currentQuickPlacerFastItem.endpoint.type,
+        endpoint_type: currentQuickPlacerFastItem.trunkDeviceId
+          ? 'trunk_device'
+          : currentQuickPlacerFastItem.endpoint.type,
         symbol_id: currentQuickPlacerFastItem.endpoint.symbol,
         is_custom_placement: currentQuickPlacerFastItem.isCustomPlacement,
       })
@@ -5724,7 +5902,7 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
         canvas: 'plan',
         placement_method: 'quick_placer',
         mode: 'fast',
-        endpoint_type: currentItem.endpoint.type,
+        endpoint_type: currentItem.trunkDeviceId ? 'trunk_device' : currentItem.endpoint.type,
         symbol_id: currentItem.endpoint.symbol,
         is_custom_placement: currentItem.isCustomPlacement,
       })
@@ -6731,7 +6909,11 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
   })
   const handleGetContextMenuItems = useCallback(
     (position: Point, elementId: string | null) => {
-      const items = baseGetContextMenuItems(position, elementId)
+      const items = withJunctionEditorItem(
+        baseGetContextMenuItems(position, elementId),
+        [elementId, ...useUIStore.getState().selection.ids],
+        { afterLabel: t('contextMenu.moveToFloor') }
+      )
       const canDeletePlanImage =
         canDeleteItems && activeTool === 'move' && hasPlanImage && !!activeFloorId
       if (canDeletePlanImage) {
@@ -6886,6 +7068,7 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
     },
     [
       baseGetContextMenuItems,
+      withJunctionEditorItem,
       isFloorPlanMode,
       activeFloor,
       activeFloorId,
@@ -7291,12 +7474,27 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
         const armed = planWireDragSourcePlacementId === placement.id
         const hovered = planWireHoverPlacementId === placement.id
         const status = hovered || armed ? getPlanWireTargetStatus(placement.id) : null
+        // The working circuit's symbols get a faint ring; during a redraw, the ones still
+        // waiting for a drawn wire get a dashed one.
+        const waiting = !core && wiringRedrawProgress?.openPlacementIds.has(placement.id) === true
+        const inFocus = !core && wiringFocusPlacementIdSet.has(placement.id)
         const stroke =
           !core && (armed || status === 'legal')
             ? '#0ea5e9'
             : !core && status === 'illegal'
               ? '#ef4444'
-              : undefined
+              : waiting
+                ? '#0ea5e9'
+                : inFocus
+                  ? 'rgba(14,165,233,0.35)'
+                  : undefined
+        const ringDash =
+          waiting && !armed && !status
+            ? [
+                screenPxToCanvasUnits(planView.zoom, 4, 2, 8),
+                screenPxToCanvasUnits(planView.zoom, 3, 1.5, 6),
+              ]
+            : undefined
         return (
           <Circle
             key={`plan-wire-symbol-hit-${core ? 'core' : 'ring'}-${placement.id}`}
@@ -7305,7 +7503,17 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
             radius={radius}
             fill="rgba(14,165,233,0.001)"
             stroke={stroke}
-            strokeWidth={stroke ? screenPxToCanvasUnits(planView.zoom, 2, 1, 4) : 0}
+            dash={ringDash}
+            strokeWidth={
+              stroke
+                ? screenPxToCanvasUnits(
+                    planView.zoom,
+                    inFocus && !waiting && !status && !armed ? 1.5 : 2,
+                    1,
+                    4
+                  )
+                : 0
+            }
             listening
             onMouseEnter={() => {
               applyPlanWireHoverPlacementId(placement.id)
@@ -7331,6 +7539,10 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
               applyPlanWirePreviewPoint(null)
               if (!sourcePlacementId || sourcePlacementId === placement.id) return
               if (getPlanWireTargetStatus(placement.id) !== 'legal') return
+              wiringFocus.holdCircuitBeforeDraw(
+                wiringFocus.circuitIdForPlacement(sourcePlacementId),
+                planWireRoutes
+              )
               handleDrawPlanWire(sourcePlacementId, placement.id)
             }}
           />
@@ -7471,6 +7683,7 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
               : undefined
           }
           zoom={planView.zoom}
+          minZoom={planMinZoom}
           pan={planView.pan}
           showGrid={planView.showGrid}
           gridSize={gridSize}
@@ -8500,6 +8713,7 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
                   <PlanWiresLayerWithDrag
                     // Exports keep the plan-scaled wire width; only the live view keeps a screen minimum.
                     zoom={isExporting ? undefined : planView.zoom}
+                    pxPerMeter={canvasPxPerMeter}
                     routes={planWireRoutes}
                     junctionPanelPlacements={junctionPanelPlanPlacements}
                     highlightedRouteIds={highlightedPlanWireRouteIds}
@@ -8513,7 +8727,11 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
                       useProjectStore.getState().getTrunkDeviceById(id)?.device
                     }
                     active={activeTool === 'wiring' && !isExporting}
-                    onInsertWaypoint={handleInsertPlanWireWaypoint}
+                    focusMode={activeTool === 'wiring' && !isExporting}
+                    focusRouteIds={wiringFocusScope?.routeIds}
+                    previewRouteIds={wiringPreviewRouteIds}
+                    onHoverRoute={wiringFocus.onHoverRoute}
+                    onInsertWaypoint={handleInsertFocusedPlanWireWaypoint}
                     onMoveWaypoint={handleMovePlanWireWaypoint}
                     onMoveRiser={handleMovePlanWireRiser}
                     onRemoveWaypoint={handleRemovePlanWireWaypoint}
@@ -8526,12 +8744,17 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
                 </Group>
               )}
               {activeTool === 'wiring' && planWirePreview && !isExporting && (
-                <PlanWireDragPreview preview={planWirePreview} zoom={planView.zoom} />
+                <PlanWireDragPreview
+                  preview={planWirePreview}
+                  zoom={planView.zoom}
+                  pxPerMeter={canvasPxPerMeter}
+                />
               )}
               {isCableRoutesEnabled() && activeFloorId && !isExporting && (
                 <PlanSelectedCableRoutes
                   floorId={activeFloorId}
                   zoom={planView.zoom}
+                  pxPerMeter={canvasPxPerMeter}
                   theme={theme.mode}
                 />
               )}
@@ -8595,6 +8818,7 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
                     isDrawingToolActive
                   />
                   {planVisibility.labelsVisible &&
+                    !currentQuickPlacerFastItem.trunkDeviceId &&
                     currentQuickPlacerFastItem.endpoint.label &&
                     quickPlacerFastPreviewLabelPosition && (
                       <PlacementLabel
@@ -8614,6 +8838,7 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
                 <PlanWiresLayerWithDrag
                   // Exports keep the plan-scaled wire width; only the live view keeps a screen minimum.
                   zoom={isExporting ? undefined : planView.zoom}
+                  pxPerMeter={canvasPxPerMeter}
                   routes={raisedRiserRoutes}
                   riserHandlesOnly
                   junctionPanelPlacements={junctionPanelPlanPlacements}
@@ -8826,6 +9051,7 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
 
         <ViewNavigationToolbar
           zoom={planView.zoom}
+          minZoom={planMinZoom}
           onZoomChange={handleZoomChange}
           onPanChange={handlePanChange}
           onFitToView={handleFitToView}
@@ -8834,22 +9060,36 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
 
         {/* Breadcrumb - positioned at top center, below toolbar
           Shows hierarchy for selected panel, circuit, or endpoint */}
-        <PlanCanvasSelectionBreadcrumb
-          themeMode={theme.mode}
-          visiblePlacements={visiblePlacements}
-          placements={placements}
-          currentProject={currentProject}
-          getEndpointById={getEndpointById}
-          getCircuitById={getCircuitById}
-          getCircuitIdentifier={getCircuitIdentifier}
-          findCircuitForEndpoint={findCircuitForEndpoint}
-          findPanelForCircuit={findPanelForCircuit}
-          getAllEndpoints={getAllEndpoints}
-          getPanelPathFromRoot={getPanelPathFromRoot}
-          setHover={applyHover}
-          clearHover={clearHover}
-          setSelection={applySelection}
-        />
+        {activeTool === 'wiring' && wiringFocusTarget && !isExporting && (
+          <PlanWiringCircuitBar
+            circuits={wiringCircuitOptions}
+            focusCircuitId={wiringFocusTarget.circuitId}
+            onFocusCircuit={wiringFocus.focusCircuit}
+            redrawProgress={wiringRedrawProgress}
+            onStartRedraw={() =>
+              wiringFocus.startRedraw(wiringFocusTarget.circuitId, wiringFocusPlacementIds)
+            }
+            onFinishRedraw={wiringFocus.finishRedraw}
+          />
+        )}
+        {!(activeTool === 'wiring' && wiringFocusTarget) && (
+          <PlanCanvasSelectionBreadcrumb
+            themeMode={theme.mode}
+            visiblePlacements={visiblePlacements}
+            placements={placements}
+            currentProject={currentProject}
+            getEndpointById={getEndpointById}
+            getCircuitById={getCircuitById}
+            getCircuitIdentifier={getCircuitIdentifier}
+            findCircuitForEndpoint={findCircuitForEndpoint}
+            findPanelForCircuit={findPanelForCircuit}
+            getAllEndpoints={getAllEndpoints}
+            getPanelPathFromRoot={getPanelPathFromRoot}
+            setHover={applyHover}
+            clearHover={clearHover}
+            setSelection={applySelection}
+          />
+        )}
 
         {/* Left-side tools for plan canvas (non-draw mode) */}
         {canPlaceSymbols && !isFloorPlanMode && (
@@ -8944,14 +9184,14 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
                   icon={<ScaleIcon className="w-6 h-6" />}
                   label={t('planTools.resetScale')}
                   tooltipDescription={
-                    hasPlanImage ? undefined : t('planTools.uploadFloorPlanFirst')
+                    canResetPlanScale ? t('planTools.resetScaleTooltip') : t('planTools.uploadFloorPlanFirst')
                   }
                   variant="tool"
                   side="left"
-                  active={hasPlanImage && activeTool === 'resetScale'}
-                  disabled={!hasPlanImage}
+                  active={canResetPlanScale && activeTool === 'resetScale'}
+                  disabled={!canResetPlanScale}
                   onClick={() => {
-                    if (!hasPlanImage) return
+                    if (!canResetPlanScale) return
                     if (activeTool === 'resetScale') {
                       if (isResettingScale) {
                         handleScaleRulerCancel()
@@ -8984,7 +9224,9 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
         {/* Scale Indicator */}
         <ScaleIndicator />
         {}
-        {planWiresColorCoded && !isExporting && <PlanWireLegend />}
+        {isCableRoutesEnabled() && activeTool === 'wiring' && !isExporting && (
+          <PlanWireLegend readOnly={!canEditFloorPlan} />
+        )}
 
         {/* Floating right-side controls: grid, floors, visibility */}
         <CanvasFloatingControlRail
@@ -9110,7 +9352,10 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
               open={openMenu === 'visibility'}
               onOpenChange={(next) => applyOpenMenu(next ? 'visibility' : null)}
             >
-              <SitplanVisibilityPanel readOnly={!canEditFloorPlan} />
+              <SitplanVisibilityPanel
+                readOnly={!canEditFloorPlan}
+                wireToolActive={activeTool === 'wiring'}
+              />
             </FloatingControl>
           </>
         </CanvasFloatingControlRail>

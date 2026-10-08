@@ -6,14 +6,21 @@ import {
   DOMOTICA_OUTPUT_SPACING,
   MULTI_SOCKET_OFFSET,
 } from '@/components/canvas/eendraad/canvasSymbols'
-import { LAYOUT_CONSTANTS, type BottomUpPanelLayout } from '@/lib/layout/bottomUpLayout'
-import type { Endpoint, ProtectionDevice, TrunkDevice } from '@/types/schema'
+import {
+  LAYOUT_CONSTANTS,
+  PROTECTION_LABEL_FONT_SIZE,
+  type BottomUpPanelLayout,
+} from '@/lib/layout/bottomUpLayout'
+import { collectDomoticaRowLabelPlacements } from '@/lib/layout/domoticaRowLabelPlacement'
+import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
+import type { Endpoint, Frame, ProtectionDevice, TrunkDevice } from '@/types/schema'
 import type { ResolvedFrameItem } from '@/lib/eendraad/frameContent'
 import {
   getProtectionOneWireAnchorLineIndex,
   getProtectionOneWireLabelLines,
 } from '@/lib/protectionLabels'
 import { getSymbolLabelPosition } from '@/lib/symbolLabels'
+import { isVerticalSupplyDevice } from '@/lib/layout/supplyDeviceOrientation'
 
 export interface EendraadFrameBounds {
   x: number
@@ -42,10 +49,19 @@ function findProtectionInPanel(panelLayout: BottomUpPanelLayout, protectionId: s
   )
 }
 
+/** Supply devices on a horizontal run caption below the wire unless placed explicitly. */
+function supplyDeviceLabelPosition(
+  device: TrunkDevice | undefined
+): ReturnType<typeof getSymbolLabelPosition> | undefined {
+  if (!device || isVerticalSupplyDevice(device)) return undefined
+  return device.symbolLabelDisplay?.position ?? 'bottom'
+}
+
 function protectionLikeLabelExtents(
   device: ProtectionDevice | TrunkDevice | undefined,
   x: number,
-  y: number
+  y: number,
+  positionOverride?: ReturnType<typeof getSymbolLabelPosition>
 ): { left: number; right: number; top: number; bottom: number } | null {
   if (!device) return null
   const lines = getProtectionOneWireLabelLines(device)
@@ -55,7 +71,7 @@ function protectionLikeLabelExtents(
   const lineHeight = fontSize + lineSpacing
   const contentHeight = lines.length * lineHeight
   const maxLineWidth = Math.max(...lines.map((line) => estimateTextWidth(line.text, fontSize)))
-  const position = getSymbolLabelPosition(device.symbolLabelDisplay)
+  const position = positionOverride ?? getSymbolLabelPosition(device.symbolLabelDisplay)
   const anchorLineIndex = getProtectionOneWireAnchorLineIndex(lines)
   const symbolHalf = FRAME_SYMBOL_HALF
   const offsetFromSymbol = 5
@@ -96,6 +112,7 @@ export function computeEendraadFrameBounds({
   includeEndpointLabels?: boolean
 }): EendraadFrameBounds | null {
   const extents: Array<{ left: number; right: number; top: number; bottom: number }> = []
+  let rowLabels: Map<string, { left: number; right: number; top: number; bottom: number }> | undefined
 
   for (const { id, kind } of items) {
     if (kind === 'endpoint') {
@@ -143,6 +160,8 @@ export function computeEendraadFrameBounds({
               )
           : null
 
+        const rowLabel = (rowLabels ??= domoticaRowLabelRects(panelLayout)).get(id)
+        if (rowLabel) extents.push(rowLabel)
         extents.push({
           left: branchLabelLeft ?? el.position.x,
           right: el.position.x + socketExtra + FRAME_SYMBOL_HALF,
@@ -171,17 +190,25 @@ export function computeEendraadFrameBounds({
       }
     } else if (kind === 'trunkDevice') {
       const el = panelLayout.elements.find((e) => e.type === 'trunkDevice' && e.trunkDeviceId === id)
+      let isSupplyDevice = false
       let device = el?.trunkDeviceId
         ? panelLayout.circuits
             .flatMap((circuitLayout) => circuitLayout.circuit.trunkDevices ?? [])
             .find((entry) => entry.id === el.trunkDeviceId)
         : undefined
+      // The one-wire draws supply devices as `supplyTrunkDevice-*` elements; their
+      // record lives on the supply chain, and feed-stub copies stand upright.
+      if (!device && el?.id.startsWith('supplyTrunkDevice-')) {
+        device = panelLayout.supplyDevices?.find((entry) => entry.device.id === id)?.device
+        isSupplyDevice = device != null && !el.id.includes('--feed-stub-')
+      }
       const positionedDevice =
         el ??
         (() => {
           const supplyDevice = panelLayout.supplyDevices?.find((entry) => entry.device.id === id)
           if (supplyDevice) {
             device = supplyDevice.device
+            isSupplyDevice = true
             return { position: { x: supplyDevice.x, y: supplyDevice.y } }
           }
           const groundDevice = panelLayout.groundDevices?.find((entry) => entry.device.id === id)
@@ -201,7 +228,8 @@ export function computeEendraadFrameBounds({
         const labelExtents = protectionLikeLabelExtents(
           device,
           positionedDevice.position.x,
-          positionedDevice.position.y
+          positionedDevice.position.y,
+          isSupplyDevice ? supplyDeviceLabelPosition(device) : undefined
         )
         if (labelExtents) extents.push(labelExtents)
       }
@@ -240,4 +268,118 @@ export function computeEendraadFrameBounds({
     width: maxX - minX + padding * 2,
     height: maxY - minY + padding * 2 + topExtra,
   }
+}
+
+/** Painted caption rects of every protection and trunk device, for placing other text clear of them. */
+export function collectEendraadDeviceLabelRects(
+  panelLayout: BottomUpPanelLayout
+): EendraadFrameBounds[] {
+  const trunkDevices = new Map(
+    panelLayout.circuits
+      .flatMap((circuitLayout) => circuitLayout.circuit.trunkDevices ?? [])
+      .map((device) => [device.id, device] as const)
+  )
+  type PositionedDevice = {
+    device: ProtectionDevice | TrunkDevice | undefined
+    x: number
+    y: number
+    supply?: boolean
+  }
+  const positioned: PositionedDevice[] = [
+    ...panelLayout.elements.flatMap((element): PositionedDevice[] => {
+      if ((element.type === 'protection' || element.type === 'rcd') && element.protectionId) {
+        return [
+          {
+            device: findProtectionInPanel(panelLayout, element.protectionId),
+            x: element.position.x,
+            y: element.position.y,
+          },
+        ]
+      }
+      if (element.type === 'trunkDevice' && element.trunkDeviceId) {
+        return [
+          { device: trunkDevices.get(element.trunkDeviceId), x: element.position.x, y: element.position.y },
+        ]
+      }
+      return []
+    }),
+    ...(panelLayout.supplyDevices ?? []).map(({ device, x, y }) => ({ device, x, y, supply: true })),
+  ]
+  return positioned.flatMap(({ device, x, y, supply }) => {
+    const extents = protectionLikeLabelExtents(
+      device,
+      x,
+      y,
+      supply ? supplyDeviceLabelPosition(device as TrunkDevice) : undefined
+    )
+    return extents
+      ? [
+          {
+            x: extents.left,
+            y: extents.top,
+            width: extents.right - extents.left,
+            height: extents.bottom - extents.top,
+          },
+        ]
+      : []
+  })
+}
+
+/** Extra top padding when a one-wire frame's title is inside, so it doesn't overlap symbols. */
+export const ONE_WIRE_FRAME_TITLE_INSIDE_TOP_PADDING = 14
+const ONE_WIRE_FRAME_TITLE_OUTSIDE_GAP = 3
+
+/** Painted box of a user-drawn one-wire frame, shared by the canvas and the note layout. */
+export function computeOneWireFrameBounds(
+  frame: Frame,
+  items: ResolvedFrameItem[],
+  panelLayout: BottomUpPanelLayout,
+  getEndpointById: (id: string) => Endpoint | undefined
+): EendraadFrameBounds | null {
+  const titleInside = (frame.titlePosition || 'inside') === 'inside' && !!frame.title
+  return computeEendraadFrameBounds({
+    items,
+    panelLayout,
+    getEndpointById,
+    topExtra: titleInside ? ONE_WIRE_FRAME_TITLE_INSIDE_TOP_PADDING + frame.fontSize : 0,
+    includeEndpointLabels: false,
+  })
+}
+
+/** Top of the frame's title text: inset inside the box, or just above it. */
+export function getOneWireFrameTitleY(frame: Frame, bounds: EendraadFrameBounds): number {
+  return (frame.titlePosition || 'inside') === 'outside'
+    ? bounds.y - frame.fontSize - ONE_WIRE_FRAME_TITLE_OUTSIDE_GAP
+    : bounds.y + 4
+}
+
+const DOMOTICA_ROW_LABEL_LINE_HEIGHT = PROTECTION_LABEL_FONT_SIZE + 4
+
+/** Painted extents of domotica output row labels ("T6.1"), keyed by endpoint id. */
+function domoticaRowLabelRects(
+  panelLayout: BottomUpPanelLayout
+): Map<string, { left: number; right: number; top: number; bottom: number }> {
+  return new Map(
+    collectDomoticaRowLabelPlacements(panelLayout).map((placement) => [
+      placement.endpointId,
+      {
+        left: placement.x,
+        right:
+          placement.x +
+          measureSymbolLabelTextWidth(placement.text, 'Figtree', PROTECTION_LABEL_FONT_SIZE),
+        top: placement.y - DOMOTICA_ROW_LABEL_LINE_HEIGHT / 2,
+        bottom: placement.y + DOMOTICA_ROW_LABEL_LINE_HEIGHT / 2,
+      },
+    ])
+  )
+}
+
+/** Painted domotica output row labels, for placing other text clear of them. */
+export function collectDomoticaRowLabelRects(panelLayout: BottomUpPanelLayout): EendraadFrameBounds[] {
+  return [...domoticaRowLabelRects(panelLayout).values()].map((rect) => ({
+    x: rect.left,
+    y: rect.top,
+    width: rect.right - rect.left,
+    height: rect.bottom - rect.top,
+  }))
 }

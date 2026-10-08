@@ -1,3 +1,4 @@
+import { moveWireRunMember } from './conductorIdentity'
 import type { ElectricalStructureRelationship } from '@/lib/electricalStructure'
 import { buildElectricalStructureSnapshot } from '@/lib/electricalStructure/builder'
 import { editProjectWireRuns, selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
@@ -63,11 +64,7 @@ export function joinSecondaryFeederRuns(project: ProjectV2): boolean {
     const other = keep === parentRun ? secondaryRun : undefined
     const moved = keep === parentRun ? secondarySide : parentSide
     if (other) {
-      const length = other.segmentLengths?.[moved]
-      if (length !== undefined) keep.segmentLengths = { ...keep.segmentLengths, [moved]: length }
-      const source = other.segmentLengthSources?.[moved]
-      if (source) keep.segmentLengthSources = { ...keep.segmentLengthSources, [moved]: source }
-      other.members = other.members.filter((member) => member !== moved)
+      moveWireRunMember(other, keep, moved)
       if (other.members.length === 0) runs.splice(runs.indexOf(other), 1)
     }
     if (!keep.members.includes(moved)) keep.members.push(moved)

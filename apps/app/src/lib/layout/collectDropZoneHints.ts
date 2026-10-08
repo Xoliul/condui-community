@@ -260,10 +260,6 @@ const ENERGY_CONVERSION_SYMBOLS = new Set([
   'dc_dc_converter',
 ])
 
-// Energy meters remain in-between branch devices. Conversion devices have a
-// branch-local domain boundary and therefore need the static endpoint path.
-const TRUNK_ONLY_ON_CIRCUIT_SYMBOLS = new Set(['energy_meter'])
-
 const TRUNK_CAPABLE_ENDPOINT_SYMBOLS = new Set(['junction_box', 'junction_panel', 'terminal_strip'])
 
 function isProtectionDragSymbol(symbol: SymbolMetadata): boolean {
@@ -1172,20 +1168,6 @@ function shouldIncludeHintNode(
   if ((symbol.id === 'earthing' || symbol.id === 'earthing_separator') && hitType === 'mainBus') {
     if (!ctx.panelIsMain) return false
     if (symbol.id === 'earthing_separator') return false
-  }
-
-  if (TRUNK_ONLY_ON_CIRCUIT_SYMBOLS.has(symbol.id) && node.type === 'branch') {
-    return false
-  }
-
-  if (
-    TRUNK_ONLY_ON_CIRCUIT_SYMBOLS.has(symbol.id) &&
-    hitType === 'circuit' &&
-    node.type === 'wire' &&
-    !node.id?.includes('circuit-trunk-') &&
-    !node.id?.startsWith('supply-wire-')
-  ) {
-    return false
   }
 
   if (node.type === 'trunkDevice') {

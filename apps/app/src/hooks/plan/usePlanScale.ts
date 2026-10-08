@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import type { Floor } from '@/types/schema'
 import { useUIStore } from '@/stores/uiStore'
 import { clamp } from '@/lib/geometry'
-import { resolvePlanPxPerMeter } from '@/lib/plan/planScale'
+import { isPositiveFinite, resolvePlanPxPerMeter } from '@/lib/plan/planScale'
 import {
   DEFAULT_SYMBOL_SIZE_CM,
   MIN_SYMBOL_SIZE_CM,
@@ -34,8 +34,11 @@ export function calculatePxPerMeter(floor: Floor | null): number | null {
  * Symbol size comes from the active floor when set (export/import), else the visibility
  * panel / persisted UI default (default 20 cm).
  */
-export function usePlanScale(activeFloor: Floor | null) {
-  const pxPerMeter = useMemo(() => calculatePxPerMeter(activeFloor), [activeFloor])
+export function usePlanScale(activeFloor: Floor | null, previewPxPerMeter?: number | null) {
+  const pxPerMeter = useMemo(
+    () => isPositiveFinite(previewPxPerMeter) ? previewPxPerMeter : calculatePxPerMeter(activeFloor),
+    [activeFloor, previewPxPerMeter]
+  )
   const symbolSizeCmFromUi = useUIStore((s) => s.planVisibility.symbolSizeCm ?? DEFAULT_SYMBOL_SIZE_CM)
   const symbolSizeCm = Math.max(
     MIN_SYMBOL_SIZE_CM,

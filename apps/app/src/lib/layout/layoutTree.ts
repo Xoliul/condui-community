@@ -28,14 +28,13 @@ import {
   getProtectionOneWireAnchorLineIndex,
   getProtectionOneWireLabelLines,
 } from '@/lib/protectionLabels'
-import { getDomoticaRowDisplayLabel, isDomoticaRowLabelShown } from '@/lib/eendraad/domoticaRowLabel'
+import { getDomoticaRowLabelPlacement } from './domoticaRowLabelPlacement'
 import { getSymbolLabelVerticalMetrics } from '@/lib/symbolLabelMetrics'
 import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
 import {
   DOMOTICA_BASE_HEIGHT,
   DOMOTICA_BOX_WIDTH,
   DOMOTICA_BRANCH_LEAD,
-  DOMOTICA_CHILD_LABEL_GAP,
   DOMOTICA_CHILD_ON_DROP_ZONE_SIZE,
   DOMOTICA_MAX_ENDPOINT_OUTPUTS,
   DOMOTICA_MIN_ENDPOINT_OUTPUTS,
@@ -4513,60 +4512,24 @@ function buildBranchNode(
       children.push(endpointNode)
 
       // Domotica child endpoints: label to the right of the symbol (A1.1, A1.2, …)
-      if (
-        isDomoticaChild &&
-        endpoint.label &&
-        isDomoticaRowLabelShown(branch.endpoints, endpoint)
-      ) {
-        const ref = endpoint.domoticaChildProps!
-        const rowEndpoints = branch.endpoints.filter(
-          (ep) =>
-            ep.domoticaChildProps?.parentEndpointId === ref.parentEndpointId &&
-            ep.domoticaChildProps.outputGroup === ref.outputGroup &&
-            ep.domoticaChildProps.outputIndex === ref.outputIndex
-        )
-        const rightmostEndpoint = rowEndpoints.reduce<Endpoint | null>((rightmost, candidate) => {
-          const candidateElement = panelLayout.elements.find(
-            (element) => element.type === 'endpoint' && element.endpointId === candidate.id
-          )
-          const rightmostElement = rightmost
-            ? panelLayout.elements.find(
-                (element) => element.type === 'endpoint' && element.endpointId === rightmost.id
-              )
-            : null
-          if (!candidateElement) return rightmost
-          if (!rightmostElement || candidateElement.position.x > rightmostElement.position.x) {
-            return candidate
-          }
-          return rightmost
-        }, null)
-
-        if (rightmostEndpoint?.id === endpoint.id) {
-          const labelX = isDomoticaParent
-            ? endpointElement.position.x - DOMOTICA_BOX_WIDTH / 2
-            : endpointElement.position.x +
-              LAYOUT_CONSTANTS.SYMBOL_SIZE / 2 +
-              DOMOTICA_CHILD_LABEL_GAP
-          const labelY = isDomoticaParent
-            ? endpointElement.position.y + DOMOTICA_BASE_HEIGHT / 2 + 10
-            : endpointElement.position.y
-          children.push({
-            id: `${endpointElement.id}-label`,
+      const rowLabel = getDomoticaRowLabelPlacement(panelLayout, branch.endpoints, endpoint)
+      if (rowLabel) {
+        children.push({
+          id: `${endpointElement.id}-label`,
+          type: 'label',
+          bounds: {
+            x: rowLabel.x,
+            y: rowLabel.y,
+            width: 80,
+            height: 20,
+          },
+          visual: {
             type: 'label',
-            bounds: {
-              x: labelX,
-              y: labelY,
-              width: 80,
-              height: 20,
-            },
-            visual: {
-              type: 'label',
-              text: getDomoticaRowDisplayLabel(endpoint),
-              align: 'left',
-            },
-            children: [],
-          })
-        }
+            text: rowLabel.text,
+            align: 'left',
+          },
+          children: [],
+        })
       }
 
       if (isDomoticaParent) {

@@ -1,4 +1,5 @@
 import { memo, useCallback, useRef, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useJunctionEditorMenu } from '@/components/junctionEditor/junctionEditorHostedFeatures'
 import { Circle, Group, Line, Rect } from 'react-konva'
 import type Konva from 'konva'
 import { useTranslation } from 'react-i18next'
@@ -156,7 +157,7 @@ import {
   getViewportCenterPlanSpaceIfApplicable,
 } from '@/lib/plan/autoSitplanPlacement'
 import { resolveSitplanTargetFloorId } from '@/lib/plan/sitplanTargetFloor'
-import { ensureEarthingSitplanPlacement } from '@/lib/plan/earthingSitplanPlacement'
+import { ensureEarthingSitplanPlacement } from '@/lib/plan/ensureEarthingSitplanPlacement'
 import { isMainPanelDistributionEndpoint } from '@/lib/plan/panelDistributionEndpoint'
 import { confirmDeleteEarthing, performDeleteEarthingLocations } from '@/lib/installation/deleteEarthing'
 import {
@@ -403,6 +404,7 @@ function findEndpointRenderTarget(
 
 function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanvasProps = {}) {
   const { t, i18n } = useTranslation()
+  const withJunctionEditorItem = useJunctionEditorMenu()
   const eendraadView = useUIStore((s) => s.eendraadView)
   const requestFitToView = useUIStore((s) => s.requestFitToView)
   const activePanelId = useUIStore((s) => s.activePanelId)
@@ -6044,7 +6046,9 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
         exitDateMarkingMode()
         return []
       }
-      const items = handleGetContextMenuItems(position, elementId)
+      const items = withJunctionEditorItem(handleGetContextMenuItems(position, elementId), [
+        elementId ?? useUIStore.getState().selection.ids[0],
+      ])
       if (!canEditProject || !canDragItems) return items
       // Dragged metadata cards can return to automatic placement. Card owners are
       // part of the card's selection, so check the selection and the hit element.
@@ -6085,6 +6089,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
       exitDateMarkingMode,
       handleGetContextMenuItems,
       t,
+      withJunctionEditorItem,
       withSingleUndoEntry,
     ]
   )
@@ -7308,6 +7313,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
               <InstallDateOverlay
                 project={currentProject}
                 layout={layout}
+                wireSegments={wireSegments}
                 visible={installDatesVisible}
                 monochrome={eendraadDateMarkingVisibility.installDatesMonochrome}
                 selectionEnabled={eendraadDateMarkingMode}

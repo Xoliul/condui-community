@@ -5,6 +5,7 @@ import { useProjectDocumentsStore } from '@/stores/projectDocumentsStore'
 import { isCableRoutesEnabled } from '@/lib/cableRouting/availability'
 import { projectHasControlDevices } from '@/lib/controlLink/addressTable'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
+import { useJunctionDocuments } from '@/components/junctionEditor/junctionEditorHostedFeatures'
 import {
   cableScheduleDocument,
   controlAddressesDocument,
@@ -35,6 +36,7 @@ export function useProjectDocuments(): ProjectDocument[] {
 export function useListedProjectDocuments(): ProjectDocument[] {
   const { t } = useTranslation()
   const storedDocuments = useProjectDocuments()
+  const junctionDocuments = useJunctionDocuments()
   const assets = useProjectStore((s) => s.currentProject?.assets)
   const project = useProjectStore((s) => s.currentProject)
   const hasControlDevices = useMemo(
@@ -47,8 +49,9 @@ export function useListedProjectDocuments(): ProjectDocument[] {
     () => [
       ...(isCableRoutesEnabled() ? [cableScheduleDocument(cableScheduleName, assets)] : []),
       ...(hasControlDevices ? [controlAddressesDocument(controlAddressesName, assets)] : []),
+      ...junctionDocuments,
       ...storedDocuments,
     ],
-    [assets, cableScheduleName, controlAddressesName, hasControlDevices, storedDocuments]
+    [assets, cableScheduleName, controlAddressesName, hasControlDevices, junctionDocuments, storedDocuments]
   )
 }

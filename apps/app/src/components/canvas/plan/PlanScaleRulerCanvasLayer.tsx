@@ -45,8 +45,10 @@ export function PlanScaleRulerCanvasLayer({
     : null
   const reference = activeFloorForScale?.scale?.reference
   const existingReferenceLocal = reference && !activeFloorForScale?.planScaleNeedsCalibration && (!reference.floorId || reference.floorId === activeFloorId) ? reference : null
-  const existingReferenceWorld =
-    existingReferenceLocal && planImage
+  const hasPlanImageAsset = Boolean(activeFloorForScale?.planAsset || activeFloorForScale?.planImportAsset)
+  const existingReferenceWorld = !existingReferenceLocal
+    ? null
+    : planImage
       ? {
           p1: planImageLocalToScenePoint(
             existingReferenceLocal.p1,
@@ -60,7 +62,9 @@ export function PlanScaleRulerCanvasLayer({
           ),
           meters: existingReferenceLocal.meters,
         }
-      : null
+      : !hasPlanImageAsset
+        ? existingReferenceLocal
+        : null
   const rulerKey = existingReferenceLocal
     ? `scale-${activeFloorForScale?.id}-${existingReferenceLocal.meters}-${existingReferenceLocal.p1.x}-${existingReferenceLocal.p1.y}-${existingReferenceLocal.p2.x}-${existingReferenceLocal.p2.y}`
     : `scale-${activeFloorForScale?.id}-none`
@@ -76,8 +80,9 @@ export function PlanScaleRulerCanvasLayer({
           p1: { x: startPoint.x, y: startPoint.y },
           p2: { x: endPoint.x, y: endPoint.y },
         })
-        setScaleRulerMeters(meters)
-        setScaleRulerMetersInput(Number.isFinite(meters) ? String(meters) : '')
+        const resolvedMeters = scaleRulerMeters ?? meters
+        setScaleRulerMeters(resolvedMeters)
+        setScaleRulerMetersInput(Number.isFinite(resolvedMeters) ? String(resolvedMeters) : '')
       }}
       onPointsChange={onPointsChange}
       meters={scaleRulerMeters ?? Number.NaN}

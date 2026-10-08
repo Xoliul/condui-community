@@ -1,9 +1,8 @@
 import { Group, Line, Path } from 'react-konva'
 import {
   PLAN_WIRE_ACTIVE_OPACITY,
-  PLAN_WIRE_DASH,
-  planWireStrokeWidth,
 } from '@/lib/plan/planWiring'
+import { planWireVisualMetrics } from '@/lib/plan/planWireVisualMetrics'
 
 export type PlanWireDragPreviewModel = {
   stroke: string
@@ -12,16 +11,17 @@ export type PlanWireDragPreviewModel = {
   arrowHead: number[] | null
 }
 
-export function PlanWireDragPreview({ preview, zoom }: { preview: PlanWireDragPreviewModel; zoom?: number }) {
+export function PlanWireDragPreview({ preview, zoom, pxPerMeter }: { preview: PlanWireDragPreviewModel; zoom?: number; pxPerMeter?: number | null }) {
+  const metrics = planWireVisualMetrics(zoom, pxPerMeter)
   return (
     <Group name="plan-wire-drag-preview" listening={false}>
       {preview.path ? (
         <Path
           data={preview.path}
           stroke={preview.stroke}
-          strokeWidth={planWireStrokeWidth(zoom)}
+          strokeWidth={metrics.strokeWidth}
           opacity={PLAN_WIRE_ACTIVE_OPACITY}
-          dash={PLAN_WIRE_DASH}
+          dash={metrics.dash}
           lineCap="round"
           lineJoin="round"
           listening={false}
@@ -30,9 +30,9 @@ export function PlanWireDragPreview({ preview, zoom }: { preview: PlanWireDragPr
         <Line
           points={preview.points}
           stroke={preview.stroke}
-          strokeWidth={planWireStrokeWidth(zoom)}
+          strokeWidth={metrics.strokeWidth}
           opacity={PLAN_WIRE_ACTIVE_OPACITY}
-          dash={PLAN_WIRE_DASH}
+          dash={metrics.dash}
           lineCap="round"
           lineJoin="round"
           listening={false}
@@ -42,7 +42,7 @@ export function PlanWireDragPreview({ preview, zoom }: { preview: PlanWireDragPr
         <Line
           points={preview.arrowHead}
           stroke={preview.stroke}
-          strokeWidth={2}
+          strokeWidth={metrics.strokeWidth}
           opacity={PLAN_WIRE_ACTIVE_OPACITY}
           lineCap="round"
           lineJoin="round"

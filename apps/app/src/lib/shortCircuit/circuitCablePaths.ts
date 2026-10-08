@@ -4,7 +4,7 @@ import type {
   ElectricalStructureSnapshot,
 } from '@/lib/electricalStructure'
 import { isProjectV2 } from '@/lib/projectV2/migration'
-import type { CableSpec } from '@/types/schema'
+import type { CableSpec, ElectricalDomain, TrunkDevice } from '@/types/schema'
 import type { ConductorMaterial } from './minimumShortCircuit'
 
 /** One wire run on a circuit's conductive path, keyed by its structural wire anchor. */
@@ -18,6 +18,10 @@ export interface CircuitCableEdge {
   lengthEstimated?: boolean
   cable?: CableSpec
   material?: ConductorMaterial
+  domain?: ElectricalDomain
+  converterDcConnection?: TrunkDevice['converterDcConnection']
+  /** Independent wired output of a controller. */
+  outputKey?: string
 }
 
 /** A path from the circuit's protection to one of its furthest points. */
@@ -48,7 +52,8 @@ function wireOf(relationship: ElectricalStructureRelationship): WireProperties |
 /**
  * Directed cable edges per circuit from the structure snapshot. The home run is stored as
  * endpoint → circuit membership (`belongs-to-circuit`); it is reversed so every edge points
- * away from the protection. Endpoint chains are `ordered-before`.
+ * away from the protection. Endpoint chains are `ordered-before`; wired outputs branch
+ * from their controller with `branches-to`.
  */
 export function collectCircuitCableEdges(
   snapshot: ElectricalStructureSnapshot
@@ -69,7 +74,7 @@ export function collectCircuitCableEdges(
     if (relationship.kind === 'belongs-to-circuit') {
       from = relationship.to
       to = relationship.from
-    } else if (relationship.kind === 'ordered-before') {
+    } else if (relationship.kind === 'ordered-before' || relationship.kind === 'branches-to') {
       from = relationship.from
       to = relationship.to
     } else {
@@ -86,6 +91,18 @@ export function collectCircuitCableEdges(
       ...(wire.lengthEstimated === true ? { lengthEstimated: true } : {}),
       cable: wire.cable,
       material: wire.material,
+      ...(relationship.kind === 'branches-to'
+        ? {
+            outputKey: `${relationship.properties?.outputGroup ?? 'endpoint'}:${relationship.properties?.outputIndex ?? 0}`,
+          }
+        : {}),
+      ...(relationship.properties?.domain === 'DC' ? { domain: 'DC' as const } : {}),
+      ...(relationship.properties?.converterDcConnection
+        ? {
+            converterDcConnection: relationship.properties
+              .converterDcConnection as TrunkDevice['converterDcConnection'],
+          }
+        : {}),
     })
     edgesByCircuit.set(circuitId, edges)
   }

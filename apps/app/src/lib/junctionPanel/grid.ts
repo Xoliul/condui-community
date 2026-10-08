@@ -7,8 +7,11 @@ import {
 import { walkPanels } from '@/lib/panel/panelTree'
 import { collectAllGroundTrunkDevices } from '@/lib/eendraad/panelGround'
 import type {
+  Circuit,
   JunctionPanelTerminalComponent,
+  Panel,
   PanelGridConfig,
+  PanelGridModuleRef,
   TrunkDevice,
 } from '@/types/schema'
 import { findTrunkDeviceInProject } from '@/utils/project'
@@ -38,6 +41,86 @@ export function getJunctionPanelTerminal(
       label: `X${fallbackIndex + 1}`,
       pinCount: 2,
     }
+  )
+}
+
+export interface JunctionPanelOccurrence {
+  device: TrunkDevice
+  ref: PanelGridModuleRef
+  ownerPanelId?: string
+}
+
+export function getJunctionPanelIdentity(device: TrunkDevice): string | null {
+  if (device.type !== 'junction_panel' && device.symbol !== 'junction_panel') return null
+  const identity = (device.junctionIdentity ?? device.label ?? '').trim().toUpperCase()
+  return identity || null
+}
+
+/**
+ * Junction panel occurrences per (upper-case) identity, in the order the panel canvas lays out
+ * their terminals. The order decides the fallback terminal labels (X1, X2 ...), so the panel
+ * canvas and the junction strip assets read it from here.
+ */
+export function collectJunctionPanelOccurrences(
+  project: ProjectWithOptionalV2Electrical
+): Map<string, JunctionPanelOccurrence[]> {
+  const groups = new Map<string, JunctionPanelOccurrence[]>()
+  const add = (device: TrunkDevice, ref: PanelGridModuleRef, ownerPanelId?: string) => {
+    const identity = getJunctionPanelIdentity(device)
+    if (!identity) return
+    const entries = groups.get(identity) ?? []
+    entries.push({ device, ref, ownerPanelId })
+    groups.set(identity, entries)
+  }
+  const visitCircuit = (circuit: Circuit, ownerPanelId: string) => {
+    for (const device of circuit.trunkDevices ?? []) {
+      add(
+        device,
+        { kind: 'trunkDevice', id: device.id, scope: 'circuit', circuitId: circuit.id },
+        ownerPanelId
+      )
+    }
+  }
+  for (const panel of getProjectElectricalPanels(project)) {
+    const visitPanel = (candidate: Panel) => {
+      for (const circuit of candidate.circuits ?? []) visitCircuit(circuit, candidate.id)
+      for (const protection of candidate.protections ?? []) {
+        for (const circuit of protection.circuits ?? []) visitCircuit(circuit, candidate.id)
+      }
+      for (const child of candidate.subPanels ?? []) visitPanel(child)
+      for (const device of candidate.groundTrunkDevices ?? []) {
+        add(device, { kind: 'trunkDevice', id: device.id, scope: 'ground' }, candidate.id)
+      }
+    }
+    visitPanel(panel)
+  }
+  const installation = getProjectElectricalInstallation(project)
+  for (const device of getAllSupplyTrunkDevices(project)) {
+    add(device, { kind: 'trunkDevice', id: device.id, scope: 'supply' })
+  }
+  for (const device of installation?.groundTrunkDevices ?? []) {
+    add(device, { kind: 'trunkDevice', id: device.id, scope: 'ground' })
+  }
+  return groups
+}
+
+export interface JunctionPanelTerminalEntry {
+  /** Upper-case junction panel identity. */
+  identity: string
+  device: TrunkDevice
+  terminal: JunctionPanelTerminalComponent
+}
+
+/** Every junction panel terminal with the label the panel canvas shows. */
+export function collectJunctionPanelTerminals(
+  project: ProjectWithOptionalV2Electrical
+): JunctionPanelTerminalEntry[] {
+  return [...collectJunctionPanelOccurrences(project)].flatMap(([identity, occurrences]) =>
+    occurrences.map((occurrence, index) => ({
+      identity,
+      device: occurrence.device,
+      terminal: getJunctionPanelTerminal(occurrence.device, index),
+    }))
   )
 }
 

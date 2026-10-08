@@ -625,7 +625,7 @@
     "view": "Ansicht",
     "create": "Projekt erstellen",
     "download": "Projekt herunterladen",
-    "manageAccess": "Zugriff und Versionen",
+    "qrAndSharing": "QR und Teilen",
     "localOptions": "Lokale Projektoptionen",
     "newProjectLocalWarningShort": "Cloud-Limit erreicht. Dies wird ein lokales Projekt sein.",
     "newProjectLocalChosenWarning": "Dies wird ein lokales Projekt sein. Sie können es später auf die Cloud upgraden.",
@@ -1355,12 +1355,17 @@
   },
   "planTools": {
     "movePlanImage": "Planbild verschieben",
-    "resetScale": "Skala anpassen",
+    "resetScale": "Planmaßstab kalibrieren",
+    "resetScaleTooltip": "Legen Sie den Planmaßstab anhand einer bekannten Entfernung fest.",
     "uploadFloorPlanFirst": "Um dieses Tool zu verwenden, laden Sie zunächst ein Planbild hoch"
   },
   "planWiring": {
     "tool": "Verkabelung",
-    "toolDescription": "Zeichnen Sie Verdrahtungswege zwischen Symbolen auf der aktiven Etage"
+    "toolDescription": "Zeichnen Sie Verdrahtungswege zwischen Symbolen auf der aktiven Etage",
+    "focusCircuit": "Stromkreis",
+    "redraw": "Neu zeichnen",
+    "redrawDone": "Fertig",
+    "redrawProgress": "{{connected}}/{{total}} verbunden"
   },
   "layout": {
     "presetLabel": "Layout",
@@ -1410,6 +1415,7 @@
   "quickPlacer": {
     "title": "SnelPlaatser",
     "panelSelector": "Verteiler",
+    "supply": "Versorgung",
     "mode": {
       "slow": "Langsam",
       "fast": "Schnell",
@@ -2156,6 +2162,16 @@
           "endpoint-device": "Spannungseinstellung der Batterie oder der Solarmodule"
         }
       },
+      "postMainBusRequiresPeConductor": {
+        "supplyRole": {
+          "crossing": "Brettgrenze",
+          "downstream": "Zuleitung zur Sammelschiene"
+        },
+        "supplyMessage": "Verteiler {{panelName}}: {{roleLabel}} verwendet {{conductorLabel}} ohne Schutzleiter (G). Verwenden Sie hinter der Hauptsammelschiene einen G-Leiter (z. B. 3G, 4G).",
+        "supplyDetails": "Der Schutzleiter ist an der Hauptsammelschiene angeschlossen. Der Abschnitt {{roleLabel}} liegt installationsseitig und muss PE im Kabel (…G) enthalten, nicht {{conductorLabel}}.",
+        "circuitMessage": "Stromkreis {{circuitCode}}: Die abgehende AC-Leitung verwendet {{conductorLabel}} ohne Schutzleiterpfad.",
+        "circuitDetails": "Haushalts-AC-Stromkreise hinter dem Haupt-RCD benötigen einen durchgängigen PE-Pfad. Die abgehende Leitung kann PE im Kabel (…G) enthalten oder einen korrekt installierten separaten Schutzleiter verwenden. Interne Verbindungen zwischen Schutzgeräten führen nur aktive Leiter; DC-Leitungen werden nicht geprüft."
+      },
       "cascadeProtectionRatings": {
         "message": "Der nachgeschaltete Schutz ist höher bemessen als der vorgeschaltete Schutz",
         "details": "Ein nachgeschalteter Leitungsschutzschalter oder FI/LS-Schalter darf nicht höher bemessen sein als der vorgeschaltete Schutz."
@@ -2641,13 +2657,15 @@
     "doorOpeningAngle": "Öffnungswinkel (Grad)",
     "resetScale": {
       "distance": "Entfernung (m)",
-      "confirmRescaleTitle": "Neuen Bildmaßstab anwenden?",
-      "confirmRescaleIntro": "Sie haben den Maßstab des Planbildes geändert (~{{factor}}x). Wählen Sie, was Sie tun möchten:",
-      "optionRescale": "Skalieren Sie gezeichnete Elemente neu, um ihre aktuellen Abmessungen in Metern beizubehalten.",
-      "optionKeep": "Belassen Sie gezeichnete Elemente an Ort und Stelle und berechnen Sie ihre Abmessungen neu.",
+      "vectorOnlyWarningTitle": "Maße auf allen Etagen ändern?",
+      "vectorOnlyWarningIntro": "Der neue Maßstab berechnet die Maße auf allen Etagen neu. Wände und Symbole bleiben an ihrer Position.",
+      "confirmRescaleTitle": "Zeichnung anpassen?",
+      "confirmRescaleIntro": "Mit dem neuen Maßstab betragen gemessene Entfernungen das {{factor}}-Fache ihres aktuellen Werts.",
+      "optionRescale": "Die Zeichnung verschieben und skalieren, um ihre aktuellen Maße beizubehalten.",
+      "optionKeep": "Wände und Symbole an ihrer Position lassen und ihre Maße neu berechnen.",
       "optionCancel": "Abbrechen und alles unverändert lassen.",
-      "confirmRescaleConfirm": "Bemaßungen pflegen",
-      "confirmRescaleCancel": "Abmessungen neu berechnen"
+      "confirmRescaleConfirm": "Aktuelle Maße beibehalten",
+      "confirmRescaleCancel": "Neue Maße verwenden"
     }
   },
   "junctionPanel": {
@@ -3132,5 +3150,104 @@
     "question": "Nutzen Sie ein Touchpad?",
     "usePan": "Zum Verschieben scrollen",
     "dismiss": "Schließen"
+  },
+  "junctionDocuments": {
+    "title": "Verbindungen",
+    "junction_box": "Abzweigdosen",
+    "terminal_strip": "Reihenklemmenleisten",
+    "notVerified": "Nicht geprüft",
+    "fieldSide": "Feldseite",
+    "boardSide": "Schaltschrankseite",
+    "terminal": "Klemme",
+    "columns": {
+      "strip": "Klemmenleiste",
+      "stripTitle": "Bezeichnung",
+      "level": "Etage",
+      "circuit": "Stromkreis",
+      "cable": "Kabel",
+      "core": "Ader"
+    },
+    "terminalList": "Klemmenplan",
+    "downloadTerminalList": "Klemmenplan herunterladen",
+    "download": "Herunterladen",
+    "downloadPdf": "Als PDF herunterladen"
+  },
+  "junctionEditor": {
+    "openEditor": "Editor öffnen",
+    "panelTitle": "Verbindungseditor",
+    "cables": "Kabel",
+    "kind": {
+      "terminal_strip": "Reihenklemmenleiste",
+      "junction_box": "Abzweigdose",
+      "junction_panel": "Verteilerkasten"
+    },
+    "open": "Öffnen",
+    "close": "Schließen",
+    "status": {
+      "derived": "Vorläufig",
+      "edited": "Bearbeitet",
+      "confirmed": "Geprüft"
+    },
+    "markChecked": "Als geprüft markieren",
+    "fixErrorsFirst": "Zuerst die Fehler beheben",
+    "more": "Mehr",
+    "reset": "Auf vorläufig zurücksetzen",
+    "changedSinceReview": "Seit der Prüfung geändert",
+    "dismiss": "Ausblenden",
+    "checkDropped": "Nicht mehr geprüft",
+    "auto": "Automatisch",
+    "unassigned": "Nicht angeschlossen",
+    "addConnector": "Verbindungsklemme hinzufügen",
+    "removeConnector": "Verbindungsklemme entfernen",
+    "title": "Titel",
+    "location": "Ort",
+    "notes": "Notizen",
+    "entries": "Einführungen",
+    "side": {
+      "top": "Oben",
+      "right": "Rechts",
+      "bottom": "Unten",
+      "left": "Links"
+    },
+    "addBlock": "Klemme hinzufügen",
+    "shape": {
+      "phase": "Phase",
+      "neutral": "Neutralleiter",
+      "earth": "Schutzleiter"
+    },
+    "addJumper": "Brücke hinzufügen",
+    "removeJumper": "Brücke entfernen",
+    "groupBreak": "Gruppentrennung",
+    "remove": "Entfernen",
+    "boardWire": "Verteilerseite",
+    "findings": "Befunde",
+    "finding": {
+      "conflict": {
+        "pe-joined-to-live": "Schutzleiter mit aktivem Leiter verbunden",
+        "neutral-joined-to-live": "Neutralleiter mit Phase verbunden",
+        "signal-joined-to-power": "Signal mit Versorgung verbunden",
+        "different-circuits": "Zwei Stromkreise verbunden",
+        "different-rcds": "Neutralleiter zweier FI-Schalter verbunden",
+        "different-phases": "Zwei Phasen verbunden",
+        "different-outputs": "Getrennte Ausgänge verbunden",
+        "different-signal-members": "Beide Adern eines Signalpaars verbunden",
+        "unassigned-cores": "Nicht feststellbar, ob diese verbunden werden dürfen",
+        "bus-continuation": "Bus läuft zum nächsten Gerät weiter"
+      },
+      "unresolved": "Nicht feststellbar, ob diese verbunden werden dürfen",
+      "levelRole": "Leiter passt nicht zu dieser Klemme",
+      "orphaned": "Leiter existiert nicht mehr",
+      "unterminated": "Leiter nicht angeschlossen",
+      "unused": "Im Einlinienschaltbild nicht verwendet",
+      "duplicate": "Bezeichnung doppelt verwendet",
+      "hardware": {
+        "unknown-block": "Unbekannter Klemmentyp",
+        "unknown-level": "Klemme hat diese Etage nicht",
+        "no-such-clamp": "Klemme hat diese Klemmstelle nicht",
+        "clamp-occupied": "Zwei Leiter in einer Klemmstelle",
+        "unknown-connector": "Verbindungsklemme existiert nicht mehr",
+        "pe-without-bonded-rail": "Schutzleiterklemmen auf nicht geerdeter Schiene"
+      }
+    }
   }
 }

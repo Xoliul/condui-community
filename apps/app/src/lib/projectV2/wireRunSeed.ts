@@ -1,4 +1,5 @@
 import { circuitWireNodeKind } from '@/lib/wires/circuitWireIdentity'
+import { withConductorIds } from '@/lib/wires/conductorIdentity'
 import type { CableSpec, Circuit, Panel } from '@/types/schema'
 import type { WireConductor, WireConductorFunction, WireRun } from '@/types/projectV2'
 import {
@@ -101,11 +102,12 @@ function makeRunAccumulator() {
       }
       return
     }
+    const runId = `wirerun_${(ordinal++).toString(36)}`
     const run: WireRun = {
-      id: `wirerun_${(ordinal++).toString(36)}`,
+      id: runId,
       members: [anchorKey],
       cable: spec.cable,
-      conductors: deriveSeedConductors(spec.cable),
+      conductors: withConductorIds(runId, deriveSeedConductors(spec.cable)),
       route: spec.route,
       inTube: spec.inTube,
       labels: spec.labels,

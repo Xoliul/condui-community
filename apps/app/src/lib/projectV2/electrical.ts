@@ -1,6 +1,7 @@
 import type { Installation, Panel } from '@/types/schema'
 import type { DisciplineModelsV2, ElectricalModelV2 } from '@/types/projectV2'
 import type { AuxiliaryElectricalEnclosure, OffGridSupplyAssembly } from '@/types/supplyAssembly'
+import type { JunctionAsset, TerminalRail, TerminalShape } from '@/types/junction'
 
 export type ProjectWithOptionalV2Electrical = {
   disciplines?: Partial<DisciplineModelsV2>
@@ -57,6 +58,26 @@ export function selectProjectAuxiliaryElectricalEnclosures(
   document: ProjectWithOptionalV2Electrical
 ): AuxiliaryElectricalEnclosure[] {
   return document.disciplines?.electrical?.auxiliaryEnclosures ?? []
+}
+
+/** Junction assets (terminal strips, junction boxes, junction panels) with stable ids. */
+export function selectProjectJunctionAssets(document: ProjectWithOptionalV2Electrical): JunctionAsset[] {
+  return document.disciplines?.electrical?.junctionAssets ?? []
+}
+
+export function editProjectJunctionAssets(document: ProjectWithOptionalV2Electrical): JunctionAsset[] {
+  const electrical = document.disciplines?.electrical
+  if (!electrical) throw new Error('Electrical discipline is required to edit junction assets.')
+  if (!Array.isArray(electrical.junctionAssets)) electrical.junctionAssets = []
+  return electrical.junctionAssets
+}
+
+export function selectProjectTerminalRails(document: ProjectWithOptionalV2Electrical): TerminalRail[] {
+  return document.disciplines?.electrical?.terminalRails ?? []
+}
+
+export function selectProjectTerminalShapes(document: ProjectWithOptionalV2Electrical): TerminalShape[] {
+  return document.disciplines?.electrical?.terminalShapes ?? []
 }
 
 export function editProjectSupplyAssemblies(

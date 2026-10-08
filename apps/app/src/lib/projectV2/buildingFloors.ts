@@ -369,10 +369,19 @@ export function healSharedPlanScale(document: ProjectWithOptionalV2Building): bo
   let fallback = building.planScale ?? sourceFloor?.scale
   if (!fallback) return false
 
+  const referencedPlanAssetIds = new Set(
+    building.floors.flatMap((floor) =>
+      [floor.planAssetId, floor.processedPlanAssetId].filter(
+        (assetId): assetId is string => typeof assetId === 'string' && assetId.length > 0,
+      ),
+    ),
+  )
   const hasImportedPdfAsset = document.assets?.some(
     (asset) =>
-      asset.sourceName?.toLowerCase().endsWith('.pdf') === true ||
-      asset.legacy?.sourceName?.toLowerCase().endsWith('.pdf') === true,
+      referencedPlanAssetIds.has(asset.id) &&
+      isFloorPlanAsset(asset) &&
+      (asset.sourceName?.toLowerCase().endsWith('.pdf') === true ||
+        asset.legacy?.sourceName?.toLowerCase().endsWith('.pdf') === true),
   ) === true
   const legacyPdfImport =
     !!fallback.reference &&

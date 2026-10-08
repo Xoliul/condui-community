@@ -7,14 +7,13 @@ import {
 import {
   appendUndoSnapshotInStore,
   captureProjectForHistory,
-  clearStaleSelectionAfterProjectRestore,
   collapseUndoGroupFromIndex,
   flushPendingProjectHistory,
   getProjectStoreApi,
   projectHistory,
   trimProjectHistory,
 } from './projectStoreHistory'
-import type { Project, ProjectSliceCreator } from './projectStoreTypes'
+import type { Project, ProjectSliceCreator, ProjectState } from './projectStoreTypes'
 import { trackSupplyAssembliesPersisted } from '@/lib/analytics/supplyAssemblyAnalytics'
 import { saveProject } from '@/lib/db'
 import { clearSessionActionLog, recordSessionAction } from '@/lib/diagnostics/sessionActionLog'
@@ -29,6 +28,21 @@ import {
 } from '@/lib/layout/eendraadDerivedLayout'
 
 let saveQueueTail: Promise<void> = Promise.resolve()
+
+function clearStaleSelectionAfterProjectRestore(project: ProjectState): void {
+  const { selection, setSelection } = useUIStore.getState()
+  if (!selection.type || selection.ids.length === 0) return
+
+  if (selection.type === 'endpoint') {
+    const hasMissing = selection.ids.some((id) => !project.getEndpointById(id))
+    if (hasMissing) setSelection({ type: null, ids: [] })
+    return
+  }
+  if (selection.type === 'placement') {
+    const hasMissing = selection.ids.some((id) => !project.getPlacementById(id))
+    if (hasMissing) setSelection({ type: null, ids: [] })
+  }
+}
 
 function enqueueProjectSave(task: () => Promise<void>): Promise<void> {
   const run = saveQueueTail.catch(() => undefined).then(task)
@@ -199,7 +213,7 @@ export const createProjectLifecycleSlice: ProjectSliceCreator = (set, get) => ({
     ) {
       inheritEendraadLayoutForVisualEndpointChange(currentProject, restoredProject)
     }
-    clearStaleSelectionAfterProjectRestore()
+    clearStaleSelectionAfterProjectRestore(get())
     recordSessionAction('undo')
   },
 
@@ -238,7 +252,7 @@ export const createProjectLifecycleSlice: ProjectSliceCreator = (set, get) => ({
     ) {
       inheritEendraadLayoutForVisualEndpointChange(currentProject, restoredProject)
     }
-    clearStaleSelectionAfterProjectRestore()
+    clearStaleSelectionAfterProjectRestore(get())
     recordSessionAction('redo')
   },
 

@@ -18,6 +18,7 @@ import {
 import { loadPdfDocument } from './pdfDocuments'
 import { PageDeleteGrid } from './PageDeleteGrid'
 import { PdfPageCanvas } from './PdfPageCanvas'
+import { DocumentScrollbar } from './DocumentScrollbar'
 
 /** Viewer zoom is relative to fitting the page width: 1 fits, 5 is 500 %. */
 export const DOCUMENT_VIEWER_MIN_ZOOM = 0.25
@@ -30,7 +31,6 @@ const PAGE_CONTROLS_PX = 64
 const MAX_FIT_WIDTH_PX = 1100
 /** Documents longer than this get the bulk page-delete overview. */
 const BULK_DELETE_MIN_PAGES = 5
-const SCROLLBAR_MIN_THUMB_PX = 32
 
 type Point = { x: number; y: number }
 
@@ -192,63 +192,6 @@ function PageControls({
           {deleting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
         </button>
       )}
-    </div>
-  )
-}
-
-/** Vertical scrollbar for the panned page stack: drag the thumb, or click the track to page. */
-function DocumentScrollbar({
-  scrollTop,
-  maxScroll,
-  viewHeight,
-  onScrollTo,
-}: {
-  scrollTop: number
-  maxScroll: number
-  viewHeight: number
-  onScrollTo: (scrollTop: number) => void
-}) {
-  const drag = useRef<{ startY: number; startScroll: number } | null>(null)
-  if (maxScroll <= 0 || viewHeight <= 0) return null
-  const contentHeight = viewHeight + maxScroll
-  const thumbHeight = Math.max(SCROLLBAR_MIN_THUMB_PX, (viewHeight / contentHeight) * viewHeight)
-  const travel = Math.max(1, viewHeight - thumbHeight)
-  const clamped = Math.min(maxScroll, Math.max(0, scrollTop))
-  const thumbTop = (clamped / maxScroll) * travel
-
-  return (
-    <div
-      className="absolute bottom-0 right-0 top-0 z-10 w-3 bg-gray-200/40 dark:bg-gray-700/30"
-      data-testid="document-scrollbar"
-      onPointerDown={(event) => {
-        event.stopPropagation()
-        if (event.target !== event.currentTarget) return
-        const rect = event.currentTarget.getBoundingClientRect()
-        const clickedTop = event.clientY - rect.top
-        onScrollTo(clamped + (clickedTop < thumbTop ? -viewHeight : viewHeight) * 0.9)
-      }}
-    >
-      <div
-        className="absolute left-0.5 right-0.5 cursor-default rounded-full bg-gray-400/70 hover:bg-gray-500/80 dark:bg-gray-500/70 dark:hover:bg-gray-400/80"
-        style={{ top: thumbTop, height: thumbHeight }}
-        onPointerDown={(event) => {
-          event.stopPropagation()
-          event.currentTarget.setPointerCapture(event.pointerId)
-          drag.current = { startY: event.clientY, startScroll: clamped }
-        }}
-        onPointerMove={(event) => {
-          if (!drag.current) return
-          onScrollTo(
-            drag.current.startScroll + ((event.clientY - drag.current.startY) / travel) * maxScroll
-          )
-        }}
-        onPointerUp={() => {
-          drag.current = null
-        }}
-        onPointerCancel={() => {
-          drag.current = null
-        }}
-      />
     </div>
   )
 }

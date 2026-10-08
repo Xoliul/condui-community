@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { useProjectStore, type ProjectState } from '@/stores/projectStore'
+import { isCableRoutesEnabled } from '@/lib/cableRouting/availability'
 import {
   selectProjectPlanWireRoutes,
   selectProjectPlanWiringVisibility,
@@ -115,7 +116,8 @@ export function usePlanWireEditing({ activeFloorId, currentProject }: UsePlanWir
         currentProject,
         activeFloorId,
         sourcePlacementId,
-        targetPlacementId
+        targetPlacementId,
+        { keepAutoSpans: isCableRoutesEnabled() }
       )
       if (!otherRoute && (!routes || routes.length === 0)) return
       useProjectStore.setState((state: ProjectState) => {

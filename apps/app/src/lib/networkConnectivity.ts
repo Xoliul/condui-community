@@ -5,6 +5,7 @@ export function readNavigatorOnLine(): boolean {
 }
 
 const NETWORK_UNAVAILABLE_EVENT = 'condui-network-unavailable'
+const NETWORK_STATUS_REFRESH_EVENT = 'condui-network-status-refresh'
 const APP_SERVER_REACHABILITY_EVENT = 'eendra-app-server-reachability'
 let networkUnavailableUntil = 0
 let appServerReachable = true
@@ -27,12 +28,18 @@ export function readNetworkUnavailable(): boolean {
   return Date.now() < networkUnavailableUntil
 }
 
+/** Clear a stale request-failure cooldown when a suspended page becomes active again. */
+export function refreshNetworkStatusAfterResume(): boolean {
+  if (typeof window === 'undefined' || !readNavigatorOnLine()) return false
+  networkUnavailableUntil = 0
+  window.dispatchEvent(new Event(NETWORK_STATUS_REFRESH_EVENT))
+  return true
+}
+
 /** Avoid slow failed fetches and console noise while offline. */
 export function shouldSkipNetworkRequests(): boolean {
   return !readOnlineStatus()
 }
-
-
 
 export function subscribeOnlineStatus(listener: (isOnline: boolean) => void): () => void {
   if (typeof window === 'undefined') {
@@ -43,11 +50,13 @@ export function subscribeOnlineStatus(listener: (isOnline: boolean) => void): ()
   window.addEventListener('online', notify)
   window.addEventListener('offline', notify)
   window.addEventListener(NETWORK_UNAVAILABLE_EVENT, notify)
+  window.addEventListener(NETWORK_STATUS_REFRESH_EVENT, notify)
   window.addEventListener(APP_SERVER_REACHABILITY_EVENT, notify)
   return () => {
     window.removeEventListener('online', notify)
     window.removeEventListener('offline', notify)
     window.removeEventListener(NETWORK_UNAVAILABLE_EVENT, notify)
+    window.removeEventListener(NETWORK_STATUS_REFRESH_EVENT, notify)
     window.removeEventListener(APP_SERVER_REACHABILITY_EVENT, notify)
   }
 }

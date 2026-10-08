@@ -625,7 +625,7 @@
     "view": "Vizualizare",
     "create": "Creați proiect",
     "download": "Descărcați proiectul",
-    "manageAccess": "Acces și versiuni",
+    "qrAndSharing": "QR și partajare",
     "localOptions": "Opțiuni de proiect local",
     "newProjectLocalWarningShort": "Limita cloud atinsă. Acesta va fi un proiect local.",
     "newProjectLocalChosenWarning": "Acesta va fi un proiect local. Îl puteți face upgrade la cloud mai târziu.",
@@ -1355,12 +1355,17 @@
   },
   "planTools": {
     "movePlanImage": "Mută imaginea planului",
-    "resetScale": "Reglați scara",
+    "resetScale": "Calibrează scara planului",
+    "resetScaleTooltip": "Stabilește scara planului folosind o distanță cunoscută.",
     "uploadFloorPlanFirst": "Pentru a utiliza acest instrument, încărcați mai întâi o imagine de plan"
   },
   "planWiring": {
     "tool": "Cablaj",
-    "toolDescription": "Desenați trasee de cablare între simboluri de pe podeaua activă"
+    "toolDescription": "Desenați trasee de cablare între simboluri de pe podeaua activă",
+    "focusCircuit": "Circuit",
+    "redraw": "Redesenează",
+    "redrawDone": "Gata",
+    "redrawProgress": "Conectate: {{connected}}/{{total}}"
   },
   "layout": {
     "presetLabel": "Aspect",
@@ -1410,6 +1415,7 @@
   "quickPlacer": {
     "title": "SnelPlaatser",
     "panelSelector": "tablou de distribuție",
+    "supply": "Alimentare",
     "mode": {
       "slow": "Încet",
       "fast": "Rapid",
@@ -2156,6 +2162,16 @@
           "endpoint-device": "setarea tensiunii bateriei sau a panourilor solare"
         }
       },
+      "postMainBusRequiresPeConductor": {
+        "supplyRole": {
+          "crossing": "trecerea limitei tabloului",
+          "downstream": "alimentarea barei"
+        },
+        "supplyMessage": "Tabloul {{panelName}}: {{roleLabel}} folosește {{conductorLabel}} fără conductor de protecție (G). După bara principală, folosiți un conductor G (de ex. 3G, 4G).",
+        "supplyDetails": "Conductorul de protecție este conectat la bara principală. {{roleLabel}} se află pe partea instalației și trebuie să includă PE în cablu (…G), nu {{conductorLabel}}.",
+        "circuitMessage": "Circuitul {{circuitCode}}: cablarea AC de ieșire folosește {{conductorLabel}} fără o cale de protecție PE.",
+        "circuitDetails": "Circuitele AC casnice din avalul RCD-ului principal au nevoie de o cale PE continuă. Cablarea de ieșire poate include PE în cablu (…G) sau poate folosi un conductor de protecție independent instalat corect. Legăturile interne dintre dispozitivele de protecție transportă doar conductoarele active; cablarea DC nu este verificată."
+      },
       "cascadeProtectionRatings": {
         "message": "Protecția din aval calibrată mai sus decât întrerupătorul de circuit din amonte",
         "details": "Un întreruptor automat sau un întreruptor automat diferențial din aval nu poate avea o valoare nominală mai mare decât protecția din amonte."
@@ -2641,13 +2657,15 @@
     "doorOpeningAngle": "Unghi de deschidere (grade)",
     "resetScale": {
       "distance": "Distanța (m)",
-      "confirmRescaleTitle": "Aplicați o nouă scară de imagine?",
-      "confirmRescaleIntro": "Ați modificat scara imaginii în plan (~{{factor}}x). Alege ce vrei sa faci:",
-      "optionRescale": "Redimensionați elementele desenate pentru a-și păstra dimensiunile actuale în metri.",
-      "optionKeep": "Lăsați elementele desenate la locul lor și recalculați dimensiunile acestora.",
+      "vectorOnlyWarningTitle": "Modifici dimensiunile pe toate etajele?",
+      "vectorOnlyWarningIntro": "Noua scară recalculează dimensiunile pe toate etajele. Pereții și simbolurile rămân pe loc.",
+      "confirmRescaleTitle": "Ajustezi desenul?",
+      "confirmRescaleIntro": "La noua scară, distanțele măsurate vor fi de {{factor}}× valoarea lor actuală.",
+      "optionRescale": "Mută și redimensionează desenul pentru a păstra dimensiunile actuale.",
+      "optionKeep": "Păstrează pereții și simbolurile pe loc și recalculează dimensiunile.",
       "optionCancel": "Anulați și lăsați totul neschimbat.",
-      "confirmRescaleConfirm": "Mențineți dimensiunile",
-      "confirmRescaleCancel": "Recalculați dimensiunile"
+      "confirmRescaleConfirm": "Păstrează dimensiunile actuale",
+      "confirmRescaleCancel": "Folosește noile dimensiuni"
     }
   },
   "junctionPanel": {
@@ -3132,5 +3150,104 @@
     "question": "Folosești un touchpad?",
     "usePan": "Derulează pentru deplasare",
     "dismiss": "Închide"
+  },
+  "junctionDocuments": {
+    "title": "Conexiuni",
+    "junction_box": "Doze de derivație",
+    "terminal_strip": "Șiruri de cleme",
+    "notVerified": "Neverificat",
+    "fieldSide": "Partea din teren",
+    "boardSide": "Partea tabloului",
+    "terminal": "Clemă",
+    "columns": {
+      "strip": "Șir de cleme",
+      "stripTitle": "Descriere",
+      "level": "Nivel",
+      "circuit": "Circuit",
+      "cable": "Cablu",
+      "core": "Conductor"
+    },
+    "terminalList": "Listă de cleme",
+    "downloadTerminalList": "Descarcă lista de cleme",
+    "download": "Descarcă",
+    "downloadPdf": "Descarcă ca PDF"
+  },
+  "junctionEditor": {
+    "openEditor": "Deschide editorul",
+    "panelTitle": "Editor de conexiuni",
+    "cables": "Cabluri",
+    "kind": {
+      "terminal_strip": "Șir de cleme",
+      "junction_box": "Doză de derivație",
+      "junction_panel": "Cutie de joncțiune"
+    },
+    "open": "Deschide",
+    "close": "Închide",
+    "status": {
+      "derived": "Provizoriu",
+      "edited": "Editat",
+      "confirmed": "Verificat"
+    },
+    "markChecked": "Marchează ca verificat",
+    "fixErrorsFirst": "Corectează mai întâi erorile",
+    "more": "Mai mult",
+    "reset": "Revino la provizoriu",
+    "changedSinceReview": "Modificat de la verificare",
+    "dismiss": "Ascunde",
+    "checkDropped": "Nu mai este verificat",
+    "auto": "Automat",
+    "unassigned": "Neconectate",
+    "addConnector": "Adaugă clemă de legătură",
+    "removeConnector": "Elimină clema de legătură",
+    "title": "Titlu",
+    "location": "Amplasare",
+    "notes": "Note",
+    "entries": "Intrări",
+    "side": {
+      "top": "Sus",
+      "right": "Dreapta",
+      "bottom": "Jos",
+      "left": "Stânga"
+    },
+    "addBlock": "Adaugă clemă",
+    "shape": {
+      "phase": "Fază",
+      "neutral": "Nul",
+      "earth": "Împământare"
+    },
+    "addJumper": "Adaugă punte",
+    "removeJumper": "Elimină puntea",
+    "groupBreak": "Separare de grup",
+    "remove": "Elimină",
+    "boardWire": "Partea tabloului",
+    "findings": "Constatări",
+    "finding": {
+      "conflict": {
+        "pe-joined-to-live": "Împământare legată la un conductor activ",
+        "neutral-joined-to-live": "Nul legat la o fază",
+        "signal-joined-to-power": "Semnal legat la alimentare",
+        "different-circuits": "Două circuite legate",
+        "different-rcds": "Nulurile a două diferențiale legate",
+        "different-phases": "Două faze legate",
+        "different-outputs": "Ieșiri separate legate",
+        "different-signal-members": "Ambele fire ale unei perechi de semnal legate",
+        "unassigned-cores": "Nu se poate stabili dacă pot fi legate",
+        "bus-continuation": "Magistrala continuă spre următorul aparat"
+      },
+      "unresolved": "Nu se poate stabili dacă pot fi legate",
+      "levelRole": "Conductorul nu se potrivește acestei cleme",
+      "orphaned": "Conductorul nu mai există",
+      "unterminated": "Conductor neconectat",
+      "unused": "Nefolosit în schema monofilară",
+      "duplicate": "Denumire folosită de două ori",
+      "hardware": {
+        "unknown-block": "Tip de clemă necunoscut",
+        "unknown-level": "Clema nu are acest nivel",
+        "no-such-clamp": "Clema nu are acest punct de strângere",
+        "clamp-occupied": "Doi conductori într-un punct de strângere",
+        "unknown-connector": "Clema de legătură nu mai există",
+        "pe-without-bonded-rail": "Cleme de împământare pe o șină fără împământare"
+      }
+    }
   }
 }

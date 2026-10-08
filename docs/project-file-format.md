@@ -29,6 +29,16 @@ The current schema version is `2.3.0`.
 The project locale supports `nl-BE`, `en`, `fr-BE`, `de`, `pl`, and `ro`.
 Electrical JSON imports accept the same locale codes. Dutch remains the default.
 
+Plan-wiring visibility may include `wireToolCategoriesVisible`, an optional map of
+`lighting`, `sockets`, `devices`, `feeders`, `supply`, `dc`, `earthing`, and `other`
+booleans. It filters colour groups while the wire tool is active; omitted groups are
+visible. Its optional master switch, `wireToolWiresVisible`, defaults to visible and
+is independent of the ordinary `wiresVisible` switch and situation-plan filters.
+Older projects without these fields remain valid. Entering the wire tool enables
+only its own master switch and resets the map so every colour group starts visible;
+changes apply until the next entry. Leaving the tool uses the unchanged ordinary
+situation-plan visibility settings.
+
 The root document contains these portable domains:
 
 | Field                    | Role                                                                                                                                           |
@@ -395,6 +405,19 @@ Equal identities on occurrences of the same symbol identify one shared physical
 junction while each occurrence retains its own electrical circuit position. Endpoint
 `label` remains branch-owned automatic naming and does not replace this identity.
 
+Hosted editions may also write `junctionAssetId` on these occurrences and the collections
+`disciplines.electrical.junctionAssets`, `terminalRails` and `terminalShapes`. They describe
+the physical junction behind the occurrences and its connections. Other readers treat them as
+opaque compatibility data: they keep the collections and the occurrence field unchanged when
+saving, also when they edit, copy or delete occurrences, and never use them to change how
+`junctionIdentity` and the pin fields are read.
+
+A junction asset may name the junction-panel terminal it belongs to (the `id` of an
+occurrence's `junctionPanelTerminal`, or the id a reader derives when that field is absent).
+This is part of the same opaque data: `junctionPanelTerminal` and `junctionPanelGridView`
+are still written and read exactly as described above, and readers that do not use the
+assets need not resolve the reference.
+
 An ordinary circuit-trunk inverter, rectifier, or DC-DC converter may persist
 `conversionProps.dcConnectionCount` from 1 through 4. Missing and invalid values are
 read as one. The one-wire converter remains anchored on its first block and grows to
@@ -654,6 +677,26 @@ missing entry means an entered length. Recalibration invalidates accepted estima
 remain without a length until the estimate is reviewed. Readers must not use a stored length
 marked stale for electrical checks. Older readers see a missing length. An explicit length edit
 or renewed acceptance replaces the stale marker; manually entered lengths are preserved.
+
+Each entry of `conductors` is one physical core. Its `function` is one of `L1`, `L2`, `L3`,
+`N`, `PE`, `Lsw` (switched phase), `T1`/`T2` (travellers), `ctrl`, `sig` (one member of a
+signal pair) or `spare`; readers that do not know a function keep the entry unchanged. A core
+may carry an `id` (stable within its run and unique there), `colour`, `marking`, `assignment`
+(`port`, `traveller`, `group`) and `signal` (`pair`, `member` `a`/`b`, optional `polarity`).
+The `id` stays the same when the run's conductor list is rebuilt after a cable or phase change,
+as long as a core with the same function and assignment still exists; a removed core's id is
+never reused. Cores without an `id` (projects written before core identity, or by an older
+reader) receive one on load, derived deterministically from the run id, the core's function and
+assignment, and its ordinal among identical cores, so independent upgrades of the same project
+produce the same ids. Readers must preserve ids and the other core fields when they save, and
+copy them unchanged when a run is split into two.
+
+When a member anchor moves from one run into another (for example when branch cables are
+folded into a shared trunk cable), the surviving run keeps its own core ids and may record
+`coreAliases[anchor]`: a map from the member's former core ids to the surviving run's cores
+with the same function and assignment. A reference to `(anchor, coreId)` resolves to the core
+with that id, else through this alias. Cores without a unique counterpart get no alias. When a
+member leaves a run again, its aliases leave with it.
 
 The circuit-section connection into `bus-section:secondary-bus:<circuitId>` is a
 secondary-bus feeder and supports both `medium: "busbar"` and `medium: "cable"`.

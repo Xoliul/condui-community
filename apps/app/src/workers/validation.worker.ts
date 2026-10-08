@@ -4,7 +4,8 @@ import { validateProject } from '../lib/validation/core/engine'
 import type { Issue, ValidationProject } from '../lib/validation/core/types'
 import { beAreiBook1_2025 } from '../lib/validation/rules/be/be.areibook1.2025'
 import { loadRulePack } from '../lib/validation/core/rulepack-loader'
-import { setValidationLanguage } from '../lib/validation/validationI18n'
+import validationI18n, { setValidationLanguage } from '../lib/validation/validationI18n'
+import { collectJunctionValidationIssuesForEdition } from '@/lib/junction/junctionHostedHooks'
 
 type ValidationRequest = {
   type: 'validate'
@@ -24,7 +25,10 @@ self.onmessage = (event: MessageEvent<ValidationRequest>) => {
   try {
     setValidationLanguage(request.language)
     const pack = loadRulePack(beAreiBook1_2025)
-    const issues = validateProject(request.project, { packs: [pack] })
+    const issues = [
+      ...validateProject(request.project, { packs: [pack] }),
+      ...collectJunctionValidationIssuesForEdition(request.project, validationI18n.t.bind(validationI18n)),
+    ]
     workerScope.postMessage({ type: 'result', id: request.id, issues } satisfies ValidationResponse)
   } catch (error) {
     workerScope.postMessage({

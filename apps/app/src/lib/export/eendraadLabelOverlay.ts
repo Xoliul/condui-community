@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf'
+import { collectDomoticaRowLabelPlacements } from '@/lib/layout/domoticaRowLabelPlacement'
 import type { BottomUpPanelLayout } from '@/lib/layout/bottomUpLayout'
 import { estimateProtectionNameLabelWidth, LAYOUT_CONSTANTS } from '@/lib/layout/bottomUpLayout'
 import {
@@ -28,7 +29,6 @@ import {
   getWireFireClassLabel,
   getWireLabelAlignForSegment,
   getWireLabelOffsetAlongWire,
-  isMainSupplyVerticalWireSegment,
   WIRE_LABEL_DISTANCE_FROM_WIRE,
   WIRE_LABEL_FONT_SIZE,
 } from '@/lib/wireTextLabel'
@@ -303,6 +303,22 @@ export function collectEendraadTextOverlays(
     })
   }
 
+  // Domotica output row labels ("T6.1") exist only in the layout tree; the export strips
+  // every canvas label, so redraw them from the same placement the canvas uses.
+  for (const rowLabel of collectDomoticaRowLabelPlacements(panelLayout)) {
+    overlays.push({
+      id: `domotica-row-label-${rowLabel.endpointId}`,
+      kind: 'other',
+      text: rowLabel.text,
+      x: rowLabel.x,
+      y: rowLabel.y - LABEL_Y_OFFSET,
+      fontSize: LABEL_FONT_SIZE,
+      fontStyle: 'normal',
+      color: colors.textColor,
+      align: 'left',
+    })
+  }
+
   if (panelLayout.circuitNotes && panelLayout.circuitNotes.length > 0) {
     for (const note of panelLayout.circuitNotes) {
       const text = normalizeCircuitNotesText(note.label)
@@ -417,7 +433,10 @@ export function collectEendraadWireLabelOverlays(
     const offsetAlongWire = getWireLabelOffsetAlongWire(wireSegment)
     const labelAlign = getWireLabelAlignForSegment(wireSegment)
     const labelEndPoint = wireSegment.wireLabelBaseEndPoint ?? wireSegment.wireLabelEndPoint ?? wireSegment.endPoint
-    const exportLabelOrigin = getExportWireLabelOrigin(wireSegment, wireSegments)
+    // Same anchor as the canvas WireTextLabel, so the PDF puts the caption where the one-wire does.
+    const exportLabelOrigin = getCanvasWireLabelOrigin(wireSegment.startPoint, labelEndPoint, labelAlign)
+    const distanceFromWire =
+      WIRE_LABEL_DISTANCE_FROM_WIRE + (wireSegment.wireRoute === 'air' ? 2 : 0)
     const debugWireLabelOrigin = exportLabelOrigin
     const debugWireLabelBase = getWireLabelBasePointForDebug(
       wireSegment,
@@ -435,7 +454,7 @@ export function collectEendraadWireLabelOverlays(
         fontFamily,
         fontSize: WIRE_LABEL_FONT_SIZE,
         align: labelAlign,
-        distanceFromWire: WIRE_LABEL_DISTANCE_FROM_WIRE,
+        distanceFromWire,
         offsetAlongWire,
       })
       if (!stackLayout?.main.renderedText) continue
@@ -492,7 +511,7 @@ export function collectEendraadWireLabelOverlays(
       fontFamily,
       fontSize: WIRE_LABEL_FONT_SIZE,
       align: labelAlign,
-      distanceFromWire: WIRE_LABEL_DISTANCE_FROM_WIRE,
+      distanceFromWire,
       offsetAlongWire,
     })
 
@@ -965,65 +984,18 @@ function getWireLabelBasePointForDebug(
   }
 }
 
-function getFirstBranchYForWireLabel(
-  wireSegment: WireSegment,
-  wireSegments: WireSegment[],
-): number | null {
-  if (!wireSegment.circuitId) return null
-  if (wireSegment.fromElementType !== 'protection') return null
-  if (wireSegment.startPoint.x !== wireSegment.endPoint.x) return null
-
-  const x = wireSegment.startPoint.x
-  const minY = Math.min(wireSegment.startPoint.y, wireSegment.endPoint.y)
-  const maxY = Math.max(wireSegment.startPoint.y, wireSegment.endPoint.y)
-  const branchYs: number[] = []
-
-  for (const candidate of wireSegments) {
-    if (candidate.id === wireSegment.id) continue
-    if (candidate.circuitId !== wireSegment.circuitId) continue
-    if (candidate.panelId !== wireSegment.panelId) continue
-    if (candidate.startPoint.y !== candidate.endPoint.y) continue
-
-    const y = candidate.startPoint.y
-    const left = Math.min(candidate.startPoint.x, candidate.endPoint.x)
-    const right = Math.max(candidate.startPoint.x, candidate.endPoint.x)
-    if (y < minY || y > maxY) continue
-    if (x < left - 0.5 || x > right + 0.5) continue
-    branchYs.push(y)
-  }
-
-  if (!branchYs.length) return null
-  const startY = wireSegment.startPoint.y
-  branchYs.sort((a, b) => Math.abs(a - startY) - Math.abs(b - startY))
-  return branchYs[0] ?? null
-}
-
-function getExportWireLabelOrigin(
-  wireSegment: WireSegment,
-  wireSegments: WireSegment[],
+function getCanvasWireLabelOrigin(
+  startPoint: { x: number; y: number },
+  labelEndPoint: { x: number; y: number },
+  align: ReturnType<typeof getWireLabelAlignForSegment>,
 ): { x: number; y: number } {
-  if (isMainSupplyVerticalWireSegment(wireSegment)) {
-    return {
-      x: wireSegment.startPoint.x,
-      y: wireSegment.startPoint.y,
-    }
-  }
-
-  const labelEndPoint = wireSegment.wireLabelBaseEndPoint ?? wireSegment.wireLabelEndPoint
-  if (labelEndPoint) {
-    return {
-      x: wireSegment.startPoint.x,
-      y: (wireSegment.startPoint.y + labelEndPoint.y) / 2,
-    }
-  }
-
-  const firstBranchY = getFirstBranchYForWireLabel(wireSegment, wireSegments)
-  if (firstBranchY == null) return getVerticalWireLabelOriginForDebug(wireSegment)
-
-  return {
-    x: wireSegment.startPoint.x,
-    y: (wireSegment.startPoint.y + firstBranchY) / 2,
-  }
+  const y =
+    align === 'center'
+      ? (startPoint.y + labelEndPoint.y) / 2
+      : align === 'bottom'
+        ? Math.max(startPoint.y, labelEndPoint.y)
+        : startPoint.y
+  return { x: startPoint.x, y }
 }
 
 export function drawEendraadTextOverlaysOnPdf(

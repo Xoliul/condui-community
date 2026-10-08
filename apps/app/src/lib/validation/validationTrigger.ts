@@ -158,6 +158,9 @@ let lastProjectSlices: {
   wireRuns: ReturnType<typeof selectProjectWireRuns>
   frames: ReturnType<typeof queryOneWireFrames>
   floors: ReturnType<typeof selectProjectBuildingFloors>
+  junctionAssets: unknown
+  terminalRails: unknown
+  terminalShapes: unknown
 } | null = null
 let lastSignature = ''
 
@@ -179,6 +182,11 @@ export function getValidationSignature(project: ValidationSignatureProject | nul
     wireRuns: selectProjectWireRuns(project),
     frames: queryOneWireFrames(project),
     floors: selectProjectBuildingFloors(project),
+    // Hosted junction findings run with validation. Read the stored arrays directly: the
+    // selectors return a fresh empty array when absent, which would defeat the cache.
+    junctionAssets: project.disciplines?.electrical?.junctionAssets,
+    terminalRails: project.disciplines?.electrical?.terminalRails,
+    terminalShapes: project.disciplines?.electrical?.terminalShapes,
   }
 
   if (
@@ -190,7 +198,10 @@ export function getValidationSignature(project: ValidationSignatureProject | nul
     lastProjectSlices.wireSegments === slices.wireSegments &&
     lastProjectSlices.wireRuns === slices.wireRuns &&
     lastProjectSlices.frames === slices.frames &&
-    lastProjectSlices.floors === slices.floors
+    lastProjectSlices.floors === slices.floors &&
+    lastProjectSlices.junctionAssets === slices.junctionAssets &&
+    lastProjectSlices.terminalRails === slices.terminalRails &&
+    lastProjectSlices.terminalShapes === slices.terminalShapes
   ) {
     return lastSignature
   }
@@ -217,6 +228,13 @@ export function getValidationSignature(project: ValidationSignatureProject | nul
     contentItems: frame.contentItems,
     trunkSpans: frame.trunkSpans,
   }))
+  if (slices.junctionAssets) {
+    slice.junction = {
+      assets: slices.junctionAssets,
+      rails: slices.terminalRails,
+      shapes: slices.terminalShapes,
+    }
+  }
   slice.situationPlanFloors = slices.floors
     .map((floor) => floor.id)
     .sort((a, b) => a.localeCompare(b))

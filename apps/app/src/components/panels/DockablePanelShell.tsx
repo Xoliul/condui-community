@@ -14,7 +14,8 @@ export interface DockablePanelOption {
 }
 
 interface DockablePanelShellProps {
-  panelId: LeftDockPanel
+  /** Floating-only panels that never dock use their own id. */
+  panelId: LeftDockPanel | 'junction-editor'
   title: string
   mode: 'docked' | 'floating'
   children: ReactNode

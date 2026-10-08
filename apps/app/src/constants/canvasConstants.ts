@@ -16,7 +16,10 @@ export const ZOOM_MAX = 10
 
 /** Display percentage for a given internal zoom. */
 export function zoomToDisplayPercent(zoom: number): number {
-  return Math.round((zoom / ZOOM_100) * 100)
+  const percent = (zoom / ZOOM_100) * 100
+  if (percent >= 1) return Math.round(percent)
+  if (percent >= 0.1) return Number(percent.toFixed(1))
+  return Number(percent.toPrecision(2))
 }
 
 // Canvas overlay UI (toolbars, panels) scaling when compartment is small

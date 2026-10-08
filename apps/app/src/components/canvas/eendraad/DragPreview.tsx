@@ -9,7 +9,7 @@ import type { BottomUpLayoutResult } from '@/lib/layout/bottomUpLayout'
 import { getPanelDiagramId, LAYOUT_CONSTANTS } from '@/lib/layout/bottomUpLayout'
 import type { WireSegment } from '@/types/schema'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
-import { isFixedApplianceSymbol } from '@/utils/symbolMapping'
+import { isActualEndpoint, isFixedApplianceSymbol } from '@/utils/symbolMapping'
 import { getDomoticaDropContextForCircuit, type DomoticaDropContext } from '@/lib/layout/domoticaDrop'
 import { getMainBusOrder } from '@/lib/eendraad/mainBusOrder'
 import {
@@ -71,6 +71,38 @@ export function DragPreview({
         }
       }
     }
+  }
+
+  const renderEnergyMeterBranchPreview = (x: number, y: number) => {
+    const symbolSize = LAYOUT_CONSTANTS.SYMBOL_SIZE
+    return (
+      <>
+        <Circle
+          x={x}
+          y={y}
+          radius={symbolSize / 2 + 4}
+          fill={previewColor}
+          opacity={previewOpacity * 0.2}
+          stroke={previewColor}
+          strokeWidth={2}
+          dash={[4, 4]}
+          listening={false}
+        />
+        {symbolImage && (
+          <Group x={x} y={y} listening={false}>
+            <Image
+              image={symbolImage}
+              width={symbolSize}
+              height={symbolSize}
+              offsetX={symbolSize / 2}
+              offsetY={symbolSize / 2}
+              opacity={previewOpacity}
+              listening={false}
+            />
+          </Group>
+        )}
+      </>
+    )
   }
 
   // Load symbol image if symbolData is provided
@@ -474,8 +506,9 @@ export function DragPreview({
           return null
         }
 
-        // Energy meter trunk insertion preview — shows symbol on the vertical wire
-        if (symbolData?.id === 'energy_meter') {
+        // Energy meter trunk insertion preview — branch targets use the normal
+        // endpoint preview below, including empty branches.
+        if (symbolData?.id === 'energy_meter' && dropTarget.branchEndpoints === undefined) {
           for (const panelLayout of layout.panels) {
             const circuitLayout = panelLayout.circuits.find(c => c.circuit.id === dropTarget.circuitId)
             if (!circuitLayout) continue
@@ -562,10 +595,32 @@ export function DragPreview({
           return null
         }
 
-        // Endpoint insertion preview (non-MCB, non-energy-meter symbols)
+        // Endpoint insertion preview (non-MCB symbols and energy meters on branches)
         for (const panelLayout of layout.panels) {
           const circuitLayout = panelLayout.circuits.find(c => c.circuit.id === dropTarget.circuitId)
           if (circuitLayout) {
+            if (symbolData?.id === 'energy_meter' && dropTarget.branchId) {
+              const targetBranch = panelLayout.branches?.find(
+                branch => branch.id === dropTarget.branchId && branch.circuitId === dropTarget.circuitId
+              )
+              if (targetBranch) {
+                const branchEndpointIds = dropTarget.branchEndpoints ?? targetBranch.endpoints.map(endpoint => endpoint.id)
+                let insertAfterIndex = typeof dropTarget.insertAfterEndpointId === 'string'
+                  ? branchEndpointIds.indexOf(dropTarget.insertAfterEndpointId)
+                  : -1
+                const insertAfterEndpoint = targetBranch.endpoints.find(
+                  endpoint => endpoint.id === dropTarget.insertAfterEndpointId
+                )
+                if (insertAfterIndex >= 0 && insertAfterEndpoint && isActualEndpoint(insertAfterEndpoint)) {
+                  insertAfterIndex -= 1
+                }
+                const insertIndex = insertAfterIndex + 1
+                const symbolX = targetBranch.branchX + LAYOUT_CONSTANTS.BRANCH_LEAD_IN +
+                  insertIndex * LAYOUT_CONSTANTS.ENDPOINT_HORIZONTAL_SPACING
+                return renderEnergyMeterBranchPreview(symbolX, targetBranch.branchY)
+              }
+            }
+
             // Find the actual vertical wire segment for this circuit to get the correct X position and top end
             const verticalWire = wireSegments.find(
               s => s.circuitId === dropTarget.circuitId && 
@@ -671,6 +726,30 @@ export function DragPreview({
           for (const circuitLayout of panelLayout.circuits) {
             const branch = circuitLayout.branch
             if (branch) {
+              if (symbolData?.id === 'energy_meter') {
+                const targetBranch = panelLayout.branches?.find(
+                  candidate =>
+                    candidate.circuitId === dropTarget.circuitId &&
+                    (candidate.id === dropTarget.branchId ||
+                      candidate.endpoints.some(endpoint => endpoint.id === dropTarget.endpointId))
+                )
+                if (targetBranch) {
+                  const branchEndpointIds = dropTarget.branchEndpoints ?? targetBranch.endpoints.map(endpoint => endpoint.id)
+                  let insertAfterIndex = typeof dropTarget.insertAfterEndpointId === 'string'
+                    ? branchEndpointIds.indexOf(dropTarget.insertAfterEndpointId)
+                    : -1
+                  const insertAfterEndpoint = targetBranch.endpoints.find(
+                    endpoint => endpoint.id === dropTarget.insertAfterEndpointId
+                  )
+                  if (insertAfterIndex >= 0 && insertAfterEndpoint && isActualEndpoint(insertAfterEndpoint)) {
+                    insertAfterIndex -= 1
+                  }
+                  const symbolX = targetBranch.branchX + LAYOUT_CONSTANTS.BRANCH_LEAD_IN +
+                    (insertAfterIndex + 1) * LAYOUT_CONSTANTS.ENDPOINT_HORIZONTAL_SPACING
+                  return renderEnergyMeterBranchPreview(symbolX, targetBranch.branchY)
+                }
+              }
+
               const endpointIndex = branch.endpoints.findIndex(
                 e => e.id === targetEndpointId
               )

@@ -30,7 +30,7 @@ import {
   resolveCircuitSitplanTargetFloorId,
   resolveSitplanTargetFloorId,
 } from '@/lib/plan/sitplanTargetFloor'
-import { ensureEarthingSitplanPlacement } from '@/lib/plan/earthingSitplanPlacement'
+import { ensureEarthingSitplanPlacement } from '@/lib/plan/ensureEarthingSitplanPlacement'
 import { collectAllGroundTrunkDevices } from '@/lib/eendraad/panelGround'
 import { canSymbolAppearOnSituationPlan } from '@/lib/plan/situationPlanSymbolEligibility'
 import { isModularSocketLibraryId } from '@/lib/socket/modularSocket'
@@ -108,7 +108,10 @@ import {
   resolveSmartSwitchExpansion,
   shouldApplySmartSwitchExpansion,
 } from '@/handlers/eendraad/smartSwitchDrop'
-import { computeEndpointInsertAfter } from '@/lib/eendraad/endpointInsertAfter'
+import {
+  computeEndpointInsertAfter,
+  shouldDefaultRelayToImpulse,
+} from '@/lib/eendraad/endpointInsertAfter'
 import { promoteDcBusConverterEndpoint } from '@/lib/eendraad/resizeConverterDcConnections'
 import {
   selectProjectSupplyAssemblies,
@@ -1633,6 +1636,9 @@ const endpointBehavior: DropBehavior = {
         : undefined
       if (existingBus) {
         target = { ...target, dcBusId: existingBus.id, wireDomain: 'DC' }
+      } else {
+        addEndpointToCircuitConverterDcConnection(target, project, symbol, _t, callbacks)
+        return
       }
     }
     let circuitId = target.circuitId
@@ -1772,6 +1778,9 @@ const endpointBehavior: DropBehavior = {
     if (circuit.supplySource?.kind === 'converter-backup' && circuit.endpoints.length > 0) {
       insertAfterEndpointId = circuit.endpoints.at(-1)?.id
       createNewBranch = false
+    }
+    if (shouldDefaultRelayToImpulse(circuit, symbol, insertAfterEndpointId)) {
+      endpoint.relayProps = { ...endpoint.relayProps, control: 'impulse' }
     }
 
     if (!isDomoticaOutputDrop) {
@@ -2667,8 +2676,9 @@ const energyMeterBehavior: DropBehavior = {
       return
     }
 
-    // If dropped on a circuit target (vertical trunk wire), add as trunk device
-    if (target.type === 'circuit' && target.circuitId && !target.branchEndpoints?.length) {
+    // Circuit trunk targets have no branch context. An empty branch still has
+    // branch context and should receive an endpoint rather than a trunk device.
+    if (target.type === 'circuit' && target.circuitId && target.branchEndpoints === undefined) {
       if (circuitFeedsSubPanel(project, target.circuitId)) {
         return
       }

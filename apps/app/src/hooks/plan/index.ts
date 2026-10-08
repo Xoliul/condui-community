@@ -10,6 +10,7 @@ export { usePlanSymbolNudgeKeyboard } from './usePlanSymbolNudgeKeyboard'
 export { usePlanDragHandling } from './usePlanDragHandling'
 export { usePlanWireEditing } from './usePlanWireEditing'
 export { usePlanWireInteractionState } from './usePlanWireInteractionState'
+export { usePlanWiringFocus } from './usePlanWiringFocus'
 export {
   usePlanQuickPlacerState,
   type QuickPlacerMode,

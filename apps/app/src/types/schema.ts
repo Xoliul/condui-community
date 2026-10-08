@@ -563,6 +563,8 @@ export interface TrunkDevice {
   label: string
   /** Shared physical identity for junction boxes, junction panels, and terminal strips. */
   junctionIdentity?: string
+  /** Stable link to the junction asset this occurrence belongs to; `junctionIdentity` is its label. */
+  junctionAssetId?: string
   /** Shared panel-canvas layout for a physical junction panel. */
   junctionPanelGridView?: PanelGridConfig
   /** Physical terminal component created for this junction-panel connection occurrence. */
@@ -990,6 +992,8 @@ export interface Endpoint {
   label: string
   /** Shared physical identity, independent from the branch's automatic endpoint label. */
   junctionIdentity?: string
+  /** Stable link to the junction asset this occurrence belongs to; `junctionIdentity` is its label. */
+  junctionAssetId?: string
   /** Unique connection pin within the terminal strip identified by `junctionIdentity`. */
   terminalStripPin?: number
   /** Optional outgoing pin when an endpoint representation gains a second connection. */
@@ -1413,6 +1417,12 @@ export interface PlanWiringVisibility {
   supplyVisible?: boolean
   /** Cable routing: colour wires by group outside wire mode too (wire mode always does). */
   colorCoded?: boolean
+  /** Wire-tool master visibility; independent of wiresVisible and enabled on every entry. */
+  wireToolWiresVisible?: boolean
+  /** Wire-tool colour groups; omitted groups are visible. Independent of ordinary plan filters. */
+  wireToolCategoriesVisible?: Partial<
+    Record<'lighting' | 'sockets' | 'devices' | 'feeders' | 'supply' | 'dc' | 'earthing' | 'other', boolean>
+  >
   /** Cable routing: mounting heights the length estimate assumes, in metres. */
   cableRouteSettings?: PlanCableRouteSettings
   defaultStyle?: PlanWireRouteStyle

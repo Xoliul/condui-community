@@ -1,3 +1,4 @@
+import { JunctionEditorOpenButton } from '@/components/junctionEditor/junctionEditorHostedFeatures'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff } from 'lucide-react'
@@ -403,6 +404,7 @@ export function EndpointProperties({
           <label className={labelClass}>{t('endpoints.label', 'Label')}</label>
         )}
         {isSharedJunctionSymbol(endpoint.symbol) ? (
+          <>
           <JunctionIdentityField
             value={getJunctionIdentity(endpoint)}
             options={project ? collectJunctionIdentities(project, endpoint.symbol!) : []}
@@ -448,6 +450,12 @@ export function EndpointProperties({
             toggleTitle={t('junctionIdentity.toggleVisibility', 'Show or hide identity on diagram')}
             emptyText={t('junctionIdentity.noExisting', 'No existing identities')}
           />
+          {(endpoint.symbol === 'terminal_strip' || endpoint.symbol === 'junction_box') && (
+            <div className="mt-2">
+              <JunctionEditorOpenButton occurrenceId={endpointId} />
+            </div>
+          )}
+          </>
         ) : domoticaRowLabelState ? (
           <DomoticaRowLabelField
             prefix={domoticaRowLabelState.prefix}

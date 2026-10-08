@@ -43,6 +43,8 @@ import { shortProjectIdLabel } from '@/utils/project'
 import { logger } from '@/lib/logger'
 import { summarizeConverterDcPersistence } from '@/lib/supplyAssembly/persistenceDiagnostics'
 import { migrateLegacyWireRunEdgeAnchors } from '@/lib/wires/migrateWireRunAnchors'
+import { ensureProjectConductorIds } from '@/lib/wires/conductorIdentity'
+import { syncJunctionAssetsForEdition } from '@/lib/junction/junctionHostedHooks'
 import { joinSecondaryFeederRuns } from '@/lib/wires/secondaryFeederRuns'
 import { materializeLegacyDcRailConnections } from '@/lib/wires/circuitWireIdentity'
 import {
@@ -117,6 +119,12 @@ export function hydrateProjectForEditor(project: ProjectInput): {
   const migratedWireRunAnchors = migrateLegacyWireRunEdgeAnchors(runtimeProject)
   // A secondary board's feeder edited on one board before this was joined: join its two ends.
   const joinedSecondaryFeederRuns = joinSecondaryFeederRuns(runtimeProject)
+  // Cores written before core identity (or by an older client) get deterministic ids. Not a
+  // reason to save: the same ids are assigned on every load and written with the next save.
+  ensureProjectConductorIds(runtimeProject)
+  // Junction assets are derived deterministically from the occurrences, so linking them is not a
+  // reason to save either.
+  syncJunctionAssetsForEdition(runtimeProject)
   recordSessionAction(
     `Opened project in editor (${shortProjectIdLabel(runtimeProject.project.id)})`
   )
@@ -185,6 +193,8 @@ export function prepareProjectForPersistence(project: Project): void {
   materializeLegacyDcRailConnections(selectProjectElectricalPanels(project))
   repairCrossOutputSupplyConverterDcConnections(project)
   migrateLegacyWireRunEdgeAnchors(project)
+  ensureProjectConductorIds(project)
+  syncJunctionAssetsForEdition(project)
   healPlanWiring(project)
 }
 

@@ -625,7 +625,7 @@
     "view": "View",
     "create": "Create project",
     "download": "Download project",
-    "manageAccess": "Access & versions",
+    "qrAndSharing": "QR and sharing",
     "localOptions": "Local project options",
     "newProjectLocalWarningShort": "Cloud limit reached. This will be a local project.",
     "newProjectLocalChosenWarning": "This will be a local project. You can upgrade it to cloud later.",
@@ -1355,12 +1355,17 @@
   },
   "planTools": {
     "movePlanImage": "Move Plan Image",
-    "resetScale": "Reset Scale",
+    "resetScale": "Calibrate plan scale",
+    "resetScaleTooltip": "Set the plan scale using a known distance.",
     "uploadFloorPlanFirst": "Upload a floor plan first to use this tool"
   },
   "planWiring": {
     "tool": "Wiring",
-    "toolDescription": "Trace wire routes between symbols on the active floor"
+    "toolDescription": "Trace wire routes between symbols on the active floor",
+    "focusCircuit": "Circuit",
+    "redraw": "Redraw",
+    "redrawDone": "Done",
+    "redrawProgress": "{{connected}}/{{total}} connected"
   },
   "layout": {
     "presetLabel": "Layout",
@@ -1410,6 +1415,7 @@
   "quickPlacer": {
     "title": "Quick Placer",
     "panelSelector": "Panel",
+    "supply": "Supply",
     "mode": {
       "slow": "Slow",
       "fast": "Fast",
@@ -2156,6 +2162,16 @@
           "endpoint-device": "battery/solar voltage setting"
         }
       },
+      "postMainBusRequiresPeConductor": {
+        "supplyRole": {
+          "crossing": "panel boundary",
+          "downstream": "feed to the bus"
+        },
+        "supplyMessage": "Panel {{panelName}}: {{roleLabel}} uses {{conductorLabel}} without protective earth (G). Use a G conductor after the main bus (e.g. 3G, 4G).",
+        "supplyDetails": "Protective earth is connected at the main bus. The {{roleLabel}} is on the installation side and should include PE in the cable designation (…G), not {{conductorLabel}}.",
+        "circuitMessage": "Circuit {{circuitCode}}: outgoing AC wiring uses {{conductorLabel}} without a protective-earth path.",
+        "circuitDetails": "Household AC circuits downstream of the main RCD need a continuous PE path. Outgoing wiring may include PE in the cable (…G) or use a correctly installed independent protective conductor. Internal links between protection devices carry only active conductors; DC wiring is not checked."
+      },
       "cascadeProtectionRatings": {
         "message": "Downstream protection rating exceeds upstream breaker rating",
         "details": "A downstream MCB/RCBO on a circuit must not be rated higher than its upstream protection."
@@ -2641,13 +2657,15 @@
     "doorOpeningAngle": "Opening angle (deg)",
     "resetScale": {
       "distance": "Distance (m)",
-      "confirmRescaleTitle": "Apply new image scale?",
-      "confirmRescaleIntro": "You changed the plan image scale (~{{factor}}x). Choose what to do:",
-      "optionRescale": "Resize drawn elements to preserve their current dimensions in metres.",
-      "optionKeep": "Keep drawn elements in place and recalculate their dimensions.",
+      "vectorOnlyWarningTitle": "Change measurements on all floors?",
+      "vectorOnlyWarningIntro": "The new scale recalculates measurements on all floors. Walls and symbols stay in place.",
+      "confirmRescaleTitle": "Adjust the drawing?",
+      "confirmRescaleIntro": "With the new scale, measured distances become {{factor}}× their current value.",
+      "optionRescale": "Move and resize the drawing to keep its current measurements.",
+      "optionKeep": "Keep walls and symbols in place and recalculate their measurements.",
       "optionCancel": "Cancel and keep everything unchanged.",
-      "confirmRescaleConfirm": "Preserve dimensions",
-      "confirmRescaleCancel": "Recalculate dimensions"
+      "confirmRescaleConfirm": "Keep current measurements",
+      "confirmRescaleCancel": "Use new measurements"
     }
   },
   "junctionPanel": {
@@ -3132,5 +3150,104 @@
     "question": "Using a trackpad?",
     "usePan": "Scroll to pan",
     "dismiss": "Dismiss"
+  },
+  "junctionDocuments": {
+    "title": "Junctions",
+    "junction_box": "Junction boxes",
+    "terminal_strip": "Terminal strips",
+    "notVerified": "Not verified",
+    "fieldSide": "Field side",
+    "boardSide": "Board side",
+    "terminal": "Terminal",
+    "columns": {
+      "strip": "Strip",
+      "stripTitle": "Strip title",
+      "level": "Level",
+      "circuit": "Circuit",
+      "cable": "Cable",
+      "core": "Core"
+    },
+    "terminalList": "Terminal list",
+    "downloadTerminalList": "Download terminal list",
+    "download": "Download",
+    "downloadPdf": "Download as PDF"
+  },
+  "junctionEditor": {
+    "openEditor": "Open editor",
+    "panelTitle": "Junction editor",
+    "cables": "Cables",
+    "kind": {
+      "terminal_strip": "Terminal strip",
+      "junction_box": "Junction box",
+      "junction_panel": "Junction panel"
+    },
+    "open": "Open",
+    "close": "Close",
+    "status": {
+      "derived": "Provisional",
+      "edited": "Edited",
+      "confirmed": "Checked"
+    },
+    "markChecked": "Mark as checked",
+    "fixErrorsFirst": "Fix the errors first",
+    "more": "More",
+    "reset": "Reset to provisional",
+    "changedSinceReview": "Changed since it was checked",
+    "dismiss": "Dismiss",
+    "checkDropped": "No longer checked",
+    "auto": "Auto",
+    "unassigned": "Unassigned",
+    "addConnector": "Add connector",
+    "removeConnector": "Remove connector",
+    "title": "Title",
+    "location": "Location",
+    "notes": "Notes",
+    "entries": "Entries",
+    "side": {
+      "top": "Top",
+      "right": "Right",
+      "bottom": "Bottom",
+      "left": "Left"
+    },
+    "addBlock": "Add terminal",
+    "shape": {
+      "phase": "Phase",
+      "neutral": "Neutral",
+      "earth": "Earth"
+    },
+    "addJumper": "Add jumper",
+    "removeJumper": "Remove jumper",
+    "groupBreak": "Group break",
+    "remove": "Remove",
+    "boardWire": "Board side",
+    "findings": "Findings",
+    "finding": {
+      "conflict": {
+        "pe-joined-to-live": "Earth joined to a live conductor",
+        "neutral-joined-to-live": "Neutral joined to a phase",
+        "signal-joined-to-power": "Signal joined to power",
+        "different-circuits": "Two circuits joined",
+        "different-rcds": "Neutrals of two RCDs joined",
+        "different-phases": "Two phases joined",
+        "different-outputs": "Separate outputs joined",
+        "different-signal-members": "Both wires of a signal pair joined",
+        "unassigned-cores": "Cannot tell whether these may be joined",
+        "bus-continuation": "Bus continues to the next device"
+      },
+      "unresolved": "Cannot tell whether these may be joined",
+      "levelRole": "Conductor does not fit this terminal",
+      "orphaned": "Conductor no longer exists",
+      "unterminated": "Conductor not connected",
+      "unused": "Not used in the single-line diagram",
+      "duplicate": "Designation used twice",
+      "hardware": {
+        "unknown-block": "Unknown terminal type",
+        "unknown-level": "Terminal has no such level",
+        "no-such-clamp": "Terminal has no such clamping point",
+        "clamp-occupied": "Two conductors in one clamping point",
+        "unknown-connector": "Connector no longer exists",
+        "pe-without-bonded-rail": "Earth terminals on a rail without earth"
+      }
+    }
   }
 }

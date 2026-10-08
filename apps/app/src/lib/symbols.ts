@@ -660,6 +660,9 @@ export const symbols: SymbolMetadata[] = [
     category: 'lighting',
     scope: 'both',
     svgPath: '/symbols/lighting/light_led.svg',
+    // A bare LED strip and an LED fixture with a driver use the same symbol.
+    // The upstream supply determines the domain, rather than the light type.
+    inheritsWireDomain: true,
     tags: ['light', 'LED', 'fixture'],
   },
   {
@@ -840,6 +843,12 @@ export const symbols: SymbolMetadata[] = [
       "extracteur d'air",
       "ventilateur d'extraction",
       'VMC',
+      'airco',
+      'a/c',
+      'ac',
+      'air conditioning',
+      'airconditioning',
+      'airoconditioning',
     ],
   },
   {
@@ -910,6 +919,12 @@ export const symbols: SymbolMetadata[] = [
       'electricity',
       'warmtepomp',
       'pompe à chaleur',
+      'airco',
+      'a/c',
+      'ac',
+      'air conditioning',
+      'airconditioning',
+      'airoconditioning',
     ],
   },
   {
@@ -993,6 +1008,12 @@ export const symbols: SymbolMetadata[] = [
       'heat pump',
       'warmtepomp',
       'pompe à chaleur',
+      'airco',
+      'a/c',
+      'ac',
+      'air conditioning',
+      'airconditioning',
+      'airoconditioning',
     ],
   },
 
@@ -1337,7 +1358,8 @@ export type SymbolPortDomains = readonly [ElectricalDomain, ElectricalDomain]
 
 /**
  * Get input and output electrical domain for a symbol. Conversion components use their
- * inputDomain/outputDomain; all others default to AC for both.
+ * inputDomain/outputDomain. Untyped symbols use AC for display defaults;
+ * connectivity must use resolveSymbolPortsForWire to inherit the actual wire domain.
  */
 export function getDomainForSymbol(symbolId: string): {
   inputDomain: ElectricalDomain
@@ -1350,7 +1372,7 @@ export function getDomainForSymbol(symbolId: string): {
   return { inputDomain, outputDomain }
 }
 
-/** Resolve fixed typed ports for a symbol. Non-conversion symbols default to AC/AC ports. */
+/** Resolve fixed port metadata, with AC display defaults for untyped symbols. */
 export function getPortDomainsForSymbol(symbolId: string): SymbolPortDomains {
   const meta = getSymbolById(symbolId)
   if (meta?.portDomains) return meta.portDomains
@@ -1360,29 +1382,11 @@ export function getPortDomainsForSymbol(symbolId: string): SymbolPortDomains {
   ]
 }
 
-/** True for components that may be inserted on AC or DC without changing domains. */
+/** Untyped symbols inherit their wire domain; only explicit port metadata constrains AC/DC. */
 export function symbolInheritsWireDomain(symbolId: string): boolean {
   const meta = getSymbolById(symbolId)
-  if (meta?.inheritsWireDomain) return true
-  return [
-    'mcb',
-    'rcd',
-    'rcbo',
-    'fuse',
-    'main_switch',
-    'spd',
-    'rotating_switch',
-    'junction_box',
-    'junction_panel',
-    'terminal_strip',
-    'energy_meter',
-    'switch',
-    'switch_1p_twoway',
-    'switch_2p_twoway',
-    'switch_dimmer',
-    'relay',
-    'domotica',
-  ].includes(symbolId)
+  if (meta?.inheritsWireDomain != null) return meta.inheritsWireDomain
+  return !meta?.portDomains && !meta?.inputDomain && !meta?.outputDomain
 }
 
 /** Whether a symbol can connect to the requested wire domain. */
@@ -1393,7 +1397,8 @@ export function symbolSupportsWireDomain(symbolId: string, wireDomain: Electrica
 }
 
 /**
- * Match a wire to one of a symbol's fixed ports by domain.
+ * Untyped symbols preserve the connected wire domain. Otherwise match the
+ * wire to one of the symbol's explicit fixed ports by domain.
  * If both ports match, picks the first deterministically.
  */
 export function resolveSymbolPortsForWire(
@@ -1405,7 +1410,9 @@ export function resolveSymbolPortsForWire(
   oppositePortDomain: ElectricalDomain | null
   portDomains: SymbolPortDomains
 } {
-  const portDomains = getPortDomainsForSymbol(symbolId)
+  const portDomains: SymbolPortDomains = symbolInheritsWireDomain(symbolId)
+    ? [wireDomain, wireDomain]
+    : getPortDomainsForSymbol(symbolId)
   const matching: Array<0 | 1> = []
   if (portDomains[0] === wireDomain) matching.push(0)
   if (portDomains[1] === wireDomain) matching.push(1)

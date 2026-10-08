@@ -79,12 +79,30 @@ function ScaleRulerCanvas({
   const labelHeightCanvas = labelFontSizeCanvas + labelPaddingYCanvas * 2
   const labelCornerRadiusCanvas = screenPxToCanvasUnits(zoom, 4, 2, 8)
 
-  // When we have an existing reference, tell parent to show the overlay immediately
+  // On mount, tell the parent to show the distance input for a saved reference.
   useEffect(() => {
     if (initialReference?.p1 && initialReference?.p2) {
       onPointsReady?.(initialReference.p1, initialReference.p2, initialReference.meters)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- only on mount when initialReference is used by parent
+
+  // A saved reference can arrive after this layer mounts while the plan image
+  // is loading. Hydrate it once available, without replacing user-placed points.
+  useEffect(() => {
+    if (!initialReference?.p1 || !initialReference?.p2 || startPoint || endPoint) return
+    setStartPoint(initialReference.p1)
+    setEndPoint(initialReference.p2)
+    onPointsReady?.(initialReference.p1, initialReference.p2, initialReference.meters)
+  }, [
+    initialReference?.p1.x,
+    initialReference?.p1.y,
+    initialReference?.p2.x,
+    initialReference?.p2.y,
+    initialReference?.meters,
+    startPoint,
+    endPoint,
+    onPointsReady,
+  ]) // eslint-disable-line react-hooks/exhaustive-deps -- synchronize only when the saved reference changes
 
   useEffect(() => { onPointsChange?.(startPoint, endPoint) }, [startPoint, endPoint, onPointsChange])
   useEffect(() => () => { if (rafRef.current != null) cancelAnimationFrame(rafRef.current) }, [])

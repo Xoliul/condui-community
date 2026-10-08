@@ -11,17 +11,26 @@ import type { Issue, ValidationProject } from './core/types'
  */
 export async function validateElectricalProject(project: ValidationProject): Promise<Issue[]> {
   const snapshot = structuredClone(project)
-  const [{ validateProject }, { beAreiBook1_2025 }, { loadRulePack }, { setValidationLanguage }] =
-    await Promise.all([
-      import('./core/engine'),
-      import('./rules/be/be.areibook1.2025'),
-      import('./core/rulepack-loader'),
-      import('./validationI18n'),
-    ])
+  const [
+    { validateProject },
+    { beAreiBook1_2025 },
+    { loadRulePack },
+    { default: validationI18n, setValidationLanguage },
+    { collectJunctionValidationIssuesForEdition },
+  ] = await Promise.all([
+    import('./core/engine'),
+    import('./rules/be/be.areibook1.2025'),
+    import('./core/rulepack-loader'),
+    import('./validationI18n'),
+    import('@/lib/junction/junctionHostedHooks'),
+  ])
   // Identical language selection to the editor worker client and previous fallback.
   // Setting language and running the synchronous validator share one JS turn.
   setValidationLanguage(
     typeof document === 'undefined' ? 'nl-BE' : document.documentElement?.lang || 'nl-BE'
   )
-  return validateProject(snapshot, { packs: [loadRulePack(beAreiBook1_2025)] })
+  return [
+    ...validateProject(snapshot, { packs: [loadRulePack(beAreiBook1_2025)] }),
+    ...collectJunctionValidationIssuesForEdition(snapshot, validationI18n.t.bind(validationI18n)),
+  ]
 }

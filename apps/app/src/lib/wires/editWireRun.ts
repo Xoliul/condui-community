@@ -3,6 +3,13 @@ import type { ProjectV2, WireRun } from '@/types/projectV2'
 import type { CableSpec } from '@/types/schema'
 import { editProjectWireRuns, findWireRunForAnchor } from '@/lib/projectV2/wireRuns'
 import { deriveSeedConductors } from '@/lib/projectV2/wireRunSeed'
+import {
+  anchorConductorIdSeed,
+  copyConductorsForFork,
+  moveWireRunMember,
+  reconcileConductors,
+  withConductorIds,
+} from './conductorIdentity'
 import { generateId } from '@/utils/project'
 import { getProjectElectricalInstallation, getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { circuitConverterEndpointConnections, circuitWireNodeKind } from './circuitWireIdentity'
@@ -99,7 +106,8 @@ export function editWireRunAtAnchor(
           ]
         : trunkAnchors,
       cable: { ...defaultCable },
-      conductors: deriveSeedConductors(defaultCable),
+      // Same ids the default cable showed for this anchor, so earlier references keep resolving.
+      conductors: withConductorIds(anchorConductorIdSeed(anchor), deriveSeedConductors(defaultCable)),
       // Editing only the route or length must not freeze the inherited cable type.
       ...(liveWire?.followsDefaultCable ? { followsDefaultCable: true } : {}),
     }
@@ -114,10 +122,20 @@ export function editWireRunAtAnchor(
   if (changes.medium === 'cable' && liveEdge.properties?.wireBusGroup && run.members.length > 1) {
     const sharedRun = run
     run = { ...sharedRun, id: generateId(), members: [anchor],
+      conductors: copyConductorsForFork(sharedRun.conductors),
       segmentLengths: sharedRun.segmentLengths?.[anchor] === undefined ? undefined
         : { [anchor]: sharedRun.segmentLengths[anchor]! },
       segmentLengthSources: sharedRun.segmentLengthSources?.[anchor] === undefined ? undefined
         : { [anchor]: sharedRun.segmentLengthSources[anchor]! },
+      coreAliases: sharedRun.coreAliases?.[anchor] === undefined ? undefined
+        : { [anchor]: { ...sharedRun.coreAliases[anchor] } },
+    }
+    if (!run.coreAliases) delete run.coreAliases
+    if (sharedRun.coreAliases?.[anchor]) {
+      const remaining = { ...sharedRun.coreAliases }
+      delete remaining[anchor]
+      if (Object.keys(remaining).length > 0) sharedRun.coreAliases = remaining
+      else delete sharedRun.coreAliases
     }
     sharedRun.members = sharedRun.members.filter((member) => member !== anchor)
     if (sharedRun.segmentLengths) delete sharedRun.segmentLengths[anchor]
@@ -131,18 +149,13 @@ export function editWireRunAtAnchor(
       findWireRunForAnchor(runs, member)?.medium !== 'cable'))
     for (const member of members) {
       const owner = findWireRunForAnchor(runs, member)
-      if (owner && owner !== run) {
-        if (owner.segmentLengths?.[member] !== undefined)
-          run.segmentLengths = { ...run.segmentLengths, [member]: owner.segmentLengths[member]! }
-        if (owner.segmentLengthSources?.[member])
-          run.segmentLengthSources = { ...run.segmentLengthSources, [member]: owner.segmentLengthSources[member]! }
-        owner.members = owner.members.filter((candidate) => candidate !== member)
-      }
+      if (owner && owner !== run) moveWireRunMember(owner, run, member)
       if (!run.members.includes(member)) run.members.push(member)
     }
     if (changes.medium === 'busbar' && railCable) {
       run.cable = { ...railCable }
-      run.conductors = establishedRail?.conductors ?? deriveSeedConductors(railCable)
+      run.conductors = establishedRail?.conductors ??
+        reconcileConductors(run.conductors, deriveSeedConductors(railCable))
       run.conductorsOverridden = establishedRail?.conductorsOverridden
     } else if (previousRun !== run && !changes.cable && railCable) run.cable = { ...railCable }
     run.medium = 'busbar'
@@ -154,16 +167,7 @@ export function editWireRunAtAnchor(
   if (trunkAnchors.length > 1) {
     for (const member of trunkAnchors) {
       const owner = findWireRunForAnchor(runs, member)
-      if (owner && owner !== run) {
-        if (owner.segmentLengths?.[member] !== undefined)
-          run.segmentLengths = { ...run.segmentLengths, [member]: owner.segmentLengths[member]! }
-        if (owner.segmentLengthSources?.[member])
-          run.segmentLengthSources = {
-            ...run.segmentLengthSources,
-            [member]: owner.segmentLengthSources[member]!,
-          }
-        owner.members = owner.members.filter((candidate) => candidate !== member)
-      }
+      if (owner && owner !== run) moveWireRunMember(owner, run, member)
       if (!run.members.includes(member)) run.members.push(member)
     }
     for (let index = runs.length - 1; index >= 0; index -= 1)
@@ -193,7 +197,8 @@ export function editWireRunAtAnchor(
       : { ...changes.cable,
           ...(changes.cable.customKind?.toLowerCase() === 'busbar'
             ? { customKind: undefined } : {}) }
-    if (!run.conductorsOverridden) run.conductors = deriveSeedConductors(run.cable)
+    if (!run.conductorsOverridden)
+      run.conductors = reconcileConductors(run.conductors, deriveSeedConductors(run.cable))
     delete run.followsDefaultCable
   }
   if (changes.followsDefaultCable && run.medium !== 'busbar' && isProjectDefaultCableAnchor(anchor))
@@ -218,6 +223,7 @@ export function editWireRunAtAnchor(
     run.inTube = undefined
     run.labels = undefined
     delete run.followsDefaultCable
-    if (!run.conductorsOverridden) run.conductors = deriveSeedConductors(run.cable)
+    if (!run.conductorsOverridden)
+      run.conductors = reconcileConductors(run.conductors, deriveSeedConductors(run.cable))
   }
 }

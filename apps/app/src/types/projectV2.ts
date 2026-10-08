@@ -1,3 +1,4 @@
+import type { JunctionAsset, TerminalRail, TerminalShape } from './junction'
 import type {
   CableSpec,
   Floor,
@@ -436,19 +437,71 @@ export interface OneWireModelV2 {
   wireSegments?: WireSegment[]
 }
 
-/** Canonical function of a single conductor (core) in a {@link WireRun}. */
-export type WireConductorFunction = 'L1' | 'L2' | 'L3' | 'N' | 'PE'
+/**
+ * Canonical function of a single conductor (core) in a {@link WireRun}. `Lsw` is a switched phase,
+ * `T1`/`T2` are travellers, `ctrl` a control signal, `sig` one member of a signal pair (DALI, bus)
+ * and `spare` an unused core. Signal systems are described by {@link WireConductor.signal}, never
+ * by extra functions.
+ */
+export type WireConductorFunction =
+  | 'L1'
+  | 'L2'
+  | 'L3'
+  | 'N'
+  | 'PE'
+  | 'Lsw'
+  | 'T1'
+  | 'T2'
+  | 'ctrl'
+  | 'sig'
+  | 'spare'
+
+/**
+ * Abstract logical port of a device: which pole of which input or output. No physical device
+ * clamps are modelled. `port` is a stable logical id ('out', 'in', or a domotica channel id);
+ * display text like 'Q1.3' is a label, not the key.
+ */
+export interface DevicePortRef {
+  kind: 'protection' | 'trunk_device' | 'endpoint'
+  id: string
+  port: string
+  pole: string
+}
 
 /**
  * One conductor (core) of a wire run. Kept as a list rather than a scalar count so the endgame
- * per-conductor model (colour, per-core section, later terminal identity) can grow without a
- * reshape. The default set is derived from the branch phase shape (poles-aware); a manual edit
- * sets {@link WireRun.conductorsOverridden}.
+ * per-conductor model (colour, per-core section, terminal identity) can grow without a reshape.
+ * The default set is derived from the branch phase shape (poles-aware); a manual edit sets
+ * {@link WireRun.conductorsOverridden}.
  */
 export interface WireConductor {
+  /**
+   * Stable identity of the physical core within its run. Survives reseeding, function edits and
+   * cable changes; copied when a run forks. Absent only on data written before core identity, in
+   * which case it is assigned deterministically on load (see `lib/wires/conductorIdentity`).
+   */
+  id?: string
   function: WireConductorFunction
   /** Optional per-core section override in mm²; falls back to {@link WireRun.cable}.sectionMm2. */
   sectionMm2?: number
+  /** Derived from function and cable kind when absent; an explicit value overrides. */
+  colour?: string
+  /** Printed core number or marking on control cables. */
+  marking?: string
+  /** What this core serves when it serves one specific port: the output it switches, the traveller it is. */
+  assignment?: { port?: DevicePortRef; traveller?: 'T1' | 'T2'; group?: string }
+  /**
+   * One core of a signal pair. Each member is its own conductor: polarity insensitive does not
+   * mean the two may be joined.
+   */
+  signal?: { pair: string; member: 'a' | 'b'; polarity?: '+' | '-' }
+}
+
+/** One end of one core: what a junction termination attaches to. */
+export interface CoreEndRef {
+  wireAnchor: string
+  coreId: string
+  end: 'source' | 'load'
 }
 
 /**
@@ -478,6 +531,13 @@ export interface WireRun {
   conductors: WireConductor[]
   /** True when conductors were set manually and must survive a system/phase change unchanged. */
   conductorsOverridden?: boolean
+  /**
+   * Former core ids per member anchor, kept when a member joined this run from another run: the
+   * member's old core id maps to the core of this run with the same function and assignment.
+   * References to `(anchor, oldId)` resolve through it; cores without a unique counterpart have no
+   * alias and stay orphaned.
+   */
+  coreAliases?: Record<string, Record<string, string>>
   /**
    * Physical medium of the run (Goal 19). `'busbar'` = a shared solid bar whose copper thickness is
    * carried in {@link WireRun.cable}.sectionMm2 and whose bars-per-phase are its conductors;
@@ -529,6 +589,16 @@ export interface ElectricalModelV2 {
    * `2.3.0` migration repairs the routes that seed lost (on-wall vs. in-wall).
    */
   wireRuns?: WireRun[]
+  /**
+   * Terminal strips, junction boxes and junction panels as physical assets with stable ids. One-wire
+   * occurrences link to them through `junctionAssetId`. Editions without the junction editor keep
+   * the collection unchanged.
+   */
+  junctionAssets?: JunctionAsset[]
+  /** DIN rails holding terminal strips (in boards and junction panels). */
+  terminalRails?: TerminalRail[]
+  /** Terminal block shapes and user-built types used by this project, so it opens without a catalog. */
+  terminalShapes?: TerminalShape[]
 }
 
 export interface DisciplineModelsV2 {

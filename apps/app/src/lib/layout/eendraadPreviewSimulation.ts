@@ -32,8 +32,10 @@ import {
   isActualEndpoint,
 } from '@/utils/symbolMapping'
 import {
+  canChainLightOnLightBranch,
   isDcOnlyEndpointSymbol,
   isEnergyConversionEndpointSymbol,
+  shouldDefaultRelayToImpulse,
 } from '@/lib/eendraad/endpointInsertAfter'
 import { DEFAULT_ELECTRICAL_DOMAIN } from '@/types/schema'
 import { resolveSymbolPortsForWire } from '@/lib/symbols'
@@ -643,6 +645,12 @@ function simulateEndpointDrop(
       if (isFixedAfterSocket || isDcAfterConversion) {
         // insertAfterEndpointId already points to the socket; createNewBranch
         // (or converter) stays false so the static device is appended on the same branch.
+      } else if (
+        branchEndpointIds?.length &&
+        canChainLightOnLightBranch(branchEndpointIds, circuit, symbol)
+      ) {
+        insertAfterEndpointId = branchEndpointIds[branchEndpointIds.length - 1]
+        createNewBranch = false
       } else if (branchEndpointIds?.length) {
         // General rule for actual endpoints:
         // - If the branch already has a terminal (socket/light), a new terminal
@@ -674,6 +682,9 @@ function simulateEndpointDrop(
   if (circuit.supplySource?.kind === 'converter-backup' && circuit.endpoints.length > 0) {
     insertAfterEndpointId = circuit.endpoints.at(-1)?.id
     createNewBranch = false
+  }
+  if (shouldDefaultRelayToImpulse(circuit, symbol, insertAfterEndpointId)) {
+    endpoint.relayProps = { ...endpoint.relayProps, control: 'impulse' }
   }
 
   const nestedConverterBranch = target.converterDcConnection

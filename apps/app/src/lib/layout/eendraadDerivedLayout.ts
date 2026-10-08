@@ -12,6 +12,8 @@ import {
   type LayoutTree,
 } from './layoutTree'
 import { deriveWires } from './deriveWires'
+import { liftCircuitNotesClearOfFrames } from '@/lib/eendraad/circuitNotesFrameClearance'
+import { queryOneWireFrames } from '@/lib/projectV2/annotations'
 import { resolveSupplyDeviceMounting } from '@/lib/panel/auxiliarySupplyEnclosures'
 import {
   getProjectElectricalInstallation,
@@ -19,12 +21,14 @@ import {
   selectProjectSupplyAssemblies,
 } from '@/lib/projectV2/electrical'
 import type { ProjectV2 } from '@/types/projectV2'
-import type { WireSegment } from '@/types/schema'
+import type { Frame, WireSegment } from '@/types/schema'
 import type { Point } from '@/types/ui'
 
 /** Keyed by info block columns: project metadata and installer logo widen the frame. */
 type InfoBlockVariantCache = Map<string, BottomUpLayoutResult>
-type OverrideCache = WeakMap<Map<string, Point>, InfoBlockVariantCache>
+/** Keyed by the one-wire frames array: frames move circuit notes. */
+type FramesCache = WeakMap<readonly Frame[], InfoBlockVariantCache>
+type OverrideCache = WeakMap<Map<string, Point>, FramesCache>
 type AssemblyCache = WeakMap<object, OverrideCache>
 type PanelCache = WeakMap<object, AssemblyCache>
 
@@ -259,8 +263,11 @@ export function getCachedEendraadLayout(
 ): BottomUpLayoutResult {
   const layoutSource = resolveEquivalentLayoutSource(project)
   const installation = getProjectElectricalInstallation(layoutSource)
+  const frames = queryOneWireFrames(layoutSource)
   if (!installation) {
-    return calculateBottomUpLayout(project, new Map(overrides), layoutOptions)
+    const layout = calculateBottomUpLayout(project, new Map(overrides), layoutOptions)
+    liftCircuitNotesClearOfFrames(layout, project, frames)
+    return layout
   }
 
   const panels = getProjectElectricalPanels(layoutSource)
@@ -269,7 +276,9 @@ export function getCachedEendraadLayout(
   const panelCache = getOrCreateWeakMap(layoutCache, installation, () => new WeakMap())
   const assemblyCache = getOrCreateWeakMap(panelCache, panels, () => new WeakMap())
   const overrideCache = getOrCreateWeakMap(assemblyCache, supplyAssembliesCacheKey, () => new WeakMap())
-  const variantCache = getOrCreateWeakMap(overrideCache, overrides, () => new Map())
+  const framesCache = getOrCreateWeakMap(overrideCache, overrides, () => new WeakMap())
+  // Frames move circuit notes, so a frame edit must re-derive the layout.
+  const variantCache = getOrCreateWeakMap(framesCache, frames, () => new Map())
   const variantKey = getInfoBlockVariantKey(
     getInfoBlockColumns(project, { hasLogo: layoutOptions.infoBlockLogo })
   )
@@ -278,6 +287,7 @@ export function getCachedEendraadLayout(
 
   const layoutStartedAt = import.meta.env.VITE_E2E ? performance.now() : 0
   const layout = calculateBottomUpLayout(project, new Map(overrides), layoutOptions)
+  liftCircuitNotesClearOfFrames(layout, project, frames)
   if (import.meta.env.VITE_E2E) {
     performance.measure('eendra:layout-derivation', {
       start: layoutStartedAt,

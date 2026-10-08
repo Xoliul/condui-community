@@ -34,6 +34,7 @@ import {
   type ProjectDocument,
 } from '@/lib/documents/projectDocuments'
 import { useThemeColors } from '@/lib/theme/hooks'
+import { JunctionDocumentView } from '@/components/junctionEditor/junctionEditorHostedFeatures'
 import { logger } from '@/lib/logger'
 import { isKeyboardTypingTarget } from '@/lib/ui/keyboardTypingTarget'
 import { useDialogStore } from '@/stores/dialogStore'
@@ -519,6 +520,14 @@ export default function DocumentsCanvas() {
                 <CableSchedule />
               ) : openedDocument.kind === 'controlAddresses' ? (
                 <ControlAddressTable />
+              ) : openedDocument.kind === 'junctionOverview' ? (
+                <JunctionDocumentView
+                  zoom={viewZoom / ZOOM_100}
+                  onZoomChange={(zoom) =>
+                    setViewZoom(clamp(zoom * ZOOM_100, MIN_VIEW_ZOOM, MAX_VIEW_ZOOM))
+                  }
+                  fitKey={fitKey}
+                />
               ) : (
                 <DocumentViewer
                   document={openedDocument}

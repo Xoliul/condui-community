@@ -625,7 +625,7 @@
     "view": "Consulter",
     "create": "Créer le projet",
     "download": "Télécharger le projet",
-    "manageAccess": "Accès & versions",
+    "qrAndSharing": "QR et partage",
     "localOptions": "Options du projet local",
     "newProjectLocalWarningShort": "Limite cloud atteinte. Ce sera un projet local.",
     "newProjectLocalChosenWarning": "Ce sera un projet local. Vous pourrez le passer dans le cloud plus tard.",
@@ -1356,12 +1356,17 @@
   },
   "planTools": {
     "movePlanImage": "Déplacer l'image du plan",
-    "resetScale": "Réinitialiser l'échelle",
+    "resetScale": "Calibrer l’échelle du plan",
+    "resetScaleTooltip": "Définissez l’échelle du plan à partir d’une distance connue.",
     "uploadFloorPlanFirst": "Importez d'abord un plan pour utiliser cet outil"
   },
   "planWiring": {
     "tool": "Câblage",
-    "toolDescription": "Tracer les chemins de câbles entre les symboles de l'étage actif"
+    "toolDescription": "Tracer les chemins de câbles entre les symboles de l'étage actif",
+    "focusCircuit": "Circuit",
+    "redraw": "Redessiner",
+    "redrawDone": "Terminé",
+    "redrawProgress": "{{connected}}/{{total}} raccordés"
   },
   "layout": {
     "presetLabel": "Disposition",
@@ -1411,6 +1416,7 @@
   "quickPlacer": {
     "title": "PlaceRapide",
     "panelSelector": "Tableau",
+    "supply": "Alimentation",
     "mode": {
       "slow": "Lent",
       "fast": "Rapide",
@@ -2027,6 +2033,16 @@
       "branchMultiplierEndpointsSplit": "Circuit {{circuitCode}} : la dérivation « {{branchLabel}} » contient {{absorbCount}} symbole(s) multiplicateur(s) en trop comme points séparés ; fusionnez en un seul point avec plusieurs placements. Utilisez Réparer dans l’inspecteur d’orphelins."
     },
     "primitives": {
+      "postMainBusRequiresPeConductor": {
+        "supplyRole": {
+          "crossing": "franchissement de la limite du tableau",
+          "downstream": "liaison vers le jeu de barres"
+        },
+        "supplyMessage": "Tableau {{panelName}} : {{roleLabel}} utilise {{conductorLabel}} sans conducteur de protection (G). Après le jeu de barres principal, utilisez un conducteur G (p. ex. 3G, 4G).",
+        "supplyDetails": "Le conducteur de protection est raccordé au jeu de barres principal. Le {{roleLabel}} se trouve côté installation et doit comprendre le PE dans le câble (…G), pas {{conductorLabel}}.",
+        "circuitMessage": "Circuit {{circuitCode}} : le câblage AC sortant utilise {{conductorLabel}} sans chemin de protection PE.",
+        "circuitDetails": "Les circuits AC domestiques en aval du différentiel principal doivent avoir un chemin PE continu. Le câblage sortant peut inclure le PE dans le câble (…G) ou utiliser un conducteur de protection indépendant correctement installé. Les liaisons internes entre appareils de protection ne transportent que les conducteurs actifs ; le câblage DC n’est pas contrôlé."
+      },
       "cascadeProtectionRatings": {
         "message": "Le calibre de la protection en aval dépasse celui du disjoncteur en amont",
         "details": "Le calibre d'un disjoncteur ou disjoncteur différentiel en aval d'un circuit ne peut pas dépasser celui de sa protection en amont."
@@ -2641,13 +2657,15 @@
     "doorOpeningAngle": "Angle d'ouverture (°)",
     "resetScale": {
       "distance": "Distance (m)",
-      "confirmRescaleTitle": "Appliquer la nouvelle échelle de l'image ?",
-      "confirmRescaleIntro": "Vous avez modifié l'échelle de l'image du plan (~{{factor}}x). Choisissez l'action :",
-      "optionRescale": "Redimensionner les éléments dessinés pour conserver leurs dimensions actuelles en mètres.",
-      "optionKeep": "Laisser les éléments dessinés en place et recalculer leurs dimensions.",
+      "vectorOnlyWarningTitle": "Modifier les dimensions de tous les étages ?",
+      "vectorOnlyWarningIntro": "La nouvelle échelle recalcule les dimensions de tous les étages. Les murs et les symboles restent en place.",
+      "confirmRescaleTitle": "Adapter le dessin ?",
+      "confirmRescaleIntro": "Avec la nouvelle échelle, les distances mesurées valent {{factor}}× leur valeur actuelle.",
+      "optionRescale": "Déplacez et redimensionnez le dessin pour conserver ses dimensions actuelles.",
+      "optionKeep": "Gardez les murs et les symboles en place et recalculez leurs dimensions.",
       "optionCancel": "Annuler et ne rien modifier.",
-      "confirmRescaleConfirm": "Conserver les dimensions",
-      "confirmRescaleCancel": "Recalculer les dimensions"
+      "confirmRescaleConfirm": "Conserver les dimensions actuelles",
+      "confirmRescaleCancel": "Utiliser les nouvelles dimensions"
     }
   },
   "junctionPanel": {
@@ -3132,5 +3150,104 @@
     "question": "Vous utilisez un pavé tactile ?",
     "usePan": "Défiler pour déplacer",
     "dismiss": "Fermer"
+  },
+  "junctionDocuments": {
+    "title": "Connexions",
+    "junction_box": "Boîtes de dérivation",
+    "terminal_strip": "Borniers",
+    "notVerified": "Non vérifié",
+    "fieldSide": "Côté terrain",
+    "boardSide": "Côté tableau",
+    "terminal": "Borne",
+    "columns": {
+      "strip": "Bornier",
+      "stripTitle": "Description",
+      "level": "Étage",
+      "circuit": "Circuit",
+      "cable": "Câble",
+      "core": "Conducteur"
+    },
+    "terminalList": "Liste des bornes",
+    "downloadTerminalList": "Télécharger la liste des bornes",
+    "download": "Télécharger",
+    "downloadPdf": "Télécharger en PDF"
+  },
+  "junctionEditor": {
+    "openEditor": "Ouvrir l’éditeur",
+    "panelTitle": "Éditeur de raccordements",
+    "cables": "Câbles",
+    "kind": {
+      "terminal_strip": "Bornier",
+      "junction_box": "Boîte de dérivation",
+      "junction_panel": "Coffret de raccordement"
+    },
+    "open": "Ouvrir",
+    "close": "Fermer",
+    "status": {
+      "derived": "Provisoire",
+      "edited": "Modifié",
+      "confirmed": "Vérifié"
+    },
+    "markChecked": "Marquer comme vérifié",
+    "fixErrorsFirst": "Corrigez d’abord les erreurs",
+    "more": "Plus",
+    "reset": "Revenir au provisoire",
+    "changedSinceReview": "Modifié depuis la vérification",
+    "dismiss": "Masquer",
+    "checkDropped": "N’est plus vérifié",
+    "auto": "Auto",
+    "unassigned": "Non raccordés",
+    "addConnector": "Ajouter une borne de connexion",
+    "removeConnector": "Supprimer la borne de connexion",
+    "title": "Titre",
+    "location": "Emplacement",
+    "notes": "Notes",
+    "entries": "Entrées",
+    "side": {
+      "top": "Haut",
+      "right": "Droite",
+      "bottom": "Bas",
+      "left": "Gauche"
+    },
+    "addBlock": "Ajouter une borne",
+    "shape": {
+      "phase": "Phase",
+      "neutral": "Neutre",
+      "earth": "Terre"
+    },
+    "addJumper": "Ajouter un pont",
+    "removeJumper": "Supprimer le pont",
+    "groupBreak": "Séparation de groupe",
+    "remove": "Supprimer",
+    "boardWire": "Côté tableau",
+    "findings": "Constats",
+    "finding": {
+      "conflict": {
+        "pe-joined-to-live": "Terre reliée à un conducteur actif",
+        "neutral-joined-to-live": "Neutre relié à une phase",
+        "signal-joined-to-power": "Signal relié à l’alimentation",
+        "different-circuits": "Deux circuits reliés",
+        "different-rcds": "Neutres de deux différentiels reliés",
+        "different-phases": "Deux phases reliées",
+        "different-outputs": "Sorties distinctes reliées",
+        "different-signal-members": "Les deux fils d’une paire de signal reliés",
+        "unassigned-cores": "Impossible de déterminer si ceux-ci peuvent être reliés",
+        "bus-continuation": "Le bus continue vers l’appareil suivant"
+      },
+      "unresolved": "Impossible de déterminer si ceux-ci peuvent être reliés",
+      "levelRole": "Le conducteur ne convient pas à cette borne",
+      "orphaned": "Le conducteur n’existe plus",
+      "unterminated": "Conducteur non raccordé",
+      "unused": "Pas utilisé dans le schéma unifilaire",
+      "duplicate": "Désignation utilisée deux fois",
+      "hardware": {
+        "unknown-block": "Type de borne inconnu",
+        "unknown-level": "La borne n’a pas ce niveau",
+        "no-such-clamp": "La borne n’a pas ce point de serrage",
+        "clamp-occupied": "Deux conducteurs dans un point de serrage",
+        "unknown-connector": "La borne de connexion n’existe plus",
+        "pe-without-bonded-rail": "Bornes de terre sur un rail non relié à la terre"
+      }
+    }
   }
 }

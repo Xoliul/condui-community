@@ -223,6 +223,7 @@ async function prepareSceneForPage(
         : await prepareEendraadScene(diagramId, 0, null, options, undefined, {
             project: context.project,
             panelLayout,
+            wireSegments: context.eendraadWireSegments,
           })
       if (!fullScene) {
         throw new ExportError('NO_CONTENT', `Eendraad scene for diagram ${diagramId} not in cache`)
@@ -406,7 +407,7 @@ export async function exportToPDF(
             null,
             { ...options, theme: exportTheme },
             undefined,
-            { project: context.project, panelLayout }
+            { project: context.project, panelLayout, wireSegments: context.eendraadWireSegments }
           )
           byPanelId.set(diagramId, fullScene)
           const baseOverlays = collectEendraadTextOverlays(panelLayout, exportTheme)

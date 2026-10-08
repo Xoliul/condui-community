@@ -49,6 +49,7 @@ import { getDerivedCircuitKind } from '@/lib/circuitKind'
 import { useEditionFeatureAvailability } from '@/hooks/useEditionFeatureAvailability'
 import { DOMOTICA_CONTROL_OVERLAY_PATHS, TRANSFORMER_OVERLAY_PATHS } from '@/lib/symbols'
 import { JunctionIdentityField } from '../shared/JunctionIdentityField'
+import { JunctionEditorOpenButton } from '@/components/junctionEditor/junctionEditorHostedFeatures'
 import {
   assignTerminalStripPin,
   assignTerminalStripPins,
@@ -1384,6 +1385,9 @@ export function TrunkDeviceProperties({
           toggleTitle={t('junctionIdentity.toggleVisibility', 'Show or hide identity on diagram')}
           emptyText={t('junctionIdentity.noExisting', 'No existing identities')}
         />
+        {(device.symbol === 'terminal_strip' || device.symbol === 'junction_box') && (
+          <JunctionEditorOpenButton occurrenceId={device.id} />
+        )}
         {device.symbol === 'terminal_strip' && (
           <div>
             <label className={labelClass}>{t('terminalStrip.pin', 'Pin')}</label>

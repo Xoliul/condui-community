@@ -208,12 +208,16 @@ export const HEAVY_APPLIANCE_SYMBOLS: Set<SymbolKey> = new Set<SymbolKey>([
   'dishwasher',
 ])
 
-/** Devices that do not warrant a dedicated circuit hint by themselves. */
+/** Symbols that should not count as consumer appliances for the dedicated-circuit hint. */
 export const FIXED_APPLIANCE_DEDICATED_HINT_EXCLUDED_SYMBOLS = new Set<SymbolKey>([
   'bell',
   'buzzer',
+  'energy_meter',
   'horn',
+  'junction_box',
+  'junction_panel',
   'siren',
+  'terminal_strip',
   'transformer',
 ])
 
@@ -223,10 +227,8 @@ export function getElementPortDomains(
   elementType: string | undefined,
   elementId: string | undefined
 ): readonly [ElectricalDomain, ElectricalDomain] {
-  const fallback: readonly [ElectricalDomain, ElectricalDomain] = [
-    DEFAULT_ELECTRICAL_DOMAIN,
-    DEFAULT_ELECTRICAL_DOMAIN,
-  ]
+  // An unresolved anchor does not establish an AC-only device rating.
+  const fallback: readonly [ElectricalDomain, ElectricalDomain] = ['AC', 'DC']
   if (!elementType || !elementId) return fallback
   switch (elementType) {
     case 'mainBus':
@@ -234,7 +236,7 @@ export function getElementPortDomains(
     case 'ground':
       return elementType === 'ground' ? fallback : ['AC', 'DC']
     case 'rcd':
-      return getPortDomainsForSymbol('rcd')
+      return symbolInheritsWireDomain('rcd') ? fallback : getPortDomainsForSymbol('rcd')
     case 'protection': {
       const protection = query.getProtectionById(elementId)
       if (!protection) return fallback
@@ -248,8 +250,7 @@ export function getElementPortDomains(
         return symbolInheritsWireDomain(symbolId) ? ['AC', 'DC'] : getPortDomainsForSymbol(symbolId)
       }
       // Trunk devices are wired as endpoint anchors in eendraad metadata.
-      // Resolve them here to avoid falling back to AC/AC and creating
-      // premature domain mismatch warnings for valid converters.
+      // Resolve typed trunk ports instead of treating them as untyped anchors.
       const trunkDevice = query.getTrunkDeviceById(elementId)
       if (trunkDevice) return symbolInheritsWireDomain(trunkDevice.symbol) ? ['AC', 'DC'] : getPortDomainsForSymbol(trunkDevice.symbol)
       return fallback

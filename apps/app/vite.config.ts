@@ -157,6 +157,22 @@ export function assertNoElectricalVisionModules(moduleIds: Iterable<string>): vo
   }
 }
 
+const junctionEditorModulePrefixes = [
+  'apps/app/src/lib/junction/',
+  'apps/app/src/components/junctionEditor/',
+  'apps/app/src/handlers/junction/',
+] as const
+
+/** The junction editor, its catalog, documents and asset sync are hosted-only. */
+export function assertNoJunctionEditorModules(moduleIds: Iterable<string>): void {
+  const leaked = [...new Set(moduleIds)].filter((moduleId) =>
+    junctionEditorModulePrefixes.some((prefix) => moduleId.startsWith(prefix)),
+  )
+  if (leaked.length > 0) {
+    throw new Error(`Community build includes junction editor module(s): ${leaked.join(', ')}`)
+  }
+}
+
 const projectDocumentsModulePrefixes = [
   'apps/app/src/components/documents/',
   'apps/app/src/lib/documents/',
@@ -227,6 +243,9 @@ function stripDisabledElectricalVisionScanSource(source: string): string {
 
 const aliases = {
   '@/components/import/TrikMergeMenuItem': './src/editions/community/communityTrikMergeMenuItem.tsx',
+  '@/lib/junction/junctionHostedHooks': './src/editions/community/communityJunctionHooks.ts',
+  '@/components/junctionEditor/junctionEditorHostedFeatures':
+    './src/editions/community/communityJunctionEditor.tsx',
   '@/stores/wallScanStore': './src/editions/community/communityWallScan.tsx',
   './WallRecognitionControls': './src/editions/community/communityWallScan.tsx',
   './plan/WallScanReview': './src/editions/community/communityWallScan.tsx',
@@ -322,6 +341,7 @@ export default defineConfig({
         assertNoHostedDxfModules(modules)
         assertNoElectricalVisionModules(modules)
         assertNoProjectDocumentsModules(modules, { documentsEnabled: projectDocumentsEnabled })
+        assertNoJunctionEditorModules(modules)
         fs.writeFileSync(
           path.resolve(appRoot, '.community-module-audit.local.json'),
           `${JSON.stringify({ modules: [...new Set(modules)] }, null, 2)}\n`,

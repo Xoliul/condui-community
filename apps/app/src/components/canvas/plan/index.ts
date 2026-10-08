@@ -16,6 +16,7 @@ export {
 } from './PlanPlacementDragFollowers'
 export { PlanPlacementLabelsLayer, PlanPlacementSymbolsLayer } from './PlanPlacementLayers'
 export { PlanWiresLayerWithDrag } from './PlanWiresLayerWithDrag'
+export { PlanWiringCircuitBar } from './PlanWiringCircuitBar'
 export { FloorPlanMode } from './FloorPlanMode'
 export { StairRenderer, getStairBounds, buildStairGeometry } from './StairRenderer'
 export { isSpiralStair } from '@/lib/plan/stairPlanScale'

@@ -1,6 +1,5 @@
 import type { StoreApi } from 'zustand'
 import type { Floor } from '@/types/schema'
-import { useUIStore } from '@/stores/uiStore'
 import { type Project, type ProjectState } from './projectStoreTypes'
 
 export const MAX_HISTORY_ENTRIES = 100
@@ -178,7 +177,7 @@ class ProjectHistoryCoordinator {
   private recordingSuppressionDepth = 0
   private skipNextSubscriber = false
   private suppressNextDebouncedSubscriber = false
-  private pendingTimer: number | null = null
+  private pendingTimer: ReturnType<typeof globalThis.setTimeout> | null = null
   private pendingProject: Project | null = null
 
   isRecordingEnabled(): boolean {
@@ -247,7 +246,7 @@ class ProjectHistoryCoordinator {
   schedulePending(project: Project): void {
     this.pendingProject = project
     if (this.pendingTimer != null) clearTimeout(this.pendingTimer)
-    this.pendingTimer = window.setTimeout(() => {
+    this.pendingTimer = globalThis.setTimeout(() => {
       this.flushPending()
     }, HISTORY_DEBOUNCE_MS)
   }
@@ -314,22 +313,6 @@ export function collapseUndoGroupFromIndex(startIndex: number): void {
       redoStack: [],
     }
   })
-}
-
-export function clearStaleSelectionAfterProjectRestore(): void {
-  const { selection, setSelection } = useUIStore.getState()
-  if (!selection.type || selection.ids.length === 0) return
-
-  const store = getProjectStoreApi().getState()
-  if (selection.type === 'endpoint') {
-    const hasMissing = selection.ids.some((id) => !store.getEndpointById(id))
-    if (hasMissing) setSelection({ type: null, ids: [] })
-    return
-  }
-  if (selection.type === 'placement') {
-    const hasMissing = selection.ids.some((id) => !store.getPlacementById(id))
-    if (hasMissing) setSelection({ type: null, ids: [] })
-  }
 }
 
 export function floorHasReferenceOverlayContent(floor: Floor): boolean {

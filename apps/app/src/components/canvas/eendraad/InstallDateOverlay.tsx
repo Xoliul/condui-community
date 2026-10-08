@@ -6,10 +6,36 @@ import type { TFunction } from 'i18next'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import {
   LAYOUT_CONSTANTS,
+  getPanelDiagramId,
   type BottomUpLayoutResult,
   type BottomUpPanelLayout,
 } from '@/lib/layout/bottomUpLayout'
-import type { Circuit, Endpoint, Panel, ProtectionDevice, TrunkDevice } from '@/types/schema'
+import type {
+  Circuit,
+  Endpoint,
+  Panel,
+  ProtectionDevice,
+  TrunkDevice,
+  WireSegment,
+} from '@/types/schema'
+import { EENDRAAD_PANEL_SYMBOL_WIDTH } from './canvasSymbols'
+import {
+  CIRCUIT_NOTES_PAINT_PADDING,
+  getCircuitNotesPaintBounds,
+} from '@/lib/layout/circuitNoteMetrics'
+import {
+  WIRE_LABEL_DISTANCE_FROM_WIRE,
+  WIRE_LABEL_FONT_SIZE,
+  WIRE_LABEL_LINE_GAP,
+  formatWireLabel,
+  getSupplyWireLabelAnchor,
+  isHorizontalSupplyTrunkSegment,
+} from '@/lib/wireTextLabel'
+import {
+  isFireClassLabelVisibleForSegment,
+  isWireLabelVisibleForSegment,
+  isWireLengthLabelVisibleForSegment,
+} from '@/lib/wireLabelVisibility'
 import {
   formatInstallYearLabel,
   getEffectiveInstallYear,
@@ -21,7 +47,12 @@ import {
   type ProjectWithOptionalInstallYear,
 } from '@/lib/installDates'
 import type { ResolvedFrameItem } from '@/lib/eendraad/frameContent'
-import { computeEendraadFrameBounds, type EendraadFrameBounds } from '@/lib/eendraad/frameBounds'
+import {
+  collectDomoticaRowLabelRects,
+  collectEendraadDeviceLabelRects,
+  computeEendraadFrameBounds,
+  type EendraadFrameBounds,
+} from '@/lib/eendraad/frameBounds'
 import {
   buildInstallDateInheritanceIndex,
   installDateTargetKey,
@@ -55,6 +86,7 @@ export type InstallDateOverlayProject = ProjectWithOptionalV2Electrical &
 interface InstallDateOverlayProps {
   project: InstallDateOverlayProject
   layout: BottomUpLayoutResult | null
+  wireSegments?: readonly WireSegment[]
   visible: boolean
   monochrome: boolean
   selectionEnabled: boolean
@@ -135,6 +167,15 @@ function containsBounds(outer: EendraadFrameBounds, inner: EendraadFrameBounds):
   )
 }
 
+/** A year this close to its item reads as its caption; farther away it needs a leader line. */
+const RELATION_LINE_FREE_GAP = 4
+
+function rectGap(a: RectBounds, b: RectBounds): number {
+  const dx = Math.max(0, a.x - (b.x + b.width), b.x - (a.x + a.width))
+  const dy = Math.max(0, a.y - (b.y + b.height), b.y - (a.y + a.height))
+  return Math.hypot(dx, dy)
+}
+
 function rectsOverlap(a: RectBounds, b: RectBounds): boolean {
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y
 }
@@ -210,12 +251,33 @@ function clippedRelationLine(
   ]
 }
 
+/** Painted text of circuit notes; vertical notes rise from their anchor, they don't centre on it. */
+function buildCircuitNoteObstacles(panelLayout: BottomUpPanelLayout): RectBounds[] {
+  return (panelLayout.circuitNotes ?? [])
+    .filter((note) => note.notesVisible && note.label.trim())
+    .map((note) => {
+      const paint = getCircuitNotesPaintBounds(note.label, note.notesOrientation)
+      const pad = CIRCUIT_NOTES_PAINT_PADDING - 2
+      return {
+        x: note.x + paint.left + pad,
+        y: note.y + paint.top + pad,
+        width: paint.right - paint.left - pad * 2,
+        height: paint.bottom - paint.top - pad * 2,
+      }
+    })
+}
+
 function buildLabelObstacles(panelLayout: BottomUpPanelLayout): RectBounds[] {
   return panelLayout.elements
-    .filter((element) => element.type === 'label' && element.label?.trim())
+    .filter(
+      (element) =>
+        element.type === 'label' &&
+        element.label?.trim() &&
+        !element.id.startsWith('circuit-notes-')
+    )
     .map((element) => {
       const text = element.label ?? ''
-      const width = Math.max(22, estimateOverlayTextWidth(text, 10))
+      const width = Math.max(22, estimateOverlayTextWidth(text, 11))
       const vertical = element.height != null && element.height > (element.width ?? 0)
       if (vertical) {
         return {
@@ -225,11 +287,14 @@ function buildLabelObstacles(panelLayout: BottomUpPanelLayout): RectBounds[] {
           height: Math.max(width, element.height ?? 0),
         }
       }
+      // Branch and circuit letters are right-aligned on their layout X (see layoutTree).
+      const rightAligned = !!element.branchId || !!element.circuitId
+      const pad = 3
       return {
-        x: element.position.x - width / 2,
-        y: element.position.y - 7,
-        width,
-        height: 16,
+        x: (rightAligned ? element.position.x - width : element.position.x - width / 2) - pad,
+        y: element.position.y - 8,
+        width: width + pad * 2,
+        height: 17,
       }
     })
 }
@@ -250,6 +315,99 @@ function buildSymbolObstacles(panelLayout: BottomUpPanelLayout): RectBounds[] {
       .map((element) => symbolAt(element.position)),
     ...(panelLayout.supplyDevices ?? []).map(symbolAt),
     ...(panelLayout.groundDevices ?? []).map(symbolAt),
+  ]
+}
+
+const WIRE_OBSTACLE_HALF_WIDTH = 2
+
+/** Wires of this diagram and their cable captions; a year must never sit on either. */
+function buildWireObstacles(
+  panelLayout: BottomUpPanelLayout,
+  wireSegments: readonly WireSegment[]
+): RectBounds[] {
+  const diagramId = getPanelDiagramId(panelLayout)
+  const lineStep = WIRE_LABEL_FONT_SIZE + WIRE_LABEL_LINE_GAP
+  const obstacles: RectBounds[] = []
+  for (const segment of wireSegments) {
+    if (segment.panelId !== panelLayout.panel.id) continue
+    if ((segment.diagramId ?? segment.panelId) !== diagramId) continue
+    const { startPoint: start, endPoint: end } = segment
+    const vertical = start.x === end.x
+    if (!vertical && start.y !== end.y) continue
+    obstacles.push({
+      x: Math.min(start.x, end.x) - WIRE_OBSTACLE_HALF_WIDTH,
+      y: Math.min(start.y, end.y) - WIRE_OBSTACLE_HALF_WIDTH,
+      width: Math.abs(end.x - start.x) + WIRE_OBSTACLE_HALF_WIDTH * 2,
+      height: Math.abs(end.y - start.y) + WIRE_OBSTACLE_HALF_WIDTH * 2,
+    })
+    if (!isWireLabelVisibleForSegment(segment)) continue
+
+    const extraLines =
+      (isFireClassLabelVisibleForSegment(segment) ? 1 : 0) +
+      (isWireLengthLabelVisibleForSegment(segment) ? 1 : 0)
+    const stackDepth = WIRE_LABEL_FONT_SIZE + extraLines * lineStep
+    if (isHorizontalSupplyTrunkSegment(segment)) {
+      const anchor = getSupplyWireLabelAnchor(segment) ?? start
+      const width = estimateRelationTextWidth(formatWireLabel(segment), WIRE_LABEL_FONT_SIZE)
+      obstacles.push({
+        x: anchor.x - width / 2,
+        y: anchor.y - WIRE_LABEL_DISTANCE_FROM_WIRE - stackDepth,
+        width,
+        height: stackDepth + WIRE_LABEL_DISTANCE_FROM_WIRE,
+      })
+    } else if (vertical) {
+      // Vertical captions are truncated to their run, so the run bounds their length.
+      const labelEnd = segment.wireLabelBaseEndPoint ?? segment.wireLabelEndPoint ?? end
+      obstacles.push({
+        x: start.x,
+        y: Math.min(start.y, labelEnd.y),
+        width: WIRE_LABEL_DISTANCE_FROM_WIRE + stackDepth + 4,
+        height: Math.abs(labelEnd.y - start.y),
+      })
+    }
+  }
+  return obstacles
+}
+
+/** Names drawn beside linked panel symbols, e.g. "Bord 2". */
+function buildPanelSymbolNameObstacles(panelLayout: BottomUpPanelLayout): RectBounds[] {
+  const fontSize = 12
+  return panelLayout.elements
+    .filter((element) => element.type === 'endpoint' && element.id?.startsWith('subpanel-symbol-'))
+    .map((element) => {
+      const endpoint = element.endpointId
+        ? findEndpointInPanel(panelLayout.panel, element.endpointId)
+        : undefined
+      const nameWidth = estimateOverlayTextWidth(endpoint?.label?.trim() || 'Bord 0', fontSize)
+      const left = element.position.x - EENDRAAD_PANEL_SYMBOL_WIDTH / 2
+      return {
+        x: left,
+        y: element.position.y - fontSize,
+        width: EENDRAAD_PANEL_SYMBOL_WIDTH + 5 + nameWidth,
+        height: fontSize * 2,
+      }
+    })
+}
+
+/** Spots touching the dated item itself, so the year reads as its caption without a leader line. */
+function huggingCandidates(
+  content: RectBounds,
+  textWidth: number,
+  textHeight: number
+): Array<{ x: number; y: number }> {
+  const gap = RELATION_LINE_FREE_GAP - 1
+  const right = content.x + content.width
+  const bottom = content.y + content.height
+  const middleY = content.y + (content.height - textHeight) / 2
+  return [
+    { x: right - textWidth, y: content.y - textHeight - gap },
+    { x: right + gap, y: content.y - textHeight / 2 },
+    { x: right + gap, y: middleY },
+    { x: right + gap, y: bottom - textHeight / 2 },
+    { x: right - textWidth, y: bottom + gap },
+    { x: content.x, y: content.y - textHeight - gap },
+    { x: content.x - textWidth - gap, y: middleY },
+    { x: content.x, y: bottom + gap },
   ]
 }
 
@@ -322,8 +480,19 @@ function shrinkFramePaddingCollisions(frames: DateFrame[]): DateFrame[] {
   return adjusted
 }
 
-function placeFrameLabels(frames: DateFrame[], panelLayout: BottomUpPanelLayout): DateFrame[] {
-  const obstacles = buildLabelObstacles(panelLayout)
+function placeFrameLabels(
+  frames: DateFrame[],
+  panelLayout: BottomUpPanelLayout,
+  wireSegments: readonly WireSegment[]
+): DateFrame[] {
+  const obstacles = [
+    ...buildLabelObstacles(panelLayout),
+    ...buildCircuitNoteObstacles(panelLayout),
+    ...buildWireObstacles(panelLayout, wireSegments),
+    ...collectEendraadDeviceLabelRects(panelLayout),
+    ...collectDomoticaRowLabelRects(panelLayout),
+    ...buildPanelSymbolNameObstacles(panelLayout),
+  ]
   const symbolObstacles = buildSymbolObstacles(panelLayout)
   const placedLabels: RectBounds[] = []
   const fontSize = 11
@@ -385,12 +554,30 @@ function placeFrameLabels(frames: DateFrame[], panelLayout: BottomUpPanelLayout)
                 { x: frame.x, y: frame.y - gap },
                 { x: frame.x - textWidth - 3, y: frame.y + (frame.height - textHeight) / 2 },
               ]
-    const candidates = [
-      ...preferredCandidates,
+    const fallbackCandidates = [
       { x: frame.x + frame.width + 4, y: frame.y - textHeight - 2 },
       { x: frame.x - textWidth - 4, y: frame.y - textHeight - 2 },
       { x: frame.x + frame.width + 4, y: frame.y + frame.height + 2 },
       { x: frame.x - textWidth - 4, y: frame.y + frame.height + 2 },
+    ]
+    // Crowded spots: walk further out before accepting any overlap.
+    const outwardCandidates = [1, 2, 3].flatMap((step) => {
+      const dx = step * (textWidth / 2 + 6)
+      const dy = step * (textHeight + 4)
+      return [
+        { x: frame.x + frame.width - textWidth + dx, y: frame.y - textHeight - 2 - dy },
+        { x: frame.x - dx, y: frame.y - textHeight - 2 - dy },
+        { x: frame.x + frame.width + 4 + dx, y: frame.y + (frame.height - textHeight) / 2 },
+        { x: frame.x - textWidth - 4 - dx, y: frame.y + (frame.height - textHeight) / 2 },
+        { x: frame.x + frame.width - textWidth + dx, y: frame.y + frame.height + 2 + dy },
+        { x: frame.x - dx, y: frame.y + frame.height + 2 + dy },
+      ]
+    })
+    const candidates = [
+      ...preferredCandidates,
+      ...huggingCandidates(frame.relationBounds ?? frame, textWidth, textHeight),
+      ...fallbackCandidates,
+      ...outwardCandidates,
     ]
     const frameContent = frame.relationBounds ?? frame
     const neighbouringFrames = frames.filter((other) => {
@@ -582,7 +769,8 @@ export function buildDateFramesForPanel(
   panelLayout: BottomUpPanelLayout,
   monochrome: boolean,
   t: TFunction,
-  inheritance: InstallDateInheritanceIndex = buildInstallDateInheritanceIndex(project)
+  inheritance: InstallDateInheritanceIndex = buildInstallDateInheritanceIndex(project),
+  wireSegments: readonly WireSegment[] = []
 ): DateFrame[] {
   const graph = buildCircuitGraphIndex(project)
   const candidates: DateCandidate[] = []
@@ -1010,7 +1198,7 @@ export function buildDateFramesForPanel(
     })
   }
 
-  return placeFrameLabels(shrinkFramePaddingCollisions(frames), panelLayout)
+  return placeFrameLabels(shrinkFramePaddingCollisions(frames), panelLayout, wireSegments)
 }
 
 export interface InstallDateFrameDrawing {
@@ -1036,12 +1224,19 @@ export function resolveInstallDateFrameDrawing(frame: DateFrame): InstallDateFra
     width: Math.min(textWidth, estimateRelationTextWidth(frame.label, fontSize)),
     height: fontSize + 2,
   }
-  const relationLine = drawsRelationLine
-    ? clippedRelationLine(
-        labelRect,
-        frame.relationBounds ?? { x: frame.x, y: frame.y, width: frame.width, height: frame.height }
-      )
-    : null
+  const relationBounds = frame.relationBounds ?? {
+    x: frame.x,
+    y: frame.y,
+    width: frame.width,
+    height: frame.height,
+  }
+  const relationLine =
+    drawsRelationLine && rectGap(labelRect, relationBounds) > RELATION_LINE_FREE_GAP
+      ? clippedRelationLine(
+          labelRect,
+          relationBounds
+        )
+      : null
   return {
     drawsBorder: !isSingle && !frame.borderless,
     relationLine,
@@ -1052,9 +1247,12 @@ export function resolveInstallDateFrameDrawing(frame: DateFrame): InstallDateFra
   }
 }
 
+const NO_WIRE_SEGMENTS: readonly WireSegment[] = []
+
 const InstallDateOverlay = memo(function InstallDateOverlay({
   project,
   layout,
+  wireSegments = NO_WIRE_SEGMENTS,
   visible,
   monochrome,
   selectionEnabled,
@@ -1065,9 +1263,9 @@ const InstallDateOverlay = memo(function InstallDateOverlay({
     if (!visible || !layout) return []
     const inheritance = buildInstallDateInheritanceIndex(project)
     return layout.panels.flatMap((panelLayout) =>
-      buildDateFramesForPanel(project, panelLayout, monochrome, t, inheritance)
+      buildDateFramesForPanel(project, panelLayout, monochrome, t, inheritance, wireSegments)
     )
-  }, [layout, monochrome, project, t, visible])
+  }, [layout, monochrome, project, t, visible, wireSegments])
 
   if (!visible || frames.length === 0) return null
 

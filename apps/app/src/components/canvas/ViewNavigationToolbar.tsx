@@ -18,6 +18,8 @@ interface ViewNavigationToolbarProps {
   position?: 'bottom-right' | 'top-right'
   /** Only the maximize/restore button, for views without zoom (e.g. a document overview). */
   maximizeOnly?: boolean
+  /** Lower zoom bound for this canvas. Unspecified canvases retain the shared limit. */
+  minZoom?: number
 }
 
 function ViewNavigationToolbar({
@@ -29,6 +31,7 @@ function ViewNavigationToolbar({
   canvasType,
   position = 'bottom-right',
   maximizeOnly = false,
+  minZoom = ZOOM_MIN,
 }: ViewNavigationToolbarProps) {
   const { t } = useTranslation()
   const { scale: overlayScale } = useCanvasOverlayScale()
@@ -51,9 +54,9 @@ function ViewNavigationToolbar({
   }, [zoom, onZoomChange])
 
   const handleZoomOut = useCallback(() => {
-    const newZoom = Math.max(ZOOM_MIN, zoom / 1.25)
+    const newZoom = Math.max(minZoom, zoom / 1.25)
     onZoomChange(newZoom)
-  }, [zoom, onZoomChange])
+  }, [minZoom, zoom, onZoomChange])
 
   const handleToggleMaximize = useCallback(() => {
     if (onToggleMaximize) {
@@ -152,7 +155,7 @@ function ViewNavigationToolbar({
         type="button"
         onPointerDown={preventCanvasToolbarMouseFocus}
         onClick={handleZoomOut}
-        disabled={zoom <= ZOOM_MIN}
+        disabled={zoom <= minZoom}
         className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-gray-700 dark:text-gray-300"
         title={`${t('canvas.zoomOut')} (-)`}
         aria-label={t('canvas.zoomOut')}

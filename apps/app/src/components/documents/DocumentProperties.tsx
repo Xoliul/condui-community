@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { JunctionDocumentProperties } from '@/components/junctionEditor/junctionEditorHostedFeatures'
 import { useTranslation } from 'react-i18next'
 import { CloudUpload, FileUp, Loader2, Minimize2, Paperclip, Trash2, X } from 'lucide-react'
 import CustomDropdown from '@/components/common/CustomDropdown'
@@ -172,6 +173,7 @@ function DocumentLinksSection({ document }: { document: ProjectDocument }) {
 export default function DocumentProperties({ documentId }: { documentId: string }) {
   if (documentId === CABLE_SCHEDULE_DOCUMENT_ID) return <CableScheduleProperties />
   if (documentId === CONTROL_ADDRESSES_DOCUMENT_ID) return <ControlAddressTableProperties />
+  if (documentId === 'builtin:junctions') return <JunctionDocumentProperties documentId={documentId} />
   return <StoredDocumentProperties documentId={documentId} />
 }
 

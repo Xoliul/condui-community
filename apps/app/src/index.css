@@ -200,3 +200,62 @@
 .pm-indeterminate-bar {
   animation: pm-indeterminate-bar 1.4s ease-in-out infinite;
 }
+
+/* Junction editor palette (mockups in apps/app/docs/context/future/junctions-and-terminal-strips-mockups.html). */
+.junction-editor {
+  /* Chrome follows the app's panels (white / gray-800, gray borders, sky-600 actions). */
+  --je-chrome: #ffffff;
+  --je-surface: #ffffff;
+  --je-input: #ffffff;
+  --je-control: #f9fafb;
+  --je-border: #e5e7eb;
+  --je-fg: #111827;
+  --je-muted: #6b7280;
+  --je-primary: #0284c7;
+  --je-attention: #38bdf8;
+  --je-select: #facc15;
+  /* Drawing (canvas) follows the junction mockups. */
+  --je-canvas: #e8edf3;
+  --je-dot: #c5cfdb;
+  --je-label-box: #f8fafc;
+  --je-rail: #9aa5b5;
+  --je-rail-edge: #7b8597;
+  --je-block: #cbd2dc;
+  --je-block-edge: #8d97a8;
+  --je-plate: #7b8597;
+  --je-stop: #5d6878;
+  --je-box: #ffffff;
+  --je-box-edge: #1e2734;
+  --je-level-l: #8b95a5;
+  --je-level-n: #3b6fd8;
+  --je-pe-green: #3f9b4a;
+  --je-pe-yellow: #e3c62b;
+  --je-marker: #eef1f5;
+  --je-jumper: #ef4444;
+}
+.dark .junction-editor {
+  --je-chrome: #1f2937;
+  --je-surface: #1f2937;
+  --je-input: #374151;
+  --je-control: #374151;
+  --je-border: #4b5563;
+  --je-fg: #f9fafb;
+  --je-muted: #9ca3af;
+  --je-canvas: #1e2734;
+  --je-dot: #2c3747;
+  --je-label-box: #232d3b;
+  --je-rail: #4b5768;
+  --je-rail-edge: #5c687b;
+  --je-block: #3a4556;
+  --je-block-edge: #596579;
+  --je-box: #252f3e;
+  --je-box-edge: #e5e9f0;
+}
+.junction-editor .je-canvas {
+  background-color: var(--je-canvas);
+  background-image: radial-gradient(var(--je-dot) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.junction-editor .je-pe {
+  background: repeating-linear-gradient(45deg, var(--je-pe-green) 0 4px, var(--je-pe-yellow) 4px 8px);
+}

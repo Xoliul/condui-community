@@ -15,7 +15,7 @@ import { PdfPageCanvas } from './PdfPageCanvas'
 const THUMBNAIL_WIDTH = 150
 
 /** Miniature of a generated table document: header band and striped rows, optionally badged. */
-function SheetThumbnail({ badge }: { badge?: ReactNode }) {
+function SheetThumbnail({ badge, badgeShape = 'circle' }: { badge?: ReactNode; badgeShape?: 'circle' | 'pill' }) {
   return (
     <div
       className="relative flex h-full w-[150px] flex-col gap-[3px] bg-white p-2 shadow-sm dark:bg-gray-900 dark:ring-1 dark:ring-gray-700"
@@ -32,7 +32,7 @@ function SheetThumbnail({ badge }: { badge?: ReactNode }) {
       ))}
       {badge && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-sky-600 shadow-md ring-1 ring-gray-200 dark:bg-gray-900/90 dark:text-sky-400 dark:ring-gray-600">
+          <div className={`flex h-14 ${badgeShape === 'pill' ? 'w-[88px]' : 'w-14'} items-center justify-center rounded-full bg-white/90 text-sky-600 shadow-md ring-1 ring-gray-200 dark:bg-gray-900/90 dark:text-sky-400 dark:ring-gray-600`}>
             {badge}
           </div>
         </div>
@@ -43,6 +43,31 @@ function SheetThumbnail({ badge }: { badge?: ReactNode }) {
 
 function DocumentThumbnail({ document }: { document: ProjectDocument }) {
   const [failed, setFailed] = useState(false)
+  if (document.kind === 'junctionOverview') {
+    return (
+      <SheetThumbnail
+        badgeShape="pill"
+        badge={
+          <span className="flex items-center gap-2">
+            {[
+              { symbol: 'terminal_strip', size: 56 },
+              { symbol: 'junction_box', size: 38 },
+            ].map(({ symbol, size }) => {
+              // The source SVGs have different margins; normalize their visible symbol size.
+              const mask = `url("/symbols/junction/${symbol}.svg") center / ${size}px ${size}px no-repeat`
+              return (
+                <span
+                  key={symbol}
+                  className="h-8 w-8 shrink-0 bg-current"
+                  style={{ WebkitMask: mask, mask }}
+                />
+              )
+            })}
+          </span>
+        }
+      />
+    )
+  }
   if (document.kind === 'cableSchedule') {
     return <SheetThumbnail badge={<WiringIcon className="h-8 w-8 [&>svg]:block [&>svg]:h-full [&>svg]:w-full" />} />
   }

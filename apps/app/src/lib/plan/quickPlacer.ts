@@ -8,12 +8,18 @@ import {
 } from '@/lib/projectV2/buildingFloors'
 import {
   selectProjectElectricalPanels,
+  selectProjectElectricalInstallation,
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
-import type { Circuit, Endpoint, Panel, ProtectionDevice, Placement } from '@/types/schema'
+import { canSymbolAppearOnSituationPlan } from '@/lib/plan/situationPlanSymbolEligibility'
+import { getSituationPlanPlacementIdsHiddenByPanel } from '@/lib/plan/panelPlanPlacementVisibility'
+import { getPanelSupplyTrunkDevices } from '@/lib/feedTopology'
+import type { Circuit, Endpoint, Panel, ProtectionDevice, Placement, TrunkDevice } from '@/types/schema'
 
 export interface QuickPlacerItem {
   endpoint: Endpoint
+  /** Set when this plan symbol belongs to a trunk device rather than a branch endpoint. */
+  trunkDeviceId?: string
   placement: Placement
   isCustomPlacement: boolean
   /** Not on the plan yet (manual plan placement); placing it puts it on the plan. */
@@ -41,9 +47,37 @@ export interface QuickPlacerCircuit {
   branches: QuickPlacerBranch[]
   /** Items in this circuit that are not on the plan yet. */
   awaitingCount: number
+  /** Supply side devices use their own row in the panel selector. */
+  isSupply?: boolean
 }
 
 type QuickPlacerProject = ProjectWithOptionalV2Building & ProjectWithOptionalV2Electrical
+
+function buildTrunkDeviceQuickPlacerItems(
+  devices: TrunkDevice[] | undefined,
+  floorNameById: Map<string, string>,
+  hiddenPlacementIds?: Set<string>
+): QuickPlacerItem[] {
+  return (devices ?? []).flatMap((device) => {
+    if (!canSymbolAppearOnSituationPlan(device.symbol)) return []
+    return (device.placements ?? [])
+      .filter((placement) => !hiddenPlacementIds?.has(placement.id))
+      .map((placement) => ({
+        endpoint: {
+          id: device.id,
+          type: device.type === 'switch' ? 'switch' : 'fixed_appliance',
+          label: device.label,
+          symbol: device.symbol,
+          placements: [placement],
+        },
+        trunkDeviceId: device.id,
+        placement,
+        isCustomPlacement: hasCustomPlacement(placement),
+        isAwaitingPlacement: isAwaitingPlanPlacement(placement),
+        floorName: floorNameById.get(placement.floorId) ?? placement.floorId,
+      }))
+  })
+}
 
 function appendQuickPlacerCircuits(
   panel: Panel,
@@ -235,7 +269,19 @@ export function buildQuickPlacerCircuits(
       itemsByCircuitId.get(circuit.id) ?? new Map<string, QuickPlacerItem[]>()
     const circuitIdentifier = getCircuitIdentifier(circuit.id) || circuit.code
 
-    const branches = buildQuickPlacerBranches(circuit, itemsByEndpointId, circuitIdentifier)
+    const trunkItems = buildTrunkDeviceQuickPlacerItems(circuit.trunkDevices, floorNameById)
+    const branches = [
+      ...(trunkItems.length > 0
+        ? [
+            {
+              id: `quick-placer-trunk-${circuit.id}`,
+              label: circuitIdentifier,
+              items: trunkItems,
+            },
+          ]
+        : []),
+      ...buildQuickPlacerBranches(circuit, itemsByEndpointId, circuitIdentifier),
+    ]
 
     if (branches.length === 0) continue
 
@@ -259,6 +305,48 @@ export function buildQuickPlacerCircuits(
         0
       ),
     })
+  }
+
+  const installation = selectProjectElectricalInstallation(project)
+  if (installation) {
+    const hiddenSupplyPlacementIds = getSituationPlanPlacementIdsHiddenByPanel(project)
+    const visitedPanelIds = new Set<string>()
+    const appendSupplyRows = (panel: Panel, panelPath: Panel[]) => {
+      if (visitedPanelIds.has(panel.id)) return
+      visitedPanelIds.add(panel.id)
+      const path = [...panelPath, panel]
+      const devices = getPanelSupplyTrunkDevices(
+        installation,
+        selectProjectElectricalPanels(project),
+        panel
+      )
+      const items = buildTrunkDeviceQuickPlacerItems(
+        devices,
+        floorNameById,
+        hiddenSupplyPlacementIds
+      )
+      if (items.length > 0) {
+        const pathNames = path.map((entry) => entry.name)
+        circuits.push({
+          id: `quick-placer-supply-${panel.id}`,
+          identifier: '',
+          notes: '',
+          panelId: panel.id,
+          panelName: panel.name,
+          panelPathIds: path.map((entry) => entry.id),
+          panelPathNames: pathNames,
+          panelPathLabel: pathNames.join(' / '),
+          panelDepth: Math.max(0, path.length - 1),
+          branches: [{ id: `quick-placer-supply-items-${panel.id}`, label: '', items }],
+          awaitingCount: items.filter((item) => item.isAwaitingPlacement).length,
+          isSupply: true,
+        })
+      }
+      for (const child of panel.subPanels ?? []) appendSupplyRows(child, path)
+    }
+    for (const rootPanel of selectProjectElectricalPanels(project)) {
+      appendSupplyRows(rootPanel, [])
+    }
   }
 
   return circuits

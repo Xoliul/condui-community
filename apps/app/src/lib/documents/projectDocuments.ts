@@ -27,6 +27,7 @@ export type ProjectDocumentKind =
   | 'externalInfluences'
   | 'cableSchedule'
   | 'controlAddresses'
+  | 'junctionOverview'
 
 /**
  * `projectAsset` documents are derived from files the project already owns and are read-only;

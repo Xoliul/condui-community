@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger'
+import { useJunctionEditorMenu } from '@/components/junctionEditor/junctionEditorHostedFeatures'
 /**
  * Panel (kast) canvas: shows one panel at a time as a grid of modules
  * (protections, energy meters, optionally domotica). Same panels as eendraad frames.
@@ -897,7 +898,8 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
     }
   }, [activePanelId, effectivePanelCanvasMode, setActivePanelId])
 
-  const handleGetContextMenuItems = usePanelContextMenu({
+  const withJunctionEditorItem = useJunctionEditorMenu()
+  const basePanelContextMenuItems = usePanelContextMenu({
     canDeleteItems,
     clearSelection,
     effectiveActivePanelId,
@@ -917,6 +919,14 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
     sharedSupplyRefKeys,
     t,
   })
+  const handleGetContextMenuItems = useCallback(
+    (position: import('@/types/ui').Point, elementId: string | null) =>
+      withJunctionEditorItem(basePanelContextMenuItems(position, elementId), [
+        elementId,
+        ...useUIStore.getState().selection.ids,
+      ]),
+    [basePanelContextMenuItems, withJunctionEditorItem]
+  )
 
   // Calculate panel frame dimensions with margin
   const FRAME_MARGIN = 40
