@@ -1,4 +1,5 @@
 import { readLegacyCompatibilityFloors } from '@/lib/projectV2/buildingFloors'
+import { runProjectCommand } from '@/stores/liveProjectCommandSession'
 import { useProjectStore } from '@/stores/projectStore'
 import { useUIStore } from '@/stores/uiStore'
 import type { Point } from '@/types/ui'
@@ -79,34 +80,20 @@ export function restoreHiddenSituationPlanPlacementsToActiveView(
       ] as const
     }),
   )
-  let restored = 0
-
-  selectedIds.forEach((placementId) => {
-    const placement = rowsById.get(placementId)
-    if (!placement) return
-    const pos = positions.get(placementId)
-    if (movingIds.has(placementId) && pos) {
-      const updates = { floorId: activeFloorId, layer, pos }
-      if (placement.isEarthing) {
-        store.updateEarthingPlacement(placementId, updates)
-      } else if (placement.junctionPanelLabel) {
-        store.updateJunctionPanelPlacement(placementId, updates)
-      } else {
-        store.updatePlacement(placementId, updates)
-      }
-    }
-    restored += 1
-  })
-
-  if (restored === 0) return false
-  for (const floor of floors) {
-    const existing = floor.hiddenSitplanPlacementIds ?? []
-    const remaining = existing.filter((id) => !selected.has(id))
-    if (remaining.length !== existing.length) {
-      store.updateFloor(floor.id, {
-        hiddenSitplanPlacementIds: remaining.length > 0 ? remaining : undefined,
-      })
-    }
-  }
+  const restored = selectedIds.filter((placementId) => rowsById.has(placementId))
+  if (restored.length === 0) return false
+  runProjectCommand(
+    'plan.showHiddenPlacements',
+    {
+      floorId: activeFloorId,
+      layer,
+      placementIds: selectedIds,
+      moves: restored.flatMap((placementId) => {
+        const pos = positions.get(placementId)
+        return movingIds.has(placementId) && pos ? [{ placementId, pos }] : []
+      }),
+    },
+    { label: 'show hidden situation plan symbols' },
+  )
   return true
 }

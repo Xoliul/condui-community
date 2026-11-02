@@ -21,6 +21,7 @@ import type { Circuit, Panel } from '@/types/schema'
 
 export interface WireRunChanges {
   medium?: WireRun['medium']
+  material?: WireRun['material']
   cable?: CableSpec
   route?: WireRun['route']
   inTube?: boolean
@@ -272,6 +273,7 @@ export function editWireRunAtAnchor(
   if (changes.followsDefaultCable && run.medium !== 'busbar' && isProjectDefaultCableAnchor(anchor))
     run.followsDefaultCable = true
   else if (changes.followsDefaultCable === false) delete run.followsDefaultCable
+  if ('material' in changes) run.material = changes.material
   if ('route' in changes) run.route = changes.route
   if ('inTube' in changes) run.inTube = changes.inTube
   if (changes.labels) run.labels = { ...run.labels, ...changes.labels }

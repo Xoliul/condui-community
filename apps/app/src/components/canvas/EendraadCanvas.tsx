@@ -44,9 +44,7 @@ import { useProjectStore, type ProjectState } from '@/stores/projectStore'
 import { runProjectCommand } from '@/stores/liveProjectCommandSession'
 import { useDialogStore } from '@/stores/dialogStore'
 import { useCanvasRegistryStore } from '@/stores/canvasRegistryStore'
-import { generateId } from '@/utils'
 import { isDemoProjectId } from '@/lib/demoProject'
-import { ensurePanelPlacement, getPanelEndpoint } from '@/utils/panelPlacement'
 import type {
   CanvasDropMeta,
   CanvasSize,
@@ -54,7 +52,6 @@ import type {
 } from '@/types/ui'
 import type {
   Endpoint,
-  Circuit,
   Panel,
 } from '@/types/schema'
 import BaseCanvas, { type BaseCanvasHandle } from './BaseCanvas'
@@ -67,7 +64,7 @@ import { EendraadWireSegmentsContext } from '@/contexts/EendraadWireSegmentsCont
 import { logger } from '@/lib/logger'
 import { trackSymbolPlace } from '@/lib/analytics/editorEventAnalytics'
 
-import { OffscreenPreviewIndicator, TrunkLayoutDebugOverlay } from './eendraad'
+import { EendraadRemoteSelections, OffscreenPreviewIndicator, TrunkLayoutDebugOverlay } from './eendraad'
 
 import InstallDateOverlay from './eendraad/InstallDateOverlay'
 
@@ -87,7 +84,7 @@ import { canCreateSupplyTopologyFromDrop } from '@/lib/supplyTopologyFeature'
 
 import {
   findSameSymbolAddMoreLayoutTargets,
-  incrementSameSymbolAddMoreTargetWithUndo,
+  incrementSameSymbolAddMoreTarget,
   isConflictingOnSymbolDrop,
   positionHitsMultiplierBadge,
   endpointMergeSettingsMatchEndpoints,
@@ -167,6 +164,8 @@ import type { EditorCapabilities } from '@/lib/viewerMode'
 import { useEditionFeatureAvailability } from '@/hooks/useEditionFeatureAvailability'
 import { LabelStyleSelect } from '@/components/canvas/eendraad/LabelSchemeSettings'
 import { applyLabelScheme } from '@/handlers/properties/applyLabelScheme'
+import { editProperties } from '@/handlers/properties/editProperties'
+import { updateNoteProperties } from '@/handlers/properties/editGeneralProperties'
 import { openLabelSchemeDialog } from '@/handlers/eendraad/openLabelSchemeDialog'
 import { labelSchemeUsesPanelPart, resolveLabelScheme } from '@/lib/eendraad/labelScheme'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -250,36 +249,12 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
   const canPlaceSymbols = capabilities?.canPlaceSymbols ?? true
   const canDragItems = capabilities?.canDragItems ?? true
   const canDeleteItems = capabilities?.canDeleteItems ?? true
-  const addCircuit = useProjectStore((s: ProjectState) => s.addCircuit)
-  const addEndpoint = useProjectStore((s: ProjectState) => s.addEndpoint)
-  const addPlacement = useProjectStore((s: ProjectState) => s.addPlacement)
-  const addTrunkDevice = useProjectStore((s: ProjectState) => s.addTrunkDevice)
-  const updateTrunkDevice = useProjectStore((s: ProjectState) => s.updateTrunkDevice)
-  const addSupplyTrunkDevice = useProjectStore((s: ProjectState) => s.addSupplyTrunkDevice)
-  const updateSupplyTrunkDevice = useProjectStore((s: ProjectState) => s.updateSupplyTrunkDevice)
-  const addGroundTrunkDevice = useProjectStore((s: ProjectState) => s.addGroundTrunkDevice)
-  const updateGroundTrunkDevice = useProjectStore((s: ProjectState) => s.updateGroundTrunkDevice)
-  const insertProtectionAfter = useProjectStore((s: ProjectState) => s.insertProtectionAfter)
   const getProtectionById = useProjectStore((s: ProjectState) => s.getProtectionById)
   const getPanelById = useProjectStore((s: ProjectState) => s.getPanelById)
   const getFloorById = useProjectStore((s: ProjectState) => s.getFloorById)
   const getCircuitById = useProjectStore((s: ProjectState) => s.getCircuitById)
   const getEndpointById = useProjectStore((s: ProjectState) => s.getEndpointById)
   const getTrunkDeviceById = useProjectStore((s: ProjectState) => s.getTrunkDeviceById)
-  const updateCircuit = useProjectStore((s: ProjectState) => s.updateCircuit)
-  const updatePanel = useProjectStore((s: ProjectState) => s.updatePanel)
-  const updateProtection = useProjectStore((s: ProjectState) => s.updateProtection)
-  const updateEndpoint = useProjectStore((s: ProjectState) => s.updateEndpoint)
-  const updateProject = useProjectStore((s: ProjectState) => s.updateProject)
-  const withSingleUndoEntry = useProjectStore((s: ProjectState) => s.withSingleUndoEntry)
-  const updateInstallation = useProjectStore((s: ProjectState) => s.updateInstallation)
-  const applyAutomaticEendraadNamingAllPanels = useProjectStore(
-    (s: ProjectState) => s.applyAutomaticEendraadNamingAllPanels
-  )
-  const resetAllEendraadLabelOverrides = useProjectStore(
-    (s: ProjectState) => s.resetAllEendraadLabelOverrides
-  )
-  const updateEendraadNote = useProjectStore((s: ProjectState) => s.updateEendraadNote)
   const getFramesByPanel = useProjectStore((s: ProjectState) => s.getFramesByPanel)
   const openDialog = useDialogStore((s) => s.openDialog)
   const canvasRef = useRef<BaseCanvasHandle>(null)
@@ -1024,15 +999,6 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
     setDateToolMonth,
     setDateToolYear,
     t,
-    updateCircuit,
-    updateEndpoint,
-    updateGroundTrunkDevice,
-    updatePanel,
-    updateProject,
-    updateProtection,
-    updateSupplyTrunkDevice,
-    updateTrunkDevice,
-    withSingleUndoEntry,
   })
 
   const fitTrigger = useCanvasUIStore((s) => s.fitToViewTrigger.eendraad)
@@ -1147,21 +1113,18 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
         : sameSymbolTrunkDevice
           ? { trunkDevice: sameSymbolTrunkDevice }
           : null
-      const sameSymbolAddMoreResult = incrementSameSymbolAddMoreTargetWithUndo(
-        symbol.id,
-        sameSymbolTarget,
-        {
-          syncEndpointCount: (endpointId, count) =>
-            syncEndpointMultiplierCount(createSyncEndpointMultiplierDeps(), endpointId, count),
-          syncSupplyDeviceCount: (deviceId, count) =>
-            syncSupplyDeviceMultiplierCount(
-              createSyncSupplyInverterMultiplierDeps(),
-              deviceId,
-              count
-            ),
-          withSingleUndoEntry,
-        }
-      )
+      const sameSymbolAddMoreResult = sameSymbolTarget
+        ? incrementSameSymbolAddMoreTarget(symbol.id, sameSymbolTarget, {
+            syncEndpointCount: (endpointId, count) =>
+              syncEndpointMultiplierCount(createSyncEndpointMultiplierDeps(), endpointId, count),
+            syncSupplyDeviceCount: (deviceId, count) =>
+              syncSupplyDeviceMultiplierCount(
+                createSyncSupplyInverterMultiplierDeps(),
+                deviceId,
+                count
+              ),
+          })
+        : 'not-applicable'
       if (sameSymbolAddMoreResult === 'incremented') {
         trackSymbolPlace({
           canvas: 'eendraad',
@@ -1339,7 +1302,6 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
       setSelection,
       wireSegments,
       getPanelById,
-      withSingleUndoEntry,
       resolveBranchDrop,
       window.document,
     ]
@@ -1424,9 +1386,6 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
   }, [])
 
   const longPressDuplicateDrag = useEendraadElementDrag({
-    addCircuit,
-    addEndpoint,
-    addPlacement,
     altDuplicatePointerCleanupRef,
     augmentCircuitVerticalWireDomain,
     canDragItems,
@@ -1463,11 +1422,9 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
     t,
     trunkBranchSlotMarkerRef,
     trunkDnDLoggedStartRef,
-    updateCircuit,
     viewportUI,
     window,
     wireSegments,
-    withSingleUndoEntry,
   })
 
   // Handle ground symbol drag end
@@ -1491,7 +1448,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
           const outcome = runProjectCommand('panel.ensureEarthingStem', { panelId })
           if (!outcome) return
         } else if (!targetPanelLayout.isSubPanel) {
-          updateInstallation({ hasGround: true })
+          editProperties({ installation: { hasGround: true } })
         }
         const activeFloorId = resolveSitplanTargetFloorId(
           currentProject,
@@ -1515,7 +1472,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
 
     // Clear drag preview
     setDragPreview(null)
-  }, [dragPreview, layout, currentProject, currentInstallation, updateInstallation, setDragPreview, viewportUI])
+  }, [dragPreview, layout, currentProject, currentInstallation, setDragPreview, viewportUI])
   useLayoutEffect(() => { handleGroundDragEndRef.current = handleGroundDragEnd }, [handleGroundDragEnd])
 
   const shouldSuppressKonvaDragEnd = useCallback(() => suppressKonvaDragEndRef.current, [])
@@ -1523,9 +1480,9 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
   const handleNoteDragEnd = useCallback(
     (noteId: string, newPos: Point) => {
       if (!canDragItems) return
-      updateEendraadNote(noteId, { pos: newPos })
+      updateNoteProperties(noteId, 'oneWire', { pos: newPos })
     },
-    [canDragItems, updateEendraadNote]
+    [canDragItems]
   )
   useLayoutEffect(() => { handleNoteDragEndRef.current = handleNoteDragEnd }, [handleNoteDragEnd])
 
@@ -1536,54 +1493,10 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
 
   // Ensure all panels have placements on the plan
   useEffect(() => {
-    // Get latest project state to avoid dependency on currentProject (which changes on every store update)
-    const project = useProjectStore.getState().currentProject
-    if (!project) return
-
-    getProjectElectricalPanels(project).forEach((panel: Panel) => {
-      const panelPlacement = ensurePanelPlacement(project, panel)
-      if (!panelPlacement) return
-
-      // Use the same complete lookup as ensurePanelPlacement, including
-      // protection circuits and subpanels.
-      const existingEndpoint = getPanelEndpoint(project, panel.id)
-
-      if (!existingEndpoint) {
-        // Check if a dummy circuit already exists for this panel
-        let dummyCircuit = panel.circuits.find((c: Circuit) => c.code === 'PANEL')
-
-        if (!dummyCircuit) {
-          // Create dummy circuit for panel endpoint
-          dummyCircuit = {
-            id: generateId(),
-            code: 'PANEL',
-            kind: 'other',
-            cable: {
-              kind: 'XVB',
-              conductors: 3,
-              sectionMm2: 6,
-              hasPE: true,
-            },
-            endpoints: [],
-          }
-          // Add circuit to panel
-          addCircuit(panel.id, dummyCircuit)
-        }
-
-        // Add endpoint to circuit
-        addEndpoint(dummyCircuit.id, {
-          ...panelPlacement.endpoint,
-          placements: [panelPlacement.placement],
-        })
-      } else {
-        // Non-destructive sync: panel_distribution endpoints should have one placement.
-        // If one already exists (possibly moved by the user), never auto-add another.
-        if (existingEndpoint.placements.length === 0) {
-          addPlacement(existingEndpoint.id, panelPlacement.placement)
-        }
-      }
-    })
-  }, [panelIds, addEndpoint, addPlacement, addCircuit])
+    // Depend on the panel ids only, not on currentProject (which changes on every store update).
+    if (!useProjectStore.getState().currentProject) return
+    runProjectCommand('plan.ensurePanelPlacements', {})
+  }, [panelIds])
 
   // Sync panel selection to plan view
   useEffect(() => {
@@ -1629,11 +1542,6 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
   }, [currentProject, viewportUI])
 
   const handleEendraadContextMenu = useEendraadContextMenu({
-    addCircuit,
-    addEndpoint,
-    addGroundTrunkDevice,
-    addSupplyTrunkDevice,
-    addTrunkDevice,
     canDeleteItems,
     canDragItems,
     canEditProject,
@@ -1642,7 +1550,6 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
     eendraadDateMarkingMode,
     exitDateMarkingMode,
     getEjectPlanPlacement,
-    insertProtectionAfter,
     isActiveViewport,
     layout,
     pointerOverEendraadRef,
@@ -1650,13 +1557,10 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
     setEendraadClipboard,
     setSelection,
     t,
-    updateCircuit,
-    updateTrunkDevice,
     viewportUI,
     window,
     wireSegments,
     withJunctionEditorItem,
-    withSingleUndoEntry,
   })
 
   const handleAddElementSelect = useCallback(
@@ -1703,15 +1607,17 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
   }, [layout, wireSegments])
 
   const enableAutomaticNamingAndApply = useCallback(() => {
-    updateInstallation({ eendraadAutomaticNaming: true })
-    applyAutomaticEendraadNamingAllPanels()
-  }, [applyAutomaticEendraadNamingAllPanels, updateInstallation])
+    editProperties({
+      installation: { eendraadAutomaticNaming: true },
+      refreshAutomaticNaming: true,
+    })
+  }, [])
 
   const handleEendraadAutomaticNamingChange = useCallback(
     (checked: boolean) => {
       if (!currentProject) return
       if (!checked) {
-        updateInstallation({ eendraadAutomaticNaming: false })
+        editProperties({ installation: { eendraadAutomaticNaming: false } })
         return
       }
       const opts = resolveAutomaticNamingOptsFromInstallation(
@@ -1731,7 +1637,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
         onConfirm: enableAutomaticNamingAndApply,
       })
     },
-    [currentProject, enableAutomaticNamingAndApply, openDialog, t, updateInstallation]
+    [currentProject, enableAutomaticNamingAndApply, openDialog, t]
   )
 
   const handleResetAllEendraadLabels = useCallback(() => {
@@ -1749,10 +1655,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
       onConfirm: () => {
         const latestProject = useProjectStore.getState().currentProject
         if (!latestProject || !projectHasManualEendraadLabelOverrides(latestProject)) return
-        withSingleUndoEntry(() => {
-          resetAllEendraadLabelOverrides()
-          return true
-        })
+        runProjectCommand('eendraad.resetLabelOverrides', {})
       },
     })
   }, [
@@ -1760,24 +1663,24 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
     eendraadAutoNaming,
     hasCustomEendraadLabels,
     openDialog,
-    resetAllEendraadLabelOverrides,
     t,
-    withSingleUndoEntry,
   ])
 
   const applyHideFeederPreferenceAndRenumber = useCallback(
     (hideFeederLetters: boolean) => {
-      updateInstallation({ eendraadAutoNamingHideFeederLetters: hideFeederLetters })
-      applyAutomaticEendraadNamingAllPanels()
+      editProperties({
+        installation: { eendraadAutoNamingHideFeederLetters: hideFeederLetters },
+        refreshAutomaticNaming: true,
+      })
     },
-    [applyAutomaticEendraadNamingAllPanels, updateInstallation]
+    []
   )
 
   const handleEendraadHideFeederLettersChange = useCallback(
     (checked: boolean) => {
       if (!currentProject) return
       if (!eendraadAutoNaming) {
-        updateInstallation({ eendraadAutoNamingHideFeederLetters: checked })
+        editProperties({ installation: { eendraadAutoNamingHideFeederLetters: checked } })
         return
       }
       const opts = { hideFeederLetters: checked }
@@ -1801,7 +1704,6 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
       eendraadAutoNaming,
       openDialog,
       t,
-      updateInstallation,
     ]
   )
 
@@ -1969,11 +1871,8 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
             ) : null}
 
             {/* Debug: hit zone overlay (dev builds only, when enabled in settings) */}
-            {import.meta.env.DEV && (
-              <>
-                <TrunkLayoutDebugOverlay layout={layout} wireSegments={wireSegments} />
-              </>
-            )}
+            {import.meta.env.DEV && <TrunkLayoutDebugOverlay layout={layout} wireSegments={wireSegments} />}
+            <EendraadRemoteSelections getSelectionBounds={handleGetSelectionBounds} zoom={eendraadView.zoom} />
             {}
           </Group>
         </BaseCanvas>

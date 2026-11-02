@@ -60,6 +60,7 @@ export function wireSegmentFingerprint(segment: WireSegment): string {
     segment.wireRoute ?? (segment.inWall ? 'wall' : segment.inWall === false ? 'air' : 'none')
   return JSON.stringify({
     cable: normalizeCableForFingerprint(segment.cable),
+    material: segment.wireMaterial ?? 'copper',
     domain: segment.domain ?? 'AC',
     inTube: segment.inTube ?? false,
     wireRoute: route,
@@ -78,6 +79,7 @@ export function formatWireTallySummaryLabel(segment: WireSegment, t: WireTransla
   const spec = hasPE ? `${type} ${conductors}G${thickness}` : `${type} ${conductors}x${thickness}`
 
   const extras: string[] = []
+  if (segment.wireMaterial === 'aluminium') extras.push('Al')
   if (segment.cable.fireClass) extras.push(segment.cable.fireClass)
   if (segment.inTube) extras.push(t('wires.inTube', 'Tube'))
   const route = segment.wireRoute ?? (segment.inWall ? 'wall' : undefined)

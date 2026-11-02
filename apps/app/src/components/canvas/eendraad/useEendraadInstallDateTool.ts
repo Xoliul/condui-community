@@ -25,18 +25,18 @@ import type {
 } from '@/types/schema'
 
 import { logger } from '@/lib/logger'
+import { editProperties } from '@/handlers/properties/editProperties'
+import { updateProjectProperties } from '@/handlers/properties/editGeneralProperties'
 
 import type { useEendraadLayout } from '@/hooks/eendraad'
 
 import {
   getExplicitInstallationDate,
   getExplicitInstallYear,
-  getInstallYearColorKey,
   installationDateFromYear,
   installYearColor,
   normalizeInstallationDate,
   normalizeInstallYear,
-  pickInstallYearColor,
 } from '@/lib/installDates'
 import {
   buildCircuitInstallDateTargets,
@@ -65,9 +65,7 @@ type DateToolFrameSelection = {
 } | null
 interface EendraadInstallDateToolOptions extends Pick<ProjectState,
   'getCircuitById' | 'getEndpointById' | 'getPanelById' | 'getProtectionById' |
-  'getTrunkDeviceById' | 'updateCircuit' | 'updateEndpoint' | 'updateGroundTrunkDevice' |
-  'updatePanel' | 'updateProject' | 'updateProtection' | 'updateSupplyTrunkDevice' |
-  'updateTrunkDevice' | 'withSingleUndoEntry'> {
+  'getTrunkDeviceById'> {
   canUseInstallDates: boolean
   closedDateToolSelectionKey: string | null
   containerRef: RefObject<HTMLDivElement | null>
@@ -124,15 +122,6 @@ export function useEendraadInstallDateTool({
   setDateToolMonth,
   setDateToolYear,
   t,
-  updateCircuit,
-  updateEndpoint,
-  updateGroundTrunkDevice,
-  updatePanel,
-  updateProject,
-  updateProtection,
-  updateSupplyTrunkDevice,
-  updateTrunkDevice,
-  withSingleUndoEntry,
 }: EendraadInstallDateToolOptions) {
   const selectedDateToolTargets = useMemo(() => {
     if (!currentProject) return []
@@ -239,121 +228,85 @@ export function useEendraadInstallDateTool({
         if (target.type === 'endpoint') return getEndpointById(target.id)
         return getTrunkDeviceById(target.id)?.device
       }
-      withSingleUndoEntry(() => {
-        const inheritance = currentProject
-          ? buildInstallDateInheritanceIndex(currentProject)
+      const inheritance = currentProject
+        ? buildInstallDateInheritanceIndex(currentProject)
+        : undefined
+      const edits: Array<{
+        kind: InstallDateTarget['type']
+        ids: string[]
+        set: {
+          installationDate: string | null
+          installationDateSuppressed: boolean | null
+          rulesetDateOverride: null
+        }
+      }> = []
+      for (const target of targets) {
+        const inheritedYear = currentProject
+          ? getInstallDateTargetInheritedYear(currentProject, target, inheritance)
           : undefined
-        if (currentProject) {
-          let nextColors = currentProject.project.installDateColors ?? {}
-          let changedColors = false
-          for (const target of targets) {
-            const inheritedYear = getInstallDateTargetInheritedYear(
-              currentProject,
-              target,
-              inheritance
-            )
-            const requestedYear = target.preserveYear ?? year
-            if (
-              target.clearOverride ||
-              requestedYear == null ||
-              (!target.forceOverride && requestedYear === inheritedYear)
-            )
-              continue
-            const key = getInstallYearColorKey(requestedYear)
-            if (nextColors[key]) continue
-            nextColors = {
-              ...nextColors,
-              [key]: pickInstallYearColor(nextColors),
-            }
-            changedColors = true
-          }
-          if (changedColors) {
-            updateProject({ installDateColors: nextColors })
-          }
+        const requestedYear = target.preserveYear ?? year
+        const existingDate = getExplicitInstallationDate(getTargetEntity(target))
+        const targetDate =
+          target.clearOverride ||
+          target.explicitlyUnmark ||
+          requestedYear == null ||
+          (!target.forceOverride && requestedYear === inheritedYear)
+            ? undefined
+            : target.preserveYear != null && existingDate?.startsWith(`${requestedYear}-`)
+              ? existingDate
+              : target.preserveYear != null
+                ? installationDateFromYear(requestedYear)
+                : date
+        const targetYear =
+          target.clearOverride ||
+          target.explicitlyUnmark ||
+          (!target.forceOverride && requestedYear === inheritedYear)
+            ? undefined
+            : requestedYear
+        const installationDateSuppressed = target.explicitlyUnmark ? true : undefined
+        logger.info('[install-date apply target]', {
+          type: target.type,
+          id: target.id,
+          requestedYear,
+          inheritedYear,
+          clearOverride: target.clearOverride === true,
+          forceOverride: target.forceOverride === true,
+          preserveYear: target.preserveYear,
+          targetYear,
+          targetDate,
+        })
+        if (target.type === 'trunkDevice') {
+          const result = getTrunkDeviceById(target.id)
+          if (result?.isSupplyDevice && result.supplyFeedScope === 'shared') continue
+          if (!result) continue
         }
-        for (const target of targets) {
-          const inheritedYear = currentProject
-            ? getInstallDateTargetInheritedYear(currentProject, target, inheritance)
-            : undefined
-          const requestedYear = target.preserveYear ?? year
-          const existingDate = getExplicitInstallationDate(getTargetEntity(target))
-          const targetDate =
-            target.clearOverride ||
-            target.explicitlyUnmark ||
-            requestedYear == null ||
-            (!target.forceOverride && requestedYear === inheritedYear)
-              ? undefined
-              : target.preserveYear != null && existingDate?.startsWith(`${requestedYear}-`)
-                ? existingDate
-                : target.preserveYear != null
-                  ? installationDateFromYear(requestedYear)
-                  : date
-          const targetYear =
-            target.clearOverride ||
-            target.explicitlyUnmark ||
-            (!target.forceOverride && requestedYear === inheritedYear)
-              ? undefined
-              : requestedYear
-          const installationDateSuppressed = target.explicitlyUnmark ? true : undefined
-          logger.info('[install-date apply target]', {
-            type: target.type,
-            id: target.id,
-            requestedYear,
-            inheritedYear,
-            clearOverride: target.clearOverride === true,
-            forceOverride: target.forceOverride === true,
-            preserveYear: target.preserveYear,
-            targetYear,
-            targetDate,
-          })
-          if (target.type === 'panel') {
-            updatePanel(target.id, {
-              installationDate: targetDate,
-              installationDateSuppressed,
-              rulesetDateOverride: undefined,
+        edits.push({
+          kind: target.type,
+          ids: [target.id],
+          set: {
+            installationDate: targetDate ?? null,
+            installationDateSuppressed: installationDateSuppressed ?? null,
+            rulesetDateOverride: null,
+          },
+        })
+      }
+      // Colors for newly used years and every target's date change commit as one undo step.
+      editProperties({
+        edits,
+        seedInstallDateColors: {
+          targets: targets.map(
+            ({ id, type, clearOverride, explicitlyUnmark, preserveYear, forceOverride }) => ({
+              id,
+              type,
+              clearOverride,
+              explicitlyUnmark,
+              preserveYear,
+              forceOverride,
             })
-          } else if (target.type === 'protection') {
-            updateProtection(target.id, {
-              installationDate: targetDate,
-              installationDateSuppressed,
-              rulesetDateOverride: undefined,
-            })
-          } else if (target.type === 'circuit') {
-            updateCircuit(target.id, {
-              installationDate: targetDate,
-              installationDateSuppressed,
-              rulesetDateOverride: undefined,
-            })
-          } else if (target.type === 'endpoint') {
-            updateEndpoint(target.id, {
-              installationDate: targetDate,
-              installationDateSuppressed,
-              rulesetDateOverride: undefined,
-            })
-          } else if (target.type === 'trunkDevice') {
-            const result = getTrunkDeviceById(target.id)
-            if (result?.isSupplyDevice) {
-              if (result.supplyFeedScope === 'shared') continue
-              updateSupplyTrunkDevice(target.id, {
-                installationDate: targetDate,
-                installationDateSuppressed,
-                rulesetDateOverride: undefined,
-              })
-            } else if (result?.isGroundDevice) {
-              updateGroundTrunkDevice(target.id, {
-                installationDate: targetDate,
-                installationDateSuppressed,
-                rulesetDateOverride: undefined,
-              })
-            } else if (result?.circuit) {
-              updateTrunkDevice(result.circuit.id, target.id, {
-                installationDate: targetDate,
-                installationDateSuppressed,
-                rulesetDateOverride: undefined,
-              })
-            }
-          }
-        }
+          ),
+          year,
+        },
+      })
         const projectAfter = useProjectStore.getState().currentProject
         if (projectAfter) {
           logger.debug(
@@ -365,8 +318,6 @@ export function useEendraadInstallDateTool({
             }))
           )
         }
-        return true
-      })
     },
     [
       currentProject,
@@ -375,15 +326,6 @@ export function useEendraadInstallDateTool({
       getPanelById,
       getProtectionById,
       getTrunkDeviceById,
-      updateCircuit,
-      updateEndpoint,
-      updateGroundTrunkDevice,
-      updatePanel,
-      updateProtection,
-      updateProject,
-      updateSupplyTrunkDevice,
-      updateTrunkDevice,
-      withSingleUndoEntry,
     ]
   )
 
@@ -569,14 +511,14 @@ export function useEendraadInstallDateTool({
   const updateInstallDateColor = useCallback(
     (year: number, color: string) => {
       if (!currentProject || !canUseInstallDates) return
-      updateProject({
+      updateProjectProperties({
         installDateColors: {
           ...(currentProject.project.installDateColors ?? {}),
           [String(year)]: color,
         },
       })
     },
-    [canUseInstallDates, currentProject, updateProject]
+    [canUseInstallDates, currentProject]
   )
 
   useEffect(() => {

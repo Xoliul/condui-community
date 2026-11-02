@@ -158,6 +158,7 @@
     "importFallbackProjectName": "Zaimportowany projekt ({{idShort}})"
   },
   "common": {
+    "retry": "Spróbuj ponownie",
     "more": "Więcej",
     "save": "Zapisz",
     "cancel": "Anuluj",
@@ -916,6 +917,10 @@
     }
   },
   "infoBlock": {
+    "drawingSettings": "Rysunek projektu",
+    "showConduiBranding": "Pokaż „Wykonano w condui.be”",
+    "installerHeading": "Nagłówek instalatora",
+    "settingsSearch": "ustawienia rysunek stopka marka instalator narysowane przez",
     "madeWith": "Utworzono za pomocą {{brand}}",
     "pageNr": "Strona",
     "installerPropertiesTitle": "Szczegóły instalatora",
@@ -3186,6 +3191,9 @@
     "csvDetails": "Bliższe dane"
   },
   "wires": {
+    "material": "Materiał",
+    "copper": "Miedź (Cu)",
+    "aluminium": "Aluminium (Al)",
     "wireTypeLabel": "Typ przewodu",
     "cableDefault": "Standard",
     "makeCableDefault": "Wykonaj standard",
@@ -3914,5 +3922,171 @@
     "showOnOneWire": "Pokaż na schemacie jednoprzewodowym",
     "pageName": "Strona schematu jednoprzewodowego {{page}}",
     "documentPage": "{{name}} · strona {{page}}"
+  },
+  "collab": {
+    "status": {
+      "joining": "Łączenie",
+      "live": "Na żywo",
+      "syncing": "Synchronizacja",
+      "offline": "Offline",
+      "suspended": "Wstrzymano"
+    },
+    "conflict": "Zmienione przez kogoś innego — spróbuj ponownie",
+    "peerOtherTab": "{{name}} (inna karta)",
+    "peersMore": "jeszcze {{count}}"
+  },
+  "shortCircuit": {
+    "defaultName": "Obliczenia zwarciowe",
+    "origin": "Początek instalacji",
+    "supplyCable": "Kabel zasilający",
+    "noBoards": "Brak rozdzielnic",
+    "source": {
+      "grid": "Sieć publiczna",
+      "declared": "Ik3 OSD",
+      "transformer": "Własny transformator",
+      "basis": {
+        "synergrid-small": "Synergrid, przyłącze ≤ 80 A",
+        "synergrid-large": "Synergrid, przyłącze > 80 A",
+        "synergrid-unknown": "Synergrid, przyłącze nieznane",
+        "transformer": "Własny transformator",
+        "declared": "Ik3 OSD",
+        "transformer-incomplete": "Wpisz moc i uk transformatora"
+      },
+      "connection": "Przyłącze"
+    },
+    "metrics": {
+      "problems": "Problemy",
+      "unverified": "Niezweryfikowane",
+      "estimated": "Szacowane długości"
+    },
+    "columns": {
+      "feeder": "Zasilanie",
+      "circuit": "Obwód",
+      "device": "Aparat",
+      "icn": "Icn",
+      "cable": "Kabel",
+      "length": "Długość (m)",
+      "ikMax": "Ik max",
+      "ikMin": "Ik min",
+      "ief": "Ief min",
+      "ia": "Ia",
+      "maxLength": "Maks. długość",
+      "check": "Kontrola"
+    },
+    "status": {
+      "ok": "OK"
+    },
+    "problem": {
+      "breakingCapacity": "Icn < Ik max",
+      "minimumCurrent": "Ik min < Ia",
+      "faultLoop": "Ief < Ia"
+    },
+    "reason": {
+      "missing-length": "Brak długości",
+      "missing-cable": "Brak kabla",
+      "missing-breaking-capacity": "Brak Icn",
+      "missing-rating": "Brak prądu znamionowego lub charakterystyki",
+      "fuse": "Brak klasy",
+      "no-overcurrent-device": "Brak wyłącznika",
+      "missing-supply-length": "Brak długości zasilania",
+      "missing-source": "Brak danych transformatora",
+      "missing-trip-settings": "Brak Isd lub Ii",
+      "delayed-trip": "Isd opóźnione",
+      "fuse-rating": "Prąd spoza tabeli"
+    },
+    "boardProblems_one": "{{count}} problem",
+    "boardProblems_few": "{{count}} problemy",
+    "boardProblems_many": "{{count}} problemów",
+    "boardProblems_other": "{{count}} problemu",
+    "boardUnverified_one": "{{count}} niezweryfikowany",
+    "boardUnverified_few": "{{count}} niezweryfikowane",
+    "boardUnverified_many": "{{count}} niezweryfikowanych",
+    "boardUnverified_other": "{{count}} niezweryfikowanego",
+    "revisions": {
+      "issue": "Wydaj rewizję",
+      "title": "Rewizje",
+      "live": "Na żywo",
+      "label": "Rew. {{index}}",
+      "description": "Opis",
+      "remove": "Usuń rewizję",
+      "removeConfirm": "Usunąć rewizję {{index}}?",
+      "openIssues": "Wciąż otwarte: problemy {{problems}}, niezweryfikowane {{unverified}}."
+    },
+    "gate": {
+      "title": "Odblokuj Engineering",
+      "action": "Przejdź do konta",
+      "projectMessage": "Odblokować Engineering dla „{{project}}”? To jednorazowy zakup tylko dla tego projektu.",
+      "cloudRequired": "Zapisz projekt w chmurze przed odblokowaniem Engineering."
+    },
+    "tooltips": {
+      "source": "Ze schematu jednokreskowego: przyłącze do sieci albo własny transformator instalacji niemieszkalnej.",
+      "ratedKva": "Moc znamionowa z tabliczki transformatora zasilającego. Zmienia rysunek.",
+      "uk": "Napięcie zwarcia z tabliczki transformatora zasilającego. Zmienia rysunek.",
+      "connection": "Znamionowy prąd przyłączeniowy instalacji. Synergrid: do 80 A sieć daje najwyżej 3 kA, powyżej 80 A najwyżej 6 kA. Zmienia projekt.",
+      "declared": "Ik3 na początku instalacji podany przez operatora sieci lub zmierzony. Zastępuje wartość powyżej; zostaw puste, aby jej użyć.",
+      "origin": "Maksymalny trójfazowy prąd zwarciowy na początku instalacji (wyjście licznika).",
+      "supplyCable": "Kabel od licznika do rozdzielnicy głównej.",
+      "supplyLength": "Długość od licznika do rozdzielnicy głównej. Zmienia rysunek.",
+      "problems": "Obwody, które nie przechodzą kontroli. Kliknij, aby pokazać tylko je.",
+      "unverified": "Obwody, których jeszcze nie da się sprawdzić, np. z powodu braku długości. Kliknij, aby pokazać tylko je.",
+      "estimated": "Kable o długości oszacowanej z planu. Kliknij, aby pokazać obwody z takimi kablami.",
+      "boardIk": "Maksymalny prąd zwarciowy na szynach (Ik3 max). Aparaty w tej rozdzielnicy muszą go wyłączyć.",
+      "boardIkUpperBound": "Maksymalny prąd zwarciowy na szynach. Kabel przed tą rozdzielnicą nie ma długości i liczy się jako 0 m, więc rzeczywista wartość jest mniejsza.",
+      "boardStatus": "Najgorszy wynik spośród obwodów tej rozdzielnicy.",
+      "furthest": "Łączna długość kabla do najdalszego punktu obwodu.",
+      "ok": "Icn {{icn}} ≥ Ik max {{ikMax}}, Ik min {{ikMin}} ≥ Ia {{ia}}",
+      "columns": {
+        "circuit": "Kod obwodu na schemacie jednokreskowym.",
+        "device": "Aparat zabezpieczający: charakterystyka, prąd znamionowy i bieguny.",
+        "icn": "Zdolność wyłączania aparatu. Musi wynosić co najmniej Ik max. Zmienia rysunek.",
+        "cable": "Kabel obwodu.",
+        "length": "Długość od rozdzielnicy do pierwszego punktu. Zmienia rysunek; ≈ to oszacowanie z planu.",
+        "ikMax": "Maksymalny prąd zwarciowy w rozdzielnicy, który ten aparat musi wyłączyć (trójfazowy dla aparatów 3/4-biegunowych, inaczej faza–neutralny).",
+        "ikMin": "Minimalny prąd zwarciowy w najdalszym punkcie obwodu.",
+        "ief": "Minimalny prąd zwarcia faza–ziemia w najdalszym punkcie (układy TN).",
+        "ia": "Prąd, który wyłącza zwarcie na czas: 5, 10 lub 20 × In dla charakterystyki B, C lub D, Isd lub Ii wyłącznika z nastawami albo prąd zadziałania w 5 s bezpiecznika gG. Ik min musi go osiągnąć.",
+        "maxLength": "Najdłuższy obwód, który wyłącznik nadal chroni (AREI 5.3.5.5.h, uproszczone).",
+        "check": "Wynik kontroli. Dotknij wyniku, aby zobaczyć szczegóły."
+      },
+      "problem": {
+        "breakingCapacity": "Za mała zdolność wyłączania: Icn {{icn}} < Ik max {{ikMax}}.",
+        "minimumCurrent": "Wyłącznik nie zadziała natychmiast na końcu obwodu: Ik min {{ikMin}} < Ia {{ia}}. Wybierz mniejszy prąd znamionowy, inną charakterystykę lub większy przekrój.",
+        "faultLoop": "Zwarcie doziemne na końcu obwodu nie jest wyłączane natychmiast: Ief {{ief}} < Ia {{ia}}."
+      },
+      "reason": {
+        "missing-length": "Kabel tego obwodu nie ma długości.",
+        "missing-cable": "Obwód nie ma kabla z przekrojem.",
+        "missing-breaking-capacity": "Aparat nie ma zdolności wyłączania (Icn).",
+        "missing-rating": "Aparat nie ma prądu znamionowego lub charakterystyki.",
+        "fuse": "Wybierz gG, aby sprawdzić bezpiecznik. Bezpieczniki aM nie są sprawdzane.",
+        "no-overcurrent-device": "Żaden wyłącznik ani bezpiecznik nie chroni tego obwodu.",
+        "missing-supply-length": "Kabel przed tą rozdzielnicą nie ma długości.",
+        "missing-source": "Transformator zasilający nie ma mocy lub uk.",
+        "missing-trip-settings": "Wpisz Isd lub Ii wyłącznika z nastawami.",
+        "delayed-trip": "Opóźnienie Isd przekracza dopuszczalny czas wyłączenia, a Ii nie jest ustawione.",
+        "fuse-rating": "Dla tego prądu znamionowego nie jest znany prąd zadziałania gG."
+      },
+      "boardIkMin": "Minimalny prąd zwarciowy na szynach tej rozdzielnicy. Zabezpieczenie zasilające musi przy nim zadziałać natychmiast.",
+      "fuseClass": "gG chroni kable i jest sprawdzany prądem zadziałania. Nie jest pokazywany na rysunku.",
+      "tripSettings": "Charakterystyka wyzwalania albo nastawy wyłącznika kompaktowego. Nastawy startują od charakterystyki i ją zastępują.",
+      "trip": {
+        "irA": "Nastawa przeciążeniowa (długozwłoczna).",
+        "isdA": "Nastawa krótkozwłoczna. Liczy się jako Ia, gdy opóźnienie mieści się w czasie wyłączenia.",
+        "tsdS": "Opóźnienie Isd. Puste lub 0 bez opóźnienia.",
+        "iiA": "Wyzwalanie bezzwłoczne. Zawsze liczy się jako Ia."
+      },
+      "selectCable": "Kliknij, aby zaznaczyć obwód, na przykład by zmienić jego kabel."
+    },
+    "noMatches": "Nic do pokazania",
+    "showAll": "Pokaż wszystko",
+    "fuseClass": "Klasa bezpiecznika",
+    "tripSettings": {
+      "title": "Nastawy",
+      "irA": "Ir",
+      "isdA": "Isd",
+      "tsdS": "tsd",
+      "iiA": "Ii",
+      "adjustable": "Nastawialny"
+    }
   }
 }

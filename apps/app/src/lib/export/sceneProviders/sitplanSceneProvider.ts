@@ -9,6 +9,7 @@ import Konva from 'konva'
 import type { ExportScene, ExportOptions } from '../types'
 import { ExportError } from '../types'
 import { findContentLayer, findCanvasContentGroup, calculateSceneBounds } from './helpers'
+import { waitForExportStage } from './waitForExportStage'
 import { useUIStore } from '@/stores/uiStore'
 import { useCanvasRegistryStore } from '@/stores/canvasRegistryStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -101,16 +102,9 @@ export async function prepareSitplanScene(
   }
 
   // 2. Get stage from registry (now always returns stage if canvas is mounted)
-  let stage = useCanvasRegistryStore.getState().registry.sitplan?.getStage(floorId)
-
-  // Retry a few times in case stage isn't immediately available
-  if (!stage) {
-    for (let i = 0; i < 5; i++) {
-      await new Promise((resolve) => requestAnimationFrame(resolve))
-      stage = useCanvasRegistryStore.getState().registry.sitplan?.getStage(floorId)
-      if (stage) break
-    }
-  }
+  const stage = await waitForExportStage(() =>
+    useCanvasRegistryStore.getState().registry.sitplan?.getStage(floorId)
+  )
 
   if (!stage) {
     throw new ExportError(

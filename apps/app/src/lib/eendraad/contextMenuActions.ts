@@ -7,7 +7,6 @@ import type { LayoutTree } from '@/lib/layout/layoutTree'
 import type { Point } from '@/types/ui'
 import type { Selection } from '@/types/ui'
 import type { Endpoint, TrunkDevice, Circuit, ProtectionDevice, Panel } from '@/types/schema'
-import { useProjectStore } from '@/stores/projectStore'
 import { duplicateProtection } from '@/handlers/eendraad/duplicateProtection'
 import {
   canDuplicateEendraadSelection,
@@ -42,20 +41,6 @@ export interface ProjectStoreGetters {
 }
 
 export interface ProjectStoreActions {
-  addEndpoint: (circuitId: string, endpoint: Endpoint, insertAfterEndpointId?: string | null) => void
-  syncEndpointMultiplierCount?: (endpointId: string, count: number) => boolean
-  addCircuit: (panelId: string, circuit: Circuit, protectionId?: string) => void
-  addTrunkDevice: (circuitId: string, device: TrunkDevice) => void
-  updateTrunkDevice: (circuitId: string, deviceId: string, updates: Partial<TrunkDevice>) => void
-  addSupplyTrunkDevice: (
-    device: TrunkDevice,
-    insertIndex?: number,
-    target?: { panelId?: string; feedScope?: 'shared' | 'root' },
-  ) => void
-  syncSupplyDeviceMultiplierCount?: (deviceId: string, count: number) => boolean
-  addGroundTrunkDevice: (device: TrunkDevice, insertIndex?: number, panelId?: string) => void
-  insertProtectionAfter: (panelId: string, protection: ProtectionDevice, afterProtectionId: string) => void
-  updateCircuit: (circuitId: string, updates: Partial<Circuit>) => void
   duplicateProtection?: (protectionId: string) => string | null
   setSelection: (selection: { type: 'endpoint' | 'trunkDevice' | 'protection'; ids: string[] }) => void
 }
@@ -88,13 +73,10 @@ export function doEendraadDuplicate(
     actions.setSelection({ type: selection.type, ids: select.map((ref) => ref.id) })
     return
   }
-  const store = useProjectStore.getState()
   const result = runEendraadDuplicate(
     selection,
     get,
-    actions,
     (protectionId) => actions.duplicateProtection ? actions.duplicateProtection(protectionId) : duplicateProtection({ protectionId }),
-    (fn, opts) => store.withSingleUndoEntry(fn, opts),
   )
   if (result) {
     actions.setSelection(result.selection as Parameters<ProjectStoreActions['setSelection']>[0])

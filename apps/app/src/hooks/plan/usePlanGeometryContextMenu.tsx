@@ -1,6 +1,8 @@
 import { useCallback } from 'react'
 import type { ProjectState } from '@/stores/projectStore'
-import { runProjectCommand } from '@/stores/liveProjectCommandSession'
+import { CommandError, type CommandInvocation } from '@/lib/commands/project'
+import { logger } from '@/lib/logger'
+import { liveProjectSession, runProjectCommand } from '@/stores/liveProjectCommandSession'
 import { parseStairPointIds } from '@/lib/plan/planCanvasPointSelection'
 import type { Point } from '@/types/ui'
 import type { Wall, Point2, Stair } from '@/types/schema'
@@ -128,10 +130,11 @@ export function usePlanGeometryContextMenu({
           items.unshift({
             label: t('contextMenu.delete', 'Delete'),
             onClick: () => {
-              const { deleteStair, updateStair, currentProject } = getProjectState()
-              selectedDirectStairIds.forEach((stairId) => deleteStair(stairId))
+              const { currentProject } = getProjectState()
+              const deleteIds = new Set(selectedDirectStairIds)
+              const trimmed: Array<{ id: string; points: Point2[] }> = []
               for (const [stairId, indices] of selectedEncodedStairPoints.entries()) {
-                if (!indices.length) continue
+                if (!indices.length || deleteIds.has(stairId)) continue
                 const stair = (
                   currentProject
                     ? selectProjectBuildingFloors(currentProject).flatMap((floor) =>
@@ -143,8 +146,40 @@ export function usePlanGeometryContextMenu({
                 const nextPoints = stair.points.filter(
                   (_: Point2, idx: number) => !indices.includes(idx)
                 )
-                if (nextPoints.length >= 2) updateStair(stairId, { points: nextPoints })
-                else deleteStair(stairId)
+                if (nextPoints.length >= 2) trimmed.push({ id: stairId, points: nextPoints })
+                else deleteIds.add(stairId)
+              }
+              // Deleting stairs and trimming stair points is one gesture and one undo step.
+              const batch: CommandInvocation[] = []
+              if (deleteIds.size > 0)
+                batch.push({
+                  id: 'entities.delete',
+                  input: { refs: [...deleteIds].map((id) => ({ kind: 'stair', id })) },
+                })
+              if (trimmed.length > 0)
+                batch.push({
+                  id: 'properties.edit',
+                  input: {
+                    edits: trimmed.map(({ id, points }) => ({
+                      kind: 'stair',
+                      ids: [id],
+                      set: { points },
+                    })),
+                  },
+                })
+              if (batch.length > 0) {
+                try {
+                  liveProjectSession.execute(batch, {
+                    label: 'delete stair geometry',
+                    source: 'plan-canvas-geometry',
+                  })
+                } catch (error) {
+                  if (!(error instanceof CommandError)) throw error
+                  logger.warn('[ProjectCommand] rejected', {
+                    code: error.code,
+                    message: error.message,
+                  })
+                }
               }
               clearSelection()
             },

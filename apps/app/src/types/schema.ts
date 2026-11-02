@@ -1,5 +1,4 @@
-// Core data types matching the JSON schema (docs/Example.json)
-
+import type { ProtectionCalculationInputs } from './protectionCalculation'
 import type { ViewportLayout } from './ui'
 import type { WireSegmentDerivedFields } from './wireSegmentDerived'
 
@@ -219,7 +218,7 @@ export interface SymbolLabelDisplayConfig {
   visibility?: Record<string, boolean>
 }
 
-export interface ProtectionDevice {
+export interface ProtectionDevice extends ProtectionCalculationInputs {
   id: string
   type: ProtectionType
   label: string

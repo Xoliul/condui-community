@@ -5,6 +5,7 @@ import { getPrimaryPanelBusSectionId, hasExplicitPanelBusSections } from './pane
 import {
   isChangeoverNormalHandoffRecord,
   isGeneratedChangeoverNormalHandoff,
+  isGeneratedGridBypassMirrorHandoff,
   isPanelInputCarrierRootFeed,
 } from './panelBusSectionSupply'
 
@@ -199,6 +200,21 @@ export function validatePanelBusSectionTopology(
                 : getPrimaryPanelBusSectionId(panel),
             ])
           )
+        }
+      }
+      if (handoff.target.kind === 'panel-input' || handoff.target.kind === 'panel-bus-input') {
+        const panel = panelsById.get(handoff.target.panelId)
+        const busSectionId =
+          panel &&
+          (handoff.target.kind === 'panel-bus-input'
+            ? handoff.target.busSectionId
+            : getPrimaryPanelBusSectionId(panel))
+        if (
+          panel &&
+          busSectionId &&
+          isGeneratedGridBypassMirrorHandoff(assembly, handoff, panel, busSectionId)
+        ) {
+          generatedNormalHandoffKeys.add(JSON.stringify([panel.id, busSectionId]))
         }
       }
       if (handoff.target.kind !== 'panel-bus-input') continue

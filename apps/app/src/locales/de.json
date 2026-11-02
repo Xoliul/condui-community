@@ -158,6 +158,7 @@
     "importFallbackProjectName": "Importiertes Projekt ({{idShort}})"
   },
   "common": {
+    "retry": "Erneut versuchen",
     "more": "Mehr",
     "save": "Speichern",
     "cancel": "Abbrechen",
@@ -916,6 +917,10 @@
     }
   },
   "infoBlock": {
+    "drawingSettings": "Projektzeichnung",
+    "showConduiBranding": "„Erstellt mit condui.be“ anzeigen",
+    "installerHeading": "Überschrift des Installateurs",
+    "settingsSearch": "Einstellungen Zeichnung Fußzeile Marke Installateur gezeichnet von",
     "madeWith": "Erstellt mit {{brand}}",
     "pageNr": "Seite",
     "installerPropertiesTitle": "Installateurdaten",
@@ -3186,6 +3191,9 @@
     "csvDetails": "Details"
   },
   "wires": {
+    "material": "Material",
+    "copper": "Kupfer (Cu)",
+    "aluminium": "Aluminium (Al)",
     "wireTypeLabel": "Leitungstyp",
     "cableDefault": "Standard",
     "makeCableDefault": "Machen Sie den Standard",
@@ -3914,5 +3922,171 @@
     "showOnOneWire": "Im Eindrahtdiagramm anzeigen",
     "pageName": "Eindrahtdiagramm Seite {{page}}",
     "documentPage": "{{name}} · Seite {{page}}"
+  },
+  "collab": {
+    "status": {
+      "joining": "Verbinden",
+      "live": "Live",
+      "syncing": "Synchronisierung",
+      "offline": "Offline",
+      "suspended": "Pausiert"
+    },
+    "conflict": "Von jemand anderem geändert — erneut versuchen",
+    "peerOtherTab": "{{name}} (anderer Tab)",
+    "peersMore": "{{count}} weitere"
+  },
+  "shortCircuit": {
+    "defaultName": "Kurzschlussberechnung",
+    "origin": "Ursprung",
+    "supplyCable": "Zuleitung",
+    "noBoards": "Keine Verteiler",
+    "source": {
+      "grid": "Öffentliches Netz",
+      "declared": "Ik3 Netzbetreiber",
+      "transformer": "Eigener Transformator",
+      "basis": {
+        "synergrid-small": "Synergrid, Anschluss ≤ 80 A",
+        "synergrid-large": "Synergrid, Anschluss > 80 A",
+        "synergrid-unknown": "Synergrid, Anschluss unbekannt",
+        "transformer": "Eigener Transformator",
+        "declared": "Ik3 Netzbetreiber",
+        "transformer-incomplete": "Leistung und uk des Transformators eingeben"
+      },
+      "connection": "Anschluss"
+    },
+    "metrics": {
+      "problems": "Probleme",
+      "unverified": "Nicht geprüft",
+      "estimated": "Geschätzte Längen"
+    },
+    "columns": {
+      "feeder": "Zuleitung",
+      "circuit": "Stromkreis",
+      "device": "Gerät",
+      "icn": "Icn",
+      "cable": "Kabel",
+      "length": "Länge (m)",
+      "ikMax": "Ik max",
+      "ikMin": "Ik min",
+      "ief": "Ief min",
+      "ia": "Ia",
+      "maxLength": "Max. Länge",
+      "check": "Prüfung"
+    },
+    "status": {
+      "ok": "OK"
+    },
+    "problem": {
+      "breakingCapacity": "Icn < Ik max",
+      "minimumCurrent": "Ik min < Ia",
+      "faultLoop": "Ief < Ia"
+    },
+    "reason": {
+      "missing-length": "Keine Länge",
+      "missing-cable": "Kein Kabel",
+      "missing-breaking-capacity": "Kein Icn",
+      "missing-rating": "Kein Nennstrom oder Kennlinie",
+      "fuse": "Keine Klasse",
+      "no-overcurrent-device": "Kein Schutzschalter",
+      "missing-supply-length": "Keine Zuleitungslänge",
+      "missing-source": "Keine Transformatordaten",
+      "missing-trip-settings": "Kein Isd oder Ii",
+      "delayed-trip": "Isd verzögert",
+      "fuse-rating": "Nennwert nicht in Tabelle"
+    },
+    "boardProblems_one": "{{count}} Problem",
+    "boardProblems_few": "{{count}} Probleme",
+    "boardProblems_many": "{{count}} Probleme",
+    "boardProblems_other": "{{count}} Probleme",
+    "boardUnverified_one": "{{count}} nicht geprüft",
+    "boardUnverified_few": "{{count}} nicht geprüft",
+    "boardUnverified_many": "{{count}} nicht geprüft",
+    "boardUnverified_other": "{{count}} nicht geprüft",
+    "revisions": {
+      "issue": "Revision ausgeben",
+      "title": "Revisionen",
+      "live": "Live",
+      "label": "Rev. {{index}}",
+      "description": "Beschreibung",
+      "remove": "Revision entfernen",
+      "removeConfirm": "Revision {{index}} entfernen?",
+      "openIssues": "Noch offen: {{problems}} Probleme, {{unverified}} nicht geprüft."
+    },
+    "gate": {
+      "title": "Engineering freischalten",
+      "action": "Weiter zum Konto",
+      "projectMessage": "Engineering für „{{project}}“ freischalten? Dies ist ein einmaliger Kauf nur für dieses Projekt.",
+      "cloudRequired": "Speichern Sie dieses Projekt zuerst in der Cloud, um Engineering freizuschalten."
+    },
+    "tooltips": {
+      "source": "Aus dem Einliniendiagramm: der Netzanschluss oder der eigene Transformator einer Nichtwohnanlage.",
+      "ratedKva": "Nennleistung auf dem Typenschild des Einspeisetransformators. Ändert die Zeichnung.",
+      "uk": "Kurzschlussspannung auf dem Typenschild des Einspeisetransformators. Ändert die Zeichnung.",
+      "connection": "Nennanschlussstrom der Anlage. Synergrid: bis 80 A liefert das Netz höchstens 3 kA, über 80 A höchstens 6 kA. Ändert das Projekt.",
+      "declared": "Ik3 am Anlagenursprung laut Netzbetreiber oder Messung. Ersetzt den Wert oben; leer lassen, um ihn zu verwenden.",
+      "origin": "Größter dreipoliger Kurzschlussstrom am Ursprung der Anlage (Zählerausgang).",
+      "supplyCable": "Kabel vom Zähler zum Hauptverteiler.",
+      "supplyLength": "Länge vom Zähler zum Hauptverteiler. Ändert die Zeichnung.",
+      "problems": "Stromkreise, die eine Prüfung nicht bestehen. Klicken, um nur diese zu zeigen.",
+      "unverified": "Stromkreise, die noch nicht prüfbar sind, etwa wegen einer fehlenden Länge. Klicken, um nur diese zu zeigen.",
+      "estimated": "Kabel mit aus dem Plan geschätzter Länge. Klicken, um die betroffenen Stromkreise zu zeigen.",
+      "boardIk": "Größter Kurzschlussstrom an der Sammelschiene (Ik3 max). Geräte in diesem Verteiler müssen ihn abschalten.",
+      "boardIkUpperBound": "Größter Kurzschlussstrom an der Sammelschiene. Ein vorgelagertes Kabel hat keine Länge und zählt als 0 m, der echte Wert ist also kleiner.",
+      "boardStatus": "Schlechtestes Ergebnis der Stromkreise in diesem Verteiler.",
+      "furthest": "Gesamte Kabellänge bis zum entferntesten Punkt des Stromkreises.",
+      "ok": "Icn {{icn}} ≥ Ik max {{ikMax}}, Ik min {{ikMin}} ≥ Ia {{ia}}",
+      "columns": {
+        "circuit": "Stromkreiscode im Einliniendiagramm.",
+        "device": "Schutzgerät: Kennlinie, Nennstrom und Pole.",
+        "icn": "Schaltvermögen des Geräts. Es muss mindestens Ik max sein. Ändert die Zeichnung.",
+        "cable": "Kabel des Stromkreises.",
+        "length": "Länge vom Verteiler bis zum ersten Punkt. Ändert die Zeichnung; ≈ ist eine Schätzung aus dem Plan.",
+        "ikMax": "Größter Kurzschlussstrom im Verteiler, den dieses Gerät abschalten muss (dreipolig bei 3/4-poligen Geräten, sonst Phase–Neutralleiter).",
+        "ikMin": "Kleinster Kurzschlussstrom am entferntesten Punkt des Stromkreises.",
+        "ief": "Kleinster Fehlerstrom Phase–Erde am entferntesten Punkt (TN-Systeme).",
+        "ia": "Strom, der einen Fehler rechtzeitig abschaltet: 5, 10 oder 20 × In bei Kennlinie B, C oder D, Isd oder Ii eines einstellbaren Schalters oder der 5-s-Abschaltstrom einer gG-Sicherung. Ik min muss ihn erreichen.",
+        "maxLength": "Längster Stromkreis, den der Schutzschalter noch schützt (AREI 5.3.5.5.h, vereinfacht).",
+        "check": "Ergebnis der Prüfungen. Für Details auf das Ergebnis tippen."
+      },
+      "problem": {
+        "breakingCapacity": "Schaltvermögen zu klein: Icn {{icn}} < Ik max {{ikMax}}.",
+        "minimumCurrent": "Schutzschalter löst am Leitungsende nicht sofort aus: Ik min {{ikMin}} < Ia {{ia}}. Kleineren Nennstrom, andere Kennlinie oder größeren Querschnitt wählen.",
+        "faultLoop": "Erdschluss am Leitungsende wird nicht sofort abgeschaltet: Ief {{ief}} < Ia {{ia}}."
+      },
+      "reason": {
+        "missing-length": "Ein Kabel dieses Stromkreises hat keine Länge.",
+        "missing-cable": "Der Stromkreis hat kein Kabel mit Querschnitt.",
+        "missing-breaking-capacity": "Das Gerät hat kein Schaltvermögen (Icn).",
+        "missing-rating": "Das Gerät hat keinen Nennstrom oder keine Kennlinie.",
+        "fuse": "gG wählen, um die Sicherung zu prüfen. aM-Sicherungen werden nicht geprüft.",
+        "no-overcurrent-device": "Kein Schutzschalter und keine Sicherung schützt diesen Stromkreis.",
+        "missing-supply-length": "Das Kabel vor diesem Verteiler hat keine Länge.",
+        "missing-source": "Der Einspeisetransformator hat keine Leistung oder kein uk.",
+        "missing-trip-settings": "Isd oder Ii des einstellbaren Leistungsschalters eingeben.",
+        "delayed-trip": "Die Verzögerung von Isd ist länger als die zulässige Abschaltzeit, und Ii ist nicht eingestellt.",
+        "fuse-rating": "Für diesen Nennwert ist kein gG-Abschaltstrom bekannt."
+      },
+      "boardIkMin": "Kleinster Kurzschlussstrom an der Sammelschiene dieses Verteilers. Die vorgeschaltete Schutzeinrichtung muss bei diesem Strom sofort auslösen.",
+      "fuseClass": "gG schützt Kabel und wird mit seinem Abschaltstrom geprüft. Nicht in der Zeichnung sichtbar.",
+      "tripSettings": "Auslösekennlinie oder die Einstellungen eines Kompaktleistungsschalters. Die Einstellungen gehen von der Kennlinie aus und ersetzen sie.",
+      "trip": {
+        "irA": "Überlastauslöser (L).",
+        "isdA": "Kurzzeitverzögerter Auslöser. Zählt als Ia, wenn die Verzögerung in die Abschaltzeit passt.",
+        "tsdS": "Verzögerung von Isd. Leer oder 0 ohne Verzögerung.",
+        "iiA": "Unverzögerter Auslöser. Zählt immer als Ia."
+      },
+      "selectCable": "Klicken, um den Stromkreis auszuwählen, zum Beispiel um sein Kabel zu ändern."
+    },
+    "noMatches": "Nichts anzuzeigen",
+    "showAll": "Alle zeigen",
+    "fuseClass": "Sicherungsklasse",
+    "tripSettings": {
+      "title": "Einstellungen",
+      "irA": "Ir",
+      "isdA": "Isd",
+      "tsdS": "tsd",
+      "iiA": "Ii",
+      "adjustable": "Einstellbar"
+    }
   }
 }

@@ -16,6 +16,7 @@ import {
 } from '@/lib/panel/panelGridMutations'
 import {
   createAuxiliarySupplyEnclosure,
+  deleteAuxiliarySupplyEnclosure,
   moveSupplyDeviceToAuxiliaryEnclosure,
   moveSupplyDeviceToPanelEnclosure,
   moveSupplyDeviceToGridEnclosure,
@@ -24,6 +25,7 @@ import {
   resolveSupplyDeviceMounting,
   getSupplyDeviceSlot,
 } from '@/lib/panel/auxiliarySupplyEnclosures'
+import { dismissEmptySharedSupplyFrame } from '@/lib/panel/sharedSupplyFrame'
 import { moveTerminalStripToPanelInProject } from '@/lib/panel/panelTerminalStripMove'
 import { getSupplyPanelLayout, arePanelGridSlotArraysEqual } from '@/lib/panel/panelSupplySlots'
 import { panelGridModuleRefKey, resolveModuleWidthCols } from '@/lib/panel/panelGridLayout'
@@ -189,6 +191,10 @@ export const panelEditLayoutInputSchema = z
         position: point,
       })
       .optional(),
+    /** Removes virtual/auxiliary enclosures; their devices return to the panel grid. */
+    deleteEnclosures: z.array(z.string().min(1)).min(1).optional(),
+    /** Dismisses the empty shared supply frame of the main panel (devices are kept). */
+    dismissEmptySharedSupplyFrame: z.literal(true).optional(),
   })
   .refine(
     (input) =>
@@ -491,6 +497,9 @@ export const panelEditLayout = defineProjectCommand({
           ))
       )
         fail('Virtual enclosure owner or module not found')
+      for (const id of input.deleteEnclosures ?? [])
+        if (!selectProjectAuxiliaryElectricalEnclosures(project).some((item) => item.id === id))
+          fail('Enclosure not found')
       if (
         input.createAuxiliary &&
         (!findPanelById(panels, input.createAuxiliary.ownerPanelId) ||
@@ -682,6 +691,19 @@ export const panelEditLayout = defineProjectCommand({
         ...input.createAuxiliary.deviceIds.map((id) => ({ kind: 'trunkDevice' as const, id }))
       )
     }
+    const removed: EntityRef[] = []
+    for (const id of new Set(input.deleteEnclosures ?? []))
+      if (deleteAuxiliarySupplyEnclosure(project, id)) removed.push({ kind: 'auxiliaryEnclosure', id })
+    // The frame check normalizes supply topology, so skip it once the frame is already gone.
+    const frameOwner = input.dismissEmptySharedSupplyFrame
+      ? getProjectElectricalPanels(project).find((panel) => panel.isMain)
+      : undefined
+    if (
+      frameOwner &&
+      frameOwner.gridView?.supplyPanelVisible !== false &&
+      dismissEmptySharedSupplyFrame(project)
+    )
+      changed.push({ kind: 'panel', id: frameOwner.id })
     // Opening a legacy board asks to initialize only the named boards. Re-running
     // every board's layout through an Immer draft is both unrelated and expensive.
     // Same-board coordinate edits repair only those boards. Membership/mounting
@@ -689,7 +711,7 @@ export const panelEditLayout = defineProjectCommand({
     const reconcileOnly = input.reconcilePanelIds != null && Object.entries(input).every(
       ([key, value]) => key === 'reconcilePanelIds' || value === undefined
     )
-    if ((changed.length || created.length) && !reconcileOnly) {
+    if ((changed.length || created.length || removed.length) && !reconcileOnly) {
       if (localPanelIds) {
         for (const id of localPanelIds) persistAutomaticPanelSlotsInProject(project, id)
       } else {
@@ -702,6 +724,6 @@ export const panelEditLayout = defineProjectCommand({
         persist(getProjectElectricalPanels(project))
       }
     }
-    return { created, changed, removed: [], ...(created.length ? { select: created } : {}) }
+    return { created, changed, removed, ...(created.length ? { select: created } : {}) }
   },
 })

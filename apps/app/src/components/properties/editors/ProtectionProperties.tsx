@@ -36,6 +36,7 @@ import {
 } from '../shared/propertiesSharedUtils'
 import { getProjectElectricalInstallation } from '@/lib/projectV2/electrical'
 import { editProperties } from '@/handlers/properties/editProperties'
+import { useAdjustableTrip } from '@/components/documents/documentsHostedFeatures'
 // Protection Properties Component
 export function ProtectionProperties({
   protectionId,
@@ -56,6 +57,7 @@ export function ProtectionProperties({
     ? getProjectElectricalInstallation(currentProject)
     : undefined
   const openDialog = useDialogStore((state) => state.openDialog)
+  const adjustableTrip = useAdjustableTrip(protection)
   const panelForProtection = useProjectStore((state: ProjectState) =>
     state.getPanelForProtection(protectionId)
   )
@@ -385,6 +387,7 @@ export function ProtectionProperties({
         onPatch={(patch) => onUpdate(protectionId, patch)}
         isProtectionLabelVisible={isProtectionLabelVisible}
         toggleProtectionLabel={toggleProtectionLabel}
+        adjustableTrip={adjustableTrip}
       />
 
       {/* Notes - for protections with circuits, edit circuit notes (with show/orientation toggles); otherwise edit protection notes */}

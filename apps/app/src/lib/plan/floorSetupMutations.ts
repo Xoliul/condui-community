@@ -9,6 +9,7 @@ import {
 import {
   commitBuildingFloorView,
   mutateBuildingFloorView,
+  mutateBuildingFloorViews,
   readLegacyCompatibilityFloors,
   removeBuildingFloor,
   selectProjectPlanScale,
@@ -252,4 +253,25 @@ export function detachPlanBackgroundInProject(
   const removedSet = new Set(removed)
   project.assets = project.assets.filter((asset) => !removedSet.has(asset.id))
   return removed
+}
+
+/** Moves a floor to a new position in the building's floor order. False when nothing moved. */
+export function reorderFloorsInProject(
+  project: ProjectV2,
+  fromIndex: number,
+  toIndex: number
+): boolean {
+  if (fromIndex === toIndex) return false
+  const reordered = mutateBuildingFloorViews(project, (floors) => {
+    if (fromIndex < 0 || fromIndex >= floors.length || toIndex < 0 || toIndex >= floors.length)
+      return
+    const [removed] = floors.splice(fromIndex, 1)
+    floors.splice(toIndex, 0, removed!)
+  })
+  return !(
+    fromIndex < 0 ||
+    fromIndex >= reordered.length ||
+    toIndex < 0 ||
+    toIndex >= reordered.length
+  )
 }

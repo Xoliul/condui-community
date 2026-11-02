@@ -1,10 +1,13 @@
 import i18n, { type BackendModule } from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { applyCanonicalLanguagePathIfNeeded } from '@/utils/languageRouting'
-import { resolveInitialLanguagePreference } from '@/utils/userPreferences'
+import {
+  resolveInitialLanguagePreference,
+  resolveUnprefixedLanguagePreference,
+} from '@/utils/userPreferences'
 
 if (typeof document !== 'undefined') {
-  applyCanonicalLanguagePathIfNeeded()
+  applyCanonicalLanguagePathIfNeeded(resolveUnprefixedLanguagePreference(window.location.hostname))
 }
 
 import { symbolCategoryLabels } from './locales/symbolCategoryLabels'

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { computePlanImportFitScale } from './planImportViewport'
 import { clamp } from '@/lib/geometry'
 import { logger } from '@/lib/logger'
+import { fitCanvasSize } from '@/utils/canvasSizeLimit'
 
 interface ImageCropperProps {
   imageDataUrl: string
@@ -322,26 +323,32 @@ function ImageCropper({
     
     const img = new Image()
     img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = cropBox.width
-      canvas.height = cropBox.height
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return
-      
-      ctx.drawImage(
-        img,
-        cropBox.x,
-        cropBox.y,
-        cropBox.width,
-        cropBox.height,
-        0,
-        0,
-        cropBox.width,
-        cropBox.height
-      )
-      
-      const croppedDataUrl = canvas.toDataURL('image/png')
-      onCropComplete(croppedDataUrl, cropBox)
+      // Very large scans are downscaled so the browser can allocate the output canvas.
+      const output = fitCanvasSize(cropBox.width, cropBox.height)
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = output.width
+        canvas.height = output.height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return
+
+        ctx.drawImage(
+          img,
+          cropBox.x,
+          cropBox.y,
+          cropBox.width,
+          cropBox.height,
+          0,
+          0,
+          output.width,
+          output.height
+        )
+
+        const croppedDataUrl = canvas.toDataURL('image/png')
+        onCropComplete(croppedDataUrl, cropBox)
+      } catch (error) {
+        logger.error('Failed to crop plan image:', error)
+      }
     }
     img.src = imageDataUrl
   }, [cropBox, imageSize, imageDataUrl, onCropComplete])

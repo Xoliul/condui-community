@@ -42,7 +42,6 @@ function FloorSelectionDialog({
 }: FloorSelectionDialogProps) {
   const { t } = useTranslation()
   const currentProject = useProjectStore((s: ProjectState) => s.currentProject)
-  const reorderFloors = useProjectStore((s: ProjectState) => s.reorderFloors)
   const togglePlanFloorOverlayFloor = useProjectStore(
     (s: ProjectState) => s.togglePlanFloorOverlayFloor
   )
@@ -127,7 +126,11 @@ function FloorSelectionDialog({
     const fromIndex = floors.findIndex((f: Floor) => f.id === draggingFloorId)
     const toIndex = floors.findIndex((f: Floor) => f.id === targetFloorId)
     if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return
-    reorderFloors(fromIndex, toIndex)
+    runProjectCommand(
+      'floor.reorder',
+      { floorId: draggingFloorId, toIndex },
+      { label: 'reorder floors' }
+    )
   }
 
   const resetDragging = () => setDraggingFloorId(null)

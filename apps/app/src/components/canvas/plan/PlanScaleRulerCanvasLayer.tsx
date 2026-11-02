@@ -62,7 +62,7 @@ export function PlanScaleRulerCanvasLayer({
           ),
           meters: existingReferenceLocal.meters,
         }
-      : !hasPlanImageAsset
+      : !hasPlanImageAsset && existingReferenceLocal.coordinateSpace !== 'asset'
         ? existingReferenceLocal
         : null
   const rulerKey = existingReferenceLocal

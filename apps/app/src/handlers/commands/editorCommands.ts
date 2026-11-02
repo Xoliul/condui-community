@@ -27,6 +27,7 @@ import { toggleViewportPanelFocus, zoomVisibleCanvases } from './viewport'
 import { createProjectPaletteCommands } from './projectPaletteCommands'
 import { openFindPanel } from './findPanel'
 import { openMaterialListExport } from './exportMaterialList'
+import { SettingsBuildInfo, SettingsPanel } from '@/components/settings/SettingsPanel'
 import { openLabelSchemeDialog } from '@/handlers/eendraad/openLabelSchemeDialog'
 
 const canEdit = (ctx: CommandContext) => ctx.capabilities.canEditProject
@@ -181,6 +182,22 @@ export function createEditorCommands(registry: CommandRegistry): CommandDefiniti
           type: 'custom',
           title: i18n.t('sitplanVisibility.colors'),
           content: createElement(SitplanVisibilityPanel),
+        })
+      },
+    },
+    {
+      id: 'ui.settings',
+      labelKey: 'settings.title',
+      searchKey: 'infoBlock.settingsSearch',
+      isEnabled: canEdit,
+      run: () => {
+        useDialogStore.getState().openDialog({
+          type: 'custom',
+          title: i18n.t('settings.title'),
+          titleAside: createElement(SettingsBuildInfo),
+          content: createElement(SettingsPanel, { canEditProject: true }),
+          size: 'md',
+          showCloseButton: true,
         })
       },
     },

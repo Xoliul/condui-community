@@ -36,6 +36,7 @@ const targetSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('supply'), panelId: z.string().min(1).nullable(), feedScope: z.enum(['shared', 'root']), insertIndex: z.number().int().nonnegative() }),
   z.strictObject({ type: z.literal('ground'), panelId: z.string().min(1).nullable(), insertIndex: z.number().int().nonnegative() }),
   z.strictObject({ type: z.literal('sourceSelection') }),
+  z.strictObject({ type: z.literal('panelGrid'), panelId: z.string().min(1), row: z.number().int().nonnegative(), col: z.number().finite().nonnegative() }),
   z.strictObject({ type: z.literal('drop'), target: electricalDropTargetSchema, targetMounting: enclosureSchema.optional() }),
 ])
 
@@ -124,6 +125,14 @@ function checkDestination(project: ProjectV2, items: Source[], purpose: string, 
       if (items.some((item) => item.kind === 'trunkDevice' && device(project, item.id)?.type === 'dc_bus')) return { ok: false as const, code: 'dc_bus_not_duplicable', message: 'A DC bus cannot be duplicated by itself' }
       if (items.some((item) => item.kind === 'trunkDevice' && device(project, item.id)?.symbol === 'junction_panel')) return { ok: false as const, code: 'junction_panel_not_duplicable', message: 'A junction panel cannot be duplicated' }
     } else return { ok: false as const, code: 'empty_selection', message: 'Nothing can be duplicated' }
+    return { ok: true as const }
+  }
+  if (target.type === 'panelGrid') {
+    // Alt-drag of a Domotica module inside a panel grid: the copy stays on the source circuit.
+    if (items.length !== 1 || !endpointsOnly) return { ok: false as const, code: 'source_target_mismatch', message: 'Only one Domotica module can be copied onto a panel grid' }
+    const source = endpoint(project, items[0]!.id)!.endpoint
+    if (source.symbol === 'junction_panel' || !endpointSymbolCanBeDuplicated(source)) return { ok: false as const, code: 'endpoint_not_duplicable', message: 'An endpoint cannot be duplicated' }
+    if (!findPanelById(getEditableProjectElectricalPanels(project), target.panelId)) return { ok: false as const, code: 'panel_not_found', message: 'Panel not found' }
     return { ok: true as const }
   }
   if ((target.type === 'duplicateBranch' || target.type === 'pasteEndpoints') && !endpointsOnly) return { ok: false as const, code: 'source_target_mismatch', message: 'This destination only accepts endpoints' }

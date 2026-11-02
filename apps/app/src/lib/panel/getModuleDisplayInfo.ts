@@ -1,5 +1,5 @@
 import { polesConfigToDisplay } from '@/constants/poleConfig'
-import { formatProtectionCurveRating, type ProtectionLike } from '@/lib/protectionLabels'
+import { displayedProtectionCurve, formatProtectionCurveRating, type ProtectionLike } from '@/lib/protectionLabels'
 import {
   breakingCapacityLabelForOption,
   breakingCapacityOptionIsAmpStyle,
@@ -244,7 +244,7 @@ function getProtectionModuleSpecRows(source: ProtectionLike): PanelModuleSpecRow
   const type = source.type === 'protection' ? source.protectionType : source.type
   const rows: PanelModuleSpecRow[] = []
   const rating = type === 'MCB' || type === 'RCBO'
-    ? formatProtectionCurveRating(source.curve, source.ratingA)
+    ? formatProtectionCurveRating(displayedProtectionCurve(source), source.ratingA)
     : source.ratingA != null ? `${source.ratingA}A` : ''
   if (type !== 'ROTATING_SWITCH' && rating) rows.push({ text: rating })
   if (type === 'RCD' || type === 'RCBO') {

@@ -32,9 +32,13 @@ export const BE_STANDARD_BREAKER_RATINGS_A = [
 
 const NON_HOUSEHOLD_BREAKER_RATINGS_A = [
   ...BE_STANDARD_BREAKER_RATINGS_A,
+  125,
   160,
   200,
+  250,
   360,
+  400,
+  630,
   1000,
 ] as const
 

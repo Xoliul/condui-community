@@ -1,4 +1,5 @@
 import { formatCableTypeLabel } from '@/lib/wireTextLabel'
+import type { WireRun } from '@/types/projectV2'
 import type { CableSpec } from '@/types/schema'
 import type { CableRoutePoint, CableRouteEstimate } from './estimateCableRoutes'
 
@@ -47,7 +48,8 @@ export function formatCableSpec(cable: CableSpec | undefined): string {
 }
 
 /** Rows grouped by board and circuit in feed order, plus totals per cable for purchasing. */
-export function buildCableSchedule(routes: readonly CableRouteEstimate[]): CableSchedule {
+export function buildCableSchedule(routes: readonly CableRouteEstimate[], runs: readonly WireRun[] = []): CableSchedule {
+  const materialByAnchor = new Map(runs.flatMap((run) => run.members.map((anchor) => [anchor, run.material] as const)))
   const rows = routes
     .map((route): CableScheduleRow => {
       const estimated = route.highM > 0 && route.scaleCalibrated !== false
@@ -70,7 +72,7 @@ export function buildCableSchedule(routes: readonly CableRouteEstimate[]): Cable
         ...(route.fromPoint ? { fromPoint: route.fromPoint } : {}),
         ...(route.toPoint ? { toPoint: route.toPoint } : {}),
         cable: route.cable,
-        cableLabel: formatCableSpec(route.cable),
+        cableLabel: `${formatCableSpec(route.cable)}${materialByAnchor.get(route.anchor) === 'aluminium' ? ' Al' : ''}`,
         lengthM: route.enteredLengthM,
         lengthSource,
         ...(estimated ? { estimateLowM: route.lowM, estimateHighM: route.highM } : {}),

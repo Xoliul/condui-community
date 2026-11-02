@@ -2,6 +2,10 @@ import { useCanvasWindow } from '@/components/viewport/ViewportContext'
 import { useIsActiveViewport } from '@/components/viewport/ViewportUIStore'
 import { deleteProjectEntities, resolveSelectionDeleteRefs } from '@/handlers/commands/deleteEntities'
 import { editProperties } from '@/handlers/properties/editProperties'
+import {
+  deleteAuxiliaryEnclosures as deleteAuxiliaryEnclosuresLayout,
+  dismissEmptySharedSupplyFrame,
+} from '@/handlers/panel/editPanelLayout'
 import { duplicateProtection } from '@/handlers/eendraad/duplicateProtection'
 import { useCallback, useEffect } from 'react'
 import type { TFunction } from 'i18next'
@@ -89,7 +93,7 @@ export function usePanelContextMenu({
   const isActiveViewport = useIsActiveViewport()
   const deleteAuxiliaryEnclosures = useCallback(
     (enclosureIds: string[]) => {
-      useProjectStore.getState().deleteAuxiliaryElectricalEnclosure(enclosureIds)
+      deleteAuxiliaryEnclosuresLayout(enclosureIds)
       clearSelection()
     },
     [clearSelection]
@@ -118,7 +122,7 @@ export function usePanelContextMenu({
           variant: 'danger',
           disabled: !canDeleteItems || !project || getSharedSupplyFrameDevices(project).length > 0,
           onClick: () => {
-            useProjectStore.getState().dismissEmptySharedSupplyFrame()
+            dismissEmptySharedSupplyFrame()
             clearSelection()
           },
         }]

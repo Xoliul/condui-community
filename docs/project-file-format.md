@@ -26,6 +26,14 @@ The current manifest has archive format version `1`, the format label `project-w
 
 The current schema version is `2.3.0`.
 
+`project.showConduiBranding` optionally controls the drawing title-block footer:
+missing or `true` shows the localized Condui attribution, `false` hides it.
+`project.installerHeading` optionally replaces the localized installer column
+heading with trimmed text (at most 80 characters); missing or blank uses the
+localized default. These portable preferences apply to all drawing title blocks
+and PDF pages when customization is available. Readers without support may use
+the defaults and should preserve the preferences. No schema bump is required.
+
 Canonical `disciplines.electrical.wireRuns[].route` accepts `"none"` as an explicit
 absence of an installation-route marking. An omitted route inherits the upstream
 route within the circuit/domain; `"none"` stops that inheritance without removing
@@ -123,6 +131,13 @@ or `false` means ordinary protection. This is independent of the waveform class
 optional boolean; no schema version change is required.
 The independent optional `superImmunized` boolean marks super-immunized protection
 with `SI`; missing or `false` leaves that designation off. Both flags can be set.
+
+An MCB protection may carry optional `tripSettings` with the adjustable settings of a
+moulded-case or air breaker, in amperes and seconds: `irA`, `isdA`, `tsdS` and `iiA`, each
+optional; their presence means the breaker is adjustable and its labels omit the curve letter,
+while `curve` keeps the previous curve. A FUSE protection may carry `fuseClass`, `"gG"` or
+`"aM"`. Missing means unknown. Neither field changes cabinet layout; readers that do not
+calculate fault levels preserve them and may ignore them. No schema version change is required.
 
 `project.lastViewportLayout` may repeat the same canvas type in multiple slots.
 For the `grid` preset, optional integer `rows` and `columns` each range from 1 to 4;
@@ -834,6 +849,10 @@ incoming supplies to the same explicit section are invalid.
 For the generated normal-bus handoff of a switched root-feed assembly, the
 handoff and the root-feed record are two persisted projections of the same
 physical input and must not be counted as independent supplies.
+The same applies, without a changeover, to an assembly attached at a panel's input:
+its generated handoff back to that panel's normal bus
+(`<assemblyId>-panel-load-<panelId>`), fed only by the assembly's utility source over
+`grid-only-bypass-ac` connections, is the panel's own grid input and not a second supply.
 Likewise, a root-feed record whose devices are all marked `supplyPanelInput: true`
 can carry the panel-side device chain after an assembly handoff to that bus
 section. It does not create a second incoming source. Repeated busbar runs of
@@ -917,8 +936,9 @@ displayed in the editor or drawing labels.
 
 `disciplines.electrical.wireRuns` (schema `2.2.0` and later) is the canonical per-edge wire model
 (Goal 19 / ADR-0002). Each run holds a shared `cable`, a `conductors` list (per-phase
-function, optional per-core section), an optional `medium` (`cable` or `busbar`) with
-`material` and `busTapLengthMode` for busbars, route/tube flags, per-member `segmentLengths`
+function, optional per-core section), an optional `medium` (`cable` or `busbar`),
+optional run-wide `material` (`copper` or `aluminium`) for either medium,
+`busTapLengthMode` for busbars, route/tube flags, per-member `segmentLengths`
 in metres, and `members`: stable anchor keys (not relationship ids) of the edges sharing the
 run. The optional `segmentLengthSources`, keyed like `segmentLengths`, marks a length with
 `'estimated'` when it was accepted from a plan-based route estimate rather than entered; a
@@ -927,6 +947,10 @@ missing entry means an entered length. Recalibration invalidates accepted estima
 remain without a length until the estimate is reviewed. Readers must not use a stored length
 marked stale for electrical checks. Older readers see a missing length. An explicit length edit
 or renewed acceptance replaces the stale marker; manually entered lengths are preserved.
+
+Missing `material` means copper. The material applies to every core in the run;
+it cannot describe aluminium phases with a separate copper protective conductor.
+Cable material uses the existing optional field without a schema-version change.
 
 Each entry of `conductors` is one physical core. Its `function` is one of `L1`, `L2`, `L3`,
 `N`, `PE`, `Lsw` (switched phase), `T1`/`T2` (travellers), `ctrl`, `sig` (one member of a
@@ -1147,6 +1171,11 @@ spreadsheet copy of each table (`.xlsx`) under the same `documents/` folder. Tha
 informational: `project.json` stays the source, readers ignore it, and nothing references it. Copies embedded in an
 exported PDF, and diagnostic or support copies, omit them; a project restored from such a copy
 has no attached documents.
+
+A document entry without a payload may instead carry `document.shortCircuit`, written by the
+hosted editor for a calculation document. It holds that document's own inputs and frozen copies
+of issued revisions; everything else it shows is derived from the project. Readers that do not
+offer the calculation preserve the object unchanged and need not interpret it.
 
 A document entry without a payload may instead carry `document.builtIn` and an
 `includeInExport` flag. It stores only whether a view the project derives live and never stores

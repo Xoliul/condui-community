@@ -3,19 +3,6 @@ import {
   runEendraadDuplicate,
 } from '@/lib/eendraad/duplicateSelection'
 import { canDuplicatePlanSelection, runPlanDuplicate } from '@/lib/plan/planDuplicateSelection'
-import {
-  getProjectElectricalInstallation,
-  getProjectElectricalPanels,
-} from '@/lib/projectV2/electrical'
-import { findGroundTrunkDeviceOwner } from '@/lib/eendraad/panelGround'
-import {
-  createSyncSupplyInverterMultiplierDeps,
-  syncSupplyDeviceMultiplierCount,
-} from '@/lib/eendraad/syncSupplyInverterMultiplier'
-import {
-  createSyncEndpointMultiplierDeps,
-  syncEndpointMultiplierCount,
-} from '@/lib/eendraad/syncEndpointMultiplierCount'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { duplicateProtection } from '@/handlers/eendraad/duplicateProtection'
@@ -84,41 +71,13 @@ export function duplicateSelection(panelIndex: number | null): boolean {
     getTrunkDeviceById: store.getTrunkDeviceById,
     getProtectionById: store.getProtectionById,
     getCurrentProject: () => store.currentProject,
-    getSupplyTrunkDeviceIndex: (id: string) =>
-      (store.currentProject
-        ? getProjectElectricalInstallation(store.currentProject)
-        : undefined
-      )?.mainSupply?.supplyTrunkDevices?.findIndex((d: { id: string }) => d.id === id) ?? -1,
-    getGroundTrunkDeviceIndex: (id: string) =>
-      store.currentProject
-        ? (findGroundTrunkDeviceOwner(
-            getProjectElectricalPanels(store.currentProject),
-            getProjectElectricalInstallation(store.currentProject),
-            id
-          )?.index ?? -1)
-        : -1,
   }
   if (!canDuplicateEendraadSelection(selection, getters)) return false
   const dupResult = runEendraadDuplicate(
     selection,
     getters,
-    {
-      addEndpoint: store.addEndpoint,
-      syncEndpointMultiplierCount: (endpointId: string, count: number) =>
-        syncEndpointMultiplierCount(createSyncEndpointMultiplierDeps(), endpointId, count),
-      addCircuit: store.addCircuit,
-      addTrunkDevice: store.addTrunkDevice,
-      updateTrunkDevice: store.updateTrunkDevice,
-      addSupplyTrunkDevice: store.addSupplyTrunkDevice,
-      syncSupplyDeviceMultiplierCount: (deviceId: string, count: number) =>
-        syncSupplyDeviceMultiplierCount(createSyncSupplyInverterMultiplierDeps(), deviceId, count),
-      addGroundTrunkDevice: store.addGroundTrunkDevice,
-      insertProtectionAfter: store.insertProtectionAfter,
-      updateCircuit: store.updateCircuit,
-      setSelection: useUIStore.getState().setSelection,
-    },
     (protectionId) => duplicateProtection({ protectionId }),
-    (fn, opts) => store.withSingleUndoEntry(fn, opts)
+    { activeFloorId: ui.activeFloorId }
   )
   if (!dupResult) return false
   useUIStore.getState().setSelection(dupResult.selection)

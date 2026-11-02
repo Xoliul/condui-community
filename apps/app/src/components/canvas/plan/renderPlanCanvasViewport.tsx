@@ -46,6 +46,7 @@ import {
   PlanOpeningWidthEditor,
 } from '@/components/canvas/plan'
 import { PlanDebugOverlay } from '@/components/canvas/plan/PlanDebugOverlay'
+import { PlanRemoteSelections } from '@/components/canvas/plan/PlanRemoteSelections'
 import { PlanProjectionGuides } from '@/components/canvas/plan/PlanProjectionGuides'
 
 
@@ -1330,6 +1331,18 @@ export function renderPlanCanvasViewport({
             getSelectionBounds={handleGetSelectionBounds}
             frameDragHandlers={selectionFrameDragHandlers}
           />
+
+          {!isExporting && (
+            <PlanRemoteSelections
+              activeFloorId={activeFloorId}
+              activeFloor={activeFloor}
+              notes={sitplanNotes}
+              placements={visiblePlacements}
+              getEndpointById={getEndpointById}
+              getPlacementWorldBounds={getPlacementWorldBoundsMemo}
+              zoom={effectivePlanZoom}
+            />
+          )}
 
           {/* Main-layer tools and vertex moves keep guides above editable geometry. */}
           {!isExporting && (

@@ -194,6 +194,8 @@ export type ExportProject = ProjectWithOptionalV2Electrical &
       installerOverride?: ExportProjectInstallerOverride
       inspectionAgency?: ProjectPartyContact
       showInspectionAgencyInInfoBlock?: boolean
+      showConduiBranding?: boolean
+      installerHeading?: string
       yearOfConstruction?: number
       installDateColors?: Record<string, string>
     }
@@ -213,6 +215,7 @@ export interface ExportContext {
     baseHref: string
   ) => Promise<ExportPageReference | null>
   advancedPanelLabels?: boolean
+  canCustomizeInfoBlock?: boolean
 }
 
 /**

@@ -205,9 +205,12 @@ export function formatCableTypeLabel(cable: CableSpec, options?: FormatWireLabel
   return cable.kind
 }
 
-export function formatWireLabel(wire: Pick<WireSegment, 'cable'>, options?: FormatWireLabelOptions): string {
+export function formatWireLabel(
+  wire: Pick<WireSegment, 'cable'> & Partial<Pick<WireSegment, 'wireMaterial'>>,
+  options?: FormatWireLabelOptions
+): string {
   const cable = wire.cable
-  const type = formatCableTypeLabel(cable, options)
+  const type = `${formatCableTypeLabel(cable, options)}${wire.wireMaterial === 'aluminium' ? ' Al' : ''}`
   const conductors = cable.conductors
   const hasPE = cable.hasPE ?? false
   const thickness = cable.sectionMm2

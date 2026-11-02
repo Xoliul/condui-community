@@ -158,6 +158,7 @@
     "importFallbackProjectName": "Geïmporteerd project ({{idShort}})"
   },
   "common": {
+    "retry": "Opnieuw proberen",
     "more": "Meer",
     "save": "Opslaan",
     "cancel": "Annuleren",
@@ -916,6 +917,10 @@
     }
   },
   "infoBlock": {
+    "drawingSettings": "Projecttekening",
+    "showConduiBranding": "“Gemaakt met condui.be” tonen",
+    "installerHeading": "Titel installateur",
+    "settingsSearch": "instellingen tekening voettekst branding installateur getekend door",
     "madeWith": "Gemaakt met {{brand}}",
     "pageNr": "Pagina",
     "installerPropertiesTitle": "Installateurgegevens",
@@ -3186,6 +3191,9 @@
     "csvDetails": "Details"
   },
   "wires": {
+    "material": "Materiaal",
+    "copper": "Koper (Cu)",
+    "aluminium": "Aluminium (Al)",
     "wireTypeLabel": "Draadtype",
     "cableDefault": "Standaard",
     "makeCableDefault": "Maak standaard",
@@ -3914,5 +3922,171 @@
     "showOnOneWire": "Tonen op eendraadschema",
     "pageName": "Eendraadschema pagina {{page}}",
     "documentPage": "{{name}} · pagina {{page}}"
+  },
+  "collab": {
+    "status": {
+      "joining": "Verbinden",
+      "live": "Live",
+      "syncing": "Synchroniseren",
+      "offline": "Offline",
+      "suspended": "Gepauzeerd"
+    },
+    "conflict": "Gewijzigd door iemand anders — probeer opnieuw",
+    "peerOtherTab": "{{name}} (ander tabblad)",
+    "peersMore": "nog {{count}}"
+  },
+  "shortCircuit": {
+    "defaultName": "Kortsluitberekening",
+    "origin": "Oorsprong",
+    "supplyCable": "Voedingskabel",
+    "noBoards": "Geen borden",
+    "source": {
+      "grid": "Openbaar net",
+      "declared": "Ik3 netbeheerder",
+      "transformer": "Eigen transformator",
+      "basis": {
+        "synergrid-small": "Synergrid, aansluiting ≤ 80 A",
+        "synergrid-large": "Synergrid, aansluiting > 80 A",
+        "synergrid-unknown": "Synergrid, aansluiting onbekend",
+        "transformer": "Eigen transformator",
+        "declared": "Ik3 netbeheerder",
+        "transformer-incomplete": "Vul vermogen en uk van de transformator in"
+      },
+      "connection": "Aansluiting"
+    },
+    "metrics": {
+      "problems": "Problemen",
+      "unverified": "Onvolledig",
+      "estimated": "Geschatte lengtes"
+    },
+    "columns": {
+      "feeder": "Voedingskabel bord",
+      "circuit": "Kring",
+      "device": "Beveiliging",
+      "icn": "Icn",
+      "cable": "Kabel",
+      "length": "Lengte (m)",
+      "ikMax": "Ik max",
+      "ikMin": "Ik min",
+      "ief": "Ief min",
+      "ia": "Ia",
+      "maxLength": "Max. lengte",
+      "check": "Controle"
+    },
+    "status": {
+      "ok": "OK"
+    },
+    "problem": {
+      "breakingCapacity": "Icn < Ik max",
+      "minimumCurrent": "Ik min < Ia",
+      "faultLoop": "Ief < Ia"
+    },
+    "reason": {
+      "missing-length": "Geen lengte",
+      "missing-cable": "Geen kabel",
+      "missing-breaking-capacity": "Geen Icn",
+      "missing-rating": "Geen kaliber of curve",
+      "fuse": "Geen klasse",
+      "no-overcurrent-device": "Geen automaat",
+      "missing-supply-length": "Geen voedingslengte",
+      "missing-source": "Geen transformatorgegevens",
+      "missing-trip-settings": "Geen Isd of Ii",
+      "delayed-trip": "Isd vertraagd",
+      "fuse-rating": "Waarde niet in tabel"
+    },
+    "boardProblems_one": "{{count}} probleem",
+    "boardProblems_few": "{{count}} problemen",
+    "boardProblems_many": "{{count}} problemen",
+    "boardProblems_other": "{{count}} problemen",
+    "boardUnverified_one": "{{count}} onvolledig",
+    "boardUnverified_few": "{{count}} onvolledig",
+    "boardUnverified_many": "{{count}} onvolledig",
+    "boardUnverified_other": "{{count}} onvolledig",
+    "revisions": {
+      "issue": "Revisie vastleggen",
+      "title": "Revisies",
+      "live": "Actueel",
+      "label": "Rev. {{index}}",
+      "description": "Omschrijving",
+      "remove": "Revisie verwijderen",
+      "removeConfirm": "Revisie {{index}} verwijderen?",
+      "openIssues": "Nog open: {{problems}} problemen, {{unverified}} onvolledig."
+    },
+    "gate": {
+      "title": "Engineering ontgrendelen",
+      "action": "Naar je account",
+      "projectMessage": "Engineering ontgrendelen voor “{{project}}”? Dit is een eenmalige aankoop voor dit project.",
+      "cloudRequired": "Sla dit project eerst op in de cloud om Engineering te ontgrendelen."
+    },
+    "tooltips": {
+      "source": "Uit het eendraadschema: de netaansluiting, of de eigen transformator bij een niet-huishoudelijke installatie.",
+      "ratedKva": "Nominaal vermogen op het typeplaatje van de voedingstransformator. Past de tekening aan.",
+      "uk": "Kortsluitspanning op het typeplaatje van de voedingstransformator. Past de tekening aan.",
+      "connection": "Nominale aansluitstroom van de installatie. Synergrid: tot 80 A levert het net hoogstens 3 kA, boven 80 A hoogstens 6 kA. Past het project aan.",
+      "declared": "Ik3 aan de oorsprong zoals opgegeven door de netbeheerder of gemeten. Overschrijft de waarde hierboven; laat leeg om die te gebruiken.",
+      "origin": "Maximale driefasige kortsluitstroom aan de oorsprong van de installatie (uitgang van de meter).",
+      "supplyCable": "Kabel van de meter naar het hoofdbord.",
+      "supplyLength": "Lengte van de meter naar het hoofdbord. Past de tekening aan.",
+      "problems": "Kringen die een controle niet doorstaan. Klik om alleen deze te tonen.",
+      "unverified": "Kringen die nog niet te controleren zijn, bijvoorbeeld door een ontbrekende lengte. Klik om alleen deze te tonen.",
+      "estimated": "Kabels met een lengte geschat uit het plan. Klik om de kringen met zulke kabels te tonen.",
+      "boardIk": "Maximale kortsluitstroom op de rail (Ik3 max). Toestellen in dit bord moeten die onderbreken.",
+      "boardIkUpperBound": "Maximale kortsluitstroom op de rail. Een kabel voor dit bord heeft geen lengte en telt als 0 m, dus de echte waarde is lager.",
+      "boardStatus": "Slechtste resultaat van de kringen in dit bord.",
+      "furthest": "Totale kabellengte tot het verste punt van de kring.",
+      "ok": "Icn {{icn}} ≥ Ik max {{ikMax}}, Ik min {{ikMin}} ≥ Ia {{ia}}",
+      "columns": {
+        "circuit": "Kringcode op het eendraadschema.",
+        "device": "Beveiligingstoestel: curve, kaliber en polen.",
+        "icn": "Onderbrekingsvermogen van het toestel. Moet minstens Ik max zijn. Past de tekening aan.",
+        "cable": "Kabel van de kring.",
+        "length": "Lengte van het bord tot het eerste punt. Past de tekening aan; ≈ is een schatting uit het plan.",
+        "ikMax": "Maximale kortsluitstroom in het bord die dit toestel moet onderbreken (driefasig bij 3/4-polige toestellen, anders fase-nul).",
+        "ikMin": "Minimale kortsluitstroom op het verste punt van de kring.",
+        "ief": "Minimale foutstroom fase-aarde op het verste punt (TN-stelsels).",
+        "ia": "Stroom die een fout tijdig afschakelt: 5, 10 of 20 × In bij curve B, C of D, Isd of Ii van een instelbare automaat, of de smeltstroom in 5 s van een gG-smeltveiligheid. Ik min moet die halen.",
+        "maxLength": "Langste kring die de automaat nog beveiligt (AREI 5.3.5.5.h, vereenvoudigd).",
+        "check": "Resultaat van de controles. Tik op het resultaat voor details."
+      },
+      "problem": {
+        "breakingCapacity": "Onderbrekingsvermogen te laag: Icn {{icn}} < Ik max {{ikMax}}.",
+        "minimumCurrent": "Automaat schakelt niet onmiddellijk af op het verste punt: Ik min {{ikMin}} < Ia {{ia}}. Kies een lager kaliber, een andere curve of een grotere sectie.",
+        "faultLoop": "Aardfout op het verste punt wordt niet onmiddellijk afgeschakeld: Ief {{ief}} < Ia {{ia}}."
+      },
+      "reason": {
+        "missing-length": "Een kabel van deze kring heeft geen lengte.",
+        "missing-cable": "De kring heeft geen kabel met een sectie.",
+        "missing-breaking-capacity": "Het toestel heeft geen onderbrekingsvermogen (Icn).",
+        "missing-rating": "Het toestel heeft geen kaliber of curve.",
+        "fuse": "Kies gG om de smeltveiligheid te controleren. aM wordt niet gecontroleerd.",
+        "no-overcurrent-device": "Geen automaat of smeltzekering beveiligt deze kring.",
+        "missing-supply-length": "De kabel voor dit bord heeft geen lengte.",
+        "missing-source": "De voedingstransformator heeft geen vermogen of uk.",
+        "missing-trip-settings": "Vul Isd of Ii van de instelbare automaat in.",
+        "delayed-trip": "De vertraging van Isd is langer dan de toegelaten uitschakeltijd en er is geen Ii.",
+        "fuse-rating": "Voor deze waarde is geen gG-smeltstroom gekend."
+      },
+      "boardIkMin": "Minimale kortsluitstroom op de rail van dit bord. De voedende beveiliging moet bij deze stroom onmiddellijk afschakelen.",
+      "fuseClass": "gG beschermt kabels en wordt gecontroleerd met zijn smeltstroom. Niet zichtbaar op de tekening.",
+      "tripSettings": "Uitschakelcurve, of de instellingen van een vermogensautomaat. Instellingen starten vanaf de curve en vervangen die.",
+      "trip": {
+        "irA": "Instelling lange vertraging (overbelasting).",
+        "isdA": "Korte vertraging. Telt als Ia als de vertraging binnen de uitschakeltijd valt.",
+        "tsdS": "Vertraging van Isd. Leeg of 0 voor geen vertraging.",
+        "iiA": "Ogenblikkelijke uitschakeling. Telt altijd als Ia."
+      },
+      "selectCable": "Klik om de kring te selecteren, bijvoorbeeld om de kabel te wijzigen."
+    },
+    "noMatches": "Niets te tonen",
+    "showAll": "Alles tonen",
+    "fuseClass": "Smeltveiligheidsklasse",
+    "tripSettings": {
+      "title": "Instellingen",
+      "irA": "Ir",
+      "isdA": "Isd",
+      "tsdS": "tsd",
+      "iiA": "Ii",
+      "adjustable": "Instelbaar"
+    }
   }
 }

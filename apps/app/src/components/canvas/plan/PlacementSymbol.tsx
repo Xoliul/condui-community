@@ -814,10 +814,7 @@ function PlacementSymbolInner({
         const final = pointerClientToPlanPoint(ev.clientX, ev.clientY)
         if (final) previewPosition(snapPos(final))
         if (latestPosition) {
-          const targetPlacementId = createPlanAltDuplicatePlacement(duplicateSource, refPlacement)
-          if (targetPlacementId) {
-            useProjectStore.getState().updatePlacement(targetPlacementId, { pos: latestPosition })
-          }
+          createPlanAltDuplicatePlacement(duplicateSource, refPlacement, latestPosition)
         }
         endPlanAltDuplicatePointerDrag()
       }

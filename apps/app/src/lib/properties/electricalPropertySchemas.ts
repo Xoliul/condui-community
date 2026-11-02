@@ -147,6 +147,7 @@ export const extraElectricalPropertyEditSchema = z.discriminatedUnion('kind', [
       set: patchObject({
         cable: cableSpec,
         medium: z.enum(['cable', 'busbar']).nullable(),
+        material: z.enum(['copper', 'aluminium']).nullable(),
         route: z.enum(['none', 'wall', 'on-wall', 'ground', 'air']).nullable(),
         inTube: bool,
         labels: patchObject({

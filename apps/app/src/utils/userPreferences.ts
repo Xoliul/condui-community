@@ -1,5 +1,11 @@
 import { readLanguageCookie, writeLanguageCookie } from './language'
-import { getPathLanguagePrefix, normalizeSupportedLanguage, resolveDomainDefaultLanguage } from './languageRouting'
+import {
+  getPathLanguagePrefix,
+  normalizeSupportedLanguage,
+  pickBrowserLanguage,
+  resolveDomainDefaultLanguage,
+  type SupportedLanguage,
+} from './languageRouting'
 
 export type ThemeMode = 'light' | 'dark'
 export type TutorialOnboardingVariant = 'desktop' | 'mobile' | 'tablet'
@@ -93,6 +99,11 @@ export const resolveInitialLanguagePreference = (hostname: string): string => {
     if (pathLanguage) return pathLanguage
   }
 
+  return resolveUnprefixedLanguagePreference(hostname)
+}
+
+/** Language for a URL without a language prefix: saved choice, then browser language, then the domain default. */
+export const resolveUnprefixedLanguagePreference = (hostname: string): SupportedLanguage => {
   const cookieLanguage = normalizeSupportedLanguage(readLanguageCookie())
   if (cookieLanguage) return cookieLanguage
 
@@ -111,6 +122,12 @@ export const resolveInitialLanguagePreference = (hostname: string): string => {
 
   const legacyLanguage = normalizeSupportedLanguage(readLocalStorage(['eendra-language']))
   if (legacyLanguage) return legacyLanguage
+
+  const browserLanguage =
+    typeof navigator !== 'undefined'
+      ? pickBrowserLanguage(navigator.languages?.length ? navigator.languages : [navigator.language])
+      : null
+  if (browserLanguage) return browserLanguage
 
   return resolveDomainDefaultLanguage(hostname)
 }

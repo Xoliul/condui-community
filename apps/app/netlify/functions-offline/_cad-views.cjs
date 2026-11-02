@@ -85,6 +85,27 @@ function loadAcadTs() {
   return acadTsPromise
 }
 
+function readDxfDocument(cad, bytes, notify) {
+  const reader = new cad.DxfReader(bytes, notify)
+  // acad-ts 3.6.0 masks signed shorts to unsigned. In a layer's colour code,
+  // -7 means white and switched off; 65529 loses both meanings. Its private
+  // stream factory is the common hook for text, binary and legacy binary DXF.
+  // Keep this correction on this reader's streams, never on a shared prototype.
+  const createReader = reader._createReader
+  reader._createReader = function (...args) {
+    const stream = createReader.apply(this, args)
+    Object.defineProperty(stream, 'valueAsShort', {
+      get() { return (Number(this.value) << 16) >> 16 },
+    })
+    return stream
+  }
+  try {
+    return reader.read()
+  } finally {
+    reader.dispose()
+  }
+}
+
 // ---------- 2D boxes and affine transforms ([a,b,c,d,e,f]: x' = a x + c y + e, y' = b x + d y + f)
 
 class Box {
@@ -457,6 +478,7 @@ class CadSvgRenderer {
     const block = this.ensureBlock(entity.block)
     const parts = []
     const bbox = new Box()
+    const layers = new Set(block?.layers ?? [])
     if (block) {
       const base = xy(entity.block?.blockEntity?.basePoint)
       const ocs = ocsMatrix(entity.normal)
@@ -484,14 +506,16 @@ class CadSvgRenderer {
         }
       }
     }
-    for (const attribute of entity.attributes ?? []) {
-      if (attribute.isInvisible || Number(attribute.flags) & ATTRIBUTE_HIDDEN_FLAG) continue
-      const result = this.text(attribute)
-      if (!result) continue
-      bbox.addBox(result.bbox)
-      parts.push(`<g fill="${colorCss(attribute.getActiveColor?.() ?? attribute.color)}">${result.element}</g>`)
+    // Attributes have their own layers, independently of their INSERT. Reuse
+    // normal entity rendering so excluded/frozen layers and layer toggles work.
+    const attributes = this.renderEntities(entity.attributes ?? [], false)
+    for (const attribute of attributes) {
+      if (attribute.initiallyVisible) bbox.addBox(attribute.bbox)
+      for (const layer of attribute.layers) layers.add(layer)
+      parts.push(attribute.element)
     }
-    return parts.length ? { bbox, element: parts.join(''), blockLayers: block?.layers } : null
+    if (!bbox.valid) for (const attribute of attributes) bbox.addBox(attribute.bbox)
+    return parts.length ? { bbox, element: parts.join(''), blockLayers: layers } : null
   }
 
   hatch(entity) {
@@ -588,7 +612,12 @@ class CadSvgRenderer {
       case 'Leader':
         return this.pathElement((entity.vertices ?? []).map(xy), false)
       case 'Text':
+        return this.text(entity)
       case 'Attribute':
+        // ATTMODE: 0 hides all attributes, 1 uses each attribute's flag,
+        // 2 shows all attributes, including those flagged invisible.
+        if (this.doc.header?.attributeVisibility === 0) return null
+        if (this.doc.header?.attributeVisibility !== 2 && Number(entity.flags) & ATTRIBUTE_HIDDEN_FLAG) return null
         return this.text(entity)
       case 'MText':
         return this.mtext(entity)
@@ -905,10 +934,22 @@ async function convertCadBuffer(buffer, kind) {
   const notify = (_sender, event) => {
     if (event?.notificationType === NOTIFICATION_ERROR) readerErrors += 1
   }
-  const doc =
-    kind === 'dxf'
-      ? cad.DxfReader.readFromStream(new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength), notify)
-      : cad.DwgReader.readFromStream(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength), notify)
+  // acad-ts 3.6.0's CadInsertTemplate applies the INSERT transform to ATTRIBs
+  // read from both file formats. Their text geometry is already in drawing OCS:
+  // applying it again scales heights twice and moves/rotates the text twice.
+  // Suppress only that reader callback, leaving normal programmatic inserts
+  // unchanged. Reading is synchronous: never await inside this try/finally.
+  const applyAttributeTransform = cad.Insert.prototype.applyAttributeTransform
+  let doc
+  try {
+    cad.Insert.prototype.applyAttributeTransform = function () {}
+    doc =
+      kind === 'dxf'
+        ? readDxfDocument(cad, new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength), notify)
+        : cad.DwgReader.readFromStream(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength), notify)
+  } finally {
+    cad.Insert.prototype.applyAttributeTransform = applyAttributeTransform
+  }
   const { views, unsupported } = buildCadViews(cad, doc)
   const warnings = []
   if (readerErrors > 0) {

@@ -60,14 +60,14 @@ export interface EendraadAltDragDuplicateDeps {
   wireSegments: WireSegmentForDrop[]
   findDropTarget: (tree: LayoutTree, position: Point) => { target: DropTarget }
   t: TFunction
-  addCircuit: (panelId: string, circuit: Circuit, protectionId?: string) => void
-  addEndpoint: (
+  addCircuit?: (panelId: string, circuit: Circuit, protectionId?: string) => void
+  addEndpoint?: (
     circuitId: string,
     endpoint: Endpoint,
     insertAfterEndpointId?: string | null
   ) => void
-  addPlacement: (endpointId: string, placement: Placement) => void
-  updateCircuit: (circuitId: string, updates: Partial<Circuit>) => void
+  addPlacement?: (endpointId: string, placement: Placement) => void
+  updateCircuit?: (circuitId: string, updates: Partial<Circuit>) => void
   setSelection: (sel: Selection) => void
   getFloorById: (floorId: string) => { id: string; layers?: string[] } | null
   getProtectionById: (protectionId: string) => ProtectionDevice | null

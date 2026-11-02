@@ -7,6 +7,7 @@ import {
   attachPlanBackgroundInProject,
   deleteFloorInProject,
   detachPlanBackgroundInProject,
+  reorderFloorsInProject,
   transformPlanBackgroundInProject,
 } from '@/lib/plan/floorSetupMutations'
 import { duplicateFloorPlan } from '@/lib/plan/duplicateFloorPlan'
@@ -262,6 +263,26 @@ export const buildingDeleteFloor = defineProjectCommand({
       changed: [{ kind: 'floor' as const, id: result.replacementFloorId }],
       removed: [ref],
     }
+  },
+})
+
+export const buildingReorderFloors = defineProjectCommand({
+  id: 'floor.reorder',
+  version: 1,
+  input: z.object({ floorId: z.string().min(1), toIndex: z.number().int().nonnegative() }).strict(),
+  check(project, input) {
+    const floors = project.building?.floors ?? []
+    if (!floors.some((floor) => floor.id === input.floorId))
+      return { ok: false, code: 'floor_not_found', message: 'Floor not found' }
+    if (input.toIndex >= floors.length)
+      return { ok: false, code: 'invalid_index', message: 'Floor position is out of range' }
+    return { ok: true }
+  },
+  apply(draft, input) {
+    const fromIndex = draft.building.floors.findIndex((floor) => floor.id === input.floorId)
+    if (!reorderFloorsInProject(draft, fromIndex, input.toIndex))
+      return { created: [], changed: [], removed: [] }
+    return { created: [], changed: [{ kind: 'floor', id: input.floorId }], removed: [] }
   },
 })
 

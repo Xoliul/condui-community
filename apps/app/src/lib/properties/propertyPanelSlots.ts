@@ -2,7 +2,7 @@
 const drawingKeys = new Set([
   'notes', 'labelNotes', 'panelLabel', 'symbolLabelDisplay', 'notesVisible', 'eendraadLetterVisible',
   'ratingA', 'curve', 'sensitivityMa', 'residualCurrentType', 'breakingCapacityKa', 'breakingCapacityOption',
-  'label', 'selective', 'superImmunized',
+  'label', 'selective', 'superImmunized', 'tripSettings', 'fuseClass',
 ])
 const conversionTextKeys = new Set([
   'transformerPrimaryVoltageV', 'transformerSecondaryVoltageV',

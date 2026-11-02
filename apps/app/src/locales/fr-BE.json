@@ -158,6 +158,7 @@
     "importFallbackProjectName": "Projet importé ({{idShort}})"
   },
   "common": {
+    "retry": "Réessayer",
     "more": "En savoir plus",
     "save": "Enregistrer",
     "cancel": "Annuler",
@@ -916,6 +917,10 @@
     }
   },
   "infoBlock": {
+    "drawingSettings": "Dessin du projet",
+    "showConduiBranding": "Afficher « Réalisé avec condui.be »",
+    "installerHeading": "Titre de l’installateur",
+    "settingsSearch": "paramètres dessin pied de page marque installateur dessiné par",
     "madeWith": "Réalisé avec {{brand}}",
     "pageNr": "Page",
     "installerPropertiesTitle": "Infos installateur",
@@ -3186,6 +3191,9 @@
     "csvDetails": "Détails"
   },
   "wires": {
+    "material": "Matériau",
+    "copper": "Cuivre (Cu)",
+    "aluminium": "Aluminium (Al)",
     "wireTypeLabel": "Type de conducteur",
     "cableDefault": "Par défaut",
     "makeCableDefault": "Définir par défaut",
@@ -3914,5 +3922,171 @@
     "showOnOneWire": "Afficher sur le schéma unifilaire",
     "pageName": "Page du schéma unifilaire {{page}}",
     "documentPage": "{{name}} · page {{page}}"
+  },
+  "collab": {
+    "status": {
+      "joining": "Connexion",
+      "live": "En direct",
+      "syncing": "Synchronisation",
+      "offline": "Hors ligne",
+      "suspended": "En pause"
+    },
+    "conflict": "Modifié par quelqu’un d’autre — réessayez",
+    "peerOtherTab": "{{name}} (autre onglet)",
+    "peersMore": "{{count}} de plus"
+  },
+  "shortCircuit": {
+    "defaultName": "Calcul de court-circuit",
+    "origin": "Origine",
+    "supplyCable": "Câble d’alimentation",
+    "noBoards": "Aucun tableau",
+    "source": {
+      "grid": "Réseau public",
+      "declared": "Ik3 GRD",
+      "transformer": "Transformateur propre",
+      "basis": {
+        "synergrid-small": "Synergrid, raccordement ≤ 80 A",
+        "synergrid-large": "Synergrid, raccordement > 80 A",
+        "synergrid-unknown": "Synergrid, raccordement inconnu",
+        "transformer": "Transformateur propre",
+        "declared": "Ik3 GRD",
+        "transformer-incomplete": "Saisissez la puissance et l’uk du transformateur"
+      },
+      "connection": "Raccordement"
+    },
+    "metrics": {
+      "problems": "Problèmes",
+      "unverified": "Non vérifiés",
+      "estimated": "Longueurs estimées"
+    },
+    "columns": {
+      "feeder": "Alimentation",
+      "circuit": "Circuit",
+      "device": "Appareil",
+      "icn": "Icn",
+      "cable": "Câble",
+      "length": "Longueur (m)",
+      "ikMax": "Ik max",
+      "ikMin": "Ik min",
+      "ief": "Ief min",
+      "ia": "Ia",
+      "maxLength": "Longueur max.",
+      "check": "Contrôle"
+    },
+    "status": {
+      "ok": "OK"
+    },
+    "problem": {
+      "breakingCapacity": "Icn < Ik max",
+      "minimumCurrent": "Ik min < Ia",
+      "faultLoop": "Ief < Ia"
+    },
+    "reason": {
+      "missing-length": "Pas de longueur",
+      "missing-cable": "Pas de câble",
+      "missing-breaking-capacity": "Pas d’Icn",
+      "missing-rating": "Pas de calibre ou de courbe",
+      "fuse": "Pas de classe",
+      "no-overcurrent-device": "Pas de disjoncteur",
+      "missing-supply-length": "Pas de longueur d’alimentation",
+      "missing-source": "Pas de données du transformateur",
+      "missing-trip-settings": "Pas d’Isd ni d’Ii",
+      "delayed-trip": "Isd temporisé",
+      "fuse-rating": "Calibre hors tableau"
+    },
+    "boardProblems_one": "{{count}} problème",
+    "boardProblems_few": "{{count}} problèmes",
+    "boardProblems_many": "{{count}} problèmes",
+    "boardProblems_other": "{{count}} problèmes",
+    "boardUnverified_one": "{{count}} non vérifié",
+    "boardUnverified_few": "{{count}} non vérifiés",
+    "boardUnverified_many": "{{count}} non vérifiés",
+    "boardUnverified_other": "{{count}} non vérifiés",
+    "revisions": {
+      "issue": "Émettre une révision",
+      "title": "Révisions",
+      "live": "En direct",
+      "label": "Rév. {{index}}",
+      "description": "Description",
+      "remove": "Supprimer la révision",
+      "removeConfirm": "Supprimer la révision {{index}} ?",
+      "openIssues": "Encore ouverts : {{problems}} problèmes, {{unverified}} non vérifiés."
+    },
+    "gate": {
+      "title": "Débloquer Engineering",
+      "action": "Continuer vers le compte",
+      "projectMessage": "Débloquer Engineering pour « {{project}} » ? Cet achat unique est réservé à ce projet.",
+      "cloudRequired": "Enregistrez ce projet dans le cloud avant de débloquer Engineering."
+    },
+    "tooltips": {
+      "source": "Repris du schéma unifilaire : le raccordement au réseau, ou le transformateur propre d’une installation non domestique.",
+      "ratedKva": "Puissance nominale sur la plaque signalétique du transformateur d’alimentation. Modifie le dessin.",
+      "uk": "Tension de court-circuit sur la plaque signalétique du transformateur d’alimentation. Modifie le dessin.",
+      "connection": "Courant nominal de raccordement de l’installation. Synergrid : jusqu’à 80 A le réseau fournit au plus 3 kA, au-delà de 80 A au plus 6 kA. Modifie le projet.",
+      "declared": "Ik3 à l’origine communiqué par le gestionnaire de réseau ou mesuré. Remplace la valeur ci-dessus ; laissez vide pour l’utiliser.",
+      "origin": "Courant de court-circuit triphasé maximal à l’origine de l’installation (sortie du compteur).",
+      "supplyCable": "Câble du compteur au tableau principal.",
+      "supplyLength": "Longueur du compteur au tableau principal. Modifie le dessin.",
+      "problems": "Circuits qui échouent à un contrôle. Cliquez pour n’afficher que ceux-ci.",
+      "unverified": "Circuits pas encore contrôlables, par exemple faute de longueur. Cliquez pour n’afficher que ceux-ci.",
+      "estimated": "Câbles dont la longueur est estimée à partir du plan. Cliquez pour afficher les circuits concernés.",
+      "boardIk": "Courant de court-circuit maximal sur le jeu de barres (Ik3 max). Les appareils de ce tableau doivent le couper.",
+      "boardIkUpperBound": "Courant de court-circuit maximal sur le jeu de barres. Un câble en amont n’a pas de longueur et compte pour 0 m : la valeur réelle est plus faible.",
+      "boardStatus": "Pire résultat parmi les circuits de ce tableau.",
+      "furthest": "Longueur totale de câble jusqu’au point le plus éloigné du circuit.",
+      "ok": "Icn {{icn}} ≥ Ik max {{ikMax}}, Ik min {{ikMin}} ≥ Ia {{ia}}",
+      "columns": {
+        "circuit": "Code du circuit sur le schéma unifilaire.",
+        "device": "Appareil de protection : courbe, calibre et pôles.",
+        "icn": "Pouvoir de coupure de l’appareil. Il doit valoir au moins Ik max. Modifie le dessin.",
+        "cable": "Câble du circuit.",
+        "length": "Longueur du tableau au premier point. Modifie le dessin ; ≈ est une estimation du plan.",
+        "ikMax": "Courant de court-circuit maximal dans le tableau que cet appareil doit couper (triphasé pour les appareils 3/4 pôles, sinon phase-neutre).",
+        "ikMin": "Courant de court-circuit minimal au point le plus éloigné du circuit.",
+        "ief": "Courant de défaut phase-terre minimal au point le plus éloigné (schémas TN).",
+        "ia": "Courant qui coupe un défaut à temps : 5, 10 ou 20 × In pour la courbe B, C ou D, Isd ou Ii d’un disjoncteur réglable, ou le courant de fusion en 5 s d’un fusible gG. Ik min doit l’atteindre.",
+        "maxLength": "Circuit le plus long que le disjoncteur protège encore (RGIE 5.3.5.5.h, simplifié).",
+        "check": "Résultat des contrôles. Touchez le résultat pour les détails."
+      },
+      "problem": {
+        "breakingCapacity": "Pouvoir de coupure trop faible : Icn {{icn}} < Ik max {{ikMax}}.",
+        "minimumCurrent": "Le disjoncteur ne déclenche pas instantanément au bout du circuit : Ik min {{ikMin}} < Ia {{ia}}. Choisissez un calibre plus bas, une autre courbe ou une section plus grande.",
+        "faultLoop": "Un défaut à la terre au bout du circuit n’est pas coupé instantanément : Ief {{ief}} < Ia {{ia}}."
+      },
+      "reason": {
+        "missing-length": "Un câble de ce circuit n’a pas de longueur.",
+        "missing-cable": "Le circuit n’a pas de câble avec une section.",
+        "missing-breaking-capacity": "L’appareil n’a pas de pouvoir de coupure (Icn).",
+        "missing-rating": "L’appareil n’a pas de calibre ni de courbe.",
+        "fuse": "Choisissez gG pour vérifier le fusible. Les fusibles aM ne sont pas vérifiés.",
+        "no-overcurrent-device": "Aucun disjoncteur ni fusible ne protège ce circuit.",
+        "missing-supply-length": "Le câble en amont de ce tableau n’a pas de longueur.",
+        "missing-source": "Le transformateur d’alimentation n’a pas de puissance ni d’uk.",
+        "missing-trip-settings": "Saisissez Isd ou Ii du disjoncteur réglable.",
+        "delayed-trip": "La temporisation d’Isd dépasse le temps de coupure admis et aucun Ii n’est réglé.",
+        "fuse-rating": "Aucun courant de fusion gG n’est connu pour ce calibre."
+      },
+      "boardIkMin": "Courant de court-circuit minimal sur le jeu de barres de ce tableau. La protection d’alimentation doit déclencher instantanément à ce courant.",
+      "fuseClass": "Le gG protège les câbles et est vérifié avec son courant de fusion. Non affiché sur le schéma.",
+      "tripSettings": "Courbe de déclenchement, ou les réglages d’un disjoncteur boîtier moulé. Les réglages partent de la courbe et la remplacent.",
+      "trip": {
+        "irA": "Réglage long retard (surcharge).",
+        "isdA": "Court retard. Compte comme Ia si sa temporisation respecte le temps de coupure.",
+        "tsdS": "Temporisation court retard. Vide ou 0 sans temporisation.",
+        "iiA": "Déclenchement instantané. Compte toujours comme Ia."
+      },
+      "selectCable": "Cliquez pour sélectionner le circuit, par exemple pour changer son câble."
+    },
+    "noMatches": "Rien à afficher",
+    "showAll": "Tout afficher",
+    "fuseClass": "Classe du fusible",
+    "tripSettings": {
+      "title": "Réglages",
+      "irA": "Ir",
+      "isdA": "Isd",
+      "tsdS": "tsd",
+      "iiA": "Ii",
+      "adjustable": "Réglable"
+    }
   }
 }

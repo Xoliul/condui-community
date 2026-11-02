@@ -18,6 +18,7 @@ import {
   resolveProjectDefaultCableKind,
   withProjectDefaultCableKind,
 } from '@/lib/wires/circuitWireDefaults'
+import CustomDropdown from '@/components/common/CustomDropdown'
 import { WireRouteAndCableForm, type WireRouteFormState } from '../shared/propertiesShared'
 import { panelStringT } from '../shared/propertiesSharedUtils'
 import { buildElectricalStructureSnapshot } from '@/lib/electricalStructure/builder'
@@ -192,6 +193,22 @@ export function CanonicalWireProperties({
     </button>
   )
   return (
+    <div className="space-y-4">
+      <div>
+        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+          {t('wires.material')}
+        </label>
+        <CustomDropdown
+          value={run?.material ?? 'copper'}
+          onChange={(value) =>
+            update(anchor, state.cable, { material: value === 'aluminium' ? 'aluminium' : 'copper' })
+          }
+          options={[
+            { value: 'copper', label: t('wires.copper') },
+            { value: 'aluminium', label: t('wires.aluminium') },
+          ]}
+        />
+      </div>
     <WireRouteAndCableForm
       state={state}
       onChange={onChange}
@@ -214,5 +231,6 @@ export function CanonicalWireProperties({
       lengthHint={lengthSuggestion.hint}
       t={panelStringT(t)}
     />
+    </div>
   )
 }

@@ -9,11 +9,11 @@ import {
   requestDeletePlanPlacements,
 } from '@/handlers/plan/deletePlanPlacements'
 import { runProjectCommand } from '@/stores/liveProjectCommandSession'
+import { hidePlanPlacementsOnFloor } from '@/handlers/plan/hidePlanPlacements'
 import { useDialogStore } from '@/stores/dialogStore'
 import FloorSelectionDialog from '@/components/plan/FloorSelectionDialog'
 import HiddenItemsDialog, { type HiddenItem } from '@/components/common/HiddenItemsDialog'
 import { getSymbolById } from '@/lib/symbols'
-import { generateId } from '@/utils/project'
 import { endpointSupportsMultiplier } from '@/utils/endpointMultipliers'
 import { openAddMoreDialogForEndpoint } from '@/components/endpoints/AddMoreCountDialog'
 import type { Point } from '@/types/ui'
@@ -42,7 +42,6 @@ import { confirmDeleteEarthing } from '@/lib/installation/deleteEarthing'
 import { readLegacyCompatibilityFloors } from '@/lib/projectV2/buildingFloors'
 import { restoreHiddenSituationPlanPlacementsToActiveView } from '@/lib/plan/restoreHiddenSituationPlanPlacements'
 import { hasCustomPlacement } from '@/lib/plan/customPlacement'
-import { mergeHiddenSituationPlanPlacementIds } from '@/lib/plan/hideSituationPlanPlacements'
 
 /**
  * Hook to generate context menu items for the plan canvas
@@ -79,8 +78,6 @@ export function usePlanContextMenu(
       const projectState = useProjectStore.getState()
       const {
         currentProject,
-        updatePlacement,
-        addPlacement,
         getEndpointById: getEndpointByIdFromSnapshot,
         getAllEndpoints,
         getFloorById,
@@ -88,7 +85,6 @@ export function usePlanContextMenu(
         getPanelByName,
         getPlacementById,
         getPlacementsByFloor,
-        updateFloor,
         findCircuitForEndpoint,
       } = projectState
       const { closeDialog } = useDialogStore.getState()
@@ -134,7 +130,11 @@ export function usePlanContextMenu(
                   label: isLocked
                     ? t('contextMenu.unlockPosition')
                     : t('contextMenu.lockPosition'),
-                  onClick: () => updatePlacement(placementIds[0]!, { locked: !isLocked }),
+                  onClick: () =>
+                    runProjectCommand('plan.setPlacementLocked', {
+                      placementId: placementIds[0]!,
+                      locked: !isLocked,
+                    }),
                 },
               ]
             : []),
@@ -146,12 +146,7 @@ export function usePlanContextMenu(
               if (!activeFloorId) return
               const floor = getFloorById(activeFloorId)
               if (!floor) return
-              updateFloor(activeFloorId, {
-                hiddenSitplanPlacementIds: mergeHiddenSituationPlanPlacementIds(
-                  floor.hiddenSitplanPlacementIds,
-                  placementIds
-                ),
-              })
+              hidePlanPlacementsOnFloor(activeFloorId, placementIds)
               clearSelection()
             },
           },
@@ -414,13 +409,12 @@ export function usePlanContextMenu(
               if (!activeFloorId) return
               const floor = getFloorById(activeFloorId)
               if (!floor) return
-              const current = new Set<string>(floor.hiddenSitplanPlacementIds ?? [])
               const selected = getSelectedPlacements()
               if (selected.length === 0) return
-              selected.forEach((item) => current.add(item.placementId))
-              updateFloor(activeFloorId, {
-                hiddenSitplanPlacementIds: Array.from(current),
-              })
+              hidePlanPlacementsOnFloor(
+                activeFloorId,
+                selected.map((item) => item.placementId)
+              )
               clearSelection()
             },
           },
@@ -518,27 +512,22 @@ export function usePlanContextMenu(
                             moves: [{ placementId: placement.id }],
                           })
                         } else if (endpoint) {
-                          const createdPlacementId = generateId()
-                          const newPlacement: Placement = {
-                            id: createdPlacementId,
-                            floorId,
-                            layer: 'electrical',
-                            pos: { x: position.x, y: position.y },
-                            rotationDeg: 0,
-                            scale: 1,
-                          }
                           logger.info(
-                            '[PlanContextMenu] Move to floor created placement (single)',
+                            '[PlanContextMenu] Move to floor creates placement (single)',
                             {
                               endpointId: effectiveEndpointId,
-                              createdPlacementId,
                               toFloorId: floorId,
                               activeFloorId,
                               selection,
                               fromContextMenuPos: position,
                             }
                           )
-                          addPlacement(effectiveEndpointId, newPlacement)
+                          runProjectCommand('plan.placeExisting', {
+                            target: { kind: 'endpoint', id: effectiveEndpointId },
+                            floorId,
+                            layer: 'electrical',
+                            pos: { x: position.x, y: position.y },
+                          })
                         } else {
                           logger.warn(
                             '[PlanContextMenu] Move to floor skipped (single): no placement resolved',
@@ -605,7 +594,10 @@ export function usePlanContextMenu(
                 label: isLocked ? t('contextMenu.unlockPosition') : t('contextMenu.lockPosition'),
                 onClick: () => {
                   if (placement) {
-                    updatePlacement(placement.id, { locked: !isLocked })
+                    runProjectCommand('plan.setPlacementLocked', {
+                      placementId: placement.id,
+                      locked: !isLocked,
+                    })
                   }
                 },
               }
@@ -618,11 +610,7 @@ export function usePlanContextMenu(
                 if (!activeFloorId || !placement) return
                 const floor = getFloorById(activeFloorId)
                 if (!floor) return
-                const current = new Set<string>(floor.hiddenSitplanPlacementIds ?? [])
-                current.add(placement.id)
-                updateFloor(activeFloorId, {
-                  hiddenSitplanPlacementIds: Array.from(current),
-                })
+                hidePlanPlacementsOnFloor(activeFloorId, [placement.id])
                 clearSelection()
               },
             },
@@ -765,11 +753,10 @@ export function usePlanContextMenu(
               onClick: () => {
                 const floorInner = getFloorById(activeFloorId!)
                 if (!floorInner) return
-                const current = new Set<string>(floorInner.hiddenSitplanPlacementIds ?? [])
-                selected.forEach((item) => current.add(item.placementId))
-                updateFloor(activeFloorId!, {
-                  hiddenSitplanPlacementIds: Array.from(current),
-                })
+                hidePlanPlacementsOnFloor(
+                  activeFloorId!,
+                  selected.map((item) => item.placementId)
+                )
                 clearSelection()
               },
             })

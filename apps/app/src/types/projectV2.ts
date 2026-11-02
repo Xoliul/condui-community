@@ -77,6 +77,8 @@ export interface ProjectV2Meta {
   customer?: ProjectMetadata['customer']
   inspectionAgency?: ProjectMetadata['inspectionAgency']
   showInspectionAgencyInInfoBlock?: ProjectMetadata['showInspectionAgencyInInfoBlock']
+  showConduiBranding?: boolean
+  installerHeading?: string
   installerOverride?: ProjectMetadata['installerOverride']
   importSources?: ProjectMetadata['importSources']
 }
@@ -379,6 +381,32 @@ export interface ExternalInfluenceRoomV2 {
   publiclyAccessible: boolean
 }
 
+/**
+ * The calculation's own source input. The source itself comes from the drawing (connection
+ * current, supply transformer); a fault level declared by the grid operator overrides it.
+ */
+export interface ShortCircuitSourceV2 {
+  kind: 'grid'
+  declaredIk3Ka?: number
+}
+
+/** An issued revision: a frozen copy of the calculation, never changed afterwards. */
+export interface ShortCircuitRevisionV2 {
+  id: string
+  /** Revision letter shown on the document, A, B, … */
+  index: string
+  issuedAt: string
+  description?: string
+  /** The calculation report at issue time (`ShortCircuitReport` in `lib/shortCircuit`). */
+  report: Record<string, unknown>
+}
+
+export interface ShortCircuitDocumentV2 {
+  version: 1
+  source?: ShortCircuitSourceV2
+  revisions?: ShortCircuitRevisionV2[]
+}
+
 /** Native scan documents are independent assets; binary/JSON payloads live in dataUrl. */
 export interface RoomScanDocumentMetadataV2 {
   version: 1
@@ -402,6 +430,11 @@ export interface ProjectDocumentMetadataV2 {
   teamDocumentId?: string
   /** A table created in the editor; such a document has no file payload. */
   externalInfluences?: { rooms: ExternalInfluenceRoomV2[] }
+  /**
+   * Hosted short-circuit calculation: its own inputs and issued revisions. Results are derived
+   * live from the project; only issued revisions keep a frozen copy. Readers preserve it as is.
+   */
+  shortCircuit?: ShortCircuitDocumentV2
   roomScan?: RoomScanDocumentMetadataV2
   /**
    * Settings of a document every project derives live (the cable schedule, the domotica address
@@ -602,7 +635,7 @@ export interface WireRun {
    * `'cable'`. Independent of whether the one-wire *draws* a bus rail.
    */
   medium?: 'cable' | 'busbar'
-  /** Conductor material, relevant mainly for busbars. Default copper. */
+  /** Conductor material for every core of a cable or busbar. Default copper. */
   material?: 'copper' | 'aluminium'
   /**
    * For a busbar run, how each tap's length is accounted: `'from-feeder'` (star — measured back to

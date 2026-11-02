@@ -15,6 +15,7 @@ import {
   Trash2,
   Upload,
   CloudUpload,
+  Zap,
 } from 'lucide-react'
 import CanvasFloatingControlRail from '@/components/canvas/CanvasFloatingControlRail'
 import ContextMenuPortal from '@/components/canvas/ContextMenuPortal'
@@ -65,8 +66,11 @@ import {
 import {
   ExternalInfluencesDocumentActions,
   ExternalInfluencesDocumentView,
+  ShortCircuitDocumentHeaderActions,
+  ShortCircuitDocumentView,
   TeamLibraryPicker,
   useExternalInfluencesEntry,
+  useShortCircuitEntry,
   useSaveToTeamLibrary,
   useTeamDocumentLibraryAccess,
 } from '@/components/documents/documentsHostedFeatures'
@@ -109,6 +113,7 @@ export default function DocumentsCanvas({ canEditProject = true }: { canEditProj
   const documents = useListedProjectDocuments()
   // Non-household projects offer external influences; other than in paid projects, locked.
   const externalInfluences = useExternalInfluencesEntry()
+  const shortCircuit = useShortCircuitEntry()
   const requestedDocumentId = useProjectDocumentsStore((s) => s.openDocumentId)
   const [openDocumentId, setOpenDocumentId] = useState(requestedDocumentId)
   const [lastRequestedDocument, setLastRequestedDocument] = useState(requestedDocumentId)
@@ -163,6 +168,13 @@ export default function DocumentsCanvas({ canEditProject = true }: { canEditProj
     setSelection({ type: 'document', ids: [documentId] })
   }
 
+  const addShortCircuit = () => {
+    const documentId = shortCircuit?.add(t('shortCircuit.defaultName'), i18n.language)
+    if (!documentId) return
+    openDocument(documentId)
+    setSelection({ type: 'document', ids: [documentId] })
+  }
+
   const openTeamLibrary = () => {
     if (!teamLibrary) return
     dialog.custom({
@@ -206,6 +218,19 @@ export default function DocumentsCanvas({ canEditProject = true }: { canEditProj
             onClick: () => {
               setAddMenuOpen(false)
               addExternalInfluences()
+            },
+          },
+        ]
+      : []),
+    ...(shortCircuit
+      ? [
+          {
+            label: t('shortCircuit.defaultName'),
+            icon: <Zap className="h-4 w-4 shrink-0" />,
+            ...(shortCircuit.locked ? { badge: <HostedFeatureBadge /> } : {}),
+            onClick: () => {
+              setAddMenuOpen(false)
+              addShortCircuit()
             },
           },
         ]
@@ -518,6 +543,9 @@ export default function DocumentsCanvas({ canEditProject = true }: { canEditProj
                   <ControlAddressTableActions />
                 </div>
               )}
+              {openedDocument.kind === 'shortCircuitCalculation' && (
+                <ShortCircuitDocumentHeaderActions documentId={openedDocument.id} />
+              )}
               {openedDocument.kind === 'externalInfluences' && (
                 <ExternalInfluencesDocumentActions
                   documentId={openedDocument.id}
@@ -530,6 +558,8 @@ export default function DocumentsCanvas({ canEditProject = true }: { canEditProj
                 <RoomScanDocumentView document={openedDocument} canEditProject={canEditProject} />
               ) : openedDocument.kind === 'externalInfluences' ? (
                 <ExternalInfluencesDocumentView documentId={openedDocument.id} />
+              ) : openedDocument.kind === 'shortCircuitCalculation' ? (
+                <ShortCircuitDocumentView documentId={openedDocument.id} />
               ) : openedDocument.kind === 'cableSchedule' ? (
                 <CableSchedule />
               ) : openedDocument.kind === 'controlAddresses' ? (
@@ -737,6 +767,7 @@ export default function DocumentsCanvas({ canEditProject = true }: { canEditProj
             openedDocument.kind === 'roomScanModel' ||
             openedDocument.kind === 'roomScanPlacements' ||
             openedDocument.kind === 'externalInfluences' ||
+            openedDocument.kind === 'shortCircuitCalculation' ||
             openedDocument.kind === 'cableSchedule' ||
             openedDocument.kind === 'controlAddresses'
           }

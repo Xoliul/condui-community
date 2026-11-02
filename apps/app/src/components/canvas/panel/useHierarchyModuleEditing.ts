@@ -34,7 +34,7 @@ import type { PanelGridSlot, PanelGridModuleRef } from '@/types/schema'
 import { clamp } from '@/lib/geometry'
 import { MIN_PANEL_GRID_MODULE_WIDTH, normalizePanelModuleMeasure } from '@/lib/panel/panelGridUnits'
 
-import { duplicateEndpointOnCircuit } from '@/lib/eendraad/duplicateEndpoint'
+import { runProjectCommand } from '@/stores/liveProjectCommandSession'
 import {
   getModularSocketCount,
   isModularSocket,
@@ -119,43 +119,25 @@ export function useHierarchyModuleEditing({
         if (!newProtectionId) return
         duplicateRef = { kind: 'protection', id: newProtectionId }
       } else if (placement.ref.kind === 'domotica') {
-        const result = duplicateEndpointOnCircuit(
-          currentProject,
+        // The copy and its panel-grid slot are one command, hence one undo step.
+        const outcome = runProjectCommand(
+          'electrical.duplicateElements',
           {
-            circuitId: placement.ref.circuitId,
-            sourceEndpointId: placement.ref.endpointId,
-            context: 'plan',
+            items: [{ kind: 'endpoint', id: placement.ref.endpointId }],
+            purpose: 'altDrag',
+            target: { type: 'panelGrid', panelId: sourcePanel.id, row, col },
           },
-          {
-            getCircuitById: store.getCircuitById,
-            getEndpointById: store.getEndpointById,
-            addEndpoint: store.addEndpoint,
-            updateCircuit: store.updateCircuit,
-            setSelection: undefined,
-          }
+          { label: 'duplicate module in panel grid', source: 'panel' }
         )
-        if (!result.ok || !result.newEndpointId) return
+        const newEndpointId = outcome?.results[0]?.select?.find((ref) => ref.kind === 'endpoint')?.id
+        if (!outcome?.changed || !newEndpointId) return
         duplicateRef = {
           kind: 'domotica',
-          endpointId: result.newEndpointId,
+          endpointId: newEndpointId,
           circuitId: placement.ref.circuitId,
         }
       } else {
         return
-      }
-
-      if (placement.ref.kind !== 'protection') {
-        const panelAfterDuplicate = store.getPanelById(sourcePanel.id)
-        if (!panelAfterDuplicate) return
-        const newKey = panelGridModuleRefKey(duplicateRef)
-        const existingSlots = panelAfterDuplicate.gridView?.slots ?? []
-        const nextSlots = existingSlots.map((slot) =>
-          panelGridModuleRefKey(slot.module) === newKey ? { ...slot, row, col } : slot
-        )
-        if (!nextSlots.some((slot) => panelGridModuleRefKey(slot.module) === newKey)) {
-          nextSlots.push({ row, col, module: duplicateRef })
-        }
-        store.updatePanelGridSlots(sourcePanel.id, nextSlots)
       }
       setSelection(
         duplicateRef.kind === 'protection'

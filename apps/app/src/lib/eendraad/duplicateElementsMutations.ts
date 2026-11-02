@@ -4,8 +4,9 @@ import type { ElectricalDuplicateElementsInput } from '@/lib/commands/project/co
 import type { CommandEnv } from '@/lib/commands/project/types'
 import { CommandError } from '@/lib/commands/project/types'
 import { getEditableProjectElectricalPanels, getProjectElectricalInstallation } from '@/lib/projectV2/electrical'
-import { findCircuitById, findEndpointById, normalizeDomoticaCircuit } from '@/lib/eendraad/projectElectricalDomain'
-import { walkPanels } from '@/lib/panel/panelTree'
+import { findCircuitById, findEndpointById, normalizeDomoticaCircuit, panelGridModuleRefKey } from '@/lib/eendraad/projectElectricalDomain'
+import { walkPanels, findPanelById } from '@/lib/panel/panelTree'
+import { updatePanelGridSlotsInProject } from '@/lib/panel/panelGridMutations'
 import { duplicateEndpointOnCircuit, duplicateBranchAboveOnCircuit } from '@/lib/eendraad/duplicateEndpoint'
 import { addEndpointToProject } from '@/lib/eendraad/endpointMutations'
 import { addTrunkDeviceToProject } from '@/lib/eendraad/circuitMutations'
@@ -336,6 +337,28 @@ export function applyElectricalDuplicateElements(
         }
       }
     }
+  } else if (target.type === 'panelGrid') {
+    const source = endpointFor(project, input.items[0]!.id)!
+    const result = duplicateEndpointOnCircuit(project, {
+      circuitId: source.circuit.id, sourceEndpointId: source.endpoint.id, context: 'plan', selectNew: false,
+    }, {
+      newId: env.newId,
+      getCircuitById: (id) => circuitFor(project, id),
+      getEndpointById: (id) => endpointFor(project, id)?.endpoint,
+      addEndpoint: (circuitId, endpoint, after) => addEndpointToProject(project, circuitId, endpoint, after, undefined, env.newId),
+      updateCircuit: (circuitId, updates) => updateCircuitInProject(project, circuitId, updates),
+      setSelection: () => undefined,
+    })
+    if (!result.ok || !result.newEndpointId) throw new CommandError('check_failed', 'Endpoint could not be duplicated', { reason: result.reason ?? 'duplicate_failed' })
+    clonedEndpoints.push(result.newEndpointId)
+    relatedCircuits.add(source.circuit.id)
+    const panel = findPanelById(getEditableProjectElectricalPanels(project), target.panelId)
+    const newKey = panelGridModuleRefKey({ kind: 'domotica', endpointId: result.newEndpointId, circuitId: source.circuit.id })
+    const slots = (panel?.gridView?.slots ?? []).map((slot) => panelGridModuleRefKey(slot.module) === newKey ? { ...slot, row: target.row, col: target.col } : slot)
+    if (!slots.some((slot) => panelGridModuleRefKey(slot.module) === newKey)) {
+      slots.push({ row: target.row, col: target.col, module: { kind: 'domotica', endpointId: result.newEndpointId, circuitId: source.circuit.id } })
+    }
+    updatePanelGridSlotsInProject(project, target.panelId, slots)
   } else if (target.type === 'duplicateBranch') {
     const circuit = circuitFor(project, target.circuitId)!
     const deps = {

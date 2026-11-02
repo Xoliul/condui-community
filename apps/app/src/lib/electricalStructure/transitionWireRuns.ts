@@ -316,7 +316,7 @@ export function stampTransitionWires(
         conductorCount: run.conductors.length,
         anchor: anchorKey,
         medium: railMedium ? 'busbar' : run.medium === 'busbar' ? 'cable' : run.medium,
-        material: railMedium ? run.material : undefined,
+        material: run.material,
         lengthM: run.segmentLengthSources?.[anchorKey] === 'estimated-stale' ? undefined : run.segmentLengths?.[anchorKey],
         lengthEstimated: run.segmentLengthSources?.[anchorKey] === 'estimated',
         wireRefId: run.id,

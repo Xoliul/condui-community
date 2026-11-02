@@ -6,7 +6,7 @@ import type { PlanPlacementDeletion } from '@/lib/plan/placementMutations'
 import { liveProjectSession } from '@/stores/liveProjectCommandSession'
 import { useProjectStore } from '@/stores/projectStore'
 import { useUIStore } from '@/stores/uiStore'
-import { mergeHiddenSituationPlanPlacementIds } from '@/lib/plan/hideSituationPlanPlacements'
+import { hidePlanPlacementsOnFloor } from './hidePlanPlacements'
 
 export interface DeletePlanPlacementsRequest {
   placementIds: readonly string[]
@@ -76,13 +76,5 @@ export function requestDeletePlanPlacements(request: DeletePlanPlacementsRequest
 export function hidePlanPlacementsOnActiveFloor(placementIds: string[]): void {
   const activeFloorId = useUIStore.getState().activeFloorId
   if (!activeFloorId) return
-  const store = useProjectStore.getState()
-  const floor = store.getFloorById(activeFloorId)
-  if (!floor) return
-  store.updateFloor(activeFloorId, {
-    hiddenSitplanPlacementIds: mergeHiddenSituationPlanPlacementIds(
-      floor.hiddenSitplanPlacementIds,
-      placementIds
-    ),
-  })
+  hidePlanPlacementsOnFloor(activeFloorId, placementIds)
 }

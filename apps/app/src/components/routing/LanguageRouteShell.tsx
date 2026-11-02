@@ -2,7 +2,10 @@ import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
 import i18n from '@/i18n'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { persistLanguagePreference } from '@/utils/userPreferences'
+import {
+  persistLanguagePreference,
+  resolveUnprefixedLanguagePreference,
+} from '@/utils/userPreferences'
 import {
   getCanonicalizedPathForDomain,
   isLanguageCanonicalizationExcluded,
@@ -35,7 +38,11 @@ export function LanguageRouteShell() {
 
   if (!language) {
     const canonicalPath =
-      getCanonicalizedPathForDomain(location.pathname, window.location.hostname) ?? '/nl'
+      getCanonicalizedPathForDomain(
+        location.pathname,
+        window.location.hostname,
+        resolveUnprefixedLanguagePreference(window.location.hostname),
+      ) ?? '/nl'
     return <Navigate to={`${canonicalPath}${location.search}${location.hash}`} replace />
   }
 
@@ -50,7 +57,11 @@ export function UnprefixedLanguageRedirect() {
   }
 
   const canonicalPath =
-    getCanonicalizedPathForDomain(location.pathname, window.location.hostname) ?? '/nl'
+    getCanonicalizedPathForDomain(
+      location.pathname,
+      window.location.hostname,
+      resolveUnprefixedLanguagePreference(window.location.hostname),
+    ) ?? '/nl'
 
   return <Navigate to={`${canonicalPath}${location.search}${location.hash}`} replace />
 }

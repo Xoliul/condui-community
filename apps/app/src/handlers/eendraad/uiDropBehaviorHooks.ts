@@ -4,6 +4,7 @@ import type { DropBehaviorEditorHooks } from '@/lib/eendraad/dropBehaviors'
 import { getViewportCenterPlanSpaceIfApplicable } from '@/lib/plan/autoSitplanPlacement'
 import { ensureEarthingSitplanPlacement } from '@/lib/plan/ensureEarthingSitplanPlacement'
 import { useProjectStore } from '@/stores/projectStore'
+import { runProjectCommand } from '@/stores/liveProjectCommandSession'
 import { useUIStore } from '@/stores/uiStore'
 import { useCanvasRegistryStore } from '@/stores/canvasRegistryStore'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
@@ -44,8 +45,9 @@ export function createUiDropBehaviorHooks(
     ensureEarthingSitplanPlacement: (floorId, pos) => {
       ensureEarthingSitplanPlacement(floorId, pos)
     },
-    ensureSecondaryPanelEarthingStem: (panelId) =>
-      useProjectStore.getState().ensureSecondaryPanelEarthingStem(panelId),
+    ensureSecondaryPanelEarthingStem: (panelId) => {
+      runProjectCommand('panel.ensureEarthingStem', { panelId })
+    },
     onSymbolPlaced: trackSymbolPlace,
     onNotePlaced: () =>
       trackGoogleAnalyticsEvent('note_place', { canvas: 'eendraad', source: 'symbol_drop' }),

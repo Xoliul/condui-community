@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useDialogStore } from '@/stores/dialogStore'
 import { useProjectStore } from '@/stores/projectStore'
+import { updateEndpointProperties } from '@/handlers/properties/editProperties'
 import CustomDropdown from '@/components/common/CustomDropdown'
 import { MULTI_SOCKET_OFFSET, SYMBOL_SIZE } from '@/components/canvas/eendraad/canvasSymbols'
 import { getSymbolById, getSymbolIconPath } from '@/lib/symbols'
@@ -335,7 +336,7 @@ export function openSocketAddMoreDialog(endpoint: Endpoint, t: TFunction) {
           const st = useProjectStore.getState()
           const latest = st.getEndpointById(endpoint.id)
           if (!latest) return
-          st.updateEndpoint(endpoint.id, {
+          updateEndpointProperties(endpoint.id, {
             socketProps: {
               ...latest.socketProps,
               socketCount: count <= 1 ? undefined : count,

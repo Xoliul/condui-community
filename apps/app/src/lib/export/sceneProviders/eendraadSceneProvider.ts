@@ -9,6 +9,7 @@ import Konva from 'konva'
 import type { ExportScene, ExportOptions, EendraadSliceExportMeta } from '../types'
 import { ExportError } from '../types'
 import { findContentLayer, findCanvasContentGroup, calculateSceneBounds } from './helpers'
+import { waitForExportStage } from './waitForExportStage'
 import { collectAndRemoveSymbolImagesForExport } from '../symbolSvgInject'
 import { adjustSymbolImagesForExport } from './symbolImageExport'
 import {
@@ -78,16 +79,9 @@ export async function prepareEendraadScene(
   const isRasterExport = shouldRasterizePdf(options)
 
   // 1. Get stage from registry
-  let stage = useCanvasRegistryStore.getState().registry.eendraad?.getStage()
-
-  // Retry a few times if stage is not immediately available
-  if (!stage) {
-    for (let i = 0; i < 5; i++) {
-      await new Promise((resolve) => requestAnimationFrame(resolve))
-      stage = useCanvasRegistryStore.getState().registry.eendraad?.getStage()
-      if (stage) break
-    }
-  }
+  const stage = await waitForExportStage(() =>
+    useCanvasRegistryStore.getState().registry.eendraad?.getStage()
+  )
 
   if (!stage) {
     throw new ExportError('STAGE_UNAVAILABLE', 'Eendraad stage not available after retries')

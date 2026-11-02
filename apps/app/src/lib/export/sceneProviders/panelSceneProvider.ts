@@ -9,6 +9,7 @@ import Konva from 'konva'
 import type { ExportScene, ExportOptions } from '../types'
 import { ExportError } from '../types'
 import { findContentLayer, findCanvasContentGroup, calculateSceneBounds } from './helpers'
+import { waitForExportStage } from './waitForExportStage'
 import { collectAndRemoveSymbolImagesForExport } from '../symbolSvgInject'
 import { adjustSymbolImagesForExport } from './symbolImageExport'
 import { useUIStore } from '@/stores/uiStore'
@@ -62,16 +63,9 @@ export async function preparePanelScene(
 
   // 2. Get stage from registry (now always returns stage if canvas is mounted)
   const stageLookupId = exportMode.kind === 'panel' ? exportMode.panelId : (activePanelId ?? '')
-  let stage = useCanvasRegistryStore.getState().registry.panel?.getStage(stageLookupId)
-
-  // Retry a few times in case stage isn't immediately available
-  if (!stage) {
-    for (let i = 0; i < 5; i++) {
-      await new Promise((resolve) => requestAnimationFrame(resolve))
-      stage = useCanvasRegistryStore.getState().registry.panel?.getStage(stageLookupId)
-      if (stage) break
-    }
-  }
+  const stage = await waitForExportStage(() =>
+    useCanvasRegistryStore.getState().registry.panel?.getStage(stageLookupId)
+  )
 
   if (!stage) {
     throw new ExportError(

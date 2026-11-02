@@ -9,6 +9,13 @@ export function editPanelLayout(input: PanelEditLayoutInput) {
     source: 'panel',
   })
 }
+export function deleteAuxiliaryEnclosures(enclosureIds: string[]) {
+  const ids = [...new Set(enclosureIds)]
+  return ids.length ? editPanelLayout({ deleteEnclosures: ids }) : null
+}
+export function dismissEmptySharedSupplyFrame() {
+  return editPanelLayout({ dismissEmptySharedSupplyFrame: true })
+}
 export function updatePanelGridSlots(panelId: string, mainSlots: PanelGridSlot[]) {
   return editPanelLayout({ panels: [{ panelId, mainSlots }] })
 }

@@ -297,6 +297,8 @@ export const protectionPatchSchema = patchObject({
   breakingCapacityKa: num,
   breakingCapacityOption: str,
   surgeProtectionKind: enumOrNull(['standard', 'sparkGap']),
+  tripSettings: patchObject({ irA: num, isdA: num, tsdS: num, iiA: num }).nullable(),
+  fuseClass: enumOrNull(['gG', 'aM']),
   polesConfig: enumOrNull(['1P', '1P+N', '2P', '3P', '3P+N', '4P']),
   poles: nullable(z.number().int().min(1).max(4)),
   notes: str,

@@ -26,6 +26,8 @@ type EnsurePanelPlacementOptions = {
   preferredPlanPos?: Point
   /** Prefer the currently active plan floor when a drop explicitly supplies one. */
   preferredFloorId?: string
+  /** Id source for the generated endpoint and placement; defaults to random ids. */
+  newId?: () => string
 }
 
 type PanelPlacementProject = ProjectWithOptionalV2Building & ProjectWithOptionalV2Electrical
@@ -87,8 +89,8 @@ export function getPanelEndpoint(project: PanelPlacementProject, panelId: string
 /**
  * Create an endpoint that represents a panel on the plan
  */
-export function createPanelEndpoint(panel: Panel): Endpoint {
-  return createPanelDistributionEndpoint(panel)
+export function createPanelEndpoint(panel: Panel, newId?: () => string): Endpoint {
+  return createPanelDistributionEndpoint(panel, newId)
 }
 
 /**
@@ -114,10 +116,11 @@ export function createPanelPlacement(
   floorId: string,
   centerX: number = DEFAULT_CENTER_X,
   centerY: number = DEFAULT_CENTER_Y,
-  layer: string = 'electrical'
+  layer: string = 'electrical',
+  newId: () => string = generateId
 ): Placement {
   return {
-    id: generateId(),
+    id: newId(),
     floorId,
     layer,
     pos: { x: centerX, y: centerY },
@@ -221,7 +224,7 @@ export function ensurePanelPlacement(
   let panelEndpoint = getPanelEndpoint(project, panel.id)
   
   if (!panelEndpoint) {
-    panelEndpoint = createPanelEndpoint(panel)
+    panelEndpoint = createPanelEndpoint(panel, options?.newId)
   }
   
   // Get or create placement
@@ -246,7 +249,7 @@ export function ensurePanelPlacement(
       halfExtentForPlacement(1),
       obstacles,
     )
-    placement = createPanelPlacement(groundFloor.id, separated.x, separated.y, layer)
+    placement = createPanelPlacement(groundFloor.id, separated.x, separated.y, layer, options?.newId)
   }
   
   return { endpoint: panelEndpoint, placement }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PLAN_GRAPHIC_ELEMENT_ASSETS } from '@/lib/plan/graphicElements'
 import { useUIStore } from '@/stores/uiStore'
-import { useProjectStore } from '@/stores/projectStore'
+import { runProjectCommand } from '@/stores/liveProjectCommandSession'
 import { isCableRoutesEnabled } from '@/lib/cableRouting/availability'
 
 export type OpeningSelectionArmedTool = 'insertDoor' | 'insertWindow' | null
@@ -44,7 +44,7 @@ export function usePlanCanvasToolState({ readOnly = false }: { readOnly?: boolea
   // Wire-mode controls start enabled without changing ordinary situation-plan visibility.
   useEffect(() => {
     if (activeTool !== 'wiring' || readOnly || !isCableRoutesEnabled()) return
-    useProjectStore.getState().updatePlanWiringVisibility({
+    runProjectCommand('plan.setWiringVisibility', {
       wireToolWiresVisible: true,
       wireToolCategoriesVisible: {},
     })

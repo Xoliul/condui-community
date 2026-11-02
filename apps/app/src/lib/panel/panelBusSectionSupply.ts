@@ -54,6 +54,50 @@ export function isGeneratedChangeoverNormalHandoff(
   )
 }
 
+/**
+ * An assembly attached at a panel's input draws from the grid that feeds that panel. Without a
+ * changeover, its generated grid-bypass fan-out back to the panel's normal bus is that same grid
+ * input seen from the assembly graph, so it mirrors the panel's root feed instead of adding a
+ * second supply. Only a pure utility bypass qualifies: any device or inverter in the path is a
+ * real second source and stays detectable.
+ */
+export function isGeneratedGridBypassMirrorHandoff(
+  assembly: OffGridSupplyAssembly,
+  handoff: SupplyLoadHandoff,
+  panel: Panel,
+  busSectionId: string
+): boolean {
+  if (assembly.nodes.some((node) => node.kind === 'changeover-switch')) return false
+  const incoming = assembly.incomingAttachment
+  if (
+    (incoming.kind !== 'panel-input' && incoming.kind !== 'panel-bus-input') ||
+    incoming.panelId !== panel.id
+  ) {
+    return false
+  }
+  if (
+    handoff.id !== `${assembly.id}-panel-load-${panel.id}` ||
+    handoff.handoffNodeId !== `${assembly.id}-panel-handoff-${panel.id}` ||
+    !handoffTargetsSection(handoff, panel, busSectionId) ||
+    panel.busSections?.some((section) => section.id === busSectionId && section.role !== 'normal')
+  ) {
+    return false
+  }
+  const feeding = assembly.connections.filter(
+    (connection) => connection.endpoints[1].nodeId === handoff.handoffNodeId
+  )
+  return (
+    feeding.length > 0 &&
+    feeding.every(
+      (connection) =>
+        connection.pathRole === 'grid-only-bypass-ac' &&
+        assembly.nodes.some(
+          (node) => node.id === connection.endpoints[0].nodeId && node.kind === 'utility-source'
+        )
+    )
+  )
+}
+
 function handoffTargetsSection(
   handoff: SupplyLoadHandoff,
   panel: Panel,
@@ -83,8 +127,10 @@ export function resolvePanelBusSectionSupply(
       (rootFeed.busSectionId ?? getPrimaryPanelBusSectionId(panel)) === busSectionId
   )
   const hasGeneratedNormalHandoff = assemblies.some((assembly) =>
-    assembly.loadHandoffs.some((handoff) =>
-      isGeneratedChangeoverNormalHandoff(assembly, handoff, panel, busSectionId)
+    assembly.loadHandoffs.some(
+      (handoff) =>
+        isGeneratedChangeoverNormalHandoff(assembly, handoff, panel, busSectionId) ||
+        isGeneratedGridBypassMirrorHandoff(assembly, handoff, panel, busSectionId)
     )
   )
   const hasSectionHandoff = assemblies.some((assembly) =>

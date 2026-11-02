@@ -57,12 +57,9 @@ import {
   trunkDnDVerboseLogEnabled,
 } from '@/lib/eendraad/trunkDeviceDnDLog'
 
-import { getProjectElectricalPanels, getEditableProjectElectricalPanels } from '@/lib/projectV2/electrical'
+import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import {
   isPanelAttachmentDropTargetTerminal,
-  movePanelAttachmentOnRcdBus,
-  movePanelAttachmentOnSecondaryBus,
-  movePanelAttachmentToMainBus,
 } from '@/lib/eendraad/panelAttachmentMove'
 import { resolveProtectionDropTargetForPosition, runEendraadEndpointAltDragDuplicate } from '@/lib/eendraad/eendraadAltDragDuplicate'
 import { commitEndpointMove as moveEndpointSelection } from '@/handlers/eendraad/moveEndpointSelection'
@@ -87,8 +84,7 @@ import type {
 type ViewportUIState = ReturnType<ReturnType<typeof useViewportUIApi>['getState']>
 type InternalDragPlacement = (DropZoneHintRelocation & { symbol: SymbolMetadata }) | null
 interface EendraadElementDragOptions extends Pick<ProjectState,
-  'addCircuit' | 'addEndpoint' | 'addPlacement' | 'getEndpointById' | 'getFloorById' |
-  'getPanelById' | 'getProtectionById' | 'getTrunkDeviceById' | 'updateCircuit' | 'withSingleUndoEntry'> {
+  'getEndpointById' | 'getFloorById' | 'getPanelById' | 'getProtectionById' | 'getTrunkDeviceById'> {
   altDuplicatePointerCleanupRef: RefObject<(() => void) | null>
   augmentCircuitVerticalWireDomain: (rawTarget: DropTarget, position: Point) => DropTarget
   canDragItems: boolean
@@ -147,9 +143,6 @@ function findProtectionDragTarget(tree: LayoutTree, position: Point): { target: 
 }
 
 export function useEendraadElementDrag({
-  addCircuit,
-  addEndpoint,
-  addPlacement,
   altDuplicatePointerCleanupRef,
   augmentCircuitVerticalWireDomain,
   canDragItems,
@@ -186,11 +179,9 @@ export function useEendraadElementDrag({
   t,
   trunkBranchSlotMarkerRef,
   trunkDnDLoggedStartRef,
-  updateCircuit,
   viewportUI,
   window,
   wireSegments,
-  withSingleUndoEntry,
 }: EendraadElementDragOptions) {
   // Internal 1‑draad drag pipeline for existing symbols
   // Live drag: feed internal drags into the existing preview system so we get
@@ -577,48 +568,38 @@ export function useEendraadElementDrag({
           return !!outcome?.changed
         }
 
-        return withSingleUndoEntry(
-          () => {
-            let moved = false
-            useProjectStore.setState((state: ProjectState) => {
-              if (!state.currentProject) return
-              const panels = getEditableProjectElectricalPanels(state.currentProject)
-              const result = canMoveToSecondary
-                ? movePanelAttachmentOnSecondaryBus(
-                    panels,
-                    elementId,
-                    target.circuitId!,
-                    target.secondaryBusInsertIndex!
-                  )
-                : canMoveToRcd
-                  ? movePanelAttachmentOnRcdBus(
-                      panels,
-                      elementId,
-                      target.protectionId!,
-                      target.secondaryBusInsertIndex!
-                    )
-                  : movePanelAttachmentToMainBus(
-                      panels,
-                      elementId,
-                      target.panelId!,
-                      target.mainBusInsertIndex!
-                    )
-              if (!result) return
-              state.isDirty = true
-              moved = true
-            })
-            if (moved) setSelection({ type: 'panel', ids: [elementId] })
-            return moved
+        const outcome = runProjectCommand(
+          'panel.moveAttachmentOnBus',
+          {
+            panelId: elementId,
+            target: canMoveToSecondary
+              ? {
+                  type: 'secondaryBus',
+                  parentCircuitId: target.circuitId!,
+                  insertIndex: target.secondaryBusInsertIndex!,
+                }
+              : canMoveToRcd
+                ? {
+                    type: 'rcdBus',
+                    protectionId: target.protectionId!,
+                    insertIndex: target.secondaryBusInsertIndex!,
+                  }
+                : {
+                    type: 'mainBus',
+                    sourcePanelId: target.panelId!,
+                    insertIndex: target.mainBusInsertIndex!,
+                  },
           },
-          { sessionLabel: 'move distribution board on secondary bus' }
+          { label: 'Move distribution board on bus' }
         )
+        if (outcome?.changed) setSelection({ type: 'panel', ids: [elementId] })
+        return !!outcome?.changed
       }
 
       if (elementType === 'endpoint') {
         if (isDuplicateDrag) {
           if (!currentProject || !layoutTree) return false
-          return withSingleUndoEntry(
-            () =>
+          return (
               runEendraadEndpointAltDragDuplicate(elementId, position, {
                 dropHooks: createUiDropBehaviorHooks(window.document),
                 project: currentProject,
@@ -627,10 +608,6 @@ export function useEendraadElementDrag({
                 findDropTarget: (tree, pos) =>
                   findDropTargetWithDebug(tree, pos, { preferMainBusOverGroundWire: true }),
                 t,
-                addCircuit,
-                addEndpoint,
-                addPlacement,
-                updateCircuit,
                 setSelection,
                 getFloorById: (floorId) => {
                   const floor = getFloorById(floorId)
@@ -654,8 +631,7 @@ export function useEendraadElementDrag({
                   setSelection({ type: 'endpoint', ids: [endpointId] })
                   return true
                 },
-              }),
-            { sessionLabel: 'duplicate endpoint via alt-drag' }
+              })
           )
         }
 
@@ -880,9 +856,6 @@ export function useEendraadElementDrag({
     },
     [
       window.document,
-      addCircuit,
-      addEndpoint,
-      addPlacement,
       augmentCircuitVerticalWireDomain,
       resolveBranchDrop,
       currentProject,
@@ -897,8 +870,6 @@ export function useEendraadElementDrag({
       setDragPreview,
       setSelection,
       t,
-      updateCircuit,
-      withSingleUndoEntry,
       wireSegments,
       viewportUI,
       movingPanelAttachmentIdRef,

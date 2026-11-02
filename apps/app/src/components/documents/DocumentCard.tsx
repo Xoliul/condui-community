@@ -79,7 +79,7 @@ function DocumentThumbnail({ document }: { document: ProjectDocument }) {
   if (document.kind === 'controlAddresses') {
     return <SheetThumbnail badge={<DomoticaIcon className="h-8 w-8 [&>svg]:block [&>svg]:h-full [&>svg]:w-full" />} />
   }
-  if (document.kind === 'externalInfluences') return <SheetThumbnail />
+  if (document.kind === 'externalInfluences' || document.kind === 'shortCircuitCalculation') return <SheetThumbnail />
   if (failed) return <FileText className="h-10 w-10 text-gray-300 dark:text-gray-600" />
   if (document.kind === 'image') {
     return (

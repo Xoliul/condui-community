@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import CustomDropdown from '@/components/common/CustomDropdown'
 import { useEendraadLayout } from '@/hooks/eendraad/useEendraadLayout'
 import { useProjectStore } from '@/stores/projectStore'
+import { useUIStore } from '@/stores/uiStore'
 import { calculatePageCounts, type PageCountSummary } from '@/lib/export/calculatePageCount'
 import type { ExportOptions, ExportTheme } from '@/lib/export/types'
 import { useEffectiveInstallerProfile } from '@/hooks/useEffectiveInstallerProfile'
@@ -32,13 +33,14 @@ export function ExportDialog({ onExport, onCancel }: CommunityExportDialogProps)
   const hasSignature = Boolean(effectiveInstallerProfile?.signatureDataUrl)
   const getFramesByPanel = useProjectStore((state) => state.getFramesByPanel)
   const layout = useEendraadLayout()
-  const [includeEendraad, setIncludeEendraad] = useState(true)
-  const [includePanel, setIncludePanel] = useState(true)
-  const [includeSitplan, setIncludeSitplan] = useState(true)
-  const [includeInstallDates, setIncludeInstallDates] = useState(false)
-  const [includeSignature, setIncludeSignature] = useState(true)
-  const [mergePlanPages, setMergePlanPages] = useState(false)
-  const [theme, setTheme] = useState<ExportTheme>('light')
+  const previousOptions = useUIStore((state) => state.lastExportOptions)
+  const [includeEendraad, setIncludeEendraad] = useState(previousOptions?.includeEendraad ?? true)
+  const [includePanel, setIncludePanel] = useState(previousOptions?.includePanel ?? true)
+  const [includeSitplan, setIncludeSitplan] = useState(previousOptions?.includeSitplan ?? true)
+  const [includeInstallDates, setIncludeInstallDates] = useState(previousOptions?.includeInstallDates ?? false)
+  const [includeSignature, setIncludeSignature] = useState(previousOptions?.includeSignature ?? true)
+  const [mergePlanPages, setMergePlanPages] = useState(previousOptions?.mergePlanPages ?? false)
+  const [theme, setTheme] = useState<ExportTheme>(previousOptions?.theme ?? 'light')
   const hasMultiplePanels = Boolean(
     currentProject && countElectricalPanels(getProjectElectricalPanels(currentProject)) > 1
   )
@@ -82,7 +84,7 @@ export function ExportDialog({ onExport, onCancel }: CommunityExportDialogProps)
   let toggleDocuments = () => {}
   /* @project-documents-strip-start */
   // The build flag is fixed per build, so these hooks are either always or never called.
-  const [includeDocuments, setIncludeDocuments] = useState(true)
+  const [includeDocuments, setIncludeDocuments] = useState(previousOptions?.includeDocuments ?? true)
   const listedDocuments = useListedProjectDocuments()
   documentsAvailable =
     isProjectDocumentsEnabled() && getExportedProjectDocuments(listedDocuments).length > 0

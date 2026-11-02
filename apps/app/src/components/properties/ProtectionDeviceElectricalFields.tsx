@@ -4,6 +4,7 @@
  * and supply/circuit {@link TrunkDevice} rows (type === 'protection').
  * Keeps dropdown behaviour and option lists in one place.
  */
+import type { ReactNode } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useInstallationProfile } from '@/hooks/useInstallationProfile'
 import { getProtectionCurveOptions } from './protectionCurveOptions'
@@ -69,6 +70,19 @@ export function getProtectionTypeDropdownOptions(
   })
 }
 
+/** Hosted: "Adjustable" as one more curve, with its trip settings under the dropdown. */
+export interface AdjustableTripControl {
+  active: boolean
+  label: string
+  /** Switch to adjustable settings that start from the current curve. */
+  select: () => void
+  /** Leave adjustable settings for a curve, in one edit. */
+  selectCurve: (curve: CurveType | undefined) => void
+  fields: ReactNode
+}
+
+const ADJUSTABLE_CURVE = 'adjustable'
+
 export interface ProtectionDeviceElectricalFieldsProps {
   t: TFunction
   selectClass: string
@@ -103,6 +117,7 @@ export interface ProtectionDeviceElectricalFieldsProps {
   }) => void
   isProtectionLabelVisible: (key: ProtectionLabelKey) => boolean
   toggleProtectionLabel: (key: ProtectionLabelKey) => void
+  adjustableTrip?: AdjustableTripControl | null
 }
 
 export function ProtectionDeviceElectricalFields({
@@ -127,6 +142,7 @@ export function ProtectionDeviceElectricalFields({
   onPatch,
   isProtectionLabelVisible,
   toggleProtectionLabel,
+  adjustableTrip,
 }: ProtectionDeviceElectricalFieldsProps) {
   const installationProfile = useInstallationProfile()
   const isRCD = protectionType === 'RCD'
@@ -317,14 +333,20 @@ export function ProtectionDeviceElectricalFields({
             </button>
           </div>
           <CustomDropdown
-            value={curve || ''}
-            onChange={(v) => onPatch({ curve: (v as CurveType) || undefined })}
+            value={adjustableTrip?.active ? ADJUSTABLE_CURVE : curve || ''}
+            onChange={(v) => {
+              if (v === ADJUSTABLE_CURVE) adjustableTrip?.select()
+              else if (adjustableTrip?.active) adjustableTrip.selectCurve((v as CurveType) || undefined)
+              else onPatch({ curve: (v as CurveType) || undefined })
+            }}
             ariaLabel={t('protections.curve', 'Tripping curve')}
-            options={getProtectionCurveOptions(
-              ['', 'B', 'C', 'D', 'F', 'K', 'MA', 'Z'], installationProfile, t,
-            )}
+            options={[
+              ...getProtectionCurveOptions(['', 'B', 'C', 'D', 'F', 'K', 'MA', 'Z'], installationProfile, t),
+              ...(adjustableTrip ? [{ value: ADJUSTABLE_CURVE, label: adjustableTrip.label }] : []),
+            ]}
             className={selectClass}
           />
+          {adjustableTrip?.active && <div className="mt-2">{adjustableTrip.fields}</div>}
         </div>
       )}
 

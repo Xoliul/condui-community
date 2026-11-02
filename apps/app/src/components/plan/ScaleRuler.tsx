@@ -5,6 +5,7 @@ import FloatingDistanceInput from './FloatingDistanceInput'
 import { computePlanImportFitScale } from './planImportViewport'
 import { createPlanScaleReference } from '@/lib/plan/planScale'
 import { isScaleRulerPlacementButton } from '@/lib/plan/scaleRulerInput'
+import { logger } from '@/lib/logger'
 
 const MAGNIFIER_ZOOM = 2
 const MAGNIFIER_DIAMETER_PX = 144
@@ -208,7 +209,12 @@ function ScaleRuler({
     if (invertPreview) {
       ctx.filter = 'invert(1)'
     }
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    // A plan too large for this browser to decode must not take the ruler down with it.
+    try {
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    } catch (error) {
+      logger.warn('Plan preview image could not be drawn:', error)
+    }
     ctx.restore()
 
     // Draw ruler line if we have points (including preview while dragging)
@@ -281,7 +287,11 @@ function ScaleRuler({
       if (invertPreview) {
         ctx.filter = 'invert(1)'
       }
-      ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, destinationX, destinationY, lensWidth, lensHeight)
+      try {
+        ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, destinationX, destinationY, lensWidth, lensHeight)
+      } catch (error) {
+        logger.warn('Plan magnifier image could not be drawn:', error)
+      }
       ctx.restore()
 
       // Mark the exact point being dragged inside the lens.

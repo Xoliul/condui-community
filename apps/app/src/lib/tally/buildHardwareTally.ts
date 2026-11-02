@@ -1381,7 +1381,7 @@ export function buildHardwareTally(
         : segment.circuitId
           ? `circuit:${circuitOwnerKey(segment.panelId, segment.circuitId)}`
           : `segment:${segment.id}`
-    logicalWireRuns.set(logicalKey, [...(logicalWireRuns.get(logicalKey) ?? []), segment])
+    logicalWireRuns.set(`${logicalKey}:${segment.wireMaterial ?? 'copper'}`, [...(logicalWireRuns.get(`${logicalKey}:${segment.wireMaterial ?? 'copper'}`) ?? []), segment])
   }
   const wireMap = new Map<
     string,

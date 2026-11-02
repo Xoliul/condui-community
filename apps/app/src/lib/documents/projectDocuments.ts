@@ -30,6 +30,7 @@ export type ProjectFileKind = 'pdf' | 'image'
 export type ProjectDocumentKind =
   | ProjectFileKind
   | 'externalInfluences'
+  | 'shortCircuitCalculation'
   | 'cableSchedule'
   | 'controlAddresses'
   | 'junctionOverview'
@@ -363,7 +364,7 @@ function generatedDocumentFromAsset(
       id: asset.id,
       name: asset.document?.name ?? '',
       category: 'inspection',
-      kind: 'externalInfluences',
+      kind: asset.document?.shortCircuit ? 'shortCircuitCalculation' : 'externalInfluences',
       mimeType: '',
       url: '',
       origin: 'generated',
@@ -451,7 +452,7 @@ export function getProjectDocuments(
           visibleToViewers: false, includeInExport: false, links: [], addedAt,
           sizeBytes: asset.sizeBytes,
         }, asset.document))
-      } else if (asset.document?.externalInfluences) {
+      } else if (asset.document?.externalInfluences || asset.document?.shortCircuit) {
         userDocuments.push(generatedDocumentFromAsset(asset, addedAt))
       } else {
         const upload = uploadedDocumentFromAsset(asset, addedAt)
@@ -551,6 +552,27 @@ export function createExternalInfluencesDocumentAsset(input: {
       links: [],
       addedAt: input.addedAt,
       externalInfluences: { rooms: [] },
+    },
+  }
+}
+
+/** A persisted asset for a new short-circuit calculation on the public grid defaults. */
+export function createShortCircuitDocumentAsset(input: {
+  id: string
+  name: string
+  addedAt: string
+}): AssetModelV2 {
+  return {
+    id: input.id,
+    kind: PROJECT_DOCUMENT_ASSET_KIND,
+    document: {
+      name: input.name,
+      category: 'inspection',
+      links: [],
+      addedAt: input.addedAt,
+      // The calculation is read on screen; issued revisions go along with exports later.
+      includeInExport: false,
+      shortCircuit: { version: 1, source: { kind: 'grid' }, revisions: [] },
     },
   }
 }
@@ -674,6 +696,7 @@ export function canExportProjectDocument(
     Partial<Pick<ProjectDocument, 'kind' | 'origin'>>
 ): boolean {
   if (document.kind === 'roomScanModel' || document.kind === 'roomScanPlacements') return false
+  if (document.kind === 'shortCircuitCalculation') return false
   if (document.origin === 'builtIn') {
     return document.kind === 'cableSchedule' || document.kind === 'controlAddresses'
   }

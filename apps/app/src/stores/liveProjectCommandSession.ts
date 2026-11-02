@@ -16,6 +16,8 @@ import { recordSessionAction } from '@/lib/diagnostics/sessionActionLog'
 import { publishDomainEvents } from '@/lib/domainEvents'
 import { trackGoogleAnalyticsEvent } from '@/lib/analytics/googleAnalytics'
 import { logger } from '@/lib/logger'
+import { isCollaborativeProject } from '@/lib/collab/client/activeProject'
+import { getCollabBridge } from './collabProjectBridge'
 import { useProjectStore } from './projectStore'
 import { useSettingsStore } from './settingsStore'
 import {
@@ -28,6 +30,12 @@ function currentProjectOrThrow() {
   const project = useProjectStore.getState().currentProject
   if (!project) throw new CommandError('no_project', 'No project is open')
   return project
+}
+
+/** The collaboration bridge, when the open project is the collaborative one. */
+function collabBridgeForProject(project: { project: { id: string } } | null | undefined) {
+  const bridge = getCollabBridge()
+  return bridge && project?.project.id === bridge.projectId ? bridge : null
 }
 
 function lastTouchedCircuitId(results: readonly CommandResult[]): string | undefined {
@@ -66,13 +74,25 @@ export function createLiveProjectSession(env?: CommandEnv): ProjectCommandSessio
     execute(batch: CommandInvocation[], options?: ExecuteOptions): BatchOutcome {
       const parsed = projectCommands.parse(batch)
       const before = currentProjectOrThrow()
+      const collab = collabBridgeForProject(before)
+      collab?.assertCanEdit()
+      if (!collab && isCollaborativeProject(before.project.id)) {
+        // The session stopped (it rejoins on the next open); never fall back to local-only edits.
+        throw new CommandError('check_failed', 'Collaboration is paused', { reason: 'collab_paused' })
+      }
       if (
         options?.expectedRevision != null &&
         options.expectedRevision !== projectRevisionToken(before)
       ) {
         throw new CommandError('stale_revision', 'The project changed since this was prepared')
       }
-      const { project: next, results, events } = applyCommandBatch(before, parsed, commandEnv())
+      // A collaborative gesture previews with the ids the service will derive for it.
+      const prepared = collab?.prepare(before)
+      const { project: next, results, events } = applyCommandBatch(
+        before,
+        parsed,
+        prepared?.env ?? commandEnv()
+      )
       if (next === before) {
         return { revision: projectRevisionToken(before), changed: false, results }
       }
@@ -114,12 +134,16 @@ export function createLiveProjectSession(env?: CommandEnv): ProjectCommandSessio
       projectHistory.runWithoutRecording(() => {
         useProjectStore.setState({
           currentProject: next,
-          isDirty: true,
+          // The service owns persistence of a collaborative project; nothing here is unsaved.
+          isDirty: !collab,
           ...(circuitId ? { lastWorkedCircuitId: circuitId } : {}),
           ...floorViewCleanup,
         })
       })
-      if (!continuesGroup) appendUndoSnapshotInStore(() => {}, captureProjectForHistory(before))
+      // Collaborative projects undo through the service, never through local snapshots.
+      if (!continuesGroup && !collab) {
+        appendUndoSnapshotInStore(() => {}, captureProjectForHistory(before))
+      }
       const historyAfter = useProjectStore.getState()
       groupedCommit =
         options?.historyGroup && historyAfter.undoStack.at(-1)
@@ -130,6 +154,7 @@ export function createLiveProjectSession(env?: CommandEnv): ProjectCommandSessio
               undoLength: historyAfter.undoStack.length,
             }
           : undefined
+      if (collab && prepared) collab.enqueue(batch, options?.label, prepared)
       recordSessionAction(options?.label ?? batch.map((invocation) => invocation.id).join(', '))
       publishDomainEvents(events)
       for (const [index, invocation] of batch.entries()) {
@@ -160,6 +185,8 @@ export function createLiveProjectSession(env?: CommandEnv): ProjectCommandSessio
 
     undo() {
       groupedCommit = undefined
+      const collab = collabBridgeForProject(useProjectStore.getState().currentProject)
+      if (collab) return collab.undo()
       if (!this.canUndo()) return false
       useProjectStore.getState().undo()
       return true
@@ -167,13 +194,19 @@ export function createLiveProjectSession(env?: CommandEnv): ProjectCommandSessio
 
     redo() {
       groupedCommit = undefined
+      const collab = collabBridgeForProject(useProjectStore.getState().currentProject)
+      if (collab) return collab.redo()
       if (!this.canRedo()) return false
       useProjectStore.getState().redo()
       return true
     },
 
-    canUndo: () => projectHistory.hasPending() || useProjectStore.getState().undoStack.length > 0,
-    canRedo: () => useProjectStore.getState().redoStack.length > 0,
+    canUndo: () =>
+      collabBridgeForProject(useProjectStore.getState().currentProject)?.canUndo() ??
+      (projectHistory.hasPending() || useProjectStore.getState().undoStack.length > 0),
+    canRedo: () =>
+      collabBridgeForProject(useProjectStore.getState().currentProject)?.canRedo() ??
+      useProjectStore.getState().redoStack.length > 0,
   }
 }
 

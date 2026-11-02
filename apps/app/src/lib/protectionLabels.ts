@@ -226,9 +226,7 @@ export function toggleProtectionLabelVisibility(
 
 function getRawProtectionLabelParts(source: ProtectionLike): ProtectionLabelPart[] {
   const kind = getProtectionElectricalKind(source)
-  const curve =
-    (source as ProtectionDevice).curve ??
-    (source as TrunkDevice).curve
+  const curve = displayedProtectionCurve(source)
   const ratingA =
     (source as ProtectionDevice).ratingA ??
     (source as TrunkDevice).ratingA
@@ -401,6 +399,11 @@ export function getVisibleProtectionLabelLines(source: ProtectionLike): string[]
   return getProtectionOneWireLabelLines(source).map((line) => line.text)
 }
 
+/** The curve drawings show: none once adjustable trip settings replace it. */
+export function displayedProtectionCurve(source: ProtectionLike): ProtectionLike['curve'] {
+  return (source as ProtectionDevice).tripSettings ? undefined : source.curve
+}
+
 /** Standard compact breaker notation; retain amperes when no curve is known. */
 export function formatProtectionCurveRating(curve?: string, ratingA?: number): string {
   if (curve && ratingA != null) return `${curve}${ratingA}`
@@ -413,9 +416,7 @@ export function getProtectionInfoSummaryParts(source: ProtectionLike): string[] 
   const ratingA =
     (source as ProtectionDevice).ratingA ??
     (source as TrunkDevice).ratingA
-  const curve =
-    (source as ProtectionDevice).curve ??
-    (source as TrunkDevice).curve
+  const curve = displayedProtectionCurve(source)
   const sensitivityMa =
     (source as ProtectionDevice).sensitivityMa ??
     (source as TrunkDevice).sensitivityMa

@@ -154,11 +154,7 @@ export default function SitplanVisibilityPanel({
   const getEndpointById = useProjectStore((s: ProjectState) => s.getEndpointById)
   const getTrunkDeviceById = useProjectStore((s: ProjectState) => s.getTrunkDeviceById)
   const currentProject = useProjectStore((s: ProjectState) => s.currentProject)
-  const updatePlanWiringVisibility = useProjectStore(
-    (s: ProjectState) => s.updatePlanWiringVisibility
-  )
   const getFloorById = useProjectStore((s: ProjectState) => s.getFloorById)
-  const updateFloor = useProjectStore((s: ProjectState) => s.updateFloor)
   const planWiring = useMemo(
     () => (currentProject ? selectProjectPlanWiringProjection(currentProject) : undefined),
     [currentProject]
@@ -171,9 +167,11 @@ export default function SitplanVisibilityPanel({
   const setPlanWiringVisibility = useCallback(
     (updates: Partial<PlanWiringVisibility>) => {
       if (readOnly) return
-      updatePlanWiringVisibility(updates)
+      runProjectCommand('plan.setWiringVisibility', updates, {
+        label: 'change plan wire visibility',
+      })
     },
-    [readOnly, updatePlanWiringVisibility]
+    [readOnly]
   )
 
   const masterCheckRef = useRef<HTMLInputElement>(null)
@@ -459,7 +457,14 @@ export default function SitplanVisibilityPanel({
                   const value = Number(e.target.value)
                   setPlanVisibility({ symbolSizeCm: value })
                   if (!readOnly && activeFloorId) {
-                    updateFloor(activeFloorId, { sitplanSymbolSizeCm: value })
+                    runProjectCommand(
+                      'plan.setSymbolSize',
+                      { floorId: activeFloorId, sizeCm: value },
+                      {
+                        label: 'change plan symbol size',
+                        historyGroup: `plan-symbol-size:${activeFloorId}`,
+                      }
+                    )
                   }
                 }}
                 className="min-w-0 flex-1 h-1.5 rounded appearance-none bg-gray-300 dark:bg-gray-600"

@@ -1,3 +1,4 @@
+import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import { describeExportError } from './describeExportError'
 import { logger } from '@/lib/logger'
 /**
@@ -610,6 +611,7 @@ export async function exportToPDF(
               fontFamily,
               countryLabel,
               madeWithText,
+              canCustomizeInfoBlock: context.canCustomizeInfoBlock === true && !isLimitedRasterExport,
             })
 
             // Panel title for eendraad slice pages (top-left on every slice)
@@ -822,7 +824,7 @@ export async function exportToPDF(
           isProjectV2(context.project) &&
           cableScheduleDocument('', context.project.assets).includeInExport
         ) {
-          const schedule = buildCableSchedule(estimateCableRoutes(context.project).routes)
+          const schedule = buildCableSchedule(estimateCableRoutes(context.project).routes, selectProjectWireRuns(context.project))
           const schedulePages = buildCableScheduleSvgPages(
             schedule,
             getCableSchedulePdfLabels(i18n.t),

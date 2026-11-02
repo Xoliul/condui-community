@@ -18,14 +18,10 @@ import {
 import { finalizePlanDropCircuitPickerUndoGroup } from '@/lib/plan/planDropCircuitSession'
 import { requestEendraadCircuitFitThenRestoreSelection } from '@/lib/eendraad/focusCircuit'
 import { getEndpointTypeFromSymbol } from '@/utils'
-import { generateId } from '@/utils/project'
 import { usePlanContextMenu } from '@/hooks/plan'
 import { collectCircuits, flattenPanels } from '@/utils/eendraad/panelHelpers'
 import { createPlanGraphicElementDraft } from '@/lib/plan/graphicElements'
-import {
-  selectProjectElectricalInstallation,
-  selectProjectElectricalPanels,
-} from '@/lib/projectV2/electrical'
+import { selectProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { isSupportedPlanImportFile } from '@/components/plan/planImportFiles'
 
 interface PlanLibraryDropControllerOptions {
@@ -129,33 +125,16 @@ export function usePlanLibraryDropController({
       if (!activeFloor) return
 
       if (symbol.id === 'earthing') {
-        const store = useProjectStore.getState()
-        const installation = store.currentProject
-          ? selectProjectElectricalInstallation(store.currentProject)
-          : undefined
-        if (installation?.hasGround === false) {
-          store.updateInstallation({ hasGround: true })
-        }
-        const existing = installation?.earthingPlacements?.find(
-          (p: { floorId?: string }) => p.floorId === activeFloorId
-        )
-        let placementId: string
-        if (existing) {
-          store.updateEarthingPlacement(existing.id, { pos: snappedPosition })
-          placementId = existing.id
-        } else {
-          const floorLayer = activeFloor.layers?.[0] || 'electrical'
-          placementId = generateId()
-          store.addEarthingPlacement({
-            id: placementId,
+        const outcome = runProjectCommand(
+          'plan.dropEarthing',
+          {
             floorId: activeFloorId,
+            layer: activeFloor.layers?.[0] || 'electrical',
             pos: snappedPosition,
-            rotationDeg: 0,
-            scale: 1,
-            layer: floorLayer,
-          })
-        }
-        applySelection({ type: 'ground', ids: ['ground'] })
+          },
+          { source: 'plan-library-drop' }
+        )
+        if (outcome) applySelection({ type: 'ground', ids: ['ground'] })
         return
       }
 

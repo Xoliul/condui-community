@@ -4,6 +4,7 @@ import { getSymbolById, getSymbolIconPath } from '@/lib/symbols'
 import { useDialogStore } from '@/stores/dialogStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useUIStore } from '@/stores/uiStore'
+import { editProperties } from '@/handlers/properties/editProperties'
 import { collectPanelHiddenModuleEntries, type PanelHiddenDialogTarget } from '@/lib/panel/panelHiddenModules'
 import {
   getPanelHiddenModulePresentation,
@@ -68,10 +69,20 @@ export function openPanelHiddenModulesDialog(
           'Select one or more devices to show.'
         )}
         onConfirm={(selectedIds) => {
-          for (const selectedId of selectedIds) {
+          const actions = selectedIds.flatMap((selectedId) => {
             const selected = selectionByDialogId.get(selectedId)
-            if (selected) store.unhideModuleFromPanel(selected.panelId, selected.moduleKey)
-          }
+            return selected
+              ? [
+                  {
+                    kind: 'panelModuleVisibility' as const,
+                    panelId: selected.panelId,
+                    moduleRefKey: selected.moduleKey,
+                    visible: true,
+                  },
+                ]
+              : []
+          })
+          if (actions.length) editProperties({ actions })
           useUIStore.getState().clearHover()
           closeDialog()
         }}

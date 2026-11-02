@@ -7,6 +7,7 @@ import { resolvePlanWiringVisibility } from '@/lib/plan/planWiring'
 import { selectProjectPlanWiringVisibility } from '@/lib/projectV2/planWiring'
 import { runProjectCommand } from '@/stores/liveProjectCommandSession'
 import { useProjectStore } from '@/stores/projectStore'
+import type { PlanSetWiringVisibilityInput } from '@/lib/commands/project/commands/planDisplay'
 import type { PlanCableRouteSettings } from '@/types/schema'
 
 const HEIGHTS = ['floorHeightM', 'socketHeightM', 'switchHeightM', 'panelHeightM'] as const
@@ -25,7 +26,8 @@ export function CableScheduleProperties({ readOnly = false }: { readOnly?: boole
   const stored = useProjectStore((s) =>
     s.currentProject ? selectProjectPlanWiringVisibility(s.currentProject) : undefined
   )
-  const updateVisibility = useProjectStore((s) => s.updatePlanWiringVisibility)
+  const updateVisibility = (updates: PlanSetWiringVisibilityInput) =>
+    runProjectCommand('plan.setWiringVisibility', updates)
   const visibility = resolvePlanWiringVisibility({ version: 1, routes: [], visibility: stored })
   const settings: PlanCableRouteSettings = visibility.cableRouteSettings ?? {}
   const document = cableScheduleDocument(t('cableSchedule.title', 'Cable schedule'), assets)

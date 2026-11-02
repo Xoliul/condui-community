@@ -16,6 +16,7 @@ import {
 import type { Project, ProjectSliceCreator, ProjectState } from './projectStoreTypes'
 import { trackSupplyAssembliesPersisted } from '@/lib/analytics/supplyAssemblyAnalytics'
 import { saveProject } from '@/lib/db'
+import { getActiveCollabProject, isCollaborativeProject } from '@/lib/collab/client/activeProject'
 import { clearSessionActionLog, recordSessionAction } from '@/lib/diagnostics/sessionActionLog'
 import { projectToStoredProjectV2 } from '@/lib/projectV2/migration'
 import { viewportLayoutForPersistence } from '@/lib/viewport/viewportLayoutPersistence'
@@ -125,6 +126,11 @@ export const createProjectLifecycleSlice: ProjectSliceCreator = (set, get) => ({
       const saveStartedAt = import.meta.env.VITE_E2E ? performance.now() : 0
       const projectId = get().currentProject?.project.id
       if (!projectId) return
+      // The collaboration service persists a collaborative project; legacy saves are rejected.
+      if (isCollaborativeProject(projectId)) {
+        getProjectStoreApi().setState({ isDirty: false })
+        return
+      }
 
       // A save can overlap a later editor mutation. Never let the older save clear
       // `isDirty`, otherwise that later mutation is skipped by autosave and vanishes
@@ -179,6 +185,10 @@ export const createProjectLifecycleSlice: ProjectSliceCreator = (set, get) => ({
     }),
 
   undo: () => {
+    if (isCollaborativeProject(get().currentProject?.project.id)) {
+      getActiveCollabProject()?.undo()
+      return
+    }
     flushPendingProjectHistory()
     const { currentProject, undoStack, redoStack } = get()
     if (!currentProject || undoStack.length === 0) {
@@ -218,6 +228,10 @@ export const createProjectLifecycleSlice: ProjectSliceCreator = (set, get) => ({
   },
 
   redo: () => {
+    if (isCollaborativeProject(get().currentProject?.project.id)) {
+      getActiveCollabProject()?.redo()
+      return
+    }
     flushPendingProjectHistory()
     const { currentProject, undoStack, redoStack } = get()
     if (!currentProject || redoStack.length === 0) {

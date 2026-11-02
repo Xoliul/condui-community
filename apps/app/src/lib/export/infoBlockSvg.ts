@@ -3,6 +3,10 @@
  * Layout and dimensions match InfoBlock.tsx / infoBlockLayout.ts (single source of truth).
  */
 
+import {
+  resolveInfoBlockPresentation,
+  type InfoBlockPresentationPreferences,
+} from '@/lib/infoBlockPresentation'
 import type { InstallerProfile } from '@/lib/installerProfile'
 import type { ProjectPartyContact } from '@/types/schema'
 import {
@@ -48,7 +52,7 @@ export interface InfoBlockSvgOptions {
   profile: InstallerProfile | null
   project:
     | (ProjectWithOptionalV2Electrical & {
-        project?: {
+        project?: InfoBlockPresentationPreferences & {
           name?: string
           meterEanCode?: string
           updatedAt?: string
@@ -69,6 +73,7 @@ export interface InfoBlockSvgOptions {
   fontFamily: string
   countryLabel: string
   madeWithText: string
+  canCustomizeInfoBlock?: boolean
 }
 
 /**
@@ -80,14 +85,23 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
     profile,
     project,
     viewTitle,
-    headerInstaller,
+    headerInstaller: defaultHeaderInstaller,
     headerInstallation,
     headerInspectionAgency,
     isDark,
     fontFamily,
     countryLabel,
-    madeWithText,
+    madeWithText: defaultMadeWithText,
   } = options
+
+  const { headerInstaller, madeWithText } = resolveInfoBlockPresentation(
+    project?.project,
+    {
+      headerInstaller: defaultHeaderInstaller,
+      madeWithText: defaultMadeWithText,
+    },
+    options.canCustomizeInfoBlock === true,
+  )
 
   const colors = getThemeColors(isDark ? 'dark' : 'light')
   const frameColor = colors.frameColor
@@ -229,7 +243,7 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
     )
   }
   // Made-with text: right-aligned at bottom of installer column
-  lines.push(
+  if (madeWithText) lines.push(
     `<text x="${col1Right - INFO_BLOCK_PADDING}" y="${INFO_BLOCK_HEIGHT - INFO_BLOCK_PADDING}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="${INFO_BLOCK_FONT_SIZE_MADE_WITH}" fill="${secondaryColor}" text-anchor="end">${escapeXml(madeWithText)}</text>`
   )
 

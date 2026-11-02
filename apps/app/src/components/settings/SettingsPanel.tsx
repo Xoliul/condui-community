@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { switchEditorLanguage } from '@/lib/preferences/switchEditorLanguage'
 import CustomDropdown from '@/components/common/CustomDropdown'
+import { ProjectDrawingSettings } from '@/components/settings/ProjectDrawingSettings'
 import { InstallerInfoSection } from '@/components/settings/InstallerInfoSection'
 import { LAYOUT_PRESET_DEFS } from '@/components/viewport/LayoutSelector'
 import { isLayoutPresetAvailable } from '@/stores/uiStore'
@@ -23,12 +24,18 @@ export function SettingsBuildInfo() {
       title={APP_BUILD_COMMIT}
     >
       {t('settings.build', { commit: buildCommitLabel })}
-      {buildDateLabel ? ` · ${buildDateLabel}` : ''}
+      {buildDateLabel ? ` Â· ${buildDateLabel}` : ''}
     </span>
   )
 }
 
-export function SettingsPanel({ showDebug = import.meta.env.DEV }: { showDebug?: boolean }) {
+export function SettingsPanel({
+  showDebug = import.meta.env.DEV,
+  canEditProject = false,
+}: {
+  showDebug?: boolean
+  canEditProject?: boolean
+}) {
   const { t } = useTranslation()
   const language = useSettingsStore((state) => state.language)
   const eendraadHitboxDebug = useSettingsStore((state) => state.eendraadHitboxDebug)
@@ -276,6 +283,7 @@ export function SettingsPanel({ showDebug = import.meta.env.DEV }: { showDebug?:
         </section>
       )}
 
+      <ProjectDrawingSettings canEditProject={canEditProject} />
       <InstallerInfoSection />
     </div>
   )

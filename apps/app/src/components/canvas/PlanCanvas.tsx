@@ -43,7 +43,15 @@ import type Konva from 'konva'
 import { useTranslation } from 'react-i18next'
 import { setPlanDragPreviewPositions, usePlanDragPositionsMap } from '@/stores/planDragVisualStore'
 import { useProjectStore, type ProjectState } from '@/stores/projectStore'
-import { runProjectCommand } from '@/stores/liveProjectCommandSession'
+import { updateSituationPlanNoteProperties } from '@/handlers/properties/editGeneralProperties'
+import {
+  updatePlanDoor,
+  updatePlanGraphicElement,
+  updatePlanPlacement,
+  updatePlanStair,
+  updatePlanWall,
+  updatePlanWindow,
+} from '@/handlers/plan/planCanvasCommandEdits'
 import { useDialog } from '@/hooks/useDialog'
 import { useSettingsStore } from '@/stores/settingsStore'
 import {
@@ -244,28 +252,12 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
   )
   const getPlacementById = useProjectStore((s: ProjectState) => s.getPlacementById)
   const getPanelPathFromRoot = useProjectStore((s: ProjectState) => s.getPanelPathFromRoot)
-  const updateFloor = useProjectStore((s: ProjectState) => s.updateFloor)
   const dialog = useDialog()
-  const applyPlanRescale = useProjectStore((s: ProjectState) => s.applyPlanRescale)
-  const updatePlacement = useProjectStore((s: ProjectState) => s.updatePlacement)
-  const updateSitplanNote = useProjectStore((s: ProjectState) => s.updateSitplanNote)
-  const updateWall = useCallback(
-    (wallId: string, updates: Parameters<ProjectState['updateWall']>[1]) => {
-      const { doorUpdates, windowUpdates, ...set } = updates
-      runProjectCommand(
-        'properties.edit',
-        {
-          edits: [{ kind: 'wall', ids: [wallId], set: { ...set, doorUpdates, windowUpdates } }],
-        },
-        { label: 'edit wall geometry', source: 'plan-canvas-geometry' }
-      )
-    },
-    []
-  )
-  const updateDoor = useProjectStore((s: ProjectState) => s.updateDoor)
-  const updateWindow = useProjectStore((s: ProjectState) => s.updateWindow)
-  const updateStair = useProjectStore((s: ProjectState) => s.updateStair)
-  const updatePlanGraphicElement = useProjectStore((s: ProjectState) => s.updatePlanGraphicElement)
+  const updatePlacement = updatePlanPlacement
+  const updateWall = updatePlanWall
+  const updateDoor = updatePlanDoor
+  const updateWindow = updatePlanWindow
+  const updateStair = updatePlanStair
   const openDialog = useDialogStore((s) => s.openDialog)
   const cancelResetScaleTrigger = useCanvasUIStore((s) => s.cancelPlanResetScaleTrigger)
   const canvasRef = useRef<BaseCanvasHandle>(null)
@@ -676,14 +668,12 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
     activeFloor,
     activeFloorId,
     activeTool,
-    applyPlanRescale,
     cancelResetScaleTrigger,
     getFloorById,
     getPlacementsByFloor,
     openDialog,
     setActiveTool: applyActiveTool,
     t,
-    updateFloor,
   })
   useLayoutEffect(() => {
     palettePlanActionsRef.current = {
@@ -2079,7 +2069,7 @@ function PlanCanvas({ onMultiFingerSwipe, capabilities }: PlanCanvasProps = {}) 
           getPlacementWorldBoundsMemo,
           sitplanNotes,
           planNotesInteractive,
-          updateSitplanNote,
+          updateSitplanNote: updateSituationPlanNoteProperties,
           selectionFrameDragHandlers,
           contentDrawingSnapGuides,
           vertexMoveProjectedSnapGuides,

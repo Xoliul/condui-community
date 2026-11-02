@@ -27,7 +27,6 @@ import { useProjectStore, type ProjectState } from '@/stores/projectStore'
 import { runProjectCommand } from '@/stores/liveProjectCommandSession'
 import { useDialogStore } from '@/stores/dialogStore'
 
-import { generateId } from '@/utils'
 
 import type { Point } from '@/types/ui'
 import type {
@@ -37,7 +36,6 @@ import type {
   Placement,
 } from '@/types/schema'
 
-import { isVirtualOneWireOnlySymbol } from '@/lib/plan/situationPlanSymbolEligibility'
 
 /* @vision-scan-strip-start */
 import { isElectricalVisionScanEnabled } from '@/lib/vision/availability'
@@ -51,7 +49,7 @@ import { parseOneWireReferenceItemId } from '@/lib/documents/oneWireReferences'
 
 import {
   getStoredMetadataCalloutOffset,
-  setMetadataCalloutOffset,
+  clearMetadataCalloutOffsets,
   type MetadataCalloutOwnerRef,
 } from '@/handlers/eendraad/metadataCalloutOffset'
 import { linkedSubPanelDisplayNamesForProtectionIds } from '@/lib/panel/linkedSubPanelDeleteWarning'
@@ -61,8 +59,6 @@ import { panelHasContent, isLastMainPanel } from '@/utils/eendraad'
 import { endpointSupportsMultiplier } from '@/utils/endpointMultipliers'
 import { supportsSupplyDeviceMultiplier } from '@/lib/supplyAssembly/inverterMultipliers'
 
-import { createSyncEndpointMultiplierDeps, syncEndpointMultiplierCount } from '@/lib/eendraad/syncEndpointMultiplierCount'
-import { createSyncSupplyInverterMultiplierDeps, syncSupplyDeviceMultiplierCount } from '@/lib/eendraad/syncSupplyInverterMultiplier'
 import { openAddMoreDialogForEndpoint, openSupplyDeviceAddMoreDialog } from '@/components/endpoints/AddMoreCountDialog'
 import type { useEendraadLayout, useEendraadWireSegments } from '@/hooks/eendraad'
 
@@ -73,7 +69,7 @@ import { buildFrameFieldsFromClassifiedSelection, resolveEendraadFramePanelIdFor
 import type { ContextMenuItem } from '@/components/common/ContextMenu'
 import { getContextMenuIcon } from '@/components/common/ContextMenuIcons'
 import FloorSelectionDialog from '@/components/plan/FloorSelectionDialog'
-import { buildAutoSitplanPlacement, getViewportCenterPlanSpaceIfApplicable } from '@/lib/plan/autoSitplanPlacement'
+import { getViewportCenterPlanSpaceIfApplicable } from '@/lib/plan/autoSitplanPlacement'
 
 import { isMainPanelDistributionEndpoint } from '@/lib/plan/panelDistributionEndpoint'
 import { confirmDeleteEarthing } from '@/lib/installation/deleteEarthing'
@@ -90,7 +86,6 @@ import { isEendraadDeleteKey } from '@/lib/eendraad/deleteKeyboardKey'
 
 import { duplicateProtection } from '@/handlers/eendraad/duplicateProtection'
 
-import { resolvePlacementsForFloorMove } from '@/lib/eendraad/floorMoveFromEendraad'
 
 import { resolveSupplyWireSegmentByMetadata } from '@/lib/eendraad/wireSelectionIdentity'
 import { isKeyboardOwnedByFloatingEditor } from '@/utils/keyboardOwner'
@@ -105,9 +100,7 @@ type PanelLayoutWithElements = BottomUpPanelLayout & {
 }
 
 type ViewportUIState = ReturnType<ReturnType<typeof useViewportUIApi>['getState']>
-interface EendraadContextMenuOptions extends Pick<ProjectState,
-  'addCircuit' | 'addEndpoint' | 'addGroundTrunkDevice' | 'addSupplyTrunkDevice' |
-  'addTrunkDevice' | 'insertProtectionAfter' | 'updateCircuit' | 'updateTrunkDevice' | 'withSingleUndoEntry'> {
+interface EendraadContextMenuOptions {
   canDeleteItems: boolean
   canDragItems: boolean
   canEditProject: boolean
@@ -131,55 +124,25 @@ interface EendraadContextMenuOptions extends Pick<ProjectState,
 
 /** Apply plan-consistent floor moves for one or more endpoints (one-wire context menu). */
 function applyEendraadEndpointsToFloor(endpointIds: string[], floorId: string): void {
-  const state = useProjectStore.getState()
-  const actFloor = useUIStore.getState().activeFloorId
-  const placementIds: string[] = []
-  for (const endpointId of endpointIds) {
-    const latest = state.getEndpointById(endpointId)
-    if (!latest) continue
-    const placements = resolvePlacementsForFloorMove(latest, actFloor)
-    if (placements.length > 0) {
-      placementIds.push(...placements.map((placement) => placement.id))
-    } else {
-      const project = state.currentProject
-      if (!project) continue
-      if (isVirtualOneWireOnlySymbol(latest.symbol)) continue
-      const circuitInfo = state.findCircuitForEndpoint(latest.id)
-      if (!circuitInfo) continue
-      const placementId = generateId()
-      const uiSnap = useUIStore.getState()
-      const preferredPlanPos =
-        getViewportCenterPlanSpaceIfApplicable(
-          uiSnap.viewportLayout,
-          uiSnap.planCanvasViewportPx,
-          uiSnap.activeFloorId,
-          floorId,
-          uiSnap.planView
-        ) ?? undefined
-      const built = buildAutoSitplanPlacement(project, {
-        circuitId: circuitInfo.circuit.id,
-        floorId,
-        placementId,
-        ...(preferredPlanPos ? { preferredPlanPos } : {}),
-      })
-      if (built) state.addPlacement(latest.id, built)
-    }
-  }
-  if (placementIds.length > 0) {
-    runProjectCommand('plan.moveToFloor', {
+  const uiSnap = useUIStore.getState()
+  const preferredPlanPos =
+    getViewportCenterPlanSpaceIfApplicable(
+      uiSnap.viewportLayout,
+      uiSnap.planCanvasViewportPx,
+      uiSnap.activeFloorId,
       floorId,
-      moves: placementIds.map((placementId) => ({ placementId })),
-    })
-  }
+      uiSnap.planView
+    ) ?? undefined
+  runProjectCommand('plan.moveEndpointsToFloor', {
+    endpointIds,
+    floorId,
+    activeFloorId: uiSnap.activeFloorId,
+    ...(preferredPlanPos ? { preferredPlanPos } : {}),
+  })
 }
 
 
 export function useEendraadContextMenu({
-  addCircuit,
-  addEndpoint,
-  addGroundTrunkDevice,
-  addSupplyTrunkDevice,
-  addTrunkDevice,
   canDeleteItems,
   canDragItems,
   canEditProject,
@@ -188,7 +151,6 @@ export function useEendraadContextMenu({
   eendraadDateMarkingMode,
   exitDateMarkingMode,
   getEjectPlanPlacement,
-  insertProtectionAfter,
   isActiveViewport,
   layout,
   pointerOverEendraadRef,
@@ -196,13 +158,10 @@ export function useEendraadContextMenu({
   setEendraadClipboard,
   setSelection,
   t,
-  updateCircuit,
-  updateTrunkDevice,
   viewportUI,
   window,
   wireSegments,
   withJunctionEditorItem,
-  withSingleUndoEntry,
 }: EendraadContextMenuOptions) {
   const contextMenuItemsResolverRef = useRef<
     ((position: Point, elementId: string | null) => ContextMenuItem[]) | null
@@ -571,26 +530,6 @@ export function useEendraadContextMenu({
                   : -1,
             }
             const multiDuplicateActions = {
-              addEndpoint,
-              syncEndpointMultiplierCount: (endpointId: string, count: number) =>
-                syncEndpointMultiplierCount(
-                  createSyncEndpointMultiplierDeps(),
-                  endpointId,
-                  count
-                ),
-              addCircuit,
-              addTrunkDevice,
-              updateTrunkDevice,
-              addSupplyTrunkDevice,
-              syncSupplyDeviceMultiplierCount: (deviceId: string, count: number) =>
-                syncSupplyDeviceMultiplierCount(
-                  createSyncSupplyInverterMultiplierDeps(),
-                  deviceId,
-                  count
-                ),
-              addGroundTrunkDevice,
-              insertProtectionAfter,
-              updateCircuit,
               duplicateProtection: (protectionId: string) => duplicateProtection({ protectionId, ownerDocument: window.document }),
               setSelection,
             }
@@ -947,26 +886,6 @@ export function useEendraadContextMenu({
                 : -1,
           }
           const actions = {
-            addEndpoint,
-            syncEndpointMultiplierCount: (endpointId: string, count: number) =>
-              syncEndpointMultiplierCount(
-                createSyncEndpointMultiplierDeps(),
-                endpointId,
-                count
-              ),
-            addCircuit,
-            addTrunkDevice,
-            updateTrunkDevice,
-            addSupplyTrunkDevice,
-            syncSupplyDeviceMultiplierCount: (deviceId: string, count: number) =>
-              syncSupplyDeviceMultiplierCount(
-                createSyncSupplyInverterMultiplierDeps(),
-                deviceId,
-                count
-              ),
-            addGroundTrunkDevice,
-            insertProtectionAfter,
-            updateCircuit,
             duplicateProtection: (protectionId: string) => duplicateProtection({ protectionId, ownerDocument: window.document }),
             setSelection,
           }
@@ -1273,26 +1192,6 @@ export function useEendraadContextMenu({
                               : -1,
                         },
                         {
-                          addEndpoint,
-                          syncEndpointMultiplierCount: (endpointId: string, count: number) =>
-                            syncEndpointMultiplierCount(
-                              createSyncEndpointMultiplierDeps(),
-                              endpointId,
-                              count
-                            ),
-                          addCircuit,
-                          addTrunkDevice,
-                          updateTrunkDevice,
-                          addSupplyTrunkDevice,
-                          syncSupplyDeviceMultiplierCount: (deviceId: string, count: number) =>
-                            syncSupplyDeviceMultiplierCount(
-                              createSyncSupplyInverterMultiplierDeps(),
-                              deviceId,
-                              count
-                            ),
-                          addGroundTrunkDevice,
-                          insertProtectionAfter,
-                          updateCircuit,
                           duplicateProtection: (protectionId: string) => duplicateProtection({ protectionId, ownerDocument: window.document }),
                           setSelection,
                         }
@@ -1361,18 +1260,10 @@ export function useEendraadContextMenu({
       setEendraadClipboard,
       setAddElementDropPosition,
       currentProject,
-      addEndpoint,
-      addCircuit,
-      addTrunkDevice,
-      addSupplyTrunkDevice,
-      addGroundTrunkDevice,
-      insertProtectionAfter,
       layout,
       wireSegments,
       setSelection,
       currentInstallation,
-      updateCircuit,
-      updateTrunkDevice,
       viewportUI,
     ]
   )
@@ -1428,11 +1319,7 @@ export function useEendraadContextMenu({
       if (movedOwners.length === 0) return items
       const resetItem: ContextMenuItem = {
         label: t('contextMenu.resetCardPosition'),
-        onClick: () =>
-          withSingleUndoEntry(() => {
-            movedOwners.forEach((owner) => setMetadataCalloutOffset(owner, null))
-            return true
-          }),
+        onClick: () => clearMetadataCalloutOffsets(movedOwners),
       }
       const firstDangerIndex = items.findIndex((item) => item.variant === 'danger')
       if (firstDangerIndex < 0) return [...items, resetItem]
@@ -1450,7 +1337,6 @@ export function useEendraadContextMenu({
       handleGetContextMenuItems,
       t,
       withJunctionEditorItem,
-      withSingleUndoEntry,
       viewportUI,
     ]
   )

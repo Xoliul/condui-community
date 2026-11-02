@@ -1,3 +1,4 @@
+import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import { useEffect, useMemo, useState } from 'react'
 import {
   getExportedDocumentPages,
@@ -39,7 +40,7 @@ export function useExportedDocumentPageCount(
   const cableSchedulePages = useMemo(
     () =>
       enabled && cableScheduleExported && project
-        ? getCableSchedulePdfPageCount(buildCableSchedule(cableRouteIndexFor(project).routes))
+        ? getCableSchedulePdfPageCount(buildCableSchedule(cableRouteIndexFor(project).routes, selectProjectWireRuns(project)))
         : 0,
     [cableScheduleExported, enabled, project]
   )

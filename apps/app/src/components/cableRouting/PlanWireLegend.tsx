@@ -5,6 +5,8 @@ import { planWireColors } from '@/lib/plan/planColors'
 import { PLAN_WIRE_SELECTED_STROKE, resolvePlanWiringVisibility } from '@/lib/plan/planWiring'
 import { PLAN_WIRE_CATEGORIES } from '@/lib/cableRouting/planWireCategoryVisibility'
 import { selectProjectPlanWiringVisibility } from '@/lib/projectV2/planWiring'
+import type { PlanSetWiringVisibilityInput } from '@/lib/commands/project/commands/planDisplay'
+import { runProjectCommand } from '@/stores/liveProjectCommandSession'
 import { useProjectStore } from '@/stores/projectStore'
 import { preventCanvasToolbarMouseFocus } from '@/lib/ui/preventCanvasToolbarMouseFocus'
 
@@ -27,7 +29,8 @@ export function PlanWireLegend({ readOnly = false }: { readOnly?: boolean }) {
     [storedVisibility]
   )
   const palette = planWireColors(visibility.symbolColors)
-  const updateVisibility = useProjectStore((s) => s.updatePlanWiringVisibility)
+  const updateVisibility = (updates: PlanSetWiringVisibilityInput) =>
+    runProjectCommand('plan.setWiringVisibility', updates)
   const buttonClass =
     'flex h-6 w-6 shrink-0 items-center justify-center rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500 disabled:cursor-default disabled:opacity-50 dark:hover:bg-gray-700'
   const wiresVisible = visibility.wireToolWiresVisible !== false

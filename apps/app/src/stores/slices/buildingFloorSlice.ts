@@ -4,12 +4,13 @@ import {
   applyPlanRescaleInProject,
   deleteFloorInProject,
   detachPlanBackgroundInProject,
+  reorderFloorsInProject,
 } from '@/lib/plan/floorSetupMutations'
 import { pickDefaultPlanReferenceOverlayFloor } from './projectStoreHistory'
 import type { ProjectSliceCreator } from './projectStoreTypes'
 import { ensureElectricalLayerOnFloor } from '@/lib/plan/floorLayers'
 import { resolvePlanPxPerMeter } from '@/lib/plan/planScale'
-import { resolvePlanWiringVisibility } from '@/lib/plan/planWiring'
+import { updatePlanWiringVisibilityInProject } from '@/lib/plan/planWiringVisibilityMutation'
 import { preserveOtherFloorsOnScaleChange } from '@/lib/plan/rescalePlan'
 import {
   addBuildingGeometryToFloorPlan,
@@ -20,15 +21,10 @@ import { updateFloorInProject } from '@/lib/projectMutations/storeActions'
 import {
   addBuildingFloorView,
   commitBuildingFloorView,
-  mutateBuildingFloorViews,
   readLegacyCompatibilityFloors,
   selectProjectPlanScale,
   setPlanScaleForProject,
 } from '@/lib/projectV2/buildingFloors'
-import {
-  replacePlanWiringVisibilityForProject,
-  selectProjectPlanWiringVisibility,
-} from '@/lib/projectV2/planWiring'
 import { useUIStore } from '@/stores/uiStore'
 import type { PlanGraphicElement } from '@/types/schema'
 import { generateId } from '@/utils/project'
@@ -87,13 +83,10 @@ export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
   updatePlanWiringVisibility: (updates) =>
     set((state) => {
       if (!state.currentProject) return
-      const currentVisibility = selectProjectPlanWiringVisibility(state.currentProject)
-      replacePlanWiringVisibilityForProject(state.currentProject, {
-        ...resolvePlanWiringVisibility({ version: 1, routes: [], visibility: currentVisibility }),
-        ...updates,
-      })
-      state.currentProject.project.updatedAt = new Date().toISOString()
-      state.isDirty = true
+      if (
+        updatePlanWiringVisibilityInProject(state.currentProject, updates, new Date().toISOString())
+      )
+        state.isDirty = true
     }),
 
   applyPlanRescale: (floorId, floorUpdates, placementUpdates, options) =>
@@ -158,21 +151,8 @@ export const createBuildingFloorSlice: ProjectSliceCreator = (set, get) => ({
 
   reorderFloors: (fromIndex, toIndex) =>
     set((state) => {
-      if (!state.currentProject || fromIndex === toIndex) return
-      const reordered = mutateBuildingFloorViews(state.currentProject, (floors) => {
-        if (fromIndex < 0 || fromIndex >= floors.length || toIndex < 0 || toIndex >= floors.length)
-          return
-        const [removed] = floors.splice(fromIndex, 1)
-        floors.splice(toIndex, 0, removed!)
-      })
-      if (
-        fromIndex < 0 ||
-        fromIndex >= reordered.length ||
-        toIndex < 0 ||
-        toIndex >= reordered.length
-      )
-        return
-      state.isDirty = true
+      if (!state.currentProject) return
+      if (reorderFloorsInProject(state.currentProject, fromIndex, toIndex)) state.isDirty = true
     }),
 
   // Floor plan actions

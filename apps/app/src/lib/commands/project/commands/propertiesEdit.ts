@@ -31,7 +31,8 @@ import { normalizeProtectionCapacityUpdates } from '@/lib/protectionDefaults'
 import { persistAutomaticPanelSlotsInProject } from '@/lib/panel/panelAutomaticSlots'
 import { walkPanels } from '@/lib/panel/panelTree'
 import { z } from 'zod'
-import type { Circuit, Endpoint, ProtectionDevice } from '@/types/schema'
+import type { Circuit, Endpoint, Placement, ProtectionDevice } from '@/types/schema'
+import { syncSupplyDeviceMultiplierInProject } from '@/lib/eendraad/supplyDeviceMultiplierInProject'
 import type { ProjectV2 } from '@/types/projectV2'
 import {
   applyAutomaticEendraadNamingAllPanelsInProject,
@@ -149,6 +150,19 @@ const installDateTargetSchema = z
   })
   .strict()
 
+const supplyMultiplierSourcePlacementSchema = z.object({
+  id: z.string().min(1),
+  floorId: z.string().min(1),
+  layer: z.string(),
+  pos: z.object({ x: z.number().finite(), y: z.number().finite() }),
+  rotationDeg: z.number(),
+  scale: z.number(),
+  rotationMode: z.literal('explicit').optional(),
+  mountingHeightM: z.number().optional(),
+  locked: z.boolean().optional(),
+  style: z.record(z.string(), z.unknown()).optional(),
+}).strip()
+
 const ordinaryPropertyActionSchema = z.discriminatedUnion('kind', [
   z
     .object({
@@ -161,7 +175,7 @@ const ordinaryPropertyActionSchema = z.discriminatedUnion('kind', [
     .object({
       kind: z.literal('endpointMultiplier'),
       endpointId: z.string().min(1),
-      count: z.number().int().min(1).max(20),
+      count: z.number().int().min(1).max(99),
       activeFloorId: z.string().nullable().optional(),
     })
     .strict(),
@@ -186,6 +200,15 @@ const ordinaryPropertyActionSchema = z.discriminatedUnion('kind', [
     .object({ kind: z.literal('deleteEndpoints'), endpointIds: z.array(z.string().min(1)).min(1) })
     .strict(),
   z.object({ kind: z.literal('lockCircuitRowForCode'), circuitId: z.string().min(1) }).strict(),
+  z
+    .object({
+      kind: z.literal('supplyDeviceMultiplier'),
+      deviceId: z.string().min(1),
+      count: z.number().int().min(1),
+      activeFloorId: z.string().nullable().optional(),
+      sourcePlacement: supplyMultiplierSourcePlacementSchema.optional(),
+    })
+    .strict(),
 ])
 
 const semanticModuleVisibilitySchema = z.strictObject({
@@ -808,6 +831,20 @@ function applyAction(
     if (changedVisibility) changed.add(`panel:${action.panelId}`)
     return
   }
+  if (action.kind === 'supplyDeviceMultiplier') {
+    if (
+      !syncSupplyDeviceMultiplierInProject(project, action.deviceId, action.count, {
+        activeFloorId: action.activeFloorId,
+        sourcePlacement: action.sourcePlacement as Placement | undefined,
+        newId: env.newId,
+      })
+    )
+      throw new CommandError('check_failed', 'Supply device cannot be resized', {
+        reason: 'unsupported_supply_multiplier',
+      })
+    changed.add(`trunkDevice:${action.deviceId}`)
+    return
+  }
   if (action.kind === 'lockCircuitRowForCode') {
     const owner = findCircuitOwner(getEditableProjectElectricalPanels(project), action.circuitId)
     if (!owner)
@@ -989,6 +1026,9 @@ export const propertiesEdit = defineProjectCommand({
               }
           }
         }
+      } else if (action.kind === 'supplyDeviceMultiplier') {
+        if (!queryAllSupplyTrunkDevices(project).some((device) => device.id === action.deviceId))
+          return { ok: false, code: 'stale_target', message: 'Supply device no longer exists' }
       } else if (action.kind === 'lockCircuitRowForCode') {
         if (!findCircuit(project, action.circuitId))
           return { ok: false, code: 'stale_target', message: 'Circuit no longer exists' }

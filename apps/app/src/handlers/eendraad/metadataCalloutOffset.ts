@@ -1,4 +1,5 @@
 import { useProjectStore } from '@/stores/projectStore'
+import { runProjectCommand } from '@/stores/liveProjectCommandSession'
 import {
   getMetadataCalloutOffset,
   normalizeMetadataCalloutOffset,
@@ -35,15 +36,29 @@ export function setMetadataCalloutOffset(
 ): void {
   const nextOffset = offset ? normalizeMetadataCalloutOffset(offset) : null
   if (offsetsEqual(getStoredMetadataCalloutOffset(owner), nextOffset)) return
-  const updates = { metadataCalloutOffset: nextOffset ?? undefined }
-  const state = useProjectStore.getState()
-  if (owner.type === 'endpoint') {
-    state.updateEndpoint(owner.id, updates)
-    return
-  }
-  const result = state.getTrunkDeviceById(owner.id)
-  if (!result) return
-  if (result.isSupplyDevice) state.updateSupplyTrunkDevice(owner.id, updates)
-  else if (result.isGroundDevice) state.updateGroundTrunkDevice(owner.id, updates)
-  else if (result.circuit) state.updateTrunkDevice(result.circuit.id, owner.id, updates)
+  const kind = owner.type === 'endpoint' ? 'endpoint' : 'trunkDevice'
+  runProjectCommand(
+    'properties.edit',
+    { edits: [{ kind, ids: [owner.id], set: { metadataCalloutOffset: nextOffset } }] },
+    { label: 'Move metadata card' }
+  )
+}
+
+/** Clears several stored metadata card offsets as one undoable project update. */
+export function clearMetadataCalloutOffsets(owners: readonly MetadataCalloutOwnerRef[]): void {
+  const stored = owners.filter((owner) => getStoredMetadataCalloutOffset(owner))
+  const endpointIds = stored.filter((owner) => owner.type === 'endpoint').map((owner) => owner.id)
+  const trunkDeviceIds = stored
+    .filter((owner) => owner.type === 'trunkDevice')
+    .map((owner) => owner.id)
+  const edits = [
+    ...(endpointIds.length
+      ? [{ kind: 'endpoint' as const, ids: endpointIds, set: { metadataCalloutOffset: null } }]
+      : []),
+    ...(trunkDeviceIds.length
+      ? [{ kind: 'trunkDevice' as const, ids: trunkDeviceIds, set: { metadataCalloutOffset: null } }]
+      : []),
+  ]
+  if (!edits.length) return
+  runProjectCommand('properties.edit', { edits }, { label: 'Reset metadata cards' })
 }

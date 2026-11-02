@@ -54,12 +54,31 @@ export function buildPathForLanguage(pathWithoutLanguage: string, language: Supp
   return cleanedPath ? `/${shortPrefix}${cleanedPath}` : `/${shortPrefix}`
 }
 
-export function getCanonicalizedPathForDomain(pathname: string, hostname: string): string | null {
+const HOME_MARKET_LANGUAGES: readonly SupportedLanguage[] = ['nl-BE', 'fr-BE']
+
+/**
+ * Picks the app language from the browser's preferred languages. Dutch or French anywhere in the
+ * list wins, because Belgian users often run an English OS; otherwise the first supported one.
+ */
+export function pickBrowserLanguage(
+  languages: readonly string[] | null | undefined,
+): SupportedLanguage | null {
+  const supported = (languages ?? [])
+    .map((language) => normalizeSupportedLanguage(language))
+    .filter((language): language is SupportedLanguage => language !== null)
+  return supported.find((language) => HOME_MARKET_LANGUAGES.includes(language)) ?? supported[0] ?? null
+}
+
+export function getCanonicalizedPathForDomain(
+  pathname: string,
+  hostname: string,
+  unprefixedLanguage: SupportedLanguage = 'nl-BE',
+): string | null {
   const pathWithoutLanguage = stripLanguagePrefixFromPath(pathname)
   const explicitLanguage = getPathLanguagePrefix(pathname)
 
   if (!explicitLanguage) {
-    return buildPathForLanguageForHostname(pathWithoutLanguage, 'nl-BE', hostname)
+    return buildPathForLanguageForHostname(pathWithoutLanguage, unprefixedLanguage, hostname)
   }
 
   const canonicalPath = buildPathForLanguageForHostname(
@@ -134,14 +153,16 @@ export function buildLocalizedAppPath(
   return `${buildPathForLanguageForHostname(pathWithoutLanguage, language, hostname)}${search}${hash}`
 }
 
-export function applyCanonicalLanguagePathIfNeeded(): boolean {
+export function applyCanonicalLanguagePathIfNeeded(
+  unprefixedLanguage: SupportedLanguage = 'nl-BE',
+): boolean {
   if (typeof window === 'undefined') return false
 
   const { pathname, search, hash, hostname } = window.location
   if (typeof pathname !== 'string') return false
   if (isLanguageCanonicalizationExcluded(pathname)) return false
 
-  const canonicalPath = getCanonicalizedPathForDomain(pathname, hostname)
+  const canonicalPath = getCanonicalizedPathForDomain(pathname, hostname, unprefixedLanguage)
   if (!canonicalPath) return false
 
   window.history.replaceState(null, '', `${canonicalPath}${search}${hash}`)

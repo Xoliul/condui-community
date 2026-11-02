@@ -132,6 +132,24 @@ export function assertNoHostedTemplateModules(moduleIds: Iterable<string>): void
   }
 }
 
+const hostedCollaborationModulePrefixes = [
+  'apps/app/src/lib/collab/',
+  'apps/app/src/stores/collab',
+  'apps/app/src/components/collab/',
+  'apps/app/src/hooks/useCollab',
+  'apps/app/src/components/canvas/eendraad/EendraadRemoteSelections',
+  'apps/app/src/components/canvas/plan/PlanRemoteSelections',
+] as const
+
+export function assertNoHostedCollaborationModules(moduleIds: Iterable<string>): void {
+  const leaked = [...new Set(moduleIds)].filter((moduleId) =>
+    hostedCollaborationModulePrefixes.some((prefix) => moduleId.startsWith(prefix)),
+  )
+  if (leaked.length > 0) {
+    throw new Error(`Community build includes hosted collaboration module(s): ${leaked.join(', ')}`)
+  }
+}
+
 const hostedDxfModulePrefixes = [
   'apps/app/src/components/export/DxfExportDialog.tsx',
   'apps/app/src/hooks/useDxfExportDialog.tsx',
@@ -250,6 +268,12 @@ function stripDisabledElectricalVisionScanSource(source: string): string {
 }
 
 const aliases = {
+  '@/lib/collab/client/activeProject': './src/editions/community/communityCollaboration.ts',
+  './collabProjectBridge': './src/editions/community/communityCollaboration.ts',
+  '@/hooks/useCollabHistory': './src/editions/community/communityHistory.ts',
+  './EendraadRemoteSelections': './src/editions/community/communityRemoteSelections.tsx',
+  '@/components/canvas/plan/PlanRemoteSelections':
+    './src/editions/community/communityRemoteSelections.tsx',
   '@/hooks/useExerciseValidationAccess': './src/editions/community/communityExerciseValidationAccess.ts',
   '@/components/import/TrikMergeMenuItem': './src/editions/community/communityTrikMergeMenuItem.tsx',
   '@/lib/junction/junctionHostedHooks': './src/editions/community/communityJunctionHooks.ts',
@@ -357,6 +381,7 @@ export default defineConfig({
       generateBundle() {
         const modules = normalizeCommunityModuleIds(this.getModuleIds())
         assertNoHostedTemplateModules(modules)
+        assertNoHostedCollaborationModules(modules)
         assertNoHostedDxfModules(modules)
         assertNoElectricalVisionModules(modules)
         assertNoProjectDocumentsModules(modules, { documentsEnabled: projectDocumentsEnabled })

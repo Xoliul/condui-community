@@ -158,6 +158,7 @@
     "importFallbackProjectName": "Proiect importat ({{idShort}})"
   },
   "common": {
+    "retry": "Reîncearcă",
     "more": "Mai mult",
     "save": "Salvați",
     "cancel": "Anulează",
@@ -916,6 +917,10 @@
     }
   },
   "infoBlock": {
+    "drawingSettings": "Desenul proiectului",
+    "showConduiBranding": "Afișează „Realizat cu condui.be”",
+    "installerHeading": "Titlul instalatorului",
+    "settingsSearch": "setări desen subsol marcă instalator desenat de",
     "madeWith": "Creat cu {{brand}}",
     "pageNr": "Pagina",
     "installerPropertiesTitle": "Detalii instalator",
@@ -3186,6 +3191,9 @@
     "csvDetails": "Detalii"
   },
   "wires": {
+    "material": "Material",
+    "copper": "Cupru (Cu)",
+    "aluminium": "Aluminiu (Al)",
     "wireTypeLabel": "Tip de conductor",
     "cableDefault": "Standard",
     "makeCableDefault": "Faceți standard",
@@ -3914,5 +3922,171 @@
     "showOnOneWire": "Afișează pe schema cu un fir",
     "pageName": "Pagina schemei cu un fir {{page}}",
     "documentPage": "{{name}} · pagina {{page}}"
+  },
+  "collab": {
+    "status": {
+      "joining": "Conectare",
+      "live": "Live",
+      "syncing": "Sincronizare",
+      "offline": "Offline",
+      "suspended": "În pauză"
+    },
+    "conflict": "Modificat de altcineva — încearcă din nou",
+    "peerOtherTab": "{{name}} (altă filă)",
+    "peersMore": "încă {{count}}"
+  },
+  "shortCircuit": {
+    "defaultName": "Calcul de scurtcircuit",
+    "origin": "Origine",
+    "supplyCable": "Cablu de alimentare",
+    "noBoards": "Niciun tablou",
+    "source": {
+      "grid": "Rețea publică",
+      "declared": "Ik3 operator",
+      "transformer": "Transformator propriu",
+      "basis": {
+        "synergrid-small": "Synergrid, racord ≤ 80 A",
+        "synergrid-large": "Synergrid, racord > 80 A",
+        "synergrid-unknown": "Synergrid, racord necunoscut",
+        "transformer": "Transformator propriu",
+        "declared": "Ik3 operator",
+        "transformer-incomplete": "Introduceți puterea și uk ale transformatorului"
+      },
+      "connection": "Racord"
+    },
+    "metrics": {
+      "problems": "Probleme",
+      "unverified": "Neverificate",
+      "estimated": "Lungimi estimate"
+    },
+    "columns": {
+      "feeder": "Alimentare",
+      "circuit": "Circuit",
+      "device": "Aparat",
+      "icn": "Icn",
+      "cable": "Cablu",
+      "length": "Lungime (m)",
+      "ikMax": "Ik max",
+      "ikMin": "Ik min",
+      "ief": "Ief min",
+      "ia": "Ia",
+      "maxLength": "Lungime max.",
+      "check": "Verificare"
+    },
+    "status": {
+      "ok": "OK"
+    },
+    "problem": {
+      "breakingCapacity": "Icn < Ik max",
+      "minimumCurrent": "Ik min < Ia",
+      "faultLoop": "Ief < Ia"
+    },
+    "reason": {
+      "missing-length": "Fără lungime",
+      "missing-cable": "Fără cablu",
+      "missing-breaking-capacity": "Fără Icn",
+      "missing-rating": "Fără curent nominal sau curbă",
+      "fuse": "Fără clasă",
+      "no-overcurrent-device": "Fără întrerupător",
+      "missing-supply-length": "Fără lungimea alimentării",
+      "missing-source": "Lipsesc datele transformatorului",
+      "missing-trip-settings": "Fără Isd sau Ii",
+      "delayed-trip": "Isd temporizat",
+      "fuse-rating": "Calibru în afara tabelului"
+    },
+    "boardProblems_one": "{{count}} problemă",
+    "boardProblems_few": "{{count}} probleme",
+    "boardProblems_many": "{{count}} de probleme",
+    "boardProblems_other": "{{count}} de probleme",
+    "boardUnverified_one": "{{count}} neverificat",
+    "boardUnverified_few": "{{count}} neverificate",
+    "boardUnverified_many": "{{count}} de neverificate",
+    "boardUnverified_other": "{{count}} de neverificate",
+    "revisions": {
+      "issue": "Emite revizie",
+      "title": "Revizii",
+      "live": "Live",
+      "label": "Rev. {{index}}",
+      "description": "Descriere",
+      "remove": "Șterge revizia",
+      "removeConfirm": "Ștergeți revizia {{index}}?",
+      "openIssues": "Încă deschise: {{problems}} probleme, {{unverified}} neverificate."
+    },
+    "gate": {
+      "title": "Deblochează Engineering",
+      "action": "Continuă în cont",
+      "projectMessage": "Deblochezi Engineering pentru „{{project}}”? Aceasta este o achiziție unică, doar pentru acest proiect.",
+      "cloudRequired": "Salvează proiectul în cloud înainte de a debloca Engineering."
+    },
+    "tooltips": {
+      "source": "Din schema monofilară: racordul la rețea sau transformatorul propriu al unei instalații nerezidențiale.",
+      "ratedKva": "Puterea nominală de pe plăcuța transformatorului de alimentare. Modifică desenul.",
+      "uk": "Tensiunea de scurtcircuit de pe plăcuța transformatorului de alimentare. Modifică desenul.",
+      "connection": "Curentul nominal de racord al instalației. Synergrid: până la 80 A rețeaua dă cel mult 3 kA, peste 80 A cel mult 6 kA. Modifică proiectul.",
+      "declared": "Ik3 la originea instalației comunicat de operatorul de rețea sau măsurat. Înlocuiește valoarea de mai sus; lăsați gol pentru a o folosi.",
+      "origin": "Curentul maxim de scurtcircuit trifazat la originea instalației (ieșirea contorului).",
+      "supplyCable": "Cablul de la contor la tabloul principal.",
+      "supplyLength": "Lungimea de la contor la tabloul principal. Modifică desenul.",
+      "problems": "Circuite care nu trec o verificare. Faceți clic pentru a le afișa doar pe acestea.",
+      "unverified": "Circuite care încă nu pot fi verificate, de exemplu din lipsa unei lungimi. Faceți clic pentru a le afișa doar pe acestea.",
+      "estimated": "Cabluri cu lungimea estimată din plan. Faceți clic pentru a afișa circuitele care le folosesc.",
+      "boardIk": "Curentul maxim de scurtcircuit pe bare (Ik3 max). Aparatele din acest tablou trebuie să îl întrerupă.",
+      "boardIkUpperBound": "Curentul maxim de scurtcircuit pe bare. Un cablu dinaintea tabloului nu are lungime și contează ca 0 m, deci valoarea reală este mai mică.",
+      "boardStatus": "Cel mai slab rezultat dintre circuitele acestui tablou.",
+      "furthest": "Lungimea totală de cablu până la cel mai îndepărtat punct al circuitului.",
+      "ok": "Icn {{icn}} ≥ Ik max {{ikMax}}, Ik min {{ikMin}} ≥ Ia {{ia}}",
+      "columns": {
+        "circuit": "Codul circuitului din schema monofilară.",
+        "device": "Aparat de protecție: curbă, curent nominal și poli.",
+        "icn": "Capacitatea de rupere a aparatului. Trebuie să fie cel puțin Ik max. Modifică desenul.",
+        "cable": "Cablul circuitului.",
+        "length": "Lungimea de la tablou la primul punct. Modifică desenul; ≈ este o estimare din plan.",
+        "ikMax": "Curentul maxim de scurtcircuit din tablou pe care acest aparat trebuie să îl întrerupă (trifazat la aparatele cu 3/4 poli, altfel fază–nul).",
+        "ikMin": "Curentul minim de scurtcircuit în cel mai îndepărtat punct al circuitului.",
+        "ief": "Curentul minim de defect fază–pământ în cel mai îndepărtat punct (sisteme TN).",
+        "ia": "Curentul care deconectează defectul la timp: 5, 10 sau 20 × In pentru curba B, C sau D, Isd sau Ii al unui întreruptor reglabil, ori curentul de topire în 5 s al unei siguranțe gG. Ik min trebuie să-l atingă.",
+        "maxLength": "Cel mai lung circuit pe care întrerupătorul îl mai protejează (AREI 5.3.5.5.h, simplificat).",
+        "check": "Rezultatul verificărilor. Atingeți rezultatul pentru detalii."
+      },
+      "problem": {
+        "breakingCapacity": "Capacitate de rupere prea mică: Icn {{icn}} < Ik max {{ikMax}}.",
+        "minimumCurrent": "Întrerupătorul nu declanșează instantaneu la capătul circuitului: Ik min {{ikMin}} < Ia {{ia}}. Alegeți un curent nominal mai mic, altă curbă sau o secțiune mai mare.",
+        "faultLoop": "Un defect la pământ la capătul circuitului nu este întrerupt instantaneu: Ief {{ief}} < Ia {{ia}}."
+      },
+      "reason": {
+        "missing-length": "Un cablu al acestui circuit nu are lungime.",
+        "missing-cable": "Circuitul nu are un cablu cu secțiune.",
+        "missing-breaking-capacity": "Aparatul nu are capacitate de rupere (Icn).",
+        "missing-rating": "Aparatul nu are curent nominal sau curbă.",
+        "fuse": "Alegeți gG pentru a verifica siguranța. Siguranțele aM nu sunt verificate.",
+        "no-overcurrent-device": "Niciun întrerupător sau siguranță nu protejează acest circuit.",
+        "missing-supply-length": "Cablul dinaintea acestui tablou nu are lungime.",
+        "missing-source": "Transformatorul de alimentare nu are putere sau uk.",
+        "missing-trip-settings": "Introduceți Isd sau Ii al întreruptorului reglabil.",
+        "delayed-trip": "Temporizarea Isd depășește timpul de deconectare admis și Ii nu este setat.",
+        "fuse-rating": "Pentru acest calibru nu se cunoaște curentul de topire gG."
+      },
+      "boardIkMin": "Curentul minim de scurtcircuit pe barele acestui tablou. Protecția de alimentare trebuie să declanșeze instantaneu la acest curent.",
+      "fuseClass": "gG protejează cablurile și se verifică după curentul de topire. Nu apare pe schemă.",
+      "tripSettings": "Curba de declanșare sau reglajele unui întreruptor în carcasă turnată. Reglajele pornesc de la curbă și o înlocuiesc.",
+      "trip": {
+        "irA": "Reglaj de suprasarcină (temporizare lungă).",
+        "isdA": "Temporizare scurtă. Contează ca Ia dacă temporizarea se încadrează în timpul de deconectare.",
+        "tsdS": "Temporizarea Isd. Gol sau 0 fără temporizare.",
+        "iiA": "Declanșare instantanee. Contează întotdeauna ca Ia."
+      },
+      "selectCable": "Faceți clic pentru a selecta circuitul, de exemplu pentru a-i schimba cablul."
+    },
+    "noMatches": "Nimic de afișat",
+    "showAll": "Afișează tot",
+    "fuseClass": "Clasa siguranței",
+    "tripSettings": {
+      "title": "Reglaje",
+      "irA": "Ir",
+      "isdA": "Isd",
+      "tsdS": "tsd",
+      "iiA": "Ii",
+      "adjustable": "Reglabil"
+    }
   }
 }

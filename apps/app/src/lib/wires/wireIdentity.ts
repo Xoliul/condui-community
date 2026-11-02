@@ -373,6 +373,7 @@ export function applyWireRunsToSegments(
       ? withProjectDefaultCableKind(run.cable, defaultCableKind ?? SEEDED_AC_CIRCUIT_CABLE_KIND)
       : { ...run.cable }
     const { wireRoute, inWall } = fromWireRunRoute(run.route)
+    segment.wireMaterial = run.material
     segment.wireRoute = wireRoute
     segment.inTube = run.inTube
     segment.inWall = inWall

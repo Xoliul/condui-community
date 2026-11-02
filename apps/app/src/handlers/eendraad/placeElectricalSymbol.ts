@@ -3,8 +3,6 @@ import { CommandError, type EntityRef } from '@/lib/commands/project'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
 import type { PanelDropPlacement } from '@/lib/commands/project/panelDropPlacement'
 import { logger } from '@/lib/logger'
-import { flushPendingProjectHistory } from '@/stores/slices/projectStoreHistory'
-import { useProjectStore } from '@/stores/projectStore'
 import { liveProjectSession } from '@/stores/liveProjectCommandSession'
 import { useUIStore } from '@/stores/uiStore'
 import type { Point, Selection } from '@/types/ui'
@@ -78,17 +76,4 @@ export function placeElectricalSymbol(options: {
       ? { status: 'blocked' }
       : { status: 'failed' }
   }
-}
-
-/**
- * Starts a group of related edits that should undo together: the command and the store writes
- * that follow it. Close it with `endUndoGroup`.
- */
-export function beginUndoGroup(): number {
-  flushPendingProjectHistory()
-  return useProjectStore.getState().undoStack.length
-}
-
-export function endUndoGroup(startIndex: number): void {
-  useProjectStore.getState().collapseUndoGroupFromIndex(startIndex)
 }

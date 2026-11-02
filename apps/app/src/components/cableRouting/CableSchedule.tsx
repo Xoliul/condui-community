@@ -1,3 +1,4 @@
+import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, Download, Ruler } from 'lucide-react'
@@ -90,8 +91,12 @@ function SourceBadge({ source, label }: { source: CableScheduleLengthSource; lab
 function useCableScheduleModel() {
   const { t } = useTranslation()
   const estimation = useCableRouteEstimation()
-  const projectName = useProjectStore((s) => s.currentProject?.project.name ?? '')
-  const schedule = useMemo(() => buildCableSchedule(estimation?.routes ?? []), [estimation])
+  const project = useProjectStore((s) => s.currentProject)
+  const projectName = project?.project.name ?? ''
+  const schedule = useMemo(
+    () => buildCableSchedule(estimation?.routes ?? [], project ? selectProjectWireRuns(project) : []),
+    [estimation, project]
+  )
 
   const sourceLabel = (source: CableScheduleLengthSource) =>
     ({

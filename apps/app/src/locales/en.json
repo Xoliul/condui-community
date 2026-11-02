@@ -158,6 +158,7 @@
     "importFallbackProjectName": "Imported project ({{idShort}})"
   },
   "common": {
+    "retry": "Retry",
     "more": "More",
     "save": "Save",
     "cancel": "Cancel",
@@ -916,6 +917,10 @@
     }
   },
   "infoBlock": {
+    "drawingSettings": "Project drawing",
+    "showConduiBranding": "Show “Made with condui.be”",
+    "installerHeading": "Installer heading",
+    "settingsSearch": "settings drawing footer branding installer drawn by",
     "madeWith": "Made with {{brand}}",
     "pageNr": "Page",
     "installerPropertiesTitle": "Installer info",
@@ -3186,6 +3191,9 @@
     "csvDetails": "Details"
   },
   "wires": {
+    "material": "Material",
+    "copper": "Copper (Cu)",
+    "aluminium": "Aluminium (Al)",
     "wireTypeLabel": "Wire type",
     "cableDefault": "Default",
     "makeCableDefault": "Make default",
@@ -3914,5 +3922,171 @@
     "showOnOneWire": "Show on one-wire",
     "pageName": "One-wire page {{page}}",
     "documentPage": "{{name}} · page {{page}}"
+  },
+  "collab": {
+    "status": {
+      "joining": "Connecting",
+      "live": "Live",
+      "syncing": "Syncing",
+      "offline": "Offline",
+      "suspended": "Paused"
+    },
+    "conflict": "Changed by someone else — try again",
+    "peerOtherTab": "{{name}} (other tab)",
+    "peersMore": "{{count}} more"
+  },
+  "shortCircuit": {
+    "defaultName": "Short-circuit calculation",
+    "origin": "Origin",
+    "supplyCable": "Supply cable",
+    "noBoards": "No boards",
+    "source": {
+      "grid": "Public grid",
+      "declared": "DSO Ik3",
+      "transformer": "Own transformer",
+      "basis": {
+        "synergrid-small": "Synergrid, connection ≤ 80 A",
+        "synergrid-large": "Synergrid, connection > 80 A",
+        "synergrid-unknown": "Synergrid, connection unknown",
+        "transformer": "Own transformer",
+        "declared": "DSO Ik3",
+        "transformer-incomplete": "Enter the transformer rating and uk"
+      },
+      "connection": "Connection"
+    },
+    "metrics": {
+      "problems": "Problems",
+      "unverified": "Unverified",
+      "estimated": "Estimated lengths"
+    },
+    "columns": {
+      "feeder": "Feeder",
+      "circuit": "Circuit",
+      "device": "Device",
+      "icn": "Icn",
+      "cable": "Cable",
+      "length": "Length (m)",
+      "ikMax": "Ik max",
+      "ikMin": "Ik min",
+      "ief": "Ief min",
+      "ia": "Ia",
+      "maxLength": "Max. length",
+      "check": "Check"
+    },
+    "status": {
+      "ok": "OK"
+    },
+    "problem": {
+      "breakingCapacity": "Icn < Ik max",
+      "minimumCurrent": "Ik min < Ia",
+      "faultLoop": "Ief < Ia"
+    },
+    "reason": {
+      "missing-length": "No length",
+      "missing-cable": "No cable",
+      "missing-breaking-capacity": "No Icn",
+      "missing-rating": "No rating or curve",
+      "fuse": "No fuse class",
+      "no-overcurrent-device": "No breaker",
+      "missing-supply-length": "No supply length",
+      "missing-source": "No transformer data",
+      "missing-trip-settings": "No Isd or Ii",
+      "delayed-trip": "Isd delayed",
+      "fuse-rating": "Rating not in table"
+    },
+    "boardProblems_one": "{{count}} problem",
+    "boardProblems_few": "{{count}} problems",
+    "boardProblems_many": "{{count}} problems",
+    "boardProblems_other": "{{count}} problems",
+    "boardUnverified_one": "{{count}} unverified",
+    "boardUnverified_few": "{{count}} unverified",
+    "boardUnverified_many": "{{count}} unverified",
+    "boardUnverified_other": "{{count}} unverified",
+    "revisions": {
+      "issue": "Issue revision",
+      "title": "Revisions",
+      "live": "Live",
+      "label": "Rev. {{index}}",
+      "description": "Description",
+      "remove": "Remove revision",
+      "removeConfirm": "Remove revision {{index}}?",
+      "openIssues": "Still open: {{problems}} problems, {{unverified}} unverified."
+    },
+    "gate": {
+      "title": "Unlock Engineering",
+      "action": "Continue to account",
+      "projectMessage": "Unlock Engineering for “{{project}}”? This is a one-time purchase for this project.",
+      "cloudRequired": "Save this project to the cloud before unlocking Engineering."
+    },
+    "tooltips": {
+      "source": "Taken from the one-wire diagram: the grid connection, or the own transformer of a non-household installation.",
+      "ratedKva": "Rated power on the supply transformer's nameplate. Changes the drawing.",
+      "uk": "Short-circuit voltage on the supply transformer's nameplate. Changes the drawing.",
+      "connection": "Rated connection current of the installation. Synergrid: up to 80 A the grid gives at most 3 kA, above 80 A at most 6 kA. Changes the project.",
+      "declared": "Ik3 at the origin as stated by the grid operator or measured. Overrides the value above; leave empty to use it.",
+      "origin": "Maximum three-phase fault current at the origin of the installation (the outlet of the meter).",
+      "supplyCable": "Cable from the meter to the main board.",
+      "supplyLength": "Length from the meter to the main board. Changes the drawing.",
+      "problems": "Circuits that fail a check. Click to show only these.",
+      "unverified": "Circuits that cannot be checked yet, for example for a missing length. Click to show only these.",
+      "estimated": "Cables whose length is estimated from the plan. Click to show the circuits that use them.",
+      "boardIk": "Maximum fault current at the busbar (Ik3 max). Devices on this board must break it.",
+      "boardIkUpperBound": "Maximum fault current at the busbar. A cable before this board has no length and counts as 0 m, so the real value is lower.",
+      "boardStatus": "Worst result among the circuits of this board.",
+      "furthest": "Total cable length to the furthest point of the circuit.",
+      "ok": "Icn {{icn}} ≥ Ik max {{ikMax}}, Ik min {{ikMin}} ≥ Ia {{ia}}",
+      "columns": {
+        "circuit": "Circuit code on the one-wire diagram.",
+        "device": "Protective device: curve, rating and poles.",
+        "icn": "Breaking capacity of the device. It must be at least Ik max. Changes the drawing.",
+        "cable": "Cable of the circuit.",
+        "length": "Length from the board to the first point (home run). Changes the drawing; ≈ is a plan estimate.",
+        "ikMax": "Maximum fault current at the board that this device must break (three-phase for 3/4-pole devices, otherwise phase to neutral).",
+        "ikMin": "Minimum fault current at the furthest point of the circuit.",
+        "ief": "Minimum phase-to-earth fault current at the furthest point (TN systems).",
+        "ia": "Current that clears a fault in time: 5, 10 or 20 × In for curve B, C or D, Isd or Ii of an adjustable breaker, or the 5 s operating current of a gG fuse. Ik min must reach it.",
+        "maxLength": "Longest circuit the breaker still protects (AREI 5.3.5.5.h, simplified).",
+        "check": "Result of the checks. Tap the result for details."
+      },
+      "problem": {
+        "breakingCapacity": "Breaking capacity too low: Icn {{icn}} < Ik max {{ikMax}}.",
+        "minimumCurrent": "Breaker does not trip instantly at the far end: Ik min {{ikMin}} < Ia {{ia}}. Use a lower rating, another curve or a larger section.",
+        "faultLoop": "Earth fault at the far end is not cleared instantly: Ief {{ief}} < Ia {{ia}}."
+      },
+      "reason": {
+        "missing-length": "A cable of this circuit has no length.",
+        "missing-cable": "The circuit has no cable with a section.",
+        "missing-breaking-capacity": "The device has no breaking capacity (Icn).",
+        "missing-rating": "The device has no rating or curve.",
+        "fuse": "Choose gG to check the fuse. aM fuses are not checked.",
+        "no-overcurrent-device": "No breaker or fuse protects this circuit.",
+        "missing-supply-length": "The cable before this board has no length.",
+        "missing-source": "The supply transformer has no rating or uk.",
+        "missing-trip-settings": "Enter Isd or Ii of the adjustable breaker.",
+        "delayed-trip": "The Isd delay is longer than the allowed disconnection time, and no Ii is set.",
+        "fuse-rating": "No gG operating current is known for this rating."
+      },
+      "boardIkMin": "Minimum fault current at the busbar of this board. The feeding protection must trip instantly at this current.",
+      "fuseClass": "gG protects cables and is checked with its operating current. Not shown on the drawing.",
+      "tripSettings": "Tripping curve, or the adjustable settings of a moulded-case breaker. Adjustable settings start from the curve and replace it.",
+      "trip": {
+        "irA": "Long-time (overload) setting.",
+        "isdA": "Short-time pick-up. Counts as Ia when its delay fits the disconnection time.",
+        "tsdS": "Short-time delay. Leave empty or 0 for no delay.",
+        "iiA": "Instantaneous pick-up. Always counts as Ia."
+      },
+      "selectCable": "Click to select the circuit, for example to change its cable."
+    },
+    "noMatches": "Nothing to show",
+    "showAll": "Show all",
+    "fuseClass": "Fuse class",
+    "tripSettings": {
+      "title": "Trip settings",
+      "irA": "Ir",
+      "isdA": "Isd",
+      "tsdS": "tsd",
+      "iiA": "Ii",
+      "adjustable": "Adjustable"
+    }
   }
 }

@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type Konva from 'konva'
+import { useEditionFeatureAvailability } from '@/hooks/useEditionFeatureAvailability'
+import {
+  resolveInfoBlockPresentation,
+  type InfoBlockPresentationPreferences,
+} from '@/lib/infoBlockPresentation'
 import { ZOOM_100 } from '@/constants/canvasConstants'
 import { Group, Rect, Text, Image, Line } from 'react-konva'
 import { useTranslation } from 'react-i18next'
@@ -56,7 +61,8 @@ import type { ProjectPartyContact } from '@/types/schema'
 export type InfoBlockBoxId = 'installer' | 'address' | 'ean'
 
 type InfoBlockProject = ProjectWithOptionalV2Electrical & {
-  project?: {
+  project?: InfoBlockPresentationPreferences & {
+    id?: string
     name?: string
     meterEanCode?: string
     updatedAt?: string
@@ -177,10 +183,17 @@ export function InfoBlock({
 
   const madeWithKey = 'infoBlock.madeWith'
   const infoBlockBrand = getInfoBlockBrandForCurrentDomain(language)
-  const madeWithText = t(madeWithKey, { brand: infoBlockBrand })
+  const { installerBranding } = useEditionFeatureAvailability(project?.project?.id)
+  const { headerInstaller, madeWithText } = resolveInfoBlockPresentation(
+    project?.project,
+    {
+      headerInstaller: t('infoBlock.headerInstaller', 'Installer'),
+      madeWithText: t(madeWithKey, { brand: infoBlockBrand }),
+    },
+    installerBranding,
+  )
 
   const headerInstallation = t('infoBlock.headerInstallation', 'Installation address')
-  const headerInstaller = t('infoBlock.headerInstaller', 'Installer')
   const headerInspectionAgency = t('project.inspectionAgency', 'Inspection agency')
   const columns = getInfoBlockColumns(project, { hasLogo: logoImage != null })
   const inspectionAgency = project?.project?.inspectionAgency
@@ -495,7 +508,7 @@ export function InfoBlock({
             listening={false}
           />
         )}
-        <Text
+        {madeWithText && <Text
           x={installerBoxX + INFO_BLOCK_PADDING}
           // Right-aligned in the bottom-right corner of the installer column,
           // sitting just above the bottom padding.
@@ -507,7 +520,7 @@ export function InfoBlock({
           fontFamily={fontFamily}
           fill={secondaryColor}
           listening={false}
-        />
+        />}
       </Group>
 
       {/* Address column */}

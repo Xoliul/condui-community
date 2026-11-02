@@ -10,22 +10,35 @@ import { planAssignCircuit, circuitSetCodeAndPosition } from './commands/planAss
 import { electricalMoveProtectionOnBus } from './commands/electricalMoveProtectionOnBus'
 import { entitiesDelete } from './commands/entitiesDelete'
 import { floorRename } from './commands/floorRename'
+import { documentShortCircuit } from './commands/documentShortCircuit'
 import { planCopyToFloor } from './commands/planCopyToFloor'
 import { planDuplicate } from './commands/planDuplicate'
 import { circuitCreateEmpty, planPlaceSymbol } from './commands/planPlaceSymbol'
 import { planMovePlacements, planMoveToFloor } from './commands/planPlacements'
+import {
+  planSetPlacementsHidden,
+  planRotatePlacements,
+  planSetPlacementLocked,
+  planDropEarthing,
+  planEnsureEarthingPlacement,
+  planShowHiddenPlacements,
+} from './commands/planPlacementEdits'
+import { planSetWiringVisibility, planSetSymbolSize } from './commands/planDisplay'
+import { planAltDuplicate } from './commands/planAltDuplicate'
 import { propertiesEdit } from './commands/propertiesEdit'
 import { electricalCreateCircuitAndAssign } from './commands/electricalCreateCircuitAndAssign'
 import { planImportRoomScan } from './commands/planImportRoomScan'
 import {
   buildingCreateFloor,
   buildingDeleteFloor,
+  buildingReorderFloors,
   planAttachBackground,
   planDetachBackground,
   planCalibrateScale,
   planTransformBackground,
 } from './commands/floorSetup'
 import { planPlaceExisting } from './commands/planPlaceExisting'
+import { planApplyRecognizedWalls } from './commands/planApplyRecognizedWalls'
 import { planCreateBuildingGeometry } from './commands/planCreateBuildingGeometry'
 import { planMergeWallPoints } from './commands/planMergeWallPoints'
 import { planSplitWall } from './commands/planSplitWall'
@@ -41,6 +54,11 @@ import {
 import { electricalDuplicateProtection } from './commands/electricalDuplicateProtection'
 import { electricalDuplicateElements } from './commands/electricalDuplicateElements'
 import { panelMoveSupply } from './commands/panelMoveSupply'
+import { endpointResizeDomoticaOutputs } from './commands/endpointResizeDomoticaOutputs'
+import { panelMoveAttachmentOnBus } from './commands/panelMoveAttachmentOnBus'
+import { planMoveEndpointsToFloor } from './commands/planMoveEndpointsToFloor'
+import { eendraadResetLabelOverrides } from './commands/eendraadResetLabelOverrides'
+import { planEnsurePanelPlacements } from './commands/planEnsurePanelPlacements'
 import { panelEnsureEarthingStem } from './commands/panelEnsureEarthingStem'
 import { panelEjectSecondaryBusProtections } from './commands/panelEjectSecondaryBusProtections'
 import { supplyDisconnectInverterGridInput } from './commands/supplyDisconnectInverterGridInput'
@@ -94,8 +112,18 @@ export function createProjectCommandRegistry(): ProjectCommandRegistry {
   return new ProjectCommandRegistry()
     .register(planSetColors)
     .register(floorRename)
+    .register(documentShortCircuit)
     .register(planMovePlacements)
     .register(planMoveToFloor)
+    .register(planSetPlacementsHidden)
+    .register(planRotatePlacements)
+    .register(planSetPlacementLocked)
+    .register(planDropEarthing)
+    .register(planEnsureEarthingPlacement)
+    .register(planShowHiddenPlacements)
+    .register(planSetWiringVisibility)
+    .register(planSetSymbolSize)
+    .register(planAltDuplicate)
     .register(entitiesDelete)
     .register(planDuplicate)
     .register(circuitCreateEmpty)
@@ -115,11 +143,13 @@ export function createProjectCommandRegistry(): ProjectCommandRegistry {
     .register(planDrawWire)
     .register(buildingCreateFloor)
     .register(buildingDeleteFloor)
+    .register(buildingReorderFloors)
     .register(planAttachBackground)
     .register(planDetachBackground)
     .register(planCalibrateScale)
     .register(planPlaceExisting)
     .register(planCreateBuildingGeometry)
+    .register(planApplyRecognizedWalls)
     .register(planMergeWallPoints)
     .register(planSplitWall)
     .register(planTransformBackground)
@@ -133,6 +163,11 @@ export function createProjectCommandRegistry(): ProjectCommandRegistry {
     .register(electricalDuplicateProtection)
     .register(electricalDuplicateElements)
     .register(panelMoveSupply)
+    .register(endpointResizeDomoticaOutputs)
+    .register(panelMoveAttachmentOnBus)
+    .register(planMoveEndpointsToFloor)
+    .register(eendraadResetLabelOverrides)
+    .register(planEnsurePanelPlacements)
     .register(panelEnsureEarthingStem)
     .register(panelEjectSecondaryBusProtections)
     .register(supplyDisconnectInverterGridInput)

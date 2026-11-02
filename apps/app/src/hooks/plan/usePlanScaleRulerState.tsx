@@ -36,14 +36,15 @@ type UsePlanScaleResetControllerOptions = {
   activeFloor: Floor | null | undefined
   activeFloorId: string | null
   activeTool: string
-  applyPlanRescale: ProjectState['applyPlanRescale']
+  /** Unused: scale edits go through project commands. */
+  applyPlanRescale?: ProjectState['applyPlanRescale']
   cancelResetScaleTrigger: number
   getFloorById: ProjectState['getFloorById']
   getPlacementsByFloor: ProjectState['getPlacementsByFloor']
   openDialog: (config: DialogConfig) => void
   setActiveTool: (tool: 'none' | 'resetScale') => void
   t: TFunction
-  updateFloor: ProjectState['updateFloor']
+  updateFloor?: ProjectState['updateFloor']
 }
 
 export function usePlanScaleResetController({

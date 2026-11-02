@@ -7,7 +7,7 @@ import {
 } from '@/lib/projectV2/electrical'
 import type { ExportTheme } from './types'
 import { getThemeColors } from '@/lib/theme/colors'
-import { formatProtectionCurveRating } from '@/lib/protectionLabels'
+import { displayedProtectionCurve, formatProtectionCurveRating } from '@/lib/protectionLabels'
 
 interface CircuitLegendRow {
   panelName: string
@@ -111,7 +111,7 @@ function formatProtection(protection: ProtectionDevice | null): string {
   if (!protection) return ''
   const parts: string[] = []
   if (protection.type === 'MCB' || protection.type === 'RCBO') {
-    const rating = formatProtectionCurveRating(protection.curve, protection.ratingA)
+    const rating = formatProtectionCurveRating(displayedProtectionCurve(protection), protection.ratingA)
     if (rating) parts.push(rating)
   } else if (protection.ratingA != null) {
     parts.push(`${protection.ratingA}A`)

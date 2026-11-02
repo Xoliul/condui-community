@@ -1,15 +1,16 @@
-import { generateId } from '@/utils'
-import type { Endpoint, Placement } from '@/types/schema'
+import type { Endpoint } from '@/types/schema'
 
 import { useProjectStore } from '@/stores/projectStore'
 import { useUIStore } from '@/stores/uiStore'
+import { runProjectCommand } from '@/stores/liveProjectCommandSession'
 import { readLegacyCompatibilityFloors } from '@/lib/projectV2/buildingFloors'
-import { getEndpointMultiplierPlacementChanges } from '@/lib/properties/propertyActions'
+
+const MAX_ENDPOINT_MULTIPLIER = 99
 
 export interface SyncEndpointMultiplierDeps {
   getEndpointById: (id: string) => Endpoint | undefined
-  addPlacement: (endpointId: string, placement: Placement) => void
-  deletePlacements: (ids: string[]) => void
+  /** Resizes the endpoint's placements to the requested count as one project command (one undo step). */
+  setMultiplierCount: (endpointId: string, count: number, floorId: string) => boolean
   getActiveFloorId: () => string | null
   getFallbackFloorId: () => string | undefined
 }
@@ -36,27 +37,20 @@ export function syncEndpointMultiplierCount(
     deps.getFallbackFloorId()
   if (!floorId) return false
 
-  const changes = getEndpointMultiplierPlacementChanges(
-    latestEndpoint.placements,
-    target,
-    floorId,
-    generateId
-  )
-  if (!changes) return false
-  if (changes.removeIds.length) {
-    deps.deletePlacements(changes.removeIds)
-    return true
-  }
-  for (const placement of changes.add) deps.addPlacement(latestEndpoint.id, placement)
-  return true
+  return deps.setMultiplierCount(latestEndpoint.id, target, floorId)
 }
 
 export function createSyncEndpointMultiplierDeps(): SyncEndpointMultiplierDeps {
   const state = useProjectStore.getState()
   return {
     getEndpointById: state.getEndpointById,
-    addPlacement: state.addPlacement,
-    deletePlacements: state.deletePlacements,
+    setMultiplierCount: (endpointId, count, floorId) =>
+      count <= MAX_ENDPOINT_MULTIPLIER &&
+      runProjectCommand(
+        'properties.edit',
+        { edits: [], actions: [{ kind: 'endpointMultiplier', endpointId, count, activeFloorId: floorId }] },
+        { label: 'set endpoint multiplier', source: 'properties' }
+      ) !== null,
     getActiveFloorId: () => useUIStore.getState().activeFloorId,
     getFallbackFloorId: () =>
       state.currentProject ? readLegacyCompatibilityFloors(state.currentProject)[0]?.id : undefined,

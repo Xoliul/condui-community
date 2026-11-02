@@ -1,4 +1,4 @@
-import { liveProjectSession } from '@/stores/liveProjectCommandSession'
+import { liveProjectSession, runProjectCommand } from '@/stores/liveProjectCommandSession'
 import { CommandError } from '@/lib/commands/project/types'
 import type { DeleteEntityRef } from '@/lib/eendraad/entityDeletion'
 import type { PropertiesEditInput } from '@/lib/commands/project/commands/propertiesEdit'
@@ -35,7 +35,6 @@ import {
   describePlanKeyboardDecision,
   PLAN_ARROW_KEY_PRECEDENCE,
 } from '@/lib/plan/planKeyboardDecisions'
-import { explicitClockwiseRotationPatch } from '@/lib/plan/situationPlanRotation'
 
 type PlanKeyboardProject = ProjectWithOptionalV2Building & ProjectWithOptionalV2Electrical
 
@@ -320,21 +319,10 @@ export function usePlanKeyboard(activeFloorId: string | null, options?: PlanKeyb
         const targets = rows.filter((row) => selectedPlacementIds.has(row.id))
         if (targets.length > 0) {
           e.preventDefault()
-          store.withSingleUndoEntry(
-            () => {
-              targets.forEach((placement) => {
-                const patch = explicitClockwiseRotationPatch(placement)
-                if (placement.junctionPanelLabel != null) {
-                  store.updateJunctionPanelPlacement(placement.id, patch)
-                } else if (placement.isEarthing) {
-                  store.updateEarthingPlacement(placement.id, patch)
-                } else {
-                  store.updatePlacement(placement.id, patch)
-                }
-              })
-              return true
-            },
-            { sessionLabel: 'rotate situation plan symbols' }
+          runProjectCommand(
+            'plan.rotatePlacements',
+            { placementIds: targets.map((placement) => placement.id) },
+            { label: 'rotate situation plan symbols' }
           )
           return
         }

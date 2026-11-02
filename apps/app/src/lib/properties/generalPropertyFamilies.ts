@@ -60,6 +60,8 @@ const projectPatch = z
     inspectionAgency: party.nullable().optional(),
     installerOverride: installer.nullable().optional(),
     showInspectionAgencyInInfoBlock: z.boolean().nullable().optional(),
+    showConduiBranding: z.boolean().nullable().optional(),
+    installerHeading: z.string().trim().max(80).nullable().optional(),
     installDateColors: z.record(z.string(), z.string()).nullable().optional(),
   })
   .strict()

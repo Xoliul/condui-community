@@ -36,6 +36,7 @@ export function stripWallPointHandlesForExport(root: Konva.Group): void {
 /** Remove plan wire edit UI (waypoint handles, insert preview, drag preview). */
 export function stripPlanWireEditOverlayForExport(root: Konva.Group): void {
   root.findOne((node: Konva.Node) => node.name() === 'plan-wire-drag-preview')?.destroy()
+  root.find('.collab-remote-selections').forEach((node: Konva.Node) => node.destroy())
 
   const wiresLayer = root.findOne((node: Konva.Node) => node.name() === 'plan-wires-layer') as Konva.Group | undefined
   if (!wiresLayer) return

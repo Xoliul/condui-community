@@ -1,5 +1,7 @@
 /* eslint react-refresh/only-export-components: off -- Community stubs mirror the hosted Documents API. */
 import type { ProjectDocument } from '@/lib/documents/projectDocuments'
+import type { AdjustableTripControl } from '@/components/properties/ProtectionDeviceElectricalFields'
+import type { ProtectionDevice } from '@/types/schema'
 
 /** Community edition of the Documents canvas' hosted parts: no paid-project tables or team library. */
 export type TeamDocumentLibraryAccess = { teamId: string; canManage: boolean }
@@ -8,6 +10,11 @@ export interface ExternalInfluencesEntry {
   locked: boolean
   disabled: boolean
   add: (name: string) => string | null
+}
+
+export interface ShortCircuitEntry {
+  locked: boolean
+  add: (name: string, language: string) => string | null
 }
 
 const noSave = { canSave: () => false, pendingId: null, save: () => undefined }
@@ -48,4 +55,20 @@ export function usePaidDocumentPageCount(
   _enabled: boolean
 ): number {
   return 0
+}
+
+export function useShortCircuitEntry(): ShortCircuitEntry | null {
+  return null
+}
+
+export function ShortCircuitDocumentView(_props: { documentId: string }): null {
+  return null
+}
+
+export function useAdjustableTrip(_protection: ProtectionDevice | undefined): AdjustableTripControl | null {
+  return null
+}
+
+export function ShortCircuitDocumentHeaderActions(_props: { documentId: string }): null {
+  return null
 }
