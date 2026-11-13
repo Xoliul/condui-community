@@ -23,7 +23,6 @@ import {
 } from '@/lib/projectV2/electrical'
 import {
   TRANSFORMER_OVERLAY_PATHS,
-  SWITCH_SYMBOLS_WITH_VERKLIKKERLAMP,
   HVAC_ENERGY_SOURCE_PATHS,
   HVAC_TYPE_OVERLAY_PATHS,
   isHvacDeviceSymbol,
@@ -60,7 +59,9 @@ import {
   selectClass,
   visibilityToggleClass,
 } from '../shared/propertiesSharedUtils'
+import { SwitchVisualOptions } from './SwitchVisualOptions'
 import { EndpointCertificationSection } from './EndpointControls'
+import { SocketSwitchGrid } from './SocketSwitchGrid'
 import { useControlLinkNote } from '@/lib/controlLink/useControlLinkNote'
 import { canHaveControlLink } from '@/lib/controlLink/controlLink'
 import {
@@ -1025,25 +1026,11 @@ export function EndpointProperties({
               }
             />
           )}
-          {(SWITCH_SYMBOLS_WITH_VERKLIKKERLAMP as readonly string[]).includes(
-            normalizeSwitchSymbol(endpoint.symbol)
-          ) && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={endpoint.switchProps?.verklikkerlamp ?? false}
-                onChange={(e) =>
-                  onUpdate(endpointId, {
-                    switchProps: { ...endpoint.switchProps, verklikkerlamp: e.target.checked },
-                  })
-                }
-                className="w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500 dark:bg-gray-700 dark:border-gray-600"
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                {t('endpoints.verklikkerlamp', 'Indicator light')}
-              </span>
-            </label>
-          )}
+          <SwitchVisualOptions
+            symbol={normalizeSwitchSymbol(endpoint.symbol)}
+            value={endpoint.switchProps}
+            onChange={(switchProps) => onUpdate(endpointId, { switchProps })}
+          />
         </>
       )}
 
@@ -1186,46 +1173,11 @@ export function EndpointProperties({
           </div>
           {!isModularSocket(endpoint) && (
             <div className="space-y-2">
-              <label className={labelClass}>{t('endpoints.socketOptions', 'Socket options')}</label>
-              <div>
-                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  {t('endpoints.socketSwitchOption', 'Switch')}
-                </label>
-                <CustomDropdown
-                  value={
-                    endpoint.socketProps?.switchOverlayLock
-                      ? 'switch_lock'
-                      : endpoint.socketProps?.switchOverlay
-                        ? 'switch'
-                        : 'none'
-                  }
-                  onChange={(nextValue) => {
-                    const v = nextValue as 'none' | 'switch' | 'switch_lock'
-                    onUpdate(endpointId, {
-                      socketProps: {
-                        ...endpoint.socketProps,
-                        switchOverlay: v === 'switch',
-                        switchOverlayLock: v === 'switch_lock',
-                      },
-                    })
-                  }}
-                  options={[
-                    { value: 'none', label: t('endpoints.socketSwitchNone', 'None') },
-                    {
-                      value: 'switch',
-                      label: t('endpoints.socketSwitchOverlay', 'Socket with two-pole switch'),
-                    },
-                    {
-                      value: 'switch_lock',
-                      label: t(
-                        'endpoints.socketSwitchOverlayLock',
-                        'Socket with two-pole lockable switch'
-                      ),
-                    },
-                  ]}
-                  className={selectClass}
-                />
-              </div>
+              <SocketSwitchGrid
+                socketSymbol={normalizeSocketSymbol(endpoint.symbol)}
+                socketProps={endpoint.socketProps}
+                onChange={(socketProps) => onUpdate(endpointId, { socketProps })}
+              />
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"

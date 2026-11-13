@@ -1,3 +1,4 @@
+import { INTERACTIVE_OVERLAY_EXPORT_NAME } from '@/lib/export/interactiveOverlayExport'
 /* eslint-disable react-refresh/only-export-components */
 import { useRef } from 'react'
 import { Circle, Group, Line } from 'react-konva'
@@ -887,7 +888,7 @@ export function StairRenderer({
                 <Line
                   points={geometry.outlinePoints}
                   closed
-                  fill="rgba(0,0,0,0.001)"
+                  name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill="rgba(0,0,0,0.001)"
                   strokeWidth={0}
                   draggable={interactive && isSelected}
                   onClick={(e) => {
@@ -926,7 +927,7 @@ export function StairRenderer({
                     x={stair.points[0].x}
                     y={stair.points[0].y}
                     radius={geometry.spiralHitRadius}
-                    fill="rgba(0,0,0,0.001)"
+                    name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill="rgba(0,0,0,0.001)"
                     strokeWidth={0}
                     draggable={interactive && isSelected}
                     onClick={(e) => {
@@ -977,7 +978,7 @@ export function StairRenderer({
                     radius={geometry.spiralPoleRadius}
                     stroke={stairColor}
                     strokeWidth={renderMetrics.outlineStroke}
-                    fill="rgba(0,0,0,0.001)"
+                    fill="transparent"
                     listening={false}
                   />
                 )}

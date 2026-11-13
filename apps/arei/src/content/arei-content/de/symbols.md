@@ -1,7 +1,7 @@
 ---
 title: Symbole für Stromlaufplan und Lageplan
 description: Elektrische Symbole für Ihren belgischen Stromlaufplan (Eendraadschema) und Lageplan mit kurzer Erklärung je Symbol, von Steckdose und Wechselschalter bis FI-Schutzschalter und Erdungstrennstelle.
-updated: 2026-10-12
+updated: 2026-11-04
 ---
 
 Hier finden Sie die elektrischen Symbole, die auf einem belgischen Stromlaufplan (Eendraadschema) und Lageplan vorkommen, mit einer kurzen Erklärung je Symbol. Die meisten entsprechen Tabelle 2.23 des AREI Buch 1 (Kapitel 2.13), einer nicht abschließenden Liste. Für Bauteile, die dort fehlen, etwa einen Heimspeicher oder einen Überspannungsschutz, verwendet {{brand}} ein eigenes Symbol.
@@ -116,6 +116,9 @@ Ein einzelner Kontakt, etwa ein Türkontakt oder ein Eingang eines Smart-Home-Sy
 
 ### [switch_impulse]
 Ein Taster gibt einen kurzen Impuls an einen Stromstoßschalter oder Smart-Home-Eingang, statt den Stromkreis direkt zu schalten.
+
+### [light_sensor]
+Ein Dämmerungsschalter schaltet die Beleuchtung automatisch ein, wenn das Umgebungslicht unter den eingestellten Schwellenwert fällt. Die beiden Pfeile zum Kontakt zeigen, dass er auf Licht reagiert. Es handelt sich um einen lichtgesteuerten Schalter, keinen Bewegungsmelder.
 
 ### [motion_detector]
 Ein Bewegungsmelder schaltet das Licht bei Bewegung automatisch. Sie können die Technik angeben: IR, Radar oder eine Kombination.

@@ -3,14 +3,13 @@ import {
   buildOrdinaryDcBusEndpointBranchNodes,
 } from './layoutTreeDcBranches'
 import { buildMainBusNode } from './layoutTreeMainBus'
+import type { BranchLayout } from './wireSegments'
 /**
  * Unified Layout Tree (Scene Graph)
  *
  * This module defines the LayoutNode tree structure that serves as the single
  * source of truth for layout, rendering, hit testing, and wire generation.
  *
- * Phase 0: Adapter from existing BottomUpLayoutResult
- * Phase 2+: Direct generation via NodeLayouter pattern
  */
 
 import type {
@@ -287,6 +286,7 @@ export interface LayoutNode {
   /** Unique frame identity when one electrical panel renders in multiple frames. */
   diagramId?: string
   domainRef?: Panel | Circuit | ProtectionDevice | Endpoint | TrunkDevice // Typed domain reference
+  branchLayout?: BranchLayout
   /** When set on an `mcb` node, wires for this column use this circuit (multi-circuit protections / merged sub-panel feed). */
   circuitIdForWires?: string
   /** Precise module-output occurrence feeding a sub-panel; upstream protection stays separate. */
@@ -1439,7 +1439,7 @@ function buildMcbNode(
   // Circuit trunk wire (vertical from MCB up to first branch/device top) — drop on wire = circuit target.
   // Keep this in sync with deriveWires/top-of-trunk behavior so hitboxes match rendered wire length.
   const circuitBranchesForWire = panelLayout.branches.filter(
-    (b) => b.circuitId === circuitLayout.circuit.id
+    (b) => b.circuitId === circuitLayout.circuit.id && !b.forkFrom && !b.forkUnresolved
   )
   const baseWidth = Math.max(LAYOUT_CONSTANTS.PROTECTION_WIDTH, LAYOUT_CONSTANTS.SYMBOL_SIZE)
   const protectionAnchorX = circuitLayout.x + circuitLayout.leftReserve + baseWidth / 2

@@ -1,4 +1,6 @@
 import { getSocketExtraWidth } from '@/components/canvas/eendraad/canvasSymbols'
+import { layoutCircuitForkBranches } from './circuitForkBranches'
+import { hasOneWireForks } from '@/lib/eendraad/oneWireForkProject'
 import { getVisibleCertificationLabelParts } from '@/lib/certificationLabels'
 import { getVisibleConversionLabelParts, getVisibleEndpointNoteText } from '@/lib/conversionLabels'
 import { getProtectionOneWireLabelLines } from '@/lib/protectionLabels'
@@ -388,6 +390,10 @@ function getDcBusBranchEnvelope(
 }
 
 function getBranchesEnvelope(circuit: Circuit, config: CircuitEnvelopeConfig): HorizontalEnvelope {
+  const forkRows = hasOneWireForks(circuit) ? layoutCircuitForkBranches(circuit, 0, 0, 0, {
+    branchLeadIn: config.branchLeadIn, endpointSpacing: config.endpointSpacing,
+    applianceAfterSocketGap: config.applianceAfterSocketGap, rowSpacing: config.endpointBranchSpacing, trunkDeviceSpacing: 0,
+  }) : []
   let envelope: HorizontalEnvelope = { left: 0, right: 0 }
   const primaryEndpointIds = getCircuitConverterPrimaryEndpointIds(circuit)
   const branches = getCircuitBranches(circuit).filter(
@@ -409,6 +415,8 @@ function getBranchesEnvelope(circuit: Circuit, config: CircuitEnvelopeConfig): H
   let metadataVerticalReserve = 0
 
   branches.forEach((endpoints, branchIndex) => {
+    const forkRow = forkRows.find((row) => row.storedBranchId === circuit.branches?.[branchIndex]?.id)
+    const forkX = forkRow?.branchX ?? 0
     let branchY = -branchIndex * config.endpointBranchSpacing - metadataVerticalReserve
     const previousBranchY = branchMetadataYs.at(-1)
     const previousCardHeight = Math.max(
@@ -428,14 +436,14 @@ function getBranchesEnvelope(circuit: Circuit, config: CircuitEnvelopeConfig): H
       config.endpointSpacing,
       config.applianceAfterSocketGap
     )
-    envelope = unionEnvelope(envelope, 0, branchWidth)
+    envelope = unionEnvelope(envelope, forkX, forkX + (forkRow?.branchWidth ?? branchWidth))
 
-    const offsets = getEndpointLayoutXOffsets(
+    const offsets = (forkRow?.endpointXOffsets ?? getEndpointLayoutXOffsets(
       endpoints,
       config.branchLeadIn,
       config.endpointSpacing,
       config.applianceAfterSocketGap
-    )
+    )).map((x) => x + forkX)
     const bottomNoteEndpointIndexes = new Set(
       endpoints.flatMap((endpoint, endpointIndex) => {
         const isRightLabel =

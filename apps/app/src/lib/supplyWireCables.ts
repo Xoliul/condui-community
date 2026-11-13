@@ -1,4 +1,4 @@
-import type { CableSpec, Installation, Panel, Point2, WireSegment } from '@/types/schema'
+import type { CableSpec, Installation, Panel, Point2, TrunkDevice, WireSegment } from '@/types/schema'
 import { createDefaultSupplyCable } from '@/lib/electrical/supplyCable'
 import {
   collectRootPanels,
@@ -100,6 +100,22 @@ export function resolveSupplyFeedScopeForDeviceId(
   const sharedIds = new Set((projection?.sharedFeed.trunkDevices ?? []).map((d) => d.id))
   if (sharedIds.has(deviceId)) return 'shared'
   return 'root'
+}
+
+/**
+ * Side of the dashed panel boundary a supply device sits on. A device on the board's own feed
+ * that is mounted in the supply panel (for example a per-output breaker in the transformer
+ * cabin) is upstream of the board, like the shared feed.
+ */
+export function resolveSupplySeparatorScope(
+  installation: Installation,
+  panels: Panel[],
+  panel: Panel,
+  deviceId: string,
+  device: Pick<TrunkDevice, 'panelMounting'> | undefined,
+): SupplyFeedScope {
+  const scope = resolveSupplyFeedScopeForDeviceId(installation, panels, panel, deviceId)
+  return scope === 'root' && device?.panelMounting?.kind === 'grid' ? 'shared' : scope
 }
 
 type HorizontalSpan = { x1: number; x2: number; role: SupplyWireRole }

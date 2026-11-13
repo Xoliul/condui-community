@@ -134,6 +134,7 @@ export function measurePanelSupplyMetadata(input: MeasurePanelSupplyMetadataInpu
     options.frameRole === 'panel' &&
     options.includeSupplyTopology === false &&
     options.includeGroundDevices === false &&
+    options.continuationRail !== true &&
     !panelHasMainBusProtection(panel)
   const usesInlineSupplyOnlyCompactRail =
     !options.feedOutput &&

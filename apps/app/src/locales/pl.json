@@ -1,4 +1,36 @@
 {
+  "oneWireFork": {
+    "invalidConnection": "Połączenie gałęzi jest nierozstrzygnięte."
+  },
+  "forkLab": {
+    "title": "Testowanie rozgałęzień",
+    "scope": "Eksperymentalne rysunki AC · zapisywane oddzielnie od projektów",
+    "undo": "Cofnij",
+    "redo": "Ponów",
+    "plain": "Prosty obwód",
+    "save": "Zapisz rysunek",
+    "download": "Pobierz rysunek",
+    "open": "Otwórz rysunek",
+    "empty": "Pusta gałąź",
+    "move": "Przenieś gałąź",
+    "delete": "Usuń",
+    "cancel": "Anuluj",
+    "zoom": "Powiększenie",
+    "note": "Uwaga",
+    "feed": "Ścieżka zasilania",
+    "depth": "Głębokość",
+    "moveHandle": "Uchwyt przenoszenia",
+    "forkAfter": "Rozgałęź za",
+    "insert": "Wstaw do",
+    "root": "Nowa gałąź główna",
+    "targetHint": "Wybierz symbol, a następnie niebieski punkt docelowy.",
+    "selectHint": "Wybierz symbol, aby go sprawdzić lub przenieść.",
+    "moveHint": "Wybierz punkt docelowy lub przeciągnij niebieski uchwyt.",
+    "saved": "Rysunek zapisany. Odśwież, aby go otworzyć.",
+    "storageError": "Nie udało się zapisać rysunku.",
+    "invalidFile": "Ten plik nie jest prawidłowym rysunkiem rozgałęzień.",
+    "rejected": "Ta zmiana nie zachowa struktury gałęzi."
+  },
   "findPanel": {
     "title": "Znajdź rozdzielnicę",
     "placeholder": "Szukaj rozdzielnic…",
@@ -151,7 +183,9 @@
     "offlineReloadNotReady": "Unikaj ponownego ładowania, dopóki przynajmniej raz nie otworzysz aplikacji online w tej zakładce przeglądarki.",
     "offlineReloadDevHint": "Ponowne ładowanie w trybie offline działa tylko z wersją produkcyjną (npm run build i& vite Preview), a nie z serwerem deweloperskim.",
     "dismissOfflineBanner": "Zamknij powiadomienie offline",
-    "offlineIndicatorTitle": "Jesteś offline"
+    "offlineIndicatorTitle": "Jesteś offline",
+    "cloudSyncPendingTitle": "Brak synchronizacji z chmurą",
+    "cloudSyncPendingMessage": "Twoje zmiany są zapisane na tym urządzeniu. Synchronizacja z chmurą jest ponawiana."
   },
   "diagnostics": {
     "anonymousProjectName": "({{idShort}})",
@@ -283,6 +317,8 @@
     "zoom": "Zoom"
   },
   "commandPalette": {
+    "createFork": "Dodaj gałąź",
+    "deleteEmptyFork": "Usuń pustą gałąź",
     "addPanelAtDomoticaOutput": "Dodaj rozdzielnicę na wyjściu",
     "addSupplyTransformer": "Dodaj transformator zasilający",
     "placeholder": "Szukaj poleceń",
@@ -303,6 +339,7 @@
     "apply": "Zastosuj",
     "unavailable": "Nie można zastosować tej zmiany. Sprawdź wartości lub ponownie otwórz działanie.",
     "fields": {
+      "branch": "Gałąź",
       "output": "Wyjście",
       "circuit": "Obwód",
       "position": "Pozycja",
@@ -623,6 +660,41 @@
     }
   },
   "settings": {
+    "mcp": {
+      "manageConnections": "Zarządzaj połączeniami",
+      "copyUrl": "Skopiuj adres serwera",
+      "copyPrompt": "Skopiuj polecenie startowe",
+      "starterPrompt": "Użyj Condui MCP, aby pracować w istniejącym projekcie w chmurze, który wskażę. Jeśli żadnego nie wskażę, zapytaj, o który projekt chodzi. Nowy projekt utwórz tylko na moją prośbę. Podsumuj, co znajdziesz, i poczekaj na moje instrukcje przed wprowadzeniem zmian.",
+      "urlCopied": "Skopiowano adres serwera",
+      "promptCopied": "Skopiowano polecenie startowe",
+      "copyFailed": "Nie udało się skopiować. Zaznacz tekst i skopiuj go ręcznie.",
+      "needsServerStorage": "Dostępne, gdy projekty są zapisywane na serwerze.",
+      "turnOn": "Włącz",
+      "turnOff": "Wyłącz",
+      "newToken": "Nowy token",
+      "tokenShownOnce": "Skopiuj ten token teraz. Jest wyświetlany tylko raz.",
+      "copyToken": "Kopiuj token",
+      "tokenCopied": "Token skopiowany",
+      "copyCommand": "Kopiuj polecenie Claude Code",
+      "commandCopied": "Polecenie skopiowane",
+      "changeFailed": "Nie udało się zmienić ustawień MCP.",
+      "communityStarterPrompt": "Użyj Condui MCP, aby pracować w istniejącym projekcie Condui, który wskażę. Jeśli żadnego nie wskażę, zapytaj, o który projekt chodzi. Nowy projekt utwórz tylko na moją prośbę. Podsumuj, co znajdziesz, i poczekaj na moje instrukcje przed wprowadzeniem zmian.",
+      "client": {
+        "label": "Klient AI",
+        "claude": "Claude",
+        "chatgpt": "ChatGPT / Codex",
+        "other": "Inny"
+      },
+      "hostedPasteAndSignIn": "Wklej tam adres URL serwera i zaloguj się kontem Condui. Zmiany są zapisywane bezpośrednio w projekcie w chmurze.",
+      "hostedOther": "Ten serwer używa logowania OAuth kontem Condui. Zmiany są zapisywane bezpośrednio w projekcie w chmurze.",
+      "codexConfig": "Konfiguracja Codex (config.toml)",
+      "copyCodexConfig": "Kopiuj konfigurację Codex",
+      "configCopied": "Skopiowano konfigurację",
+      "headerLabel": "Wysyłaj ten nagłówek z każdym żądaniem",
+      "copyHeader": "Kopiuj nagłówek",
+      "headerCopied": "Skopiowano nagłówek",
+      "tokenHidden": "Zastąp <token> swoim tokenem. Zgubiony? Utwórz nowy token."
+    },
     "title": "Klawisze skrótu",
     "language": "Język",
     "interface": {
@@ -830,6 +902,9 @@
     "templateUseFailed": "Nie można utworzyć projektu na podstawie tego szablonu.",
     "templateDeleteFailed": "Nie można usunąć szablonu.",
     "recent": "Najnowsze",
+    "searchProjects": "Szukaj projektów",
+    "loadMore": "Wczytaj więcej",
+    "noSearchResults": "Nie znaleziono projektów",
     "recentProjects": "Ostatnie projekty",
     "notificationBadgeTooltip": "Powiadomienia o nowych projektach",
     "notifications": {
@@ -914,7 +989,8 @@
       "message": "Ten projekt został zapisany gdzie indziej po jego otwarciu. Ostatnie zmiany tutaj nie zostały zapisane.",
       "reload": "Wczytaj najnowszą wersję",
       "overwrite": "Zachowaj moją wersję"
-    }
+    },
+    "serverReloaded": "Zaktualizowano o zmiany zapisane gdzie indziej"
   },
   "infoBlock": {
     "drawingSettings": "Rysunek projektu",
@@ -1048,6 +1124,7 @@
     "residualType_B": "B (niektóre ładowarki EV / instalacje PV)",
     "residualTypeHelp_B": "Również gładki prąd stały. Nie każda ładowarka EV lub falownik PV wymaga typu B; sprawdź zalecenia producenta i wbudowaną ochronę przed upływem prądu stałego.",
     "description": "Opis",
+    "labelText": "Tekst etykiety",
     "type_MCB": "Automatyczny",
     "type_RCD": "Wyłącznik różnicowoprądowy",
     "type_RCBO": "Wyłącznik różnicowoprądowy z zabezpieczeniem nadprądowym",
@@ -1057,7 +1134,8 @@
     "deleteLinkedPanelTitle": "Usunąć zabezpieczenia?",
     "deleteLinkedPanelMessage": "Płytka połączona: {{panelNames}}",
     "deleteLinkedPanelAction": "Usuń także płytkę",
-    "deleteProtectionAction": "Usuń tylko zabezpieczenia"
+    "deleteProtectionAction": "Usuń tylko zabezpieczenia",
+    "labelTextHint": "Krótki tekst na etykietę rozdzielnicy; zastępuje notatki na etykiecie."
   },
   "circuits": {
     "title": "Obwody",
@@ -1090,7 +1168,13 @@
     "addNewLabel": "Etykieta",
     "addNewLabelPlaceholder": "np. A, B, kuchnia",
     "addNewLabelHint": "Pozostaw puste dla automatycznego etykietowania.",
-    "addNewPanel": "Tablica"
+    "addNewPanel": "Tablica",
+    "notes": "Notatki",
+    "notesHide": "Ukryj na schemacie",
+    "notesShow": "Pokaż na schemacie",
+    "notesVertical": "Rysuj notatki pionowo",
+    "notesHorizontal": "Rysuj notatki poziomo",
+    "notesHint": "Co zasila ten obwód, widoczne na schemacie jednokreskowym."
   },
   "planDrop": {
     "dialogTitle": "Dodaj do kręgu",
@@ -1136,6 +1220,8 @@
     "socketSwitchNone": "Brak",
     "socketSwitchOverlay": "Gniazdo wtyczkowe z przełącznikiem dwubiegunowym",
     "socketSwitchOverlayLock": "Gniazdo wtyczkowe z dwubiegunowym wyłącznikiem blokującym",
+    "socketSwitchOverlay_short": "Łącznik",
+    "socketSwitchOverlayLock_short": "Blokowany",
     "socketWaterproof": "Wodoodporny",
     "socketCount": "Ilość gniazda wtyczkowe",
     "setSocketCount": "Ustawiona ilość gniazda wtyczkowe",
@@ -1149,6 +1235,7 @@
     "switchPoles3": "3 bieguny",
     "twoWayPoles": "Bieguny (przełącznik)",
     "verklikkerlamp": "Lampka ostrzegawcza",
+    "protectedPushbutton": "Zabezpieczony",
     "lightPointOptions": "Opcje punktu świetlnego",
     "lightPointSafety": "Obwód bezpieczeństwa",
     "lightPointAutonomous": "Autonomiczny",
@@ -1460,6 +1547,8 @@
     "feedFromBottom": "Zasilanie od dołu",
     "rows": "Wiersze",
     "columns": "Kolumny",
+    "fields": "Sekcje",
+    "fieldNumber": "Sekcja {{number}}",
     "topTerminalStripRail": "Listwa zaciskowa u góry",
     "bottomTerminalStripRail": "Listwa zaciskowa na dole",
     "showDomotica": "Pokaż automatykę domową",
@@ -1490,7 +1579,7 @@
     "overflowWarningMessage": "Niektóre moduły znajdują się w strefie przelewu. Umieść je w siatce planszy lub powiększ planszę; pomijają eksport etykiet.",
     "labelSourceLabel": "Etykieta",
     "labelSourceNotes": "Notatki",
-    "labelSourceExtra": "Dodatkowe",
+    "labelSourceExtra": "Tekst etykiety",
     "labelSourceTechnical": "Dane techniczne",
     "labelSourceFeeds": "Zasila",
     "labelSourceMain": "Główny",
@@ -1588,6 +1677,7 @@
         "circuits": "Obwody",
         "sequence": "Kolejność",
         "panelInLabel": "Tablica w etykiecie",
+        "continueAcrossBoards": "Kontynuuj między rozdzielnicami",
         "panelPartNone": "Brak",
         "panelPartNumber": "Numer",
         "panelPartFull": "Pełna",
@@ -1607,7 +1697,7 @@
         "betweenCircuitAndBranch": "Między obwodem a odgałęzieniem",
         "separatorHelp": "Wstawiany między częściami etykiety tam, gdzie są oddzielone, jak w A1.1.",
         "subPanelsHelp": "Własny numer kontynuuje kolejność; pod tablicą nadrzędną numeruje tablicę podrzędną po tablicy, która ją zasila.",
-        "panelInLabelHelp": "Która część numeru tablicy rozpoczyna etykietę obwodu: nic, sam numer albo pełny numer z prefiksem.",
+        "panelInLabelHelp": "Zacznij od nowa w każdej rozdzielnicy, dodaj jej numer lub kontynuuj numerację między rozdzielnicami.",
         "numberingHelp": "Numeruje rozdzielnice w instalacjach mieszkalnych i niemieszkalnych.",
         "prefixHelp": "Litery przed numerem rozdzielnicy, na przykład B w B1.",
         "panelSequenceHelp": "Używa liczb, liczb z zerem wiodącym lub liter dla rozdzielnic.",
@@ -1619,6 +1709,7 @@
     }
   },
   "planImport": {
+    "collabTooLarge": "Ten plan jest za duży do wspólnej edycji. Użyj mniejszego obrazu lub zaimportuj mniej stron naraz.",
     "importFailed": "Nie udało się zaimportować planu.",
     "recognizeWalls": "Rozpoznaje edytowalne ściany",
     "recognitionFailed": "Rozpoznanie ściany nie powiodło się.",
@@ -1899,6 +1990,38 @@
     }
   },
   "symbols": {
+    "searchPresets": {
+      "relay_impulse": "Przekaźnik impulsowy",
+      "relay_timer": "Przekaźnik czasowy",
+      "relay_clock": "Zegar sterujący",
+      "relay_thermostat": "Przekaźnik termostatyczny",
+      "relay_dimmer": "Przekaźnik ściemniający",
+      "switch_1p": "Łącznik jednobiegunowy",
+      "switch_2p": "Łącznik dwubiegunowy",
+      "switch_3p": "Łącznik trójbiegunowy",
+      "switch_4p": "Łącznik czterobiegunowy",
+      "switch_twoway_2p": "Łącznik schodowy dwubiegunowy",
+      "pushbutton_protected": "Przycisk chroniony",
+      "switch_indicator": "Łącznik z lampką",
+      "spd_lightning": "Ochrona odgromowa",
+      "spd_spark": "Ochrona iskiernikowa",
+      "light_wall": "Kinkiet",
+      "light_emergency": "Oświetlenie awaryjne",
+      "light_decentral": "Autonomiczne oświetlenie awaryjne",
+      "spot_straight": "Reflektor z wiązką równoległą",
+      "spot_diverging": "Reflektor z wiązką rozbieżną",
+      "fluorescent_1": "Oprawa świetlówkowa · 1 świetlówka",
+      "fluorescent_2": "Oprawa świetlówkowa · 2 świetlówki",
+      "fluorescent_3": "Oprawa świetlówkowa · 3 świetlówki",
+      "heating_accumulation": "Ogrzewanie akumulacyjne",
+      "heating_fan": "Piec akumulacyjny z wentylatorem",
+      "boiler_accumulation": "Bojler akumulacyjny",
+      "socket_ungrounded": "Gniazdo bez uziemienia",
+      "socket_waterproof": "Gniazdo hermetyczne",
+      "detector_gas": "Czujnik gazu",
+      "detector_heat": "Czujnik ciepła",
+      "detector_flame": "Czujnik płomienia"
+    },
     "library": "Biblioteka symboli",
     "recent": "Najnowsze",
     "favorites": "Ulubione",
@@ -1924,6 +2047,7 @@
     "switch_1p_changeover": "Przełącznik",
     "switch_shutter": "Łącznik roletowy",
     "switch_1p_pull": "Przełącznik pociągany",
+    "light_sensor": "Wyłącznik zmierzchowy",
     "contact": "Styk",
     "switch_impulse": "Przycisk",
     "switch_cross": "Przełącznik krzyżowy",
@@ -2052,6 +2176,7 @@
       "battery": "Akumulator",
       "dc_bus": "Szyna DC",
       "note": "Notatka / Etykieta",
+      "light_sensor": "Wyłącznik zmierzchowy",
       "contact": "Styk"
     }
   },
@@ -2925,6 +3050,7 @@
     "code": "Obwód"
   },
   "export": {
+    "notForInspection": "Nie do odbioru",
     "dialog": {
       "title": "Eksport do PDF",
       "selectCanvases": "Wybierz płótno do eksportu",
@@ -3040,7 +3166,8 @@
     "multiSelectSame": "Wybrano wiele elementów. Edycja grupowa już wkrótce.",
     "selectedCount": "Wybrane elementy: {{count}}",
     "mixedValue": "Mieszane",
-    "multiSelectUnsupported": "Tych elementów nie można edytować razem."
+    "multiSelectUnsupported": "Tych elementów nie można edytować razem.",
+    "notes": "Notatki"
   },
   "stairs": {
     "width": "Szerokość schodów",
@@ -3489,6 +3616,8 @@
     "editAction": "Asystent harmonogramu…",
     "createTitle": "Generuj harmonogram",
     "editTitle": "Asystent harmonogramu",
+    "mcpAction": "Połącz AI…",
+    "mcpTitle": "Połącz AI",
     "newProjectName": "Nowy harmonogram",
     "scope": "Tylko schemat jednokreskowy. Sprawdź każdą zmianę przed jej zastosowaniem.",
     "context": "Wybrano",
@@ -3933,7 +4062,8 @@
     },
     "conflict": "Zmienione przez kogoś innego — spróbuj ponownie",
     "peerOtherTab": "{{name}} (inna karta)",
-    "peersMore": "jeszcze {{count}}"
+    "peersMore": "jeszcze {{count}}",
+    "agentActive": "Agent AI wprowadza zmiany"
   },
   "shortCircuit": {
     "defaultName": "Obliczenia zwarciowe",
@@ -4075,7 +4205,10 @@
         "tsdS": "Opóźnienie Isd. Puste lub 0 bez opóźnienia.",
         "iiA": "Wyzwalanie bezzwłoczne. Zawsze liczy się jako Ia."
       },
-      "selectCable": "Kliknij, aby zaznaczyć obwód, na przykład by zmienić jego kabel."
+      "selectCable": "Kliknij, aby zaznaczyć obwód, na przykład by zmienić jego kabel.",
+      "writeIk": "Wpisuje obliczony Ik max, zaokrąglony w górę, do każdej rozdzielnicy z inną wartością: na schemacie jednokreskowym i etykietach rozdzielnicy.",
+      "statedIk": "Rozdzielnica podaje {{ka}}.",
+      "boardSheets": "PDF z jedną kartą na rozdzielnicę, do szafy."
     },
     "noMatches": "Nic do pokazania",
     "showAll": "Pokaż wszystko",
@@ -4087,6 +4220,11 @@
       "tsdS": "tsd",
       "iiA": "Ii",
       "adjustable": "Nastawialny"
+    },
+    "writeIk": "Wpisz Ik do rozdzielnic",
+    "sheets": {
+      "download": "Karty rozdzielnic",
+      "page": "Strona {{page}} z {{pages}}"
     }
   }
 }

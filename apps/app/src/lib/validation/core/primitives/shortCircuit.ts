@@ -12,6 +12,7 @@ import {
 import { defaultVoltagesForSystem, normalizeNominalVoltageSystem } from '@/constants/nominalVoltage'
 import { isHouseholdInstallation } from '@/lib/installationProfile'
 import { getInstallationSupplyTransformers } from '@/lib/electrical/supplyTransformer'
+import { resolveCircuitNominalVoltage } from '@/lib/electrical/feedNominalVoltage'
 import { isOvercurrentProtectionType } from '@/lib/protectionKind'
 import { isSpecialistProtectionCurve } from '@/lib/protectionCurves'
 import {
@@ -130,10 +131,10 @@ function householdSupplyBreakingCapacity(context: CheckContext): CheckResult {
  * otherwise phase-to-phase. A three-pole device on a system with neutral has no neutral.
  */
 function faultLoopVoltageV(
-  installation: Installation | undefined,
+  nominalVoltage: Installation['nominalVoltage'] | undefined,
   protection: ProtectionDevice
 ): number {
-  const system = normalizeNominalVoltageSystem(installation?.nominalVoltage?.system ?? '2~')
+  const system = normalizeNominalVoltageSystem(nominalVoltage?.system ?? '2~')
   const { uLineToNeutral, uLineToLine } = defaultVoltagesForSystem(system)
   const hasNeutralSystem = system === '1N~' || system === '3N~'
   if (!hasNeutralSystem) return uLineToLine
@@ -240,7 +241,12 @@ function circuitWithinMaximumProtectedLength(context: CheckContext): CheckResult
     }
   }
 
-  const voltageV = faultLoopVoltageV(projectInstallation(project), protection)
+  const installation = projectInstallation(project)
+  // A board on its own transformer output loops at that output's voltage.
+  const voltageV = faultLoopVoltageV(
+    installation ? resolveCircuitNominalVoltage(installation, projectPanels(project), circuit.id) : undefined,
+    protection
+  )
   const paths = circuitCablePaths(context, circuit.id)
   let worst: { path: CircuitCablePath; maxLengthM: number; sectionMm2: number } | undefined
   for (const path of paths) {

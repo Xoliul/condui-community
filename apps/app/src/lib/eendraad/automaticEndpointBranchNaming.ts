@@ -1,7 +1,7 @@
 import { formatBranchLabel } from '@/lib/eendraad/labelScheme'
 import { getActiveLabelScheme } from '@/lib/eendraad/labelSchemeContext'
 import type { Circuit, Panel } from '@/types/schema'
-import { getCircuitPointSequence } from '@/lib/eendraad/circuitPointNumbering'
+import { getBranchLabelOwners, getCircuitPointSequence } from '@/lib/eendraad/circuitPointNumbering'
 
 /** Circuits on this panel only (`panel.circuits` + `protection.circuits`). Subpanels are separate panels for naming. */
 export function forEachCircuitOnPanel(panel: Panel, fn: (circuit: Circuit) => void): void {
@@ -86,7 +86,9 @@ export function endpointBranchLabelsWouldChange(
       if (ep && ep.symbol !== 'panel_distribution' && (ep.label ?? '').trim() !== expected) return true
     }
   }
-  return false
+  const owners = getBranchLabelOwners(circuit)
+  const byId = new Map(branches.map((branch) => [branch.id, branch]))
+  return branches.some((branch) => branch.forkFrom && branch.label !== byId.get(owners.get(branch.id) ?? '')?.label)
 }
 
 /**
@@ -135,6 +137,29 @@ export function syncSequentialEndpointBranchLabelsToCircuit(circuit: Circuit, pa
       const ep = circuit.endpoints.find((e) => e.id === id)
       if (!ep || ep.domoticaChildProps || ep.symbol === 'panel_distribution') continue
       ep.label = label
+    }
+  }
+  syncForkBranchLabels(circuit)
+}
+
+/**
+ * Legs share the label of the branch they hang from: their root, or the nearest
+ * numbered leg (numbered in sequence by the caller).
+ */
+export function syncForkBranchLabels(circuit: Circuit): void {
+  const branches = circuit.branches ?? []
+  const owners = getBranchLabelOwners(circuit)
+  const byId = new Map(branches.map((branch) => [branch.id, branch]))
+  const endpoints = new Map(circuit.endpoints.map((endpoint) => [endpoint.id, endpoint]))
+  for (const branch of branches) {
+    if (!branch.forkFrom) continue
+    const ownerId = owners.get(branch.id)
+    const owner = ownerId && ownerId !== branch.id ? byId.get(ownerId) : undefined
+    if (!owner) continue
+    branch.label = owner.label
+    for (const id of branch.endpointIds) {
+      const endpoint = endpoints.get(id)
+      if (endpoint) endpoint.label = owner.label
     }
   }
 }

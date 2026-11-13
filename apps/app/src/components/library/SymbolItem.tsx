@@ -15,6 +15,7 @@ import {
 import { useUIStore } from '@/stores/uiStore'
 import { getCenteredTouchDragPreviewStyle } from '@/lib/canvas/touchDragPreview'
 import { setLibrarySymbolDragImage } from '@/lib/ui/libraryDragImage'
+import { SearchPresetPreview } from './SearchPresetPreview'
 import { SymbolHoverCard } from './SymbolHoverCard'
 
 const DRAG_THRESHOLD_PX = 10
@@ -88,7 +89,7 @@ function SymbolItem({
   compact = false,
 }: SymbolItemProps) {
   const setLibraryDragSymbol = useUIStore((state) => state.setLibraryDragSymbol)
-  const isArmed = useUIStore((state) => state.armedLibrarySymbol?.id === symbol.id)
+  const isArmed = useUIStore((state) => state.armedLibrarySymbol?.id === symbol.id && state.armedLibrarySymbol?.searchPreset === symbol.searchPreset)
   const setArmedLibrarySymbol = useUIStore((state) => state.setArmedLibrarySymbol)
   // Touch keeps drag-only placement; arming needs a hovering pointer to preview under.
   const lastPointerTypeRef = useRef<string>('mouse')
@@ -239,7 +240,7 @@ function SymbolItem({
   // After each armed placement, bring the armed tile back if the library was scrolled away
   // from it entirely; a partly visible tile stays put.
   const armedPlacementCount = useUIStore((state) =>
-    state.armedLibrarySymbol?.id === symbol.id ? state.armedPlacementCount : 0
+    state.armedLibrarySymbol?.id === symbol.id && state.armedLibrarySymbol?.searchPreset === symbol.searchPreset ? state.armedPlacementCount : 0
   )
   useEffect(() => {
     if (!isArmed || armedPlacementCount === 0) return
@@ -488,7 +489,7 @@ function SymbolItem({
             : 'border-gray-200 bg-gray-100 dark:border-gray-600 dark:bg-gray-700'
         }`}
       >
-        <SymbolPreview svgPath={getSymbolIconPath(symbol)} symbolId={symbol.id} />
+        <SymbolPreview svgPath={getSymbolIconPath(symbol)} symbolId={symbol.id} searchPreset={symbol.searchPreset} />
       </div>
 
       {/* Symbol Name */}
@@ -532,7 +533,7 @@ function SymbolItem({
         style={getCenteredTouchDragPreviewStyle(touchDragPos)}
       >
         <div className="w-10 h-10 flex items-center justify-center bg-white dark:bg-gray-800 rounded border-2 border-sky-500 shadow-lg opacity-80">
-          <SymbolPreview svgPath={getSymbolIconPath(symbol)} symbolId={symbol.id} />
+          <SymbolPreview svgPath={getSymbolIconPath(symbol)} symbolId={symbol.id} searchPreset={symbol.searchPreset} />
         </div>
       </div>,
       document.body
@@ -544,6 +545,7 @@ function SymbolItem({
 export default memo(SymbolItem)
 
 interface SymbolPreviewProps {
+  searchPreset?: string
   svgPath: string
   symbolId?: string
 }
@@ -671,7 +673,8 @@ const LIBRARY_ICON_CUSTOM: Record<string, () => ReactNode> = {
   modular_socket: () => <ModularSocketLibraryIcon />,
 }
 
-export function SymbolPreview({ svgPath, symbolId }: SymbolPreviewProps) {
+export function SymbolPreview({ svgPath, symbolId, searchPreset }: SymbolPreviewProps) {
+  if (symbolId && searchPreset) return <SearchPresetPreview symbolId={symbolId} presetId={searchPreset} />
   const customIcon = symbolId ? LIBRARY_ICON_CUSTOM[symbolId] : undefined
   if (customIcon) {
     return <>{customIcon()}</>

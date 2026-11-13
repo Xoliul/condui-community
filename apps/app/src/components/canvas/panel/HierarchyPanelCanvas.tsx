@@ -1,3 +1,6 @@
+import { INTERACTIVE_OVERLAY_EXPORT_NAME } from '@/lib/export/interactiveOverlayExport'
+import { PanelFieldRails } from './PanelFieldRails'
+import { snapPanelFrameResize } from '@/lib/panel/panelFrameResize'
 import { useHierarchyModuleEditing } from './useHierarchyModuleEditing'
 import { useHierarchySelectionActions } from './useHierarchySelectionActions'
 import { useHierarchyRewire } from './useHierarchyRewire'
@@ -19,7 +22,6 @@ import type {
 } from './hierarchyPanelCanvasModel'
 export type { PanelOption } from './hierarchyPanelCanvasModel'
 import { usePanelViewportRect } from './usePanelViewportRect'
-
 
 import { usePointerPreview } from '@/hooks/usePointerPreview'
 import { useCanvasWindow } from '@/components/viewport/ViewportContext'
@@ -57,6 +59,7 @@ import {
   KonvaRenderer,
 } from 'react-konva'
 import type Konva from 'konva'
+import { PanelRemoteSelections } from './PanelRemoteSelections'
 import BaseCanvas, { type BaseCanvasHandle } from '../BaseCanvas'
 import ViewNavigationToolbar from '../ViewNavigationToolbar'
 import CanvasFloatingControlRail from '../CanvasFloatingControlRail'
@@ -669,12 +672,14 @@ export function HierarchyPanelCanvas({
 
   const previewPanelFrameResize = useCallback(
     (surface: HierarchySurface & { panel: Panel }, axis: 'rows' | 'columns', delta: number) => {
-      const rows = surface.panel.gridView?.rows ?? surface.rows
-      const columns = surface.panel.gridView?.columns ?? surface.cols
-      const nextRows = axis === 'rows' ? Math.max(1, rows + Math.round(delta / ROW_STRIDE)) : rows
-      const nextColumns =
-        axis === 'columns' ? Math.max(1, Math.round(columns + delta / CELL_W)) : columns
-      const nextWidth = nextColumns * CELL_W + PANEL_FRAME_MARGIN * 2
+      // Every field changes together, so the width snaps to steps of one column per field.
+      const snap = snapPanelFrameResize(surface.panel.gridView, axis, delta, {
+        rows: surface.rows,
+        columns: surface.cols,
+      })
+      const nextRows = snap.rows
+      const nextColumns = snap.columns
+      const nextWidth = snap.contentWidth + PANEL_FRAME_MARGIN * 2
       const mainContentHeight = nextRows * CELL_H + Math.max(0, nextRows - 1) * ROW_GAP
       const nextHeight =
         getTerminalStripTopOffset(getPanelSceneSurfaceGrid(surface)) +
@@ -1468,7 +1473,7 @@ export function HierarchyPanelCanvas({
                         stroke="transparent"
                         strokeWidth={0}
                         cornerRadius={4}
-                        name={`panel-${surface.panel?.id ?? surface.id}`}
+                        name={`panel-${surface.panel?.id ?? surface.id} ${INTERACTIVE_OVERLAY_EXPORT_NAME}`}
                         listening={!labelMode}
                         onMouseDown={startPanelFrameSelectionRect}
                         onClick={(e) => {
@@ -1619,74 +1624,23 @@ export function HierarchyPanelCanvas({
                           fill={colors.panelFrameStroke}
                           listening={false}
                         />
-                        {surface.panel?.gridView?.terminalStripTopRail && (
-                          <Rect
-                            x={PANEL_FRAME_MARGIN}
-                            y={PANEL_FRAME_MARGIN}
-                            width={surface.contentWidth}
-                            height={TERMINAL_STRIP_RAIL_H}
-                            fillEnabled={false}
-                            stroke={colors.panelFrameStroke}
-                            opacity={0.18}
-                            strokeWidth={1}
-                            listening={false}
-                          />
-                        )}
-                        {Array.from({ length: surface.rows }).map((_, rowIndex) => (
-                          <Rect
-                            key={`rail-${surface.id}-${rowIndex}`}
-                            x={PANEL_FRAME_MARGIN}
-                            y={
-                              PANEL_FRAME_MARGIN +
-                              getTerminalStripTopOffset(getPanelSceneSurfaceGrid(surface)) +
-                              rowIndex * (CELL_H + ROW_GAP)
-                            }
-                            width={surface.contentWidth}
-                            height={CELL_H}
-                            fillEnabled={false}
-                            stroke={colors.panelFrameStroke}
-                            opacity={0.12}
-                            strokeWidth={1}
-                            listening={false}
-                          />
-                        ))}
-                        {Array.from({ length: surface.rows }).map((_, rowIndex) =>
-                          Array.from({ length: surface.cols + 1 }).map((_, colIndex) => (
-                            <Line
-                              key={`grid-${surface.id}-${rowIndex}-${colIndex}`}
-                              points={[
-                                PANEL_FRAME_MARGIN + colIndex * CELL_W,
-                                PANEL_FRAME_MARGIN +
-                                  getTerminalStripTopOffset(getPanelSceneSurfaceGrid(surface)) +
-                                  rowIndex * (CELL_H + ROW_GAP),
-                                PANEL_FRAME_MARGIN + colIndex * CELL_W,
-                                PANEL_FRAME_MARGIN +
-                                  getTerminalStripTopOffset(getPanelSceneSurfaceGrid(surface)) +
-                                  rowIndex * (CELL_H + ROW_GAP) +
-                                  CELL_H,
-                              ]}
-                              stroke={colors.panelFrameStroke}
-                              opacity={0.08}
-                              strokeWidth={0.75}
-                              listening={false}
-                            />
-                          ))
-                        )}
-                        {surface.panel?.gridView?.terminalStripBottomRail && (
-                          <Rect
-                            x={PANEL_FRAME_MARGIN}
-                            y={
-                              surface.panelFrameHeight - PANEL_FRAME_MARGIN - TERMINAL_STRIP_RAIL_H
-                            }
-                            width={surface.contentWidth}
-                            height={TERMINAL_STRIP_RAIL_H}
-                            fillEnabled={false}
-                            stroke={colors.panelFrameStroke}
-                            opacity={0.18}
-                            strokeWidth={1}
-                            listening={false}
-                          />
-                        )}
+                        <PanelFieldRails
+                          idPrefix={surface.id}
+                          grid={surface.panel?.gridView}
+                          rows={surface.rows}
+                          margin={PANEL_FRAME_MARGIN}
+                          firstRowY={
+                            PANEL_FRAME_MARGIN + getTerminalStripTopOffset(getPanelSceneSurfaceGrid(surface))
+                          }
+                          stroke={colors.panelFrameStroke}
+                          topRailY={surface.panel?.gridView?.terminalStripTopRail ? PANEL_FRAME_MARGIN : undefined}
+                          bottomRailY={
+                            surface.panel?.gridView?.terminalStripBottomRail
+                              ? surface.panelFrameHeight - PANEL_FRAME_MARGIN - TERMINAL_STRIP_RAIL_H
+                              : undefined
+                          }
+                          terminalRailHeight={TERMINAL_STRIP_RAIL_H}
+                        />
                       </Group>
                       <Rect
                         x={0}
@@ -2228,6 +2182,7 @@ export function HierarchyPanelCanvas({
             <RewirePreviewWire points={dragPreview.feedWirePoints} stroke="#10b981" animateDash />
           )}
           {libraryCanvasExtras}
+          {scene && <PanelRemoteSelections surfaces={scene.surfaces} zoom={panelZoom} />}
           {}
         </Group>
       </BaseCanvas>

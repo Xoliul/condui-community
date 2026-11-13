@@ -22,6 +22,7 @@ const SELECTION_TYPES = new Set<string>(['endpoint', 'note', 'panel', 'protectio
  */
 export function placeElectricalSymbol(options: {
   symbolId: string
+  searchPreset?: string
   target: DropTarget
   dropCanvasPosition?: Point
   panelGrid?: PanelDropPlacement
@@ -35,6 +36,7 @@ export function placeElectricalSymbol(options: {
           id: 'electrical.placeSymbol',
           input: {
             symbolId: options.symbolId,
+            searchPreset: options.searchPreset,
             target: options.target,
             dropCanvasPosition: options.dropCanvasPosition,
             panelGrid: options.panelGrid,

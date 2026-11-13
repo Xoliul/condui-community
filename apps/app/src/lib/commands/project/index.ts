@@ -4,6 +4,7 @@ import { panelEditLayout } from './commands/panelEditLayout'
 import { panelRewire } from './commands/panelRewire'
 import { ProjectCommandRegistry } from './registry'
 import { electricalPlaceSymbol } from './commands/electricalPlaceSymbol'
+import { electricalCreateFork, electricalDeleteEmptyFork } from './commands/electricalFork'
 import { eendraadMoveEndpoints } from './commands/eendraadMoveEndpoints'
 import { electricalAssignEndpoints } from './commands/electricalAssignEndpoints'
 import { planAssignCircuit, circuitSetCodeAndPosition } from './commands/planAssignCircuit'
@@ -62,6 +63,8 @@ import { planEnsurePanelPlacements } from './commands/planEnsurePanelPlacements'
 import { panelEnsureEarthingStem } from './commands/panelEnsureEarthingStem'
 import { panelEjectSecondaryBusProtections } from './commands/panelEjectSecondaryBusProtections'
 import { supplyDisconnectInverterGridInput } from './commands/supplyDisconnectInverterGridInput'
+import { supplyAddSystem } from './commands/supplyAddSystem'
+import { electricalImportSchematic } from './commands/electricalImportSchematic'
 import {
   electricalMoveSupplyTrunkDevice,
   electricalMoveCircuitTrunkDevice,
@@ -130,6 +133,8 @@ export function createProjectCommandRegistry(): ProjectCommandRegistry {
     .register(planPlaceSymbol)
     .register(planCopyToFloor)
     .register(electricalPlaceSymbol)
+    .register(electricalCreateFork)
+    .register(electricalDeleteEmptyFork)
     .register(eendraadMoveEndpoints)
     .register(electricalAssignEndpoints)
     .register(planAssignCircuit)
@@ -171,6 +176,8 @@ export function createProjectCommandRegistry(): ProjectCommandRegistry {
     .register(panelEnsureEarthingStem)
     .register(panelEjectSecondaryBusProtections)
     .register(supplyDisconnectInverterGridInput)
+    .register(supplyAddSystem)
+    .register(electricalImportSchematic)
     .register(electricalMoveSupplyTrunkDevice)
     .register(electricalMoveCircuitTrunkDevice)
 }

@@ -1,3 +1,4 @@
+import { useInfoBlockHeight } from './useInfoBlockHeight'
 import { useDeferredValue, useMemo } from 'react'
 import { useProjectStore, type ProjectState } from '@/stores/projectStore'
 import { useUIStore, type ChangeoverGridSourcePreviewRequest, type UIState } from '@/stores/uiStore'
@@ -19,6 +20,7 @@ export interface ChangeoverGridSourcePreviewInputs {
   currentWires: readonly WireSegment[]
   overrides: Map<string, Point>
   infoBlockLogo: boolean
+  infoBlockHeight?: number
 }
 
 type CacheEntry = ChangeoverGridSourcePreviewInputs & {
@@ -46,6 +48,7 @@ export function resolveChangeoverGridSourcePreview(
     lastPreview.currentWires === inputs.currentWires &&
     lastPreview.overrides === inputs.overrides &&
     lastPreview.infoBlockLogo === inputs.infoBlockLogo &&
+    lastPreview.infoBlockHeight === inputs.infoBlockHeight &&
     lastPreview.panelId === request.panelId &&
     lastPreview.source === request.source
   ) {
@@ -54,7 +57,7 @@ export function resolveChangeoverGridSourcePreview(
   const result = computeChangeoverGridSourcePreview(inputs.project, request.panelId, request.source, {
     currentWires: inputs.currentWires,
     overrides: inputs.overrides,
-    layoutOptions: { infoBlockLogo: inputs.infoBlockLogo },
+    layoutOptions: { infoBlockLogo: inputs.infoBlockLogo, infoBlockHeight: inputs.infoBlockHeight },
   })
   lastPreview = { ...inputs, ...request, result }
   return result
@@ -75,6 +78,7 @@ export function useChangeoverGridSourcePreview(
   const request = useDeferredValue(
     useUIStore((state: UIState) => state.changeoverGridSourcePreview)
   )
+  const infoBlockHeight = useInfoBlockHeight(request != null)
   const project = useProjectStore((state: ProjectState) =>
     request ? state.currentProject : null
   )
@@ -82,7 +86,7 @@ export function useChangeoverGridSourcePreview(
   return useMemo(() => {
     const preview = resolveChangeoverGridSourcePreview(
       request,
-      project ? { project, currentWires, overrides, infoBlockLogo } : null
+      project ? { project, currentWires, overrides, infoBlockLogo, infoBlockHeight } : null
     )
     return preview && request
       ? buildChangeoverGridSourcePreviewScene(
@@ -91,5 +95,5 @@ export function useChangeoverGridSourcePreview(
           request.panelId
         )
       : null
-  }, [currentTree, currentWires, infoBlockLogo, overrides, project, request])
+  }, [currentTree, currentWires, infoBlockHeight, infoBlockLogo, overrides, project, request])
 }

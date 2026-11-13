@@ -12,8 +12,18 @@ export interface OverviewSymbol {
 /** Overview geometry contains no Konva nodes or component subscriptions. */
 export function buildDiagramOverview(panelNode: LayoutNode, wires: readonly WireSegment[]) {
   const symbols: OverviewSymbol[] = []
+  const coarseSymbols: Array<{ x: number; y: number; width: number; height: number }> = []
   const auxiliaryNodes: LayoutNode[] = []
   const names = new Set<string>()
+  const collectCoarse = (node: LayoutNode) => {
+    if (node.visual?.type === 'symbol' && node.visual.opacity === 0) return
+    if (node.visual?.type === 'symbol' ||
+      ['endpoint', 'mcb', 'rcd', 'trunkDevice', 'supply', 'ground'].includes(node.type)) {
+      coarseSymbols.push({ x: node.bounds.x - 16, y: node.bounds.y - 16, width: 32, height: 32 })
+    }
+    node.children.forEach(collectCoarse)
+  }
+  collectCoarse(panelNode)
   const visit = (node: LayoutNode) => {
     if (node.visual?.type === 'symbol' && node.visual.opacity === 0) return
     if (
@@ -71,5 +81,5 @@ export function buildDiagramOverview(panelNode: LayoutNode, wires: readonly Wire
     for (const child of node.children) visit(child)
   }
   visit(panelNode)
-  return { symbols, auxiliaryNodes, wires }
+  return { symbols, coarseSymbols, auxiliaryNodes, wires }
 }

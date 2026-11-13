@@ -15,10 +15,6 @@ export function usePlanQuickPlacerState(source?: { open: boolean; docked: boolea
   const open = source?.open
   const docked = source?.docked
   const [focusSource, setFocusSource] = useState({ open, docked })
-  if (focusSource.open !== open || focusSource.docked !== docked) {
-    setFocusSource({ open, docked })
-    if (source && !open && !docked) setQuickPlacerFocusPlacementId(null)
-  }
   const [quickPlacerMode, setQuickPlacerMode] = useState<QuickPlacerMode>('slow')
   const [quickPlacerSelectedCircuitId, setQuickPlacerSelectedCircuitId] = useState<string | null>(
     null,
@@ -35,6 +31,18 @@ export function usePlanQuickPlacerState(source?: { open: boolean; docked: boolea
   const [quickPlacerFastPreviewClient, setQuickPlacerFastPreviewClient] = useState<Point | null>(
     null,
   )
+  if (focusSource.open !== open || focusSource.docked !== docked) {
+    setFocusSource({ open, docked })
+    // Every way of leaving the quick placer (close button, dock switch, shortcut) ends its
+    // placement session, so the symbol hanging on the cursor disappears with it.
+    if (source && !open && !docked) {
+      setQuickPlacerFocusPlacementId(null)
+      setQuickPlacerMode('slow')
+      setQuickPlacerFastPreviewClient(null)
+      setQuickPlacerCursorHint(null)
+      setQuickPlacerDraggedPlacementId(null)
+    }
+  }
 
   return {
     quickPlacerFocusPlacementId,

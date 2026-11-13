@@ -4,6 +4,7 @@
  */
 
 import { applyTouchHitPadding } from '@/lib/canvas/touchHitZones'
+import type { Endpoint } from '@/types/schema'
 import { INTERACTIVE_OVERLAY_EXPORT_NAME } from '@/lib/export/interactiveOverlayExport'
 import {
   canvasSizeWithScreenMinimum,
@@ -159,6 +160,20 @@ export function getEendraadPanelBodyCenterYOffset(): number {
  */
 export function getSocketExtraWidth(socketCount: number): number {
   return Math.max(0, socketCount - 1) * MULTI_SOCKET_OFFSET
+}
+
+/** Standard endpoint highlight relative to the symbol's electrical anchor. */
+export function getEndpointOutlineGeometry(endpoint: Endpoint, mirrorHorizontally = false) {
+  const socketExtraWidth = getSocketExtraWidth(endpoint.type === 'socket' ? endpoint.socketProps?.socketCount || 1 : 1)
+  const onWallExtraWidth =
+    endpoint.type === 'light_point' && endpoint.symbol === 'light_point' && endpoint.lightPointProps?.onWall ? 6 : 0
+  return {
+    socketExtraWidth,
+    onWallExtraWidth,
+    centerX: (mirrorHorizontally ? -1 : 1) * socketExtraWidth / 2,
+    width: ENDPOINT_OUTLINE_SIZE + socketExtraWidth + onWallExtraWidth,
+    height: ENDPOINT_OUTLINE_SIZE,
+  }
 }
 
 // Waterproof "h" indicator on socket symbols (eendraad) — top-right corner

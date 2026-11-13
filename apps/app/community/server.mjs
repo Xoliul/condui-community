@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { createAccessGuard, sendAccessDenied, validateConfiguredPassword } from './access.mjs'
 import { handleStorageRequest, openStorage, resolveDataDirectory } from './storage.mjs'
+import { createMcpRoutes } from './mcp.mjs'
 import { assertSupportedNodeVersion } from '../../../scripts/verify-node-version.mjs'
 
 assertSupportedNodeVersion()
@@ -27,6 +28,7 @@ if (!passwordCheck.ok) {
 const accessGuard = createAccessGuard({ password: passwordCheck.password })
 const dataDirectory = resolveDataDirectory()
 const storage = openStorage(dataDirectory)
+const mcpRoutes = createMcpRoutes(storage)
 
 const conversionHandlers = new Map([
   ['/api/convert-pdf', '../netlify/functions-offline/convert-pdf.cjs'],
@@ -130,6 +132,9 @@ const server = createServer(async (request, response) => {
     return
   }
 
+  // MCP clients authenticate with their bearer token, not the editor password.
+  if (await mcpRoutes.handleMcp(request, response, url.pathname)) return
+
   const access = accessGuard.check(request)
   if (access !== 'allow') {
     sendAccessDenied(response, access)
@@ -137,6 +142,7 @@ const server = createServer(async (request, response) => {
   }
 
   if (await handleStorageRequest(storage, request, response, url.pathname)) return
+  if (await mcpRoutes.handleSettings(request, response, url.pathname)) return
 
   const conversionModule = conversionHandlers.get(url.pathname)
   if (conversionModule) {

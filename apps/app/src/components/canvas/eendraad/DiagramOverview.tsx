@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ComponentProps, type ReactNode } from 'react'
+import { memo, useContext, useLayoutEffect, useRef, type ComponentProps, type ReactNode } from 'react'
 import type Konva from 'konva'
 import { Group, Line, Rect, Shape } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -8,7 +8,7 @@ import type { BottomUpPanelLayout } from '@/lib/layout/bottomUpLayout'
 import { useThemeColors } from '@/lib/theme/hooks'
 import { PanelFrame } from './PanelFrame'
 import RenderNode from './RenderNode'
-import { useOverviewInteraction } from './OverviewInteractionContext'
+import { OverviewPrecisionContext, useOverviewInteraction } from './OverviewInteractionContext'
 
 /** Auxiliary subtrees are constructed only after the overview itself mounts. */
 export function DiagramAuxiliaryNodes({ nodes, nodeProps }: {
@@ -50,6 +50,21 @@ export function DiagramOverview({
   panelLayout: BottomUpPanelLayout
   auxiliaryNodes?: ReactNode
 }) {
+  const precise = useContext(OverviewPrecisionContext)
+  return (
+    <PanelFrame panelLayout={panelLayout} overview coarseHit={!precise}>
+      <DiagramOverviewArtwork model={model} precise={precise} />
+      {precise ? auxiliaryNodes : null}
+    </PanelFrame>
+  )
+}
+
+// Selection rebuilds the outer scene's bindings. Keep thousands of unchanged
+// overview hit targets out of that reconciliation; their forwarding owner is stable.
+const DiagramOverviewArtwork = memo(function DiagramOverviewArtwork({ model, precise }: {
+  model: NonNullable<ReturnType<typeof buildDiagramOverview>>
+  precise: boolean
+}) {
   const colors = useThemeColors()
   const forward = useOverviewInteraction()
   const events = (targetName: string) => ({
@@ -60,7 +75,6 @@ export function DiagramOverview({
     onContextMenu: (event: KonvaEventObject<PointerEvent>) => forward(targetName, event),
   })
   return (
-    <PanelFrame panelLayout={panelLayout}>
       <Group name="onewire-diagram-overview">
         <Shape
           name="onewire-overview-topology"
@@ -78,13 +92,13 @@ export function DiagramOverview({
             context.beginPath()
             context.strokeStyle = colors.symbolColor
             context.lineWidth = 1
-            for (const symbol of model.symbols) {
+            for (const symbol of precise ? model.symbols : model.coarseSymbols) {
               context.rect(symbol.x + 5, symbol.y + 5, symbol.width - 10, symbol.height - 10)
             }
             context.stroke()
           }}
         />
-        <OverviewHitTargets>
+        {precise && <OverviewHitTargets>
           {model.wires.map((wire) => {
             const bus = wire.type === 'mainBus' || wire.type === 'secondaryBus'
             if (bus && !wire.busSectionId && !wire.wireBusGroup) return null
@@ -111,9 +125,7 @@ export function DiagramOverview({
               {...events(symbol.targetName)}
             />
           ))}
-        </OverviewHitTargets>
-        {auxiliaryNodes}
+        </OverviewHitTargets>}
       </Group>
-    </PanelFrame>
   )
-}
+})

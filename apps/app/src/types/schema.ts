@@ -1,3 +1,5 @@
+import type { SwitchDeviceProps } from './switchDeviceProps'
+export type { SwitchDeviceProps } from './switchDeviceProps'
 import type { ProtectionCalculationInputs } from './protectionCalculation'
 import type { ViewportLayout } from './ui'
 import type { WireSegmentDerivedFields } from './wireSegmentDerived'
@@ -95,12 +97,12 @@ export interface PanelGridSlot {
   module: PanelGridModuleRef
 }
 
-/** Per-panel config for grid (kast) view: dimensions, feed side, and optional slot order */
 export type EarthingSystemType = 'TT' | 'TN-S' | 'TN-C' | 'TN-C-S' | 'IT'
 
 export interface PanelGridConfig {
   rows: number
   columns: number
+  fields?: number // Side-by-side fields (default 1); see lib/panel/panelGridFields.ts
   feedFromTop: boolean
   slots: PanelGridSlot[]
   terminalStripTopRail?: boolean
@@ -305,6 +307,10 @@ export interface Branch {
   id: string
   label: string // Shared branch label (e.g. "A1") — source of truth for all endpoints on this branch
   endpointIds: string[] // Endpoint IDs in series order along the branch (authoritative)
+  /** Cable fan-out at this endpoint's downstream connection, within this circuit. */
+  forkFrom?: { afterEndpointId: string }
+  /** An explicitly created empty branch must survive normalization and reopen. */
+  keepEmpty?: true
   /** Ordinary-panel DC rail that renders this endpoint branch as a vertical rail tap. */
   dcBusId?: string
   /**
@@ -437,7 +443,7 @@ export type SymbolKey =
   | 'switch_1p_changeover'
   | 'switch_shutter'
   | 'switch_1p_pull'
-  | 'contact'
+  | 'contact' | 'light_sensor'
   | 'switch_impulse' // Pushbutton; legacy persisted key retained for project compatibility.
   | 'switch_cross'
   | 'motion_detector'
@@ -577,7 +583,7 @@ export interface JunctionPanelTerminalComponent {
   pinCount: number
 }
 
-export interface TrunkDevice {
+export interface TrunkDevice extends ProtectionCalculationInputs {
   id: string
   type: TrunkDeviceType
   symbol: SymbolKey
@@ -857,18 +863,6 @@ export interface ControlButtonAddress {
   groups?: string[]
 }
 
-/** Switch-specific props: poles and verklikkerlamp (indicator light) overlay */
-export interface SwitchDeviceProps {
-  /** For symbol 'switch': number of poles (1, 2, 3, or 4). Default 1. */
-  poles?: 1 | 2 | 3 | 4
-  /** For symbol 'switch_1p_twoway': when true use switch_2p_twoway. */
-  twoPole?: boolean
-  /** Draw verklikkerlamp (indicator light) overlay. Only for switch (1p/2p/3p), switch_1p_pull, and switch_impulse. */
-  verklikkerlamp?: boolean
-  /** Number of pushbutton locations (switch_impulse); values above 1 are shown on the symbol. */
-  switchingCount?: number
-}
-
 /** Light point (regular light) overlays: safety, decentral, switch, on wall, waterproof */
 export interface LightPointDeviceProps {
   /** Noodverlichting – emergency lighting circuit overlay (circle SVG) */
@@ -977,6 +971,8 @@ export interface EnergyConversionDeviceProps {
   /** Transformer nameplate voltages in volts (line-to-line for three-phase units). */
   transformerPrimaryVoltageV?: number
   transformerSecondaryVoltageV?: number
+  /** Every LV output of a site transformer feeding boards at several voltages; derived for drawing, never stored. */
+  transformerSecondaryOutputsV?: number[]
   /** Rated apparent power; never inferred from the connection breaker rating. */
   transformerRatedPowerKva?: number
   /** Nameplate short-circuit voltage uk in percent; missing means unknown. */
@@ -1712,8 +1708,8 @@ export interface LabelScheme {
   }
   circuit: {
     style: LabelSequenceStyle
-    /** Which part of the panel number starts each circuit label. Needs panel numbering. */
-    panelPart: 'none' | 'number' | 'full'
+    /** Panel prefix (needs numbering), no prefix, or one circuit sequence across all panels. */
+    panelPart: 'none' | 'number' | 'full' | 'continuous'
     /** Write panel part and circuit sequence together (A1) rather than separated (A.1). */
     joinPanel: boolean
   }
@@ -1769,6 +1765,11 @@ export interface RootPanelFeedPath {
   cable?: CableSpec
   /** Optional phase set carried by this panel's private supply section. */
   phaseAssignment?: CircuitPhaseAssignment
+  /** Own LV output behind a marked supply transformer, inherited by sub-panels; missing = installation voltage. */
+  nominalVoltage?: Installation['nominalVoltage']
+  /** Nameplate of the winding behind {@link nominalVoltage} (kVA, uk %); missing means unknown. */
+  transformerOutputRatedKva?: number
+  transformerOutputUkPercent?: number
   /** Show the incoming phase beside this panel's supply wire. Defaults off. */
   showPhaseLabel?: boolean
   hideWireLabel?: boolean

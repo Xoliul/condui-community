@@ -4,11 +4,11 @@ import type { Circuit, TrunkDevice } from '@/types/schema'
 
 /**
  * Switching devices that may sit in series on an ordinary circuit trunk, where
- * they switch every branch downstream. Only the plain (1–4 pole) switch and the
+ * they switch every branch downstream. The plain switch, twilight contact and
  * relay qualify; staircase, changeover, dimmer, pull switches and pushbuttons are
  * branch-only because their meaning depends on the branch they control.
  */
-const CIRCUIT_TRUNK_SWITCH_SYMBOLS = new Set(['switch', 'relay'])
+const CIRCUIT_TRUNK_SWITCH_SYMBOLS = new Set(['switch', 'relay', 'light_sensor'])
 
 export function isCircuitTrunkSwitchSymbol(symbolId: string): boolean {
   return CIRCUIT_TRUNK_SWITCH_SYMBOLS.has(symbolId)
@@ -67,6 +67,9 @@ export function createCircuitTrunkSwitchDevice(
 ): TrunkDevice {
   if (symbolId === 'relay') {
     return { id, type: 'relay', symbol: 'relay', label: '', trunkPosition }
+  }
+  if (symbolId === 'light_sensor') {
+    return { id, type: 'switch', symbol: 'light_sensor', label: '', trunkPosition }
   }
   // Start with two poles; the user can choose the poles for the actual control function.
   return {

@@ -84,7 +84,12 @@ export function PanelGridDimensionInput({
         max={max}
         step={1}
         value={draft}
-        onChange={(event) => updateDraft(event.target.value)}
+        onChange={(event) => {
+          updateDraft(event.target.value)
+          // Typing waits for Enter/blur so "12" never applies as "1"; the native spinner and
+          // arrow keys step one value at a time and carry no inputType, so apply those at once.
+          if (!(event.nativeEvent as InputEvent).inputType) commitDraft()
+        }}
         onBlur={commitDraft}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {

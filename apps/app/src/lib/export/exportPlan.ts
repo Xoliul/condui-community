@@ -1,15 +1,18 @@
 import type { BottomUpPanelLayout } from '@/lib/layout/bottomUpLayout'
 import {
   selectProjectAuxiliaryElectricalEnclosures,
+  selectProjectElectricalInstallation,
   selectProjectElectricalPanels,
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
+import { orderPanelsByNumber, panelNumberRankById } from '@/lib/panel/panelNumberOrder'
 import type { Panel } from '@/types/schema'
 import {
   getAuxiliaryEnclosureSupplyDeviceIds,
   resolveSupplyDeviceMounting,
 } from '@/lib/panel/auxiliarySupplyEnclosures'
 import { getAllSupplyTrunkDevices } from '@/lib/feedTopology'
+import { isSharedSupplyFrameVisible } from '@/lib/panel/sharedSupplyFrame'
 import type { PanelSceneExportMode } from './sceneProviders/panelSceneProvider'
 
 export interface PanelExportTarget {
@@ -33,11 +36,23 @@ function countMainPanels(panels: Panel[]): number {
   )
 }
 
+/** Supply frames first, then one-wire pages in board-number order (see `panelNumberOrder`). */
 export function orderEendraadLayoutsForExport(
-  layouts: BottomUpPanelLayout[]
+  layouts: BottomUpPanelLayout[],
+  project?: ProjectWithOptionalV2Electrical
 ): BottomUpPanelLayout[] {
+  const rankById = project
+    ? panelNumberRankById(
+        selectProjectElectricalPanels(project),
+        selectProjectElectricalInstallation(project)
+      )
+    : new Map<string, number>()
+  const rank = (layout: BottomUpPanelLayout) =>
+    rankById.get(layout.ownerPanelId ?? layout.panel.id) ?? Number.MAX_SAFE_INTEGER
   return [...layouts].sort(
-    (left, right) => Number(right.frameRole === 'supply') - Number(left.frameRole === 'supply')
+    (left, right) =>
+      Number(right.frameRole === 'supply') - Number(left.frameRole === 'supply') ||
+      rank(left) - rank(right)
   )
 }
 
@@ -45,7 +60,7 @@ export function buildPanelExportTargets(
   project: ProjectWithOptionalV2Electrical
 ): PanelExportTarget[] {
   const panelRoots = selectProjectElectricalPanels(project)
-  const panels = collectAllPanels(panelRoots)
+  const panels = orderPanelsByNumber(panelRoots, selectProjectElectricalInstallation(project))
   const auxiliaryEnclosures = selectProjectAuxiliaryElectricalEnclosures(project).filter(
     (enclosure) => enclosure.hidden !== true
   )
@@ -63,7 +78,7 @@ export function buildPanelExportTargets(
   if (hierarchySurfaceCount > 3) {
     targets.push({ id: 'panel-overview', mode: { kind: 'overview' }, orientation: 'landscape' })
   }
-  if (hasMultipleMainPanels) {
+  if (hasMultipleMainPanels && isSharedSupplyFrameVisible(project)) {
     targets.push({
       id: 'panel-shared-supply',
       mode: { kind: 'hierarchy-surface', surfaceId: 'shared-supply' },

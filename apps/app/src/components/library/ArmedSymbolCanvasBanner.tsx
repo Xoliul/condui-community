@@ -85,7 +85,7 @@ export default function ArmedSymbolCanvasBanner({ symbol }: { symbol: SymbolMeta
         className="pointer-events-auto flex min-w-0 max-w-full items-center gap-2 rounded-md border border-sky-500 bg-white py-1 pl-1.5 pr-1 shadow-md dark:border-sky-400 dark:bg-gray-800"
       >
         <div className="flex h-6 w-6 shrink-0 items-center justify-center [&>div]:h-6 [&>div]:w-6">
-          <SymbolPreview svgPath={getSymbolIconPath(symbol)} symbolId={symbol.id} />
+          <SymbolPreview svgPath={getSymbolIconPath(symbol)} symbolId={symbol.id} searchPreset={symbol.searchPreset} />
         </div>
         <span className="min-w-0 truncate text-sm font-medium text-gray-900 dark:text-white">
           {t('symbols.armed.placing', { name: label })}

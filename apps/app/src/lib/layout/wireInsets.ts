@@ -174,6 +174,7 @@ const CATEGORY: Record<string, string> = {
   switch_1p_pull: 'switch',
   // Standalone contact reuses the MCB artwork minus its head block: same wire gaps as protection.
   contact: 'protection',
+  light_sensor: 'protection',
   switch_cross: 'switch',
 }
 

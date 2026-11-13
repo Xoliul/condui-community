@@ -37,6 +37,7 @@ export const symbolTooltipsFrBE = {
   switch_1p_changeover: 'Commutateur entre deux circuits.',
   switch_shutter: "Commande de montée et descente des volets roulants ou stores.",
   switch_1p_pull: 'Interrupteur à tirage, souvent au plafond.',
+  light_sensor: "Allume l’éclairage à la tombée de la nuit.",
   contact: "Contact libre, p. ex. contact d'entrée pour la domotique.",
   switch_impulse: 'Bouton poussoir ou impulsionnel pour télérupteur ou domotique.',
   motion_detector: 'Détecteur de mouvement qui commande un circuit.',

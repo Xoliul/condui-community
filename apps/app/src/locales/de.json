@@ -1,4 +1,36 @@
 {
+  "oneWireFork": {
+    "invalidConnection": "Die Verbindung des Abzweigs ist ungeklärt."
+  },
+  "forkLab": {
+    "title": "Verzweigungen testen",
+    "scope": "Experimentelle AC-Zeichnungen · getrennt von Projekten gespeichert",
+    "undo": "Rückgängig",
+    "redo": "Wiederholen",
+    "plain": "Einfacher Stromkreis",
+    "save": "Zeichnung speichern",
+    "download": "Zeichnung herunterladen",
+    "open": "Zeichnung öffnen",
+    "empty": "Leerer Abzweig",
+    "move": "Zweig verschieben",
+    "delete": "Löschen",
+    "cancel": "Abbrechen",
+    "zoom": "Zoom",
+    "note": "Anmerkung",
+    "feed": "Versorgungspfad",
+    "depth": "Tiefe",
+    "moveHandle": "Verschiebegriff",
+    "forkAfter": "Abzweigen nach",
+    "insert": "Einfügen in",
+    "root": "Neuer Hauptzweig",
+    "targetHint": "Wählen Sie ein Symbol und dann ein blaues Ziel.",
+    "selectHint": "Wählen Sie ein Symbol zum Prüfen oder Verschieben.",
+    "moveHint": "Wählen Sie ein Ziel oder ziehen Sie den blauen Verschiebegriff.",
+    "saved": "Zeichnung gespeichert. Zum Öffnen neu laden.",
+    "storageError": "Die Zeichnung konnte nicht gespeichert werden.",
+    "invalidFile": "Diese Datei ist keine gültige Verzweigungszeichnung.",
+    "rejected": "Diese Änderung kann die Zweigstruktur nicht erhalten."
+  },
   "findPanel": {
     "title": "Verteiler suchen",
     "placeholder": "Verteiler durchsuchen…",
@@ -151,7 +183,9 @@
     "offlineReloadNotReady": "Vermeiden Sie ein Neuladen, bis Sie die App mindestens einmal online in diesem Browser-Tab geöffnet haben.",
     "offlineReloadDevHint": "Das Neuladen im Offline-Modus funktioniert nur mit einem Produktions-Build (npm run build && vite Preview), nicht mit dem Dev-Server.",
     "dismissOfflineBanner": "Offline-Benachrichtigung schließen",
-    "offlineIndicatorTitle": "Sie sind offline"
+    "offlineIndicatorTitle": "Sie sind offline",
+    "cloudSyncPendingTitle": "Nicht mit der Cloud synchronisiert",
+    "cloudSyncPendingMessage": "Ihre Änderungen sind auf diesem Gerät gespeichert. Die Cloud-Synchronisierung wird weiter versucht."
   },
   "diagnostics": {
     "anonymousProjectName": "Diagnoseprojekt ({{idShort}})",
@@ -283,6 +317,8 @@
     "zoom": "Zoom"
   },
   "commandPalette": {
+    "createFork": "Abzweig hinzufügen",
+    "deleteEmptyFork": "Leeren Abzweig entfernen",
     "addPanelAtDomoticaOutput": "Verteiler am Ausgang hinzufügen",
     "addSupplyTransformer": "Speisetransformator hinzufügen",
     "placeholder": "Befehle suchen",
@@ -303,6 +339,7 @@
     "apply": "Anwenden",
     "unavailable": "Diese Änderung kann nicht angewendet werden. Prüfen Sie die Werte oder öffnen Sie die Aktion erneut.",
     "fields": {
+      "branch": "Zweig",
       "output": "Ausgang",
       "circuit": "Stromkreis",
       "position": "Position",
@@ -623,6 +660,41 @@
     }
   },
   "settings": {
+    "mcp": {
+      "manageConnections": "Verbindungen verwalten",
+      "copyUrl": "Server-URL kopieren",
+      "copyPrompt": "Startprompt kopieren",
+      "starterPrompt": "Nutze Condui MCP, um im bestehenden Cloud-Projekt zu arbeiten, das ich nenne. Nenne ich keins, frag nach, welches Projekt ich meine. Lege nur dann ein neues Projekt an, wenn ich dich darum bitte. Fasse zusammen, was du findest, und warte auf meine Anweisungen, bevor du etwas änderst.",
+      "urlCopied": "Server-URL kopiert",
+      "promptCopied": "Startprompt kopiert",
+      "copyFailed": "Kopieren fehlgeschlagen. Wähle den Text aus, um ihn manuell zu kopieren.",
+      "needsServerStorage": "Verfügbar, wenn Projekte auf dem Server gespeichert werden.",
+      "turnOn": "Einschalten",
+      "turnOff": "Ausschalten",
+      "newToken": "Neues Token",
+      "tokenShownOnce": "Kopieren Sie dieses Token jetzt. Es wird nur einmal angezeigt.",
+      "copyToken": "Token kopieren",
+      "tokenCopied": "Token kopiert",
+      "copyCommand": "Claude-Code-Befehl kopieren",
+      "commandCopied": "Befehl kopiert",
+      "changeFailed": "Die MCP-Einstellungen konnten nicht geändert werden.",
+      "communityStarterPrompt": "Nutze Condui MCP, um im bestehenden Condui-Projekt zu arbeiten, das ich nenne. Nenne ich keins, frag nach, welches Projekt ich meine. Lege nur dann ein neues Projekt an, wenn ich dich darum bitte. Fasse zusammen, was du findest, und warte auf meine Anweisungen, bevor du etwas änderst.",
+      "client": {
+        "label": "KI-Client",
+        "claude": "Claude",
+        "chatgpt": "ChatGPT / Codex",
+        "other": "Andere"
+      },
+      "hostedPasteAndSignIn": "Füge dort die Server-URL ein und melde dich mit deinem Condui-Konto an. Änderungen werden direkt im Cloud-Projekt gespeichert.",
+      "hostedOther": "Dieser Server nutzt die OAuth-Anmeldung mit deinem Condui-Konto. Änderungen werden direkt im Cloud-Projekt gespeichert.",
+      "codexConfig": "Codex-Konfiguration (config.toml)",
+      "copyCodexConfig": "Codex-Konfiguration kopieren",
+      "configCopied": "Konfiguration kopiert",
+      "headerLabel": "Sende diesen Header mit jeder Anfrage",
+      "copyHeader": "Header kopieren",
+      "headerCopied": "Header kopiert",
+      "tokenHidden": "Ersetze <token> durch dein Token. Verloren? Erstelle ein neues Token."
+    },
     "title": "Einstellungen",
     "language": "Sprache",
     "interface": {
@@ -830,6 +902,9 @@
     "templateUseFailed": "Das Projekt konnte aus dieser Vorlage nicht erstellt werden.",
     "templateDeleteFailed": "Die Vorlage konnte nicht gelöscht werden.",
     "recent": "Neu",
+    "searchProjects": "Projekte suchen",
+    "loadMore": "Mehr laden",
+    "noSearchResults": "Keine Projekte gefunden",
     "recentProjects": "Aktuelle Projekte",
     "notificationBadgeTooltip": "Neue Projektbenachrichtigungen",
     "notifications": {
@@ -914,7 +989,8 @@
       "message": "Dieses Projekt wurde nach dem Öffnen anderswo gespeichert. Ihre letzten Änderungen hier sind nicht gespeichert.",
       "reload": "Neueste Version laden",
       "overwrite": "Meine Version behalten"
-    }
+    },
+    "serverReloaded": "Mit anderswo gespeicherten Änderungen aktualisiert"
   },
   "infoBlock": {
     "drawingSettings": "Projektzeichnung",
@@ -1048,6 +1124,7 @@
     "residualType_B": "B (bestimmte Ladepunkte / PV-Anlagen)",
     "residualTypeHelp_B": "Auch glatter Gleichstrom. Nicht jede Ladestation oder jeder PV-Wechselrichter benötigt Typ B; prüfen Sie die Herstellervorgaben und den integrierten DC-Fehlerstromschutz.",
     "description": "Beschreibung",
+    "labelText": "Etikettentext",
     "type_MCB": "Automatik",
     "type_RCD": "Fehlerstromschutzschalter",
     "type_RCBO": "FI/LS-Schalter",
@@ -1057,7 +1134,8 @@
     "deleteLinkedPanelTitle": "Sicherheit entfernen?",
     "deleteLinkedPanelMessage": "Verlinkte Verteiler: {{panelNames}}",
     "deleteLinkedPanelAction": "Entfernen Sie auch die Verteiler",
-    "deleteProtectionAction": "Nur Sicherheit entfernen"
+    "deleteProtectionAction": "Nur Sicherheit entfernen",
+    "labelTextHint": "Kurzer Text für das Verteileretikett; ersetzt die Hinweise auf dem Etikett."
   },
   "circuits": {
     "title": "Stromkreise",
@@ -1090,7 +1168,13 @@
     "addNewLabel": "Etikett",
     "addNewLabelPlaceholder": "z.B. A, B, Küche",
     "addNewLabelHint": "Für automatische Beschriftung leer lassen.",
-    "addNewPanel": "Verteiler"
+    "addNewPanel": "Verteiler",
+    "notes": "Hinweise",
+    "notesHide": "Im Schema ausblenden",
+    "notesShow": "Im Schema anzeigen",
+    "notesVertical": "Hinweise vertikal zeichnen",
+    "notesHorizontal": "Hinweise horizontal zeichnen",
+    "notesHint": "Was dieser Stromkreis versorgt, sichtbar im Einliniendiagramm."
   },
   "planDrop": {
     "dialogTitle": "Zum Kreis hinzufügen",
@@ -1136,6 +1220,8 @@
     "socketSwitchNone": "Keine",
     "socketSwitchOverlay": "Steckdose mit zweipoligem Schalter",
     "socketSwitchOverlayLock": "Steckdose mit zweipoligem Verriegelungsschalter",
+    "socketSwitchOverlay_short": "Schalter",
+    "socketSwitchOverlayLock_short": "Verriegelbar",
     "socketWaterproof": "Wasserdicht",
     "socketCount": "Menge Steckdosen",
     "setSocketCount": "Menge einstellen Steckdosen",
@@ -1149,6 +1235,7 @@
     "switchPoles3": "3 Pole",
     "twoWayPoles": "Pole (Schalter)",
     "verklikkerlamp": "Warnleuchte",
+    "protectedPushbutton": "Geschützt",
     "lightPointOptions": "Optionen Lichtpunkt",
     "lightPointSafety": "Sicherheitsschaltung",
     "lightPointAutonomous": "Autonom",
@@ -1460,6 +1547,8 @@
     "feedFromBottom": "Stromversorgung von unten",
     "rows": "Zeilen",
     "columns": "Säulen",
+    "fields": "Felder",
+    "fieldNumber": "Feld {{number}}",
     "topTerminalStripRail": "Anschlussschiene oben",
     "bottomTerminalStripRail": "Anschlussschiene unten",
     "showDomotica": "Hausautomation anzeigen",
@@ -1490,7 +1579,7 @@
     "overflowWarningMessage": "Einige Module befinden sich in der Überlaufzone. Platzieren Sie sie im Brettraster oder vergrößern Sie das Brett; Sie lassen Etikettenexporte weg.",
     "labelSourceLabel": "Etikett",
     "labelSourceNotes": "Hinweise",
-    "labelSourceExtra": "Zusätzlich",
+    "labelSourceExtra": "Etikettentext",
     "labelSourceTechnical": "Technik",
     "labelSourceFeeds": "Speist",
     "labelSourceMain": "Haupt",
@@ -1588,6 +1677,7 @@
         "circuits": "Stromkreise",
         "sequence": "Folge",
         "panelInLabel": "Verteiler in Beschriftung",
+        "continueAcrossBoards": "Über Verteiler hinweg fortsetzen",
         "panelPartNone": "Keiner",
         "panelPartNumber": "Nummer",
         "panelPartFull": "Vollständig",
@@ -1607,7 +1697,7 @@
         "betweenCircuitAndBranch": "Zwischen Stromkreis und Abzweig",
         "separatorHelp": "Steht zwischen den Teilen einer Beschriftung, wo sie getrennt sind, wie in A1.1.",
         "subPanelsHelp": "Eigene Nummer setzt die Folge fort; unter dem Hauptverteiler nummeriert einen Unterverteiler nach dem speisenden Verteiler.",
-        "panelInLabelHelp": "Welcher Teil der Verteilernummer jede Stromkreisbeschriftung beginnt: nichts, nur die Nummer oder die vollständige Nummer mit Präfix.",
+        "panelInLabelHelp": "Je Verteiler neu beginnen, seine Nummer voranstellen oder die Stromkreisfolge über alle Verteiler fortsetzen.",
         "numberingHelp": "Nummeriert Verteiler in Wohngebäuden und anderen Anlagen.",
         "prefixHelp": "Buchstaben vor jeder Verteilernummer, etwa B in B1.",
         "panelSequenceHelp": "Zahlen, Zahlen mit führender Null oder Buchstaben für Verteiler verwenden.",
@@ -1619,6 +1709,7 @@
     }
   },
   "planImport": {
+    "collabTooLarge": "Dieser Grundriss ist für die gemeinsame Bearbeitung zu groß. Verwenden Sie ein kleineres Bild oder importieren Sie weniger Seiten auf einmal.",
     "importFailed": "Der Plan konnte nicht importiert werden.",
     "recognizeWalls": "Bearbeitbare Wände erkennen",
     "recognitionFailed": "Wanderkennung fehlgeschlagen.",
@@ -1899,6 +1990,38 @@
     }
   },
   "symbols": {
+    "searchPresets": {
+      "relay_impulse": "Stromstoßrelais",
+      "relay_timer": "Zeitrelais",
+      "relay_clock": "Zeitschaltuhr",
+      "relay_thermostat": "Thermostatrelais",
+      "relay_dimmer": "Dimmrelais",
+      "switch_1p": "Einpoliger Schalter",
+      "switch_2p": "Zweipoliger Schalter",
+      "switch_3p": "Dreipoliger Schalter",
+      "switch_4p": "Vierpoliger Schalter",
+      "switch_twoway_2p": "Zweipoliger Wechselschalter",
+      "pushbutton_protected": "Geschützter Taster",
+      "switch_indicator": "Kontrollschalter",
+      "spd_lightning": "Blitzschutz",
+      "spd_spark": "Funkenstreckenschutz",
+      "light_wall": "Wandleuchte",
+      "light_emergency": "Notbeleuchtung",
+      "light_decentral": "Dezentrale Notbeleuchtung",
+      "spot_straight": "Spot mit geradem Lichtkegel",
+      "spot_diverging": "Spot mit divergierendem Lichtkegel",
+      "fluorescent_1": "Leuchtstoffleuchte · 1 Röhre",
+      "fluorescent_2": "Leuchtstoffleuchte · 2 Röhren",
+      "fluorescent_3": "Leuchtstoffleuchte · 3 Röhren",
+      "heating_accumulation": "Speicherheizung",
+      "heating_fan": "Speicherheizung mit Lüfter",
+      "boiler_accumulation": "Speicherboiler",
+      "socket_ungrounded": "Steckdose ohne Schutzkontakt",
+      "socket_waterproof": "Wasserdichte Steckdose",
+      "detector_gas": "Gasmelder",
+      "detector_heat": "Wärmemelder",
+      "detector_flame": "Flammenmelder"
+    },
     "library": "Symbolbibliothek",
     "recent": "Neu",
     "favorites": "Favoriten",
@@ -1924,6 +2047,7 @@
     "switch_1p_changeover": "Umschalter",
     "switch_shutter": "Rollladenschalter",
     "switch_1p_pull": "Zugschalter",
+    "light_sensor": "Dämmerungsschalter",
     "contact": "Kontakt",
     "switch_impulse": "Taster",
     "switch_cross": "Kreuzschalter",
@@ -2052,6 +2176,7 @@
       "battery": "Batterie",
       "dc_bus": "DC-Sammelschiene",
       "note": "Notiz / Beschriftung",
+      "light_sensor": "Dämmerungsschalter",
       "contact": "Kontakt"
     }
   },
@@ -2925,6 +3050,7 @@
     "code": "Stromkreis"
   },
   "export": {
+    "notForInspection": "Nicht für die Prüfung",
     "dialog": {
       "title": "Export nach PDF",
       "selectCanvases": "Leinwand zum Exportieren auswählen",
@@ -3040,7 +3166,8 @@
     "multiSelectSame": "Mehrere Elemente ausgewählt. Gruppenbearbeitung folgt in Kürze.",
     "selectedCount": "{{count}} Artikel ausgewählt",
     "mixedValue": "Gemischt",
-    "multiSelectUnsupported": "Diese Elemente können nicht zusammen bearbeitet werden."
+    "multiSelectUnsupported": "Diese Elemente können nicht zusammen bearbeitet werden.",
+    "notes": "Hinweise"
   },
   "stairs": {
     "width": "Treppenbreite",
@@ -3489,6 +3616,8 @@
     "editAction": "Schaltplan-Assistent…",
     "createTitle": "Schaltplan generieren",
     "editTitle": "Schaltplan-Assistent",
+    "mcpAction": "KI verbinden…",
+    "mcpTitle": "KI verbinden",
     "newProjectName": "Neuer Schaltplan",
     "scope": "Nur Einliniendiagramm. Überprüfen Sie jede Änderung, bevor Sie sie anwenden.",
     "context": "Kontext",
@@ -3933,7 +4062,8 @@
     },
     "conflict": "Von jemand anderem geändert — erneut versuchen",
     "peerOtherTab": "{{name}} (anderer Tab)",
-    "peersMore": "{{count}} weitere"
+    "peersMore": "{{count}} weitere",
+    "agentActive": "Ein KI-Agent bearbeitet gerade"
   },
   "shortCircuit": {
     "defaultName": "Kurzschlussberechnung",
@@ -4075,7 +4205,10 @@
         "tsdS": "Verzögerung von Isd. Leer oder 0 ohne Verzögerung.",
         "iiA": "Unverzögerter Auslöser. Zählt immer als Ia."
       },
-      "selectCable": "Klicken, um den Stromkreis auszuwählen, zum Beispiel um sein Kabel zu ändern."
+      "selectCable": "Klicken, um den Stromkreis auszuwählen, zum Beispiel um sein Kabel zu ändern.",
+      "writeIk": "Trägt den berechneten Ik max, aufgerundet, bei jedem Verteiler ein, der einen anderen Wert angibt: im Einliniendiagramm und auf den Verteileretiketten.",
+      "statedIk": "Der Verteiler gibt {{ka}} an.",
+      "boardSheets": "PDF mit einem Blatt pro Verteiler, für den Schaltschrank."
     },
     "noMatches": "Nichts anzuzeigen",
     "showAll": "Alle zeigen",
@@ -4087,6 +4220,11 @@
       "tsdS": "tsd",
       "iiA": "Ii",
       "adjustable": "Einstellbar"
+    },
+    "writeIk": "Ik in Verteiler übernehmen",
+    "sheets": {
+      "download": "Verteilerblätter",
+      "page": "Seite {{page}} von {{pages}}"
     }
   }
 }

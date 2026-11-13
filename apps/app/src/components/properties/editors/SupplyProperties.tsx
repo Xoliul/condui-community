@@ -18,7 +18,19 @@ import {
   applyNominalVoltageSystem,
   hidesLineToNeutralField,
   normalizeNominalVoltageSystem,
+  type SupplyVoltageSystem,
 } from '@/constants/nominalVoltage'
+import {
+  findSupplyingMainPanel,
+  getRootFeedNominalVoltage,
+  getRootFeedTransformerOutputRating,
+  installationSupportsFeedVoltages,
+  resolvePanelNominalVoltage,
+} from '@/lib/electrical/feedNominalVoltage'
+import { focusBoardVoltage } from '@/handlers/properties/focusBoardVoltage'
+import { Crosshair } from 'lucide-react'
+import { TransformerOutputRatingFields } from '../shared/TransformerNameplateFields'
+import { checkRootFeedNominalVoltage } from '@/lib/electrical/feedNominalVoltageEdit'
 
 import { useEditionFeatureAvailability } from '@/hooks/useEditionFeatureAvailability'
 
@@ -124,6 +136,31 @@ export function SupplyProperties({
           selectProjectSupplyAssemblies(currentProject)
         ).assignment
       : undefined
+
+  // A main board on its own transformer output edits that output, not the project voltage.
+  const boardVoltageEditable = Boolean(
+    currentProject && panel && checkRootFeedNominalVoltage(currentProject, panel.id).ok
+  )
+  // Behind an own transformer only a board directly after it chooses a voltage; others go to that board.
+  const inheritedFrom =
+    panel && !boardVoltageEditable && installationSupportsFeedVoltages(installation)
+      ? findSupplyingMainPanel(panels, panel.id)
+      : undefined
+  const nominalVoltage = panel
+    ? resolvePanelNominalVoltage(installation, panels, panel.id)
+    : installation.nominalVoltage
+  const nominalSystem = normalizeNominalVoltageSystem(nominalVoltage.system)
+  // Only a board on its own output needs its own winding nameplate.
+  const outputRating =
+    boardVoltageEditable && panel && getRootFeedNominalVoltage(installation, panels, panel)
+      ? getRootFeedTransformerOutputRating(installation, panels, panel)
+      : undefined
+  const setNominalVoltageSystem = (system: SupplyVoltageSystem) =>
+    boardVoltageEditable && panel
+      ? editProperties({ actions: [{ kind: 'rootFeedNominalVoltage', panelId: panel.id, system }] })
+      : updateInstallation({
+          nominalVoltage: applyNominalVoltageSystem(installation.nominalVoltage, system),
+        })
 
   return (
     <div className="space-y-6">
@@ -276,7 +313,7 @@ export function SupplyProperties({
         </div>
       )}
 
-      {panel && selectedSection && supportsExplicitPhaseSelection(installation.nominalVoltage.system) && (
+      {panel && selectedSection && supportsExplicitPhaseSelection(nominalSystem) && (
         <BusbarPhaseOrderProperties panel={panel} busSectionId={selectedSection.id} readOnly={readOnly} />
       )}
 
@@ -287,27 +324,43 @@ export function SupplyProperties({
         </h4>
         <div className="space-y-3">
           <NominalVoltageSystemPicker
-            value={installation.nominalVoltage.system}
-            readOnly={readOnly}
-            onChange={(system) =>
-              updateInstallation({
-                nominalVoltage: applyNominalVoltageSystem(installation.nominalVoltage, system),
-              })
-            }
+            value={nominalSystem}
+            readOnly={readOnly || (installationSupportsFeedVoltages(installation) && !boardVoltageEditable)}
+            onChange={setNominalVoltageSystem}
           />
+          {inheritedFrom && (
+            <button
+              type="button"
+              onClick={() => focusBoardVoltage(inheritedFrom.id)}
+              className="flex w-full items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-left text-sm text-gray-800 hover:border-sky-400 dark:border-gray-600 dark:text-gray-200"
+            >
+              <span className="min-w-0 flex-1 truncate">{inheritedFrom.name}</span>
+              <Crosshair aria-hidden className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+            </button>
+          )}
+          {outputRating && panel && (
+            <TransformerOutputRatingFields
+              ratedKva={outputRating.ratedKva}
+              ukPercent={outputRating.ukPercent}
+              readOnly={readOnly}
+              onChange={(patch) =>
+                editProperties({
+                  actions: [{ kind: 'rootFeedTransformerOutput', panelId: panel.id, ...patch }],
+                })
+              }
+            />
+          )}
           <div
-            className={`grid gap-3 ${hidesLineToNeutralField(normalizeNominalVoltageSystem(installation.nominalVoltage.system)) ? 'grid-cols-1' : 'grid-cols-2'}`}
+            className={`grid gap-3 ${hidesLineToNeutralField(nominalSystem) ? 'grid-cols-1' : 'grid-cols-2'}`}
           >
-            {!hidesLineToNeutralField(
-              normalizeNominalVoltageSystem(installation.nominalVoltage.system)
-            ) && (
+            {!hidesLineToNeutralField(nominalSystem) && (
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                   {t('installation.lineToNeutral', 'Line-to-Neutral (V)')}
                 </label>
                 <input
                   type="number"
-                  value={installation.nominalVoltage.uLineToNeutral}
+                  value={nominalVoltage.uLineToNeutral}
                   disabled
                   min="0"
                   step="1"
@@ -321,7 +374,7 @@ export function SupplyProperties({
               </label>
               <input
                 type="number"
-                value={installation.nominalVoltage.uLineToLine}
+                value={nominalVoltage.uLineToLine}
                 disabled
                 min="0"
                 step="1"

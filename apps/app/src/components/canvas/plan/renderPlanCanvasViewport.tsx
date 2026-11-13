@@ -26,6 +26,7 @@ import React from 'react'
 import type Konva from 'konva'
 import { Image, Group, Transformer, Line } from 'react-konva'
 
+import { SearchPresetCanvasSymbol } from '@/components/library/SearchPresetPreview'
 import { CatalogSymbolImage } from '@/components/canvas/eendraad/CatalogSymbolImage'
 import type { Point } from '@/types/ui'
 import type { Placement, Note } from '@/types/schema'
@@ -1233,12 +1234,22 @@ export function renderPlanCanvasViewport({
               opacity={0.6}
               listening={false}
             >
-              <CatalogSymbolImage
-                symbolId={libraryDropPreview.symbolId}
-                width={baseSymbolSizePx}
-                height={baseSymbolSizePx}
-                fallbackStroke="#0284c7"
-              />
+              {libraryDropPreview.searchPreset ? (
+                <Group scaleX={baseSymbolSizePx / 20} scaleY={baseSymbolSizePx / 20}>
+                  <SearchPresetCanvasSymbol
+                    symbolId={libraryDropPreview.symbolId}
+                    presetId={libraryDropPreview.searchPreset}
+                    plan
+                  />
+                </Group>
+              ) : (
+                <CatalogSymbolImage
+                  symbolId={libraryDropPreview.symbolId}
+                  width={baseSymbolSizePx}
+                  height={baseSymbolSizePx}
+                  fallbackStroke="#0284c7"
+                />
+              )}
             </Group>
           )}
 

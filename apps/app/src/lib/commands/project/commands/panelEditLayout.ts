@@ -30,6 +30,7 @@ import { moveTerminalStripToPanelInProject } from '@/lib/panel/panelTerminalStri
 import { getSupplyPanelLayout, arePanelGridSlotArraysEqual } from '@/lib/panel/panelSupplySlots'
 import { panelGridModuleRefKey, resolveModuleWidthCols } from '@/lib/panel/panelGridLayout'
 import { DEFAULT_PANEL_GRID_ROWS, DEFAULT_PANEL_GRID_COLUMNS } from '@/lib/panel/panelGridDefaults'
+import { getPanelGridTotalColumns } from '@/lib/panel/panelGridFields'
 import { persistAutomaticPanelSlotsInProject } from '@/lib/panel/panelAutomaticSlots'
 import { getNextModuleEnclosureName } from '@/lib/panel/auxiliaryEnclosureLabel'
 import { getDomainTranslator } from '@/lib/i18n/domainI18n'
@@ -80,6 +81,7 @@ export const panelSlotSchema = z.strictObject({
 export const panelGridPatchSchema = z.strictObject({
   rows: z.number().int().min(1).max(100).optional(),
   columns: z.number().int().min(1).max(1000).optional(),
+  fields: z.number().int().min(1).max(8).optional(),
   feedFromTop: z.boolean().optional(),
   terminalStripTopRail: z.boolean().optional(),
   terminalStripBottomRail: z.boolean().optional(),
@@ -309,7 +311,7 @@ export const panelEditLayout = defineProjectCommand({
             edit.mainSlots,
             panel!.gridView?.slots ?? [],
             grid.rows,
-            grid.columns,
+            getPanelGridTotalColumns(grid),
             grid
           )
         const supply = getSupplyPanelLayout({
@@ -447,7 +449,7 @@ export const panelEditLayout = defineProjectCommand({
           ...slots.filter((slot) => panelGridModuleRefKey(slot.module) !== key),
           move.slot,
         ]
-        validateSlots(project, destinationSlots, [], grid!.rows, grid!.columns, grid!)
+        validateSlots(project, destinationSlots, [], grid!.rows, getPanelGridTotalColumns(grid), grid!)
         plannedDestinationSlots.set(destinationKey, destinationSlots)
       }
       for (const move of input.circuitModuleMoves ?? []) {
@@ -484,7 +486,7 @@ export const panelEditLayout = defineProjectCommand({
           grid!.rows,
           destination.kind === 'auxiliary'
             ? Math.max(MIN_AUXILIARY_COLUMNS, grid!.columns)
-            : grid!.columns,
+            : getPanelGridTotalColumns(grid),
           grid!
         )
         plannedDestinationSlots.set(destinationKey, destinationSlots)

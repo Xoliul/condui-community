@@ -4,6 +4,7 @@ import {
   updateTrunkProperties,
 } from '@/handlers/properties/editProperties'
 import { findWireRunForAnchor, selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
+import { installationForPanel, resolvePanelNominalVoltage } from '@/lib/electrical/feedNominalVoltage'
 import { CanonicalWireProperties } from './CanonicalWireProperties'
 import { DomoticaOutputConnectionFields } from './ControlLinkFields'
 import { sharedTrunkAnchors } from '@/lib/wires/editWireRun'
@@ -120,7 +121,9 @@ function CanonicalSegmentProperties({
   const getPanelById = useProjectStore((s) => s.getPanelById)
   const installation = project ? getProjectElectricalInstallation(project) : undefined
   const panels = project ? getProjectElectricalPanels(project) : []
-  const system = installation?.nominalVoltage.system
+  const system = installation
+    ? resolvePanelNominalVoltage(installation, panels, segment.panelId).system
+    : undefined
   const panel = getPanelById(segment.panelId)
   const ownerId = segment.wireBusGroup?.startsWith('circuit-bus:')
     ? segment.wireBusGroup.slice('circuit-bus:'.length)
@@ -271,7 +274,7 @@ function WireProperties({
   )
   const getTrunkDeviceById = useProjectStore((state: ProjectState) => state.getTrunkDeviceById)
   const currentProject = useProjectStore((state: ProjectState) => state.currentProject)
-  const installationForPhase = currentProject
+  const projectInstallation = currentProject
     ? getProjectElectricalInstallation(currentProject)
     : undefined
   const panelsForPhase = currentProject ? getProjectElectricalPanels(currentProject) : []
@@ -367,6 +370,10 @@ function WireProperties({
     )
   }
 
+  // Phase choices follow the voltage of the board this wire belongs to.
+  const installationForPhase = projectInstallation
+    ? installationForPanel(projectInstallation, panelsForPhase, wireSegment.panelId)
+    : undefined
   const supplyWireDiagnostic = import.meta.env.DEV
     ? getSupplyWireDiagnostic(wireSegment, wireSegments)
     : undefined

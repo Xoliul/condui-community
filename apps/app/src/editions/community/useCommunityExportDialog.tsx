@@ -1,3 +1,4 @@
+import { useInfoBlockHeight } from '@/hooks/eendraad/useInfoBlockHeight'
 import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -24,6 +25,7 @@ import { reportPdfExportFailure, withCrashId } from '@/lib/export/reportPdfExpor
 export function useExportDialog() {
   const { t } = useTranslation()
   const currentProject = useProjectStore((state) => state.currentProject)
+  const infoBlockHeight = useInfoBlockHeight()
   const infoBlockLogo = useInfoBlockLogoVisible()
   const lastExportOptions = useUIStore((state) => state.lastExportOptions)
   const [isExporting, setIsExporting] = useState(false)
@@ -46,7 +48,7 @@ export function useExportDialog() {
         ? getCachedEendraadLayout(
             getEendraadRenderProjectRevision(currentProject),
             useUIStore.getState().eendraadLayoutOverrides,
-            { infoBlockLogo }
+            { infoBlockLogo, infoBlockHeight }
           )
         : null
       await new Promise((resolve) => requestAnimationFrame(resolve))

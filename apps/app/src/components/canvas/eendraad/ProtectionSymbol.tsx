@@ -47,6 +47,7 @@ import type { LayoutNode } from '@/lib/layout/layoutTree'
 import { getLayoutSubtreeSelectionIds } from '@/lib/eendraad/downstreamSelection'
 import { registerActivation } from '@/utils/repeatActivation'
 import { useCanvasDragImage } from '@/hooks/useCanvasDragImage'
+import { useDownstreamDragGhost } from '@/hooks/eendraad/useDownstreamDragGhost'
 
 type EendraadPointerEvent = {
   cancelBubble: boolean
@@ -133,6 +134,8 @@ export function ProtectionSymbol({
       dragOriginLayerListeningRef.current = null
     }
   }, [endDragImage])
+  // The circuit below this breaker travels with it on drop; show that while dragging.
+  const { beginGhost, followGhost, endGhost } = useDownstreamDragGhost(protection.id, downstreamNode)
   useEffect(
     () => () => {
       const originLayerListening = dragOriginLayerListeningRef.current
@@ -367,6 +370,7 @@ export function ProtectionSymbol({
                   return
                 }
                 isolateDragNode(e.target)
+                beginGhost(e.target)
               }
             : undefined
         }
@@ -374,6 +378,7 @@ export function ProtectionSymbol({
           moveInfo && isSelected && onDragMove
             ? (e) => {
                 updateDragImage()
+                followGhost(e.target)
                 onDragMove(
                   getCanvasPositionFromEvent?.(e) ?? { x: e.target.x(), y: e.target.y() }
                 )
@@ -383,6 +388,7 @@ export function ProtectionSymbol({
         onDragEnd={
           moveInfo && isSelected
             ? (e) => {
+                endGhost()
                 if (shouldSuppressKonvaDragEnd?.()) {
                   restoreDragNode(e.target)
                   e.target.position({ x: position.x, y: position.y })
@@ -450,6 +456,7 @@ export function ProtectionSymbol({
                 return
               }
               isolateDragNode(e.target)
+              beginGhost(e.target)
             }
           : undefined
       }
@@ -457,6 +464,7 @@ export function ProtectionSymbol({
         moveInfo && isSelected && onDragMove
           ? (e) => {
               updateDragImage()
+              followGhost(e.target)
               onDragMove(
                 getCanvasPositionFromEvent?.(e) ?? { x: e.target.x(), y: e.target.y() }
               )
@@ -466,6 +474,7 @@ export function ProtectionSymbol({
       onDragEnd={
         moveInfo && isSelected
           ? (e) => {
+              endGhost()
               if (shouldSuppressKonvaDragEnd?.()) {
                 restoreDragNode(e.target)
                 e.target.position({ x: position.x, y: position.y })

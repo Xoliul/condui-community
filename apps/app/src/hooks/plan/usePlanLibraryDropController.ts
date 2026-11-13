@@ -269,6 +269,7 @@ export function usePlanLibraryDropController({
 
   const [libraryDropPreview, setLibraryDropPreview] = useState<{
     symbolId: string
+    searchPreset?: string
     pos: Point
   } | null>(null)
   const handleLibraryDragOver = useCallback(
@@ -283,7 +284,7 @@ export function usePlanLibraryDropController({
         setLibraryDropPreview(null)
         return
       }
-      setLibraryDropPreview({ symbolId: symbol.id, pos: snapPlacementPosition(position) })
+      setLibraryDropPreview({ symbolId: symbol.id, searchPreset: symbol.searchPreset, pos: snapPlacementPosition(position) })
     },
     [snapPlacementPosition]
   )

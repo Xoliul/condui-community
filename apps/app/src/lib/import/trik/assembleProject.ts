@@ -56,11 +56,20 @@ import type {
 } from '@/lib/import/trik/shared'
 import { sha256Hex, TRIK_TO_PLAN_SCALE, utf8ToBase64 } from '@/lib/import/trik/shared'
 import { normalizeStoredProjectToV2 } from '@/lib/projectV2/migration'
+import { assignTrikTerminalStripPins } from './terminalStrips'
 import type { ProjectV2 } from '@/types/projectV2'
 
 
 
-export async function importProjectFromTrikLocal(file: File): Promise<ProjectV2> {
+export type TrikImportOptions = {
+  /** Keep a cable split below a device as a one-wire fork. Defaults to `oneWireForksEnabled()`. */
+  oneWireForks?: boolean
+}
+
+export async function importProjectFromTrikLocal(
+  file: File,
+  options: TrikImportOptions = {},
+): Promise<ProjectV2> {
   const text = await file.text()
   const parser = new DOMParser()
   const doc = parser.parseFromString(text, 'application/xml')
@@ -203,6 +212,7 @@ export async function importProjectFromTrikLocal(file: File): Promise<ProjectV2>
         pendingTrikEendraadNotes,
         pendingTrikFrameMarkCorners,
         hiddenSitplanPlacementIdsByFloor,
+        options.oneWireForks,
       )
       applyTrikPanelLocalSupplyDevices(targetPanel, board.localSupplyDevices)
       panelByBoardId.set(board.trikBoardId, targetPanel)
@@ -329,6 +339,7 @@ export async function importProjectFromTrikLocal(file: File): Promise<ProjectV2>
 
   const normalized = normalizeStoredProjectToV2(project)
   linkTrikControlAddresses(getEditableProjectElectricalPanels(normalized))
+  assignTrikTerminalStripPins(normalized)
   const electricalDevices = normalized.disciplines.electrical?.devices ?? []
   const panelsNeedingDevices: Array<{ id: string; name: string; pos: { x: number; y: number } }> = []
   const collectPanelsNeedingDevices = (

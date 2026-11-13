@@ -1,7 +1,7 @@
 ---
 title: Symbolen voor eendraadschema en situatieplan
 description: Elektrische symbolen voor je eendraadschema en situatieplan met korte uitleg per symbool, van stopcontact en wisselschakelaar tot differentieel en aardingsonderbreker.
-updated: 2026-10-12
+updated: 2026-11-04
 ---
 
 Hieronder staan de elektrische symbolen die je op een eendraadschema en situatieplan tegenkomt, met een korte uitleg per symbool. De meeste komen overeen met tabel 2.23 van AREI Boek 1 (hoofdstuk 2.13), een niet-limitatieve lijst. Voor onderdelen die daar ontbreken, zoals een thuisbatterij of een overspanningsbeveiliging, gebruikt {{brand}} een eigen symbool.
@@ -116,6 +116,9 @@ Een los contact, bijvoorbeeld een deurcontact of een ingang van een domoticasyst
 
 ### [switch_impulse]
 Een drukknop geeft een korte puls aan een teleruptor of domotica-ingang in plaats van de kring rechtstreeks te schakelen.
+
+### [light_sensor]
+Een schemerschakelaar schakelt verlichting automatisch in wanneer het omgevingslicht onder de ingestelde drempel daalt. De twee pijlen naar het contact geven aan dat het op licht reageert. Dit is een door licht gestuurde schakelaar, geen bewegingsdetector.
 
 ### [motion_detector]
 Een bewegingsdetector schakelt licht automatisch bij beweging. Je mag de technologie erbij vermelden: IR, radar of een combinatie.

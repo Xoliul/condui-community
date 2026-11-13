@@ -9,7 +9,8 @@ import Konva from 'konva'
 import type { ExportScene, ExportOptions, EendraadSliceExportMeta } from '../types'
 import { ExportError } from '../types'
 import { findContentLayer, findCanvasContentGroup, calculateSceneBounds } from './helpers'
-import { waitForExportStage } from './waitForExportStage'
+import { EXPORT_STAGE_WAIT_MS, waitForExportStage } from './waitForExportStage'
+import { describeMissingExportStage } from './exportStageDiagnostics'
 import { collectAndRemoveSymbolImagesForExport } from '../symbolSvgInject'
 import { adjustSymbolImagesForExport } from './symbolImageExport'
 import {
@@ -84,7 +85,10 @@ export async function prepareEendraadScene(
   )
 
   if (!stage) {
-    throw new ExportError('STAGE_UNAVAILABLE', 'Eendraad stage not available after retries')
+    throw new ExportError(
+      'STAGE_UNAVAILABLE',
+      `Eendraad stage not available after retries ${describeMissingExportStage(EXPORT_STAGE_WAIT_MS)}`
+    )
   }
 
   exportLog(`[Export] Got eendraad stage, layers: ${stage.getLayers().length}`)

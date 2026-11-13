@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger'
+import { removeEndpointBranchMembers } from './oneWireForkProject'
 import { isSupplyTransformer } from '@/lib/electrical/supplyTransformer'
 import { symbolCanAppearInPanelGrid } from '@/lib/panel/panelGridSymbolEligibility'
 import {
@@ -57,6 +58,7 @@ import { syncDerivedEndpointFlags } from '@/lib/eendraad/endpointInsertAfter'
 import { relabelDomoticaChildRows } from '@/lib/eendraad/domoticaOutputOrdering'
 import {
   applyAutomaticMainBusNamingToPanel,
+  applyAutomaticMainBusNamingToPanels,
   resolveAutomaticNamingOptsFromInstallation,
 } from '@/lib/eendraad/automaticMainBusNaming'
 import {
@@ -189,13 +191,7 @@ export function applyAutomaticEendraadNamingAllPanelsInProject(
   if (!installation?.eendraadAutomaticNaming) return
   dedupeAllPanelsProtectionsInProject(project)
   const opts = resolveAutomaticNamingOptsFromInstallation(installation)
-  const walk = (panels: Panel[]) => {
-    for (const p of panels) {
-      applyAutomaticMainBusNamingToPanel(p, opts, project)
-      if (p.subPanels?.length) walk(p.subPanels)
-    }
-  }
-  walk(getProjectElectricalPanels(project))
+  applyAutomaticMainBusNamingToPanels(project, opts)
 }
 
 function supplyFeedListForPanelAndScope(
@@ -1685,15 +1681,7 @@ export function isDomoticaParentEndpoint(endpoint: Endpoint): boolean {
 }
 
 export function removeEndpointIdsFromCircuit(circuit: Circuit, ids: Set<string>): void {
-  circuit.endpoints = circuit.endpoints.filter((endpoint) => !ids.has(endpoint.id))
-  if (circuit.branches) {
-    circuit.branches = circuit.branches
-      .map((branch) => ({
-        ...branch,
-        endpointIds: branch.endpointIds.filter((endpointId) => !ids.has(endpointId)),
-      }))
-      .filter((branch) => branch.endpointIds.length > 0 || (branch.branchDevices?.length ?? 0) > 0)
-  }
+  removeEndpointBranchMembers(circuit, ids)
 }
 
 export function normalizeDomoticaCircuit(circuit: Circuit): void {

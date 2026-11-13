@@ -2,6 +2,12 @@ import { getLocalizedSymbolName } from '@/lib/symbolNames'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { symbols, type SymbolMetadata } from '@/lib/symbols'
+import {
+  searchPresets,
+  matchSearchPreset,
+  withSearchPreset,
+  normalizePresetQuery,
+} from '@/lib/library/searchPresets'
 import { filterBySearchRelevance } from '@/utils/search'
 import { canSymbolAppearOnSituationPlan } from '@/lib/plan/situationPlanSymbolEligibility'
 import { isSymbolAvailableInLibrary } from '@/lib/supplyTopologyFeature'
@@ -58,11 +64,16 @@ export const useLibraryStore = create<LibraryState>()(
 
       setSelectedCategory: (category) => set({ selectedCategory: category }),
 
-      getSymbolById: (id) => get().symbols.find((s) => s.id === id && isSymbolAvailableInLibrary(s)),
+      getSymbolById: (id) =>
+        get().symbols.find((s) => s.id === id && isSymbolAvailableInLibrary(s)),
 
       getFilteredSymbols: (locale = 'en') => {
         const { symbols, searchQuery, selectedCategory } = get()
-        let filtered = symbols.filter(isSymbolAvailableInLibrary)
+        let filtered = symbols.filter(
+          (symbol) =>
+            isSymbolAvailableInLibrary(symbol) ||
+            Boolean(searchQuery && matchSearchPreset(symbol.id, searchQuery))
+        )
 
         // Filter by category
         if (selectedCategory) {
@@ -71,6 +82,9 @@ export const useLibraryStore = create<LibraryState>()(
 
         // Filter by search query with fuzzy matching and synonyms
         if (searchQuery) {
+          filtered = filtered.map((symbol) =>
+            withSearchPreset(symbol, matchSearchPreset(symbol.id, searchQuery)?.id)
+          )
           const normalizedQuery = normalizeLibrarySearchText(searchQuery)
           const isShortPrefixQuery =
             normalizedQuery.length > 0 &&
@@ -78,8 +92,16 @@ export const useLibraryStore = create<LibraryState>()(
             !normalizedQuery.includes(' ')
 
           if (isShortPrefixQuery) {
-            return filtered.filter((symbol) =>
-              normalizeLibrarySearchText(getLocalizedSymbolName(symbol, locale)).startsWith(normalizedQuery)
+            return filtered.filter(
+              (symbol) =>
+                normalizeLibrarySearchText(getLocalizedSymbolName(symbol, locale)).startsWith(
+                  normalizedQuery
+                ) ||
+                searchPresets.some(
+                  (preset) =>
+                    preset.symbolId === symbol.id &&
+                    preset.aliases.some((alias) => normalizePresetQuery(alias) === normalizedQuery)
+                )
             )
           }
 
@@ -91,6 +113,9 @@ export const useLibraryStore = create<LibraryState>()(
               s.nameNL,
               s.nameFR,
               ...s.tags,
+              ...searchPresets
+                .filter((preset) => preset.symbolId === s.id)
+                .flatMap((preset) => preset.aliases),
             ]
           })
         }
@@ -99,9 +124,7 @@ export const useLibraryStore = create<LibraryState>()(
       },
 
       getSymbolsByCategory: (category) => {
-        return get().symbols.filter(
-          (s) => s.category === category && isSymbolAvailableInLibrary(s)
-        )
+        return get().symbols.filter((s) => s.category === category && isSymbolAvailableInLibrary(s))
       },
 
       getSymbolsByScope: (scope) => {

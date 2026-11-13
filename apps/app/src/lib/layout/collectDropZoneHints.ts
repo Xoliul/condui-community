@@ -1633,7 +1633,7 @@ export function collectDropZoneHints(
   project: ProjectWithOptionalV2Electrical,
   options?: { movingPanelAttachmentId?: string | null; suppressSameSymbolTargets?: boolean }
 ): DropZoneHint[] {
-  const sameSymbolHints = (options?.suppressSameSymbolTargets ? [] : findSameSymbolAddMoreLayoutTargets(symbol.id, layoutTree)).map(
+  const sameSymbolHints = (options?.suppressSameSymbolTargets ? [] : findSameSymbolAddMoreLayoutTargets(symbol.searchPreset ? '' : symbol.id, layoutTree)).map(
     (target) => ({
       nodeId: `same-symbol-add-more-${target.nodeId}`,
       sameSymbolTargetId: target.target.endpoint?.id ?? target.target.trunkDevice?.id,

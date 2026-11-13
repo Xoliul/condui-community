@@ -3,6 +3,7 @@ import type { WireRun } from '@/types/projectV2'
 import { deriveWireAnchorKey, fromWireRunRoute, toWireRunRoute } from '@/lib/projectV2/wireRuns'
 import { getCircuitBranches } from '@/lib/layout/endpointChains'
 import { circuitWireDomains } from './circuitWireIdentity'
+import { resolveOneWireBranchTopology } from '@/lib/eendraad/oneWireBranchTopology'
 
 export type WireInstallationSpecification = Pick<WireRun, 'route' | 'inTube'> & {
   fireClass?: CableSpec['fireClass']
@@ -52,11 +53,17 @@ export function circuitWireSpecifications(
       parents.set(anchor(to), anchor(from))
     }
     const trunks = [...(circuit.trunkDevices ?? [])].sort((a, b) => a.trunkPosition - b.trunkPosition)
+    const forks = circuit.branches?.some((branch) => branch.forkFrom)
+      ? resolveOneWireBranchTopology({ ...circuit, branches: circuit.branches }) : null
     trunks.forEach((device, index) => connect(trunks[index - 1]?.id, device.id))
     const branches = getCircuitBranches(circuit)
     branches.forEach((endpoints, branchIndex) => {
       const branch = circuit.branches?.[branchIndex]
       let previous = branch?.dcBusId ?? trunks.filter((device) => device.trunkPosition <= branchIndex).at(-1)?.id
+      const feed = branch ? forks?.byBranchId.get(branch.id)?.feed : undefined
+      if (feed?.kind === 'unresolved') return
+      if (feed?.kind === 'endpoint') previous = feed.endpointId
+      else if (feed?.kind === 'trunk') previous = feed.deviceIds.at(-1)
       for (const device of branch?.branchDevices ?? []) {
         connect(previous, device.id)
         previous = device.id
@@ -83,24 +90,26 @@ export function circuitWireSpecifications(
   }
   panels.forEach(visit)
   const resolved = new Map<string, ResolvingSpecification>()
-  const resolving = new Set<string>()
   const completed = new Set<string>()
   const resolve = (anchor: string): ResolvingSpecification | undefined => {
-    if (completed.has(anchor)) return resolved.get(anchor)
-    if (resolving.has(anchor)) return undefined
-    resolving.add(anchor)
-    const parent = parents.get(anchor)
-    const authored = own.get(anchor)
-    const upstream = (parent ? resolve(parent) : undefined) ?? (authored ? defaults.get(anchor) : undefined)
-    const specification = authored || upstream ? {
-      fireClass: authored?.fireClass !== undefined ? authored.fireClass : upstream?.fireClass,
-      route: authored?.route ?? upstream?.route,
-      inTube: authored?.inTube ?? upstream?.inTube,
-    } : undefined
-    resolving.delete(anchor)
-    completed.add(anchor)
-    if (specification) resolved.set(anchor, specification)
-    return specification
+    const path: string[] = [], seen = new Set<string>()
+    let cursor: string | undefined = anchor
+    while (cursor && !completed.has(cursor) && !seen.has(cursor)) {
+      seen.add(cursor); path.push(cursor); cursor = parents.get(cursor)
+    }
+    let inherited = cursor && completed.has(cursor) ? resolved.get(cursor) : undefined
+    for (let index = path.length - 1; index >= 0; index--) {
+      const key = path[index]!, authored = own.get(key)
+      const upstream = inherited ?? (authored ? defaults.get(key) : undefined)
+      const specification: ResolvingSpecification | undefined = authored || upstream ? {
+        fireClass: authored?.fireClass !== undefined ? authored.fireClass : upstream?.fireClass,
+        route: authored?.route ?? upstream?.route, inTube: authored?.inTube ?? upstream?.inTube,
+      } : undefined
+      completed.add(key)
+      if (specification) resolved.set(key, specification)
+      inherited = specification
+    }
+    return resolved.get(anchor)
   }
   for (const anchor of new Set([...defaults.keys(), ...own.keys()])) resolve(anchor)
   return new Map([...resolved].map(([anchor, { fireClass, ...rest }]) =>

@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { ProjectV2 } from '@/types/projectV2'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { findPanelById } from '@/lib/panel/panelTree'
-import { findCircuitById, findEndpointById } from '@/lib/eendraad/projectElectricalDomain'
+import { findCircuitById, findEndpointById, getAllCircuits } from '@/lib/eendraad/projectElectricalDomain'
 import { deleteCircuitFromProject, updateCircuitInProject } from '@/lib/eendraad/circuitMutations'
 import { promoteCircuitToMainBusInProject } from '@/lib/eendraad/busMoveMutations'
 import { getPlanDropCircuitInsertIndexForCode } from '@/lib/plan/planDropPicker'
@@ -23,6 +23,9 @@ function positionCircuit(project: ProjectV2, panelId: string, circuitId: string)
   const panel = findPanelById(getProjectElectricalPanels(project), panelId)
   const code = circuit(project, circuitId)?.circuit.code?.trim()
   if (!panel || !code) return false
+  // The code orders main-bus circuits only. A circuit behind an RCD or another circuit keeps
+  // its place; promoting it would silently take it off its upstream protection.
+  if (getAllCircuits(panel).some((parent) => parent.subCircuitIds?.includes(circuitId))) return false
   const result = promoteCircuitToMainBusInProject(project, {
     kind: 'promoteCircuit',
     panelId,

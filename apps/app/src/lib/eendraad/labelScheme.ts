@@ -88,7 +88,7 @@ export function labelSchemesEqual(a: LabelScheme, b: LabelScheme): boolean {
 
 /** Whether a style that puts the panel in circuit labels needs panel numbering. */
 export function labelSchemeUsesPanelPart(scheme: LabelScheme): boolean {
-  return scheme.circuit.panelPart !== 'none'
+  return scheme.circuit.panelPart === 'number' || scheme.circuit.panelPart === 'full'
 }
 
 const SEPARATORS: readonly LabelSeparator[] = ['.', '-', '/']
@@ -111,7 +111,7 @@ export function parseLabelScheme(value: unknown): LabelScheme | undefined {
   if (panel.start !== 0 && panel.start !== 1) return undefined
   if (typeof panel.nested !== 'boolean') return undefined
   if (!SEQUENCE_STYLES.includes(circuit.style as LabelSequenceStyle)) return undefined
-  if (!['none', 'number', 'full'].includes(circuit.panelPart as string)) return undefined
+  if (!['none', 'number', 'full', 'continuous'].includes(circuit.panelPart as string)) return undefined
   if (typeof circuit.joinPanel !== 'boolean' || typeof branch.join !== 'boolean') return undefined
   return {
     version: 1,

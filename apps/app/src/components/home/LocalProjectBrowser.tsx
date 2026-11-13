@@ -306,7 +306,7 @@ export function LocalProjectBrowser({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" onDragEnd={() => setDragOverFolderId(null)}>
       {ungroupedSection.projects.length > 0 || layout.folders.length === 0
         ? renderProjects(ungroupedSection.projects, null)
         : null}

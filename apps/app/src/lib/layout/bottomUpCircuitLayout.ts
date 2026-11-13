@@ -41,7 +41,6 @@ import { getCircuitWireLabelSpan } from './circuitWireLabelSpacing'
 import { getEndpointLayoutOffsets } from './bottomUpBranchWidths'
 import type { CircuitEnvelopeConfig, CircuitLayoutEnvelope } from './circuitLayoutEnvelope'
 
-import { getProtectionToTrunkDeviceCenterGap } from './trunkDeviceSpacing'
 import {
   getCircuitConverterDcConnectionCount,
   getOrdinaryCircuitConverterOutputRowY,
@@ -457,10 +456,7 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
           .indexOf(device)
         deviceY =
           mcbYForDevices -
-          getProtectionToTrunkDeviceCenterGap(
-            trunkDevices.find((candidate) => candidate.trunkPosition === 0) ?? device,
-            LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
-          ) -
+          LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP -
           before * (LAYOUT_CONSTANTS.TRUNK_DEVICE_SPACING + LAYOUT_CONSTANTS.SYMBOL_SIZE)
       } else {
         const branchAbove = circuitBranches[device.trunkPosition - 1]
@@ -478,10 +474,7 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
         } else {
           deviceY =
             mcbYForDevices -
-            getProtectionToTrunkDeviceCenterGap(
-              trunkDevices.find((candidate) => candidate.trunkPosition === 0) ?? device,
-              LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
-            )
+            LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
         }
       }
       const topOutputRowY = getOrdinaryCircuitConverterOutputRowY(device, deviceY, count - 1)

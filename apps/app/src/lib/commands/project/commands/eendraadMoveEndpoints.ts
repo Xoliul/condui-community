@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { checkForkRunMove, moveSavedForkRun, usesForkRunMove } from '@/lib/eendraad/forkRunMove'
+import { PROJECT_V2_FORK_SCHEMA_VERSION } from '@/types/projectV2'
 import { electricalDropTargetSchema, checkElectricalDropTarget } from '../electricalDropTarget'
 import { electricalSemanticDestinationSchema, resolveElectricalSemanticTarget } from '../electricalSemanticTarget'
 import type { ElectricalSemanticDestination, SemanticTargetResult } from '../electricalSemanticTarget'
@@ -161,6 +163,8 @@ export const eendraadMoveEndpoints = defineProjectCommand({
     const targetCircuit = target.circuitId
       ? circuitForProject(project, target.circuitId)
       : undefined
+    if (usesForkRunMove(sourceCircuit, targetCircuit, target))
+      return checkForkRunMove(sourceCircuit, targetCircuit, input.draggedEndpointId, selected, target)
     const expandedSelection = new Set(selected)
     for (const endpointId of selected) {
       const owner = sourceForEndpoint(project, endpointId)!
@@ -253,6 +257,12 @@ export const eendraadMoveEndpoints = defineProjectCommand({
       throw new CommandError('check_failed', 'Endpoint not found', { reason: 'endpoint_not_found' })
     const sourceCircuit = sourceInfo.circuit
     const sourceEndpoint = sourceInfo.endpoint
+    const forkDestination = target.circuitId ? circuitForProject(project, target.circuitId) : undefined
+    if (usesForkRunMove(sourceCircuit, forkDestination, target)) {
+      const moved = moveSavedForkRun(sourceCircuit, forkDestination!, input.draggedEndpointId, input.selectedEndpointIds ?? [input.draggedEndpointId], target, env.newId)
+      if (moved.length) project.schemaVersion = PROJECT_V2_FORK_SCHEMA_VERSION
+      return { created: [], changed: moved.length ? [...new Set([sourceCircuit.id, forkDestination!.id])].map((id) => ({ kind: 'circuit' as const, id })) : [], removed: [], select: moved.map((id) => ({ kind: 'endpoint' as const, id })) }
+    }
     const selected = input.selectedEndpointIds ?? [input.draggedEndpointId]
     const selectedIdsSet = new Set(selected)
     for (const endpointId of selected) {

@@ -14,6 +14,7 @@ import type {
 } from '@/types/schema'
 import {
   PROJECT_V2_SCHEMA_VERSION,
+  PROJECT_V2_FORK_SCHEMA_VERSION,
   PROJECT_SCOPE_IDS,
   type AssetModelV2,
   type ChronologyModelV2,
@@ -69,7 +70,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function isProjectV2(value: unknown): value is ProjectV2 {
-  return isRecord(value) && value.schemaVersion === PROJECT_V2_SCHEMA_VERSION
+  return isRecord(value) && (value.schemaVersion === PROJECT_V2_SCHEMA_VERSION || value.schemaVersion === PROJECT_V2_FORK_SCHEMA_VERSION)
 }
 
 function isProjectV2BeforeScopes(value: unknown): value is ProjectV2BeforeScopes {
@@ -891,6 +892,18 @@ const BOUNDARY_HEALERS: BoundaryHealer[] = [normalizeLegacyPlanWiringAtBoundary]
 
 function applyBoundaryHealers(project: ProjectV2): void {
   for (const heal of BOUNDARY_HEALERS) heal(project)
+  if (requiresForkSchema(project)) project.schemaVersion = PROJECT_V2_FORK_SCHEMA_VERSION
+}
+
+function requiresForkSchema(project: ProjectV2): boolean {
+  const pending = [...(project.disciplines.electrical?.panels ?? [])]
+  for (let index = 0; index < pending.length; index++) {
+    const panel = pending[index]!
+    if ([...panel.circuits, ...panel.protections.flatMap((protection) => protection.circuits ?? [])]
+      .some((circuit) => circuit.branches?.some((branch) => branch.forkFrom || branch.keepEmpty))) return true
+    pending.push(...panel.subPanels)
+  }
+  return false
 }
 
 /**
@@ -898,7 +911,8 @@ function applyBoundaryHealers(project: ProjectV2): void {
  * common "already current, nothing legacy" path skip cloning, preserving the original fast path.
  */
 function needsBoundaryHealing(project: ProjectV2): boolean {
-  return (project.disciplines.electrical?.planWiring?.routes.length ?? 0) > 0
+  return (project.disciplines.electrical?.planWiring?.routes.length ?? 0) > 0 ||
+    (project.schemaVersion !== PROJECT_V2_FORK_SCHEMA_VERSION && requiresForkSchema(project))
 }
 
 export function normalizeStoredProjectToV2(document: LegacyProjectDocument): ProjectV2 {
@@ -972,5 +986,7 @@ export function projectToStoredProjectV2(project: LegacyProjectDocument): Projec
     cloneCanonicalProjectForStorage(normalized)
   )
   const { schemaVersion: _schemaVersion, collaboration, ...nativeProject } = stored
-  return applyScopeContract(nativeProject, collaboration.contributions)
+  const result = applyScopeContract(nativeProject, collaboration.contributions)
+  if (stored.schemaVersion === PROJECT_V2_FORK_SCHEMA_VERSION || requiresForkSchema(result)) result.schemaVersion = PROJECT_V2_FORK_SCHEMA_VERSION
+  return result
 }

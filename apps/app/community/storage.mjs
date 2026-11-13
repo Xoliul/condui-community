@@ -186,7 +186,30 @@ export function createStorage(dataDirectory) {
     })
   }
 
-  return { listProjects, getProject, putProject, deleteProject, getSetting, putSetting }
+  async function getProjectMetadata(id) {
+    assertProjectId(id)
+    await ready
+    const metadata = await readMetadata(id)
+    if (!metadata) throw new StorageError(404, 'Project not found.')
+    return metadata
+  }
+
+  // MCP access (token hash) lives in its own file: the browser can read and write settings.json.
+  const mcpAccessPath = join(dataDirectory, 'mcp-access.json')
+  const getMcpAccess = () => readJson(mcpAccessPath)
+  const putMcpAccess = (value) => serialized(() => writeJsonAtomically(mcpAccessPath, value))
+
+  return {
+    listProjects,
+    getProject,
+    getProjectMetadata,
+    putProject,
+    deleteProject,
+    getSetting,
+    putSetting,
+    getMcpAccess,
+    putMcpAccess,
+  }
 }
 
 async function readBody(request, limit) {
@@ -234,6 +257,12 @@ export async function handleStorageRequest(storage, request, response, pathname)
       }
     })
     const [collection, id, ...rest] = segments
+    // Cheap revision check, so open editor tabs notice saves made elsewhere (MCP, other devices).
+    if (collection === 'projects' && id !== undefined && rest.length === 1 && rest[0] === 'metadata') {
+      if (method !== 'GET') throw new StorageError(405, 'Method not allowed.')
+      sendJson(response, 200, { metadata: await storage.getProjectMetadata(id) })
+      return true
+    }
     if (rest.length > 0) throw new StorageError(404, 'Not found.')
 
     if (collection === 'projects' && id === undefined) {

@@ -8,6 +8,7 @@ import {
 import type { Installation, Panel } from '@/types/schema'
 import type { OffGridSupplyAssembly } from '@/types/supplyAssembly'
 import { isSupplyTransformer } from '@/lib/electrical/supplyTransformer'
+import { getPanelInputDeviceStartIndex } from '@/lib/supplyAssembly/electricalTopology'
 
 export function panelHasMainBusProtection(panel: Panel): boolean {
   return panel.protections.some((protection) => {
@@ -25,12 +26,14 @@ function panelHasComplexSupplyTopology(
   rootPanels: Panel[]
 ): boolean {
   const devices = getPanelFeedProjection(installation, rootPanels, panel)?.devices ?? []
+  // The site's MV transformer is a conversion device but no board-specific topology.
   return devices.some(
     (device) =>
+      !isSupplyTransformer(device) && (
       device.symbol === 'source_changeover' ||
       device.type === 'conversion' ||
       device.supplyPath === 'converter-branch' ||
-      device.supplyPath === 'backup'
+      device.supplyPath === 'backup')
   )
 }
 
@@ -116,6 +119,55 @@ export function isPanelSupplyFrameDetached(
   return hasComplexSupply && (panelHasMainBusProtection(panel) || rootPanels.length > 1)
 }
 
+/**
+ * Board-specific topology that needs a supply frame of its own. Plain series devices on the
+ * board's feed (a breaker, a meter, an isolating transformer) stay on its continuation wire.
+ */
+function panelHasOwnSupplyTopology(
+  project: ProjectWithOptionalV2Electrical,
+  installation: Installation,
+  rootPanels: Panel[],
+  panel: Panel
+): boolean {
+  if (getSupplyAssemblyPanelRole(project, installation, rootPanels, panel.id).ownsVisualTopology)
+    return true
+  const projection = getPanelFeedProjection(installation, rootPanels, panel)
+  const ownDevices = projection?.devices.slice(projection.sharedDeviceCount) ?? []
+  return getPanelInputDeviceStartIndex(project, ownDevices) > 0 || ownDevices.some(
+    (device) => device.symbol === 'source_changeover' || device.supplyPath === 'converter-branch' ||
+      device.supplyPath === 'backup'
+  )
+}
+
+/**
+ * Detached only because the shared feed holds the site's MV transformer: the board has
+ * no supply topology of its own and shows a plain continuation of the shared feed.
+ */
+export function isPanelBehindSharedSupplyTransformer(
+  project: ProjectWithOptionalV2Electrical,
+  panelId: string | undefined
+): boolean {
+  if (!panelId || !isPanelSupplyFrameDetached(project, panelId)) return false
+  const rootPanels = getProjectElectricalPanels(project)
+  const installation = getProjectElectricalInstallation(project)!
+  const panel = rootPanels.find((candidate) => candidate.id === panelId)!
+  return !panelHasOwnSupplyTopology(project, installation, rootPanels, panel)
+}
+
+/**
+ * Whether this board paints a detached supply frame. The shared feed is drawn once, by the
+ * first main board; other boards behind it only show their own feed devices.
+ */
+export function ownsDetachedSupplyFrame(
+  project: ProjectWithOptionalV2Electrical,
+  panelId: string | undefined
+): boolean {
+  if (!panelId || !isPanelSupplyFrameDetached(project, panelId)) return false
+  if (!isPanelBehindSharedSupplyTransformer(project, panelId)) return true
+  const rootPanels = getProjectElectricalPanels(project)
+  return rootPanels.find((candidate) => candidate.isMain === true)?.id === panelId
+}
+
 /** Resolve legacy/shared supply devices to the detached panel frame that paints them. */
 export function isSupplyDeviceInDetachedFrame(
   project: ProjectWithOptionalV2Electrical,
@@ -129,7 +181,7 @@ export function isSupplyDeviceInDetachedFrame(
   if (!installation) return false
   return rootPanels.some(
     (panel) =>
-      isPanelSupplyFrameDetached(project, panel.id) &&
+      ownsDetachedSupplyFrame(project, panel.id) &&
       getPanelFeedProjection(installation, rootPanels, panel)?.devices.some(
         (device) => device.id === deviceId
       ) === true

@@ -27,6 +27,7 @@ type FeedTopologyCacheEntry = {
   mainSupplyDevices: TrunkDevice[] | undefined
   mainSupplyDeviceLength: number
   mainSupplyDevicePositions: number[]
+  mainSupplyDeviceIds: string[]
   mainSupplySegmentCables: Installation['mainSupply']['supplyTrunkSegmentCables']
   rootFeeds: FeedTopology['rootFeeds'] | undefined
   rootFeedLength: number
@@ -34,6 +35,7 @@ type FeedTopologyCacheEntry = {
   rootFeedDeviceRefs: Array<TrunkDevice[] | undefined>
   rootFeedDeviceLengths: number[]
   rootFeedDevicePositions: number[][]
+  rootFeedDeviceIds: string[][]
   sharedFeed: FeedTopology['sharedFeed'] | undefined
   sharedFeedDevices: TrunkDevice[] | undefined
   panelLength: number
@@ -52,14 +54,17 @@ type FeedTopologyCacheEntry = {
  */
 const feedTopologyCache = new WeakMap<Installation, FeedTopologyCacheEntry>()
 
+/** Reordering devices in place keeps positions 0..n-1, so identity is compared too. */
 function trunkPositionsMatch(
   devices: TrunkDevice[] | undefined,
   length: number,
-  positions: number[]
+  positions: number[],
+  ids: string[]
 ): boolean {
   if ((devices?.length ?? 0) !== length) return false
   for (let index = 0; index < length; index += 1) {
-    if (devices?.[index]?.trunkPosition !== positions[index]) return false
+    if (devices?.[index]?.trunkPosition !== positions[index] || devices?.[index]?.id !== ids[index])
+      return false
   }
   return true
 }
@@ -88,7 +93,8 @@ function cachedTopologyMatches(
     !trunkPositionsMatch(
       mainSupply.supplyTrunkDevices,
       entry.mainSupplyDeviceLength,
-      entry.mainSupplyDevicePositions
+      entry.mainSupplyDevicePositions,
+      entry.mainSupplyDeviceIds
     )
   ) {
     return false
@@ -115,7 +121,8 @@ function cachedTopologyMatches(
       !trunkPositionsMatch(
         feed?.trunkDevices,
         entry.rootFeedDeviceLengths[index] ?? 0,
-        entry.rootFeedDevicePositions[index] ?? []
+        entry.rootFeedDevicePositions[index] ?? [],
+        entry.rootFeedDeviceIds[index] ?? []
       )
     ) {
       return false
@@ -142,6 +149,7 @@ function rememberFeedTopology(
     mainSupplyDevices,
     mainSupplyDeviceLength: mainSupplyDevices?.length ?? 0,
     mainSupplyDevicePositions: mainSupplyDevices?.map((device) => device.trunkPosition) ?? [],
+    mainSupplyDeviceIds: mainSupplyDevices?.map((device) => device.id) ?? [],
     mainSupplySegmentCables: installation.mainSupply.supplyTrunkSegmentCables,
     rootFeeds,
     rootFeedLength: rootFeeds?.length ?? 0,
@@ -150,6 +158,7 @@ function rememberFeedTopology(
     rootFeedDeviceLengths: rootFeeds?.map((feed) => feed.trunkDevices?.length ?? 0) ?? [],
     rootFeedDevicePositions:
       rootFeeds?.map((feed) => feed.trunkDevices?.map((device) => device.trunkPosition) ?? []) ?? [],
+    rootFeedDeviceIds: rootFeeds?.map((feed) => feed.trunkDevices?.map((device) => device.id) ?? []) ?? [],
     sharedFeed: topologySource?.sharedFeed,
     sharedFeedDevices: topologySource?.sharedFeed.trunkDevices,
     panelLength: panels.length,

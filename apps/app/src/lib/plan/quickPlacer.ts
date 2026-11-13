@@ -14,7 +14,11 @@ import {
 import { canSymbolAppearOnSituationPlan } from '@/lib/plan/situationPlanSymbolEligibility'
 import { getSituationPlanPlacementIdsHiddenByPanel } from '@/lib/plan/panelPlanPlacementVisibility'
 import { getPanelSupplyTrunkDevices } from '@/lib/feedTopology'
-import { isNumberedCircuitTrunkSwitch } from '@/lib/eendraad/circuitPointNumbering'
+import {
+  getCircuitBranchPointIndex,
+  getCircuitPointSequence,
+  isNumberedCircuitTrunkSwitch,
+} from '@/lib/eendraad/circuitPointNumbering'
 import type { Circuit, Endpoint, Panel, ProtectionDevice, Placement, TrunkDevice } from '@/types/schema'
 
 export interface QuickPlacerItem {
@@ -54,9 +58,60 @@ export interface QuickPlacerCircuit {
 
 type QuickPlacerProject = ProjectWithOptionalV2Building & ProjectWithOptionalV2Electrical
 
+type QuickPlacerPlacementState = (
+  placement: Placement
+) => Pick<QuickPlacerItem, 'isCustomPlacement' | 'isAwaitingPlacement'>
+
+function readHiddenSituationPlanIds(floor: ReturnType<typeof selectProjectBuildingFloors>[number]) {
+  if ('hiddenSitplanElementIds' in floor) return floor.hiddenSitplanElementIds ?? []
+  if ('hiddenSitplanPlacementIds' in floor) return floor.hiddenSitplanPlacementIds ?? []
+  return []
+}
+
+/**
+ * Placements the user removed from the situation plan view (Hide) while their one-wire
+ * symbol stays. Placements hidden because their device is shown in a panel are excluded:
+ * panel visibility owns those and would hide them again.
+ */
+export function collectUserHiddenPlanPlacementIds(
+  project: QuickPlacerProject
+): Map<string, Set<string>> {
+  const hiddenByFloor = new Map<string, Set<string>>()
+  let hiddenByPanel: Set<string> | undefined
+  for (const floor of selectProjectBuildingFloors(project)) {
+    const ids = readHiddenSituationPlanIds(floor)
+    if (ids.length === 0) continue
+    hiddenByPanel ??= getSituationPlanPlacementIdsHiddenByPanel(project)
+    const userHidden = new Set(ids.filter((id) => !hiddenByPanel!.has(id)))
+    if (userHidden.size > 0) hiddenByFloor.set(floor.id, userHidden)
+  }
+  return hiddenByFloor
+}
+
+/** Whether the quick placer should put this placement back on the plan view when placing it. */
+export function isUserHiddenPlanPlacement(project: QuickPlacerProject, placementId: string): boolean {
+  for (const ids of collectUserHiddenPlanPlacementIds(project).values()) {
+    if (ids.has(placementId)) return true
+  }
+  return false
+}
+
+function createQuickPlacerPlacementState(project: QuickPlacerProject): QuickPlacerPlacementState {
+  const hiddenByFloor = collectUserHiddenPlanPlacementIds(project)
+  return (placement) => {
+    // A symbol hidden from the plan is not on the plan: offer it again like a new one.
+    const hidden = hiddenByFloor.get(placement.floorId)?.has(placement.id) === true
+    return {
+      isCustomPlacement: !hidden && hasCustomPlacement(placement),
+      isAwaitingPlacement: hidden || isAwaitingPlanPlacement(placement),
+    }
+  }
+}
+
 function buildTrunkDeviceQuickPlacerItems(
   devices: TrunkDevice[] | undefined,
   floorNameById: Map<string, string>,
+  placementState: QuickPlacerPlacementState,
   hiddenPlacementIds?: Set<string>
 ): QuickPlacerItem[] {
   return (devices ?? []).flatMap((device) => {
@@ -73,8 +128,7 @@ function buildTrunkDeviceQuickPlacerItems(
         },
         trunkDeviceId: device.id,
         placement,
-        isCustomPlacement: hasCustomPlacement(placement),
-        isAwaitingPlacement: isAwaitingPlanPlacement(placement),
+        ...placementState(placement),
         floorName: floorNameById.get(placement.floorId) ?? placement.floorId,
       }))
   })
@@ -211,7 +265,33 @@ function buildQuickPlacerBranches(
     })
   }
 
-  return branches.slice().reverse()
+  return branches
+}
+
+/**
+ * Orders a circuit's quick placer rows in drawing-reference order (A1, A2, …): numbered trunk
+ * switches and branches follow the circuit's point sequence, legs that share a reference stay
+ * with it, other trunk devices come first and rows without a branch come last.
+ */
+function sortQuickPlacerBranchesByPoint(
+  circuit: Circuit,
+  branches: QuickPlacerBranch[]
+): QuickPlacerBranch[] {
+  const pointByRowId = new Map<string, number>()
+  getCircuitPointSequence(circuit).forEach((slot, point) => {
+    if (slot.kind === 'trunkSwitch') pointByRowId.set(`quick-placer-trunk-${slot.device.id}`, point)
+  })
+  ;(circuit.branches ?? []).forEach((branch, index) => {
+    pointByRowId.set(branch.id, getCircuitBranchPointIndex(circuit, index))
+  })
+  const rank = (branch: QuickPlacerBranch) =>
+    branch.id === `quick-placer-trunk-${circuit.id}`
+      ? -1
+      : (pointByRowId.get(branch.id) ?? Number.POSITIVE_INFINITY)
+  return branches
+    .map((branch, order) => ({ branch, order, rank: rank(branch) }))
+    .sort((a, b) => a.rank - b.rank || a.order - b.order)
+    .map(({ branch }) => branch)
 }
 
 export function buildQuickPlacerCircuits(
@@ -223,6 +303,7 @@ export function buildQuickPlacerCircuits(
   const floorNameById = new Map(
     selectProjectBuildingFloors(project).map((floor) => [floor.id, floor.name])
   )
+  const placementState = createQuickPlacerPlacementState(project)
 
   const orderedCircuits: Array<{
     circuit: Circuit
@@ -248,8 +329,7 @@ export function buildQuickPlacerCircuits(
       const items = endpoint.placements.map((placement) => ({
         endpoint,
         placement,
-        isCustomPlacement: hasCustomPlacement(placement),
-        isAwaitingPlacement: isAwaitingPlanPlacement(placement),
+        ...placementState(placement),
         floorName: floorNameById.get(placement.floorId) ?? placement.floorId,
       }))
       if (items.length === 0) continue
@@ -270,12 +350,16 @@ export function buildQuickPlacerCircuits(
       itemsByCircuitId.get(circuit.id) ?? new Map<string, QuickPlacerItem[]>()
     const circuitIdentifier = getCircuitIdentifier(circuit.id) || circuit.code
 
-    const trunkItems = buildTrunkDeviceQuickPlacerItems(circuit.trunkDevices, floorNameById)
+    const trunkItems = buildTrunkDeviceQuickPlacerItems(
+      circuit.trunkDevices,
+      floorNameById,
+      placementState
+    )
     const numberedSwitchIds = new Set(
       (circuit.trunkDevices ?? []).filter(isNumberedCircuitTrunkSwitch).map((device) => device.id)
     )
     const otherTrunkItems = trunkItems.filter((item) => !numberedSwitchIds.has(item.endpoint.id))
-    const branches = [
+    const branches = sortQuickPlacerBranchesByPoint(circuit, [
       ...(otherTrunkItems.length > 0
         ? [
             {
@@ -294,7 +378,7 @@ export function buildQuickPlacerCircuits(
         }))
         .filter((branch) => branch.items.length > 0),
       ...buildQuickPlacerBranches(circuit, itemsByEndpointId, circuitIdentifier),
-    ]
+    ])
 
     if (branches.length === 0) continue
 
@@ -336,6 +420,7 @@ export function buildQuickPlacerCircuits(
       const items = buildTrunkDeviceQuickPlacerItems(
         devices,
         floorNameById,
+        placementState,
         hiddenSupplyPlacementIds
       )
       if (items.length > 0) {

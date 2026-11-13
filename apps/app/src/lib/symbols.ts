@@ -5,6 +5,8 @@
  * Based on Belgian electrical diagram standards (AREI/RGIE)
  */
 
+import { getPushbuttonOverlayPath, type SwitchSymbolProps } from './switchSymbolProps'
+export type { SwitchSymbolProps } from './switchSymbolProps'
 import type { ElectricalDomain } from '../types/schema'
 import { DEFAULT_ELECTRICAL_DOMAIN as DEFAULT_DOMAIN } from '../types/schema'
 
@@ -37,6 +39,7 @@ export interface SymbolMetadata {
   hiddenFromLibrary?: boolean
   /** Library-only preset; resolves to a base endpoint symbol (and defaults) on drop. */
   libraryPreset?: boolean
+  searchPreset?: string
   /** Library drag marker that creates a top-level panel bus feed boundary. */
   busFeedKind?: 'grid' | 'backup'
 }
@@ -592,6 +595,17 @@ export const symbols: SymbolMetadata[] = [
     tags: ['switch', 'push', 'pushbutton', 'drukknop', 'impulse', 'momentary'],
   },
   {
+    id: 'light_sensor',
+    name: 'Twilight switch',
+    nameNL: 'Schemerschakelaar',
+    nameFR: 'Interrupteur crépusculaire',
+    category: 'switches',
+    scope: 'both',
+    svgPath: '/symbols/switches/light_sensor.svg',
+    tags: ['switch', 'light sensor', 'photocell', 'dusk', 'twilight', 'lichtsensor', 'lichtdetector',
+      'schemerschakelaar', 'fotocel', 'capteur de luminosité', 'Dämmerungsschalter', 'czujnik zmierzchu', 'senzor de lumină'],
+  },
+  {
     id: 'motion_detector',
     name: 'Motion detector',
     nameNL: 'Bewegingsdetector',
@@ -599,15 +613,7 @@ export const symbols: SymbolMetadata[] = [
     category: 'switches',
     scope: 'both',
     svgPath: '/symbols/switches/motion_detector.svg',
-    tags: [
-      'switch',
-      'motion',
-      'detector',
-      'presence',
-      'bewegingsdetector',
-      'bewegingsmelder',
-      'IR',
-    ],
+    tags: ['switch', 'motion', 'detector', 'presence', 'bewegingsdetector', 'bewegingsmelder', 'IR'],
   },
   {
     id: 'smoke_detector',
@@ -617,23 +623,8 @@ export const symbols: SymbolMetadata[] = [
     category: 'switches',
     scope: 'both',
     svgPath: '/symbols/switches/smoke_detector.svg',
-    tags: [
-      'switch',
-      'smoke',
-      'detector',
-      'fire',
-      'gas',
-      'heat',
-      'flame',
-      'beam',
-      'rookdetector',
-      'branddetector',
-      'rookmelder',
-      'gasdetector',
-      'warmtedetector',
-      'vlamdetector',
-      'straaldetector',
-    ],
+    tags: ['switch', 'smoke', 'detector', 'fire', 'gas', 'heat', 'flame', 'beam', 'rookdetector',
+      'branddetector', 'rookmelder', 'gasdetector', 'warmtedetector', 'vlamdetector', 'straaldetector'],
   },
   {
     id: 'relay',
@@ -1210,9 +1201,7 @@ export const symbols: SymbolMetadata[] = [
   },
 ]
 
-/**
- * Get symbols by category
- */
+/** Get symbols by category */
 export function getSymbolsByCategory(category: keyof typeof symbolCategories) {
   return symbols.filter((s) => s.category === category)
 }
@@ -1229,6 +1218,8 @@ export const SWITCH_OVERLAY_PATHS = {
   overlayLight: '/symbols/switches/switch_overlay_light.svg',
   /** Pushbutton indicator light (legacy symbol key: switch_impulse). */
   pushbuttonOverlayLight: '/symbols/switches/switch_impulse_overlay_light.svg',
+  pushbuttonProtected: '/symbols/switches/switch_impulse_overlay_protected.svg',
+  pushbuttonProtectedLight: '/symbols/switches/switch_impulse_overlay_protected_light.svg',
 } as const
 
 /** Relay control overlay SVG paths (drawn on top of relay symbol for control modes) */
@@ -1455,15 +1446,6 @@ export function resolveSymbolPortsForWire(
   }
 }
 
-/** Props used to resolve switch base SVG and overlay (matches SwitchDeviceProps) */
-export interface SwitchSymbolProps {
-  poles?: 1 | 2 | 3 | 4
-  twoPole?: boolean
-  verklikkerlamp?: boolean
-  /** Only used when symbol is motion_detector; defaults to spread */
-  motionDetectorType?: 'spread' | 'generic'
-}
-
 /**
  * Resolve base SVG path and optional overlay path for a switch endpoint.
  * Handles legacy symbol keys (switch_single, switch_double) and pole/twoPole variants.
@@ -1517,12 +1499,15 @@ export function getSwitchSymbolPaths(
     case 'switch_shutter':
       basePath = '/symbols/switches/switch_shutter.svg'
       break
+    case 'light_sensor':
+      basePath = '/symbols/switches/light_sensor.svg'
+      break
     case 'contact':
       basePath = '/symbols/switches/contact.svg'
       break
     case 'switch_impulse':
       basePath = '/symbols/switches/switch_impulse.svg'
-      if (verklikkerlamp) overlayPath = SWITCH_OVERLAY_PATHS.pushbuttonOverlayLight
+      overlayPath = getPushbuttonOverlayPath(sp)
       break
     case 'switch_cross':
       basePath = '/symbols/switches/switch_cross.svg'

@@ -39,7 +39,7 @@
  * via useCanvasFontFamily() (same as rest of canvas).
  */
 
-import type { Installation, ProjectPartyContact } from '@/types/schema'
+import type { Installation, Panel, ProjectPartyContact } from '@/types/schema'
 import { getConnectionSummaryLabel } from '@/lib/electrical/supplyConnection'
 
 /** Column widths (px). Change these to resize columns; total frame width is derived automatically. */
@@ -154,20 +154,20 @@ export const INFO_BLOCK_INSTALLER_HEIGHT =
   INFO_BLOCK_MADE_WITH_HEIGHT +
   INFO_BLOCK_PADDING * 2
 
-/** Total block height (all three columns use this). */
+/** Minimum block height; infoBlockContent measures the content-driven height of every column. */
 export const INFO_BLOCK_HEIGHT = INFO_BLOCK_INSTALLER_HEIGHT
 
 /** Margin between info block and panel frame edge (used for min frame size and positioning). */
 export const INFO_BLOCK_FRAME_MARGIN = 10
 
 /** Minimum panel frame width/height so the info block fits inside. Use in layout for dynamic min size. */
-export function getInfoBlockMinFrameSize(columns: InfoBlockColumns = {}): {
+export function getInfoBlockMinFrameSize(columns: InfoBlockColumns = {}, height = INFO_BLOCK_HEIGHT): {
   minWidth: number
   minHeight: number
 } {
   return {
     minWidth: getInfoBlockTotalWidth(columns) + INFO_BLOCK_FRAME_MARGIN * 2,
-    minHeight: INFO_BLOCK_HEIGHT + INFO_BLOCK_FRAME_MARGIN * 2,
+    minHeight: height + INFO_BLOCK_FRAME_MARGIN * 2,
   }
 }
 
@@ -242,7 +242,7 @@ export function formatInstallerAddress(
   return parts.join('\n')
 }
 
-export function getVoltageLabel(installation: Installation): string {
-  const label = getConnectionSummaryLabel(installation)
+export function getVoltageLabel(installation: Installation, panels: Panel[] = []): string {
+  const label = getConnectionSummaryLabel(installation, panels)
   return `${label} 50 Hz`
 }

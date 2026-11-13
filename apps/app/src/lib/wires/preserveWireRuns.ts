@@ -11,6 +11,7 @@ import { resolveProjectDefaultCableKind } from './circuitWireDefaults'
 import { wireRunAppearance } from './wireRunAppearance'
 import { followProjectWireAnchorReferences, rekeyWireRunMember } from './wireAnchorMutation'
 import { getWireTopologyContext } from './wireTopologyContext'
+import { preserveForkWireRuns } from './preserveForkWireRuns'
 
 /** Preserve authored cables across a complete structural edit; fresh wires get specs, never old lengths/cores. */
 export function preserveWireRuns(
@@ -121,6 +122,7 @@ export function preserveWireRuns(
     }
   }
   followProjectWireAnchorReferences(draft, replacements, before)
+  created.push(...preserveForkWireRuns(before, after, draft, previous, next, oldOwner, newId))
   // Retire only formerly live connections whose device has actually gone. A domain-only change
   // still belongs to the same device and is followed by the existing AC/DC repair.
   const survivingTargets = new Set(

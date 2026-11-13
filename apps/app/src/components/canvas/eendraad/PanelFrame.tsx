@@ -1,3 +1,4 @@
+import { getInfoBlockContent } from '@/lib/infoBlockContent'
 import { LabelPreviewText } from './LabelPreviewText'
 import { useCallback, useDeferredValue, useMemo } from 'react'
 import {
@@ -36,7 +37,7 @@ import {
   HOVER_OUTLINE_STROKE_PX_MIN,
   HOVER_OUTLINE_STROKE_PX_MAX,
 } from '@/constants/canvasConstants'
-import { InfoBlock, INFO_BLOCK_HEIGHT } from './InfoBlock'
+import { InfoBlock } from './InfoBlock'
 import { getDecodedInfoBlockLogo } from '@/lib/infoBlockLogoImage'
 import {
   getInfoBlockColumns,
@@ -63,9 +64,11 @@ const BODY_FONT_SIZE = 11
 interface PanelFrameProps {
   panelLayout: BottomUpPanelLayout
   children: React.ReactNode
+  overview?: boolean
+  coarseHit?: boolean
 }
 
-export function PanelFrame({ panelLayout, children }: PanelFrameProps) {
+export function PanelFrame({ panelLayout, children, overview = false, coarseHit = false }: PanelFrameProps) {
   const { t } = useTranslation()
   const theme = useSettingsStore((state) => state.theme)
   const fontFamily = useCanvasFontFamily()
@@ -164,7 +167,7 @@ export function PanelFrame({ panelLayout, children }: PanelFrameProps) {
       getInfoBlockColumns(currentProject, { hasLogo: getDecodedInfoBlockLogo(profile?.logoDataUrl) != null })
     )
   const infoBlockX = explicitInfoBlock?.x ?? fx + fw - infoBlockWidth - INFO_BLOCK_FRAME_MARGIN
-  const infoBlockY = explicitInfoBlock?.y ?? fy + fh - INFO_BLOCK_HEIGHT - INFO_BLOCK_FRAME_MARGIN
+  const infoBlockY = explicitInfoBlock?.y ?? fy + fh - getInfoBlockContent(currentProject, profile, t('installation.countryBelgium', 'Belgium'), fontFamily).height - INFO_BLOCK_FRAME_MARGIN
 
   const bottomHitWidth = Math.max(0, infoBlockX - fx)
   const rightHitHeight = Math.max(0, infoBlockY - fy)
@@ -241,6 +244,9 @@ export function PanelFrame({ panelLayout, children }: PanelFrameProps) {
         onTap={handleTitleClick}
         listening={true}
       >
+        {coarseHit ? (
+          <Rect name="onewire-coarse-panel-hit" x={fx} y={fy} width={fw} height={fh} fill="transparent" />
+        ) : <>
         <Rect
           x={fx}
           y={fy}
@@ -277,6 +283,7 @@ export function PanelFrame({ panelLayout, children }: PanelFrameProps) {
             listening={true}
           />
         )}
+        </>}
       </Group>
       <Rect
         name="export-strip-frame"
@@ -357,7 +364,8 @@ export function PanelFrame({ panelLayout, children }: PanelFrameProps) {
           viewTitle={t('infoBlock.viewTitle.oneWire', 'One-wire diagram')}
           project={currentProject ?? null}
           profile={profile}
-          interactive={true}
+          interactive={!coarseHit}
+          overview={overview}
         />
       )}
     </Group>

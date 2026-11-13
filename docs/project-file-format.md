@@ -24,7 +24,8 @@ The current manifest has archive format version `1`, the format label `project-w
 
 ## `project.json`
 
-The current schema version is `2.3.0`.
+The current schema version is `2.3.0`. Projects containing one-wire forks are
+written as `2.4.0` (see [One-wire forks](#one-wire-forks)); all other projects stay `2.3.0`.
 
 `project.showConduiBranding` optionally controls the drawing title-block footer:
 missing or `true` shows the localized Condui attribution, `false` hides it.
@@ -66,14 +67,17 @@ describes how automatic labels are formatted: `version` (`1`), `separator`
 (`"."`, `"-"` or `"/"`), `panel` (`prefix` text without spaces or digits, at most
 6 characters; `style` `"number"`, `"number2"` or `"upper"`; `start` `0` or `1`;
 `nested` boolean), `circuit` (`style` `"upper"`, `"lower"`, `"number"` or
-`"number2"`; `panelPart` `"none"`, `"number"` or `"full"`; `joinPanel` boolean)
+`"number2"`; `panelPart` `"none"`, `"number"`, `"full"` or `"continuous"`; `joinPanel` boolean)
 and `branch` (`join` boolean). Wherever two numbers meet, the separator is always
 written. Missing or invalid means the classic scheme (circuits `A, B, C`,
 branches `A1`, domotica outputs `A1.1`, panel numbers `B01`), and the classic
 scheme is saved by omitting the field. Labels themselves stay stored on circuits,
 protections, branches and endpoints; the scheme only decides how automatic naming
-rewrites them. `panelPart` takes effect only while `panelNumberingEnabled` is
-true. No schema bump is needed; readers without support keep producing classic
+rewrites them. `panelPart` values `"number"` and `"full"` take effect only while
+`panelNumberingEnabled` is true. `"continuous"` omits the panel prefix and
+continues the circuit sequence across boards in panel order (each board followed
+by its sub-boards), reserving manually locked labels across the installation.
+It works with panel numbering off; board numbers can still be displayed independently. No schema bump is needed; readers without support keep producing classic
 labels.
 
 A panel may carry an optional `numberOverride` string (1–12 characters), a panel
@@ -114,6 +118,34 @@ With a marked supply transformer, `connectionCurrentA` is the LV connection
 setting: it updates the first LV MCB after that transformer, never MV protection
 before it. The MV source label does not display the LV current as primary current.
 
+A site with a marked supply transformer may run main panels at different LV
+systems (for example one transformer with two taps feeding a 3N~ 400 V and a
+3~ 230 V main panel). The primary record of
+`feedTopology.rootFeeds[]` for that main panel may then carry an optional
+`nominalVoltage` with the same shape as the installation's. It is effective only
+while a marked supply transformer exists; the main panel's sub-panels, circuits and
+phase choices inherit it. Missing means the installation's `nominalVoltage`, which
+stays the default output. Every bus-section feed of one main panel carries the
+same value. Only a main panel directly behind the transformer (a top-level panel
+not fed from another panel's protection) uses this value; on any other record it
+is ignored and the panel follows the panel that feeds it. The first such panel
+runs on the installation's `nominalVoltage`: editors change the default output
+through it and give the other direct main panels an explicit value so they keep
+their output. `conversionProps.transformerSecondaryOutputsV` is a drawing-only
+view of every output and is not written to projects; readers ignore it. The same records may carry optional `transformerOutputRatedKva` and
+`transformerOutputUkPercent`: the nameplate of the winding behind that output, used
+for its fault level. They exist only beside `nominalVoltage`; the transformer
+device's own nameplate describes the installation's output. Returning the panel to
+the installation voltage clears all three, and removing the supply transformer
+through Direct low voltage clears these fields on every panel. Older readers
+preserve the fields but treat every panel as running at the installation voltage;
+no schema-version change is required.
+
+Meters and protections placed before a marked supply transformer on the common
+supply wire are on its medium-voltage side (for example a single MV meter).
+Choosing Own transformer again keeps them there; only other devices are moved
+behind the source.
+
 The project locale supports `nl-BE`, `en`, `fr-BE`, `de`, `pl`, and `ro`.
 Electrical JSON imports accept the same locale codes. Dutch remains the default.
 
@@ -136,8 +168,10 @@ An MCB protection may carry optional `tripSettings` with the adjustable settings
 moulded-case or air breaker, in amperes and seconds: `irA`, `isdA`, `tsdS` and `iiA`, each
 optional; their presence means the breaker is adjustable and its labels omit the curve letter,
 while `curve` keeps the previous curve. A FUSE protection may carry `fuseClass`, `"gG"` or
-`"aM"`. Missing means unknown. Neither field changes cabinet layout; readers that do not
-calculate fault levels preserve them and may ignore them. No schema version change is required.
+`"aM"`. Missing means unknown. A protection on the incoming supply wire
+(`installation.mainSupply.supplyTrunkDevices`) may carry the same two fields. Neither field
+changes cabinet layout; readers that do not calculate fault levels preserve them and may
+ignore them. No schema version change is required.
 
 `project.lastViewportLayout` may repeat the same canvas type in multiple slots.
 For the `grid` preset, optional integer `rows` and `columns` each range from 1 to 4;
@@ -206,6 +240,42 @@ resistance in ohm, and a panel may hold `expectedShortCircuitKa`, the expected m
 short-circuit current at that board in kA. Both are optional positive numbers; missing
 values mean unknown, and older files without them remain valid.
 
+A switch endpoint may use `symbol: "light_sensor"` for a twilight switch
+(ambient-light-operated contact). It uses the existing switch endpoint and plan
+placement shapes, with no new properties or schema version. A circuit trunk
+device may also use `type: "switch", symbol: "light_sensor"`; its existing
+`trunkPosition` places the contact before the branch at that index, so that branch
+and all following branches share its switched supply, including any downstream
+motion sensor. A branch-local twilight switch controls only that branch. Existing
+projects remain valid; TRiK twilight switches retain this symbol on import.
+
+<a id="one-wire-forks"></a>**One-wire forks.** An ordinary AC final-circuit `Branch` may persist `forkFrom: { "afterEndpointId": "<id>" }`.
+The branch is then fed from the downstream connection of that endpoint in the same
+circuit instead of from the circuit trunk, so its cable runs from that endpoint.
+Forks may nest to any depth: the referenced endpoint may itself sit on a forked
+branch. A branch without `forkFrom` remains a root branch fed from the trunk, and
+trunk device `trunkPosition` indexes count root branches only. `keepEmpty: true`
+keeps a deliberately created branch with an empty `endpointIds` list; without it,
+empty branches are dropped during normalization. A circuit may hold forks next to a
+branch-local converter endpoint (`transformer`, `rectifier`, `inverter`, `dc_dc_converter`):
+the root branch holding the converter, and any legs below it, is written exactly as
+without forks, and no `forkFrom` references an endpoint in it. Readers must keep such
+roots intact and may treat a `forkFrom` into one as an unresolved connection.
+
+A document containing any `forkFrom` or `keepEmpty` is written with schema version
+`2.4.0` so that readers that do not understand fork attachments reject it rather
+than silently flattening the topology. Once written as `2.4.0`, a project keeps that
+version. Readers must not invent attachments: a `forkFrom` that references a
+missing endpoint, an endpoint in another circuit, or forms a cycle is reported as an
+unresolved connection, its endpoints are retained, and no electrical feed is derived
+for that branch.
+
+Branch and endpoint labels are stored values and are kept as written. The editor
+labels a leg like the branch it hangs from when a switch feeds it. A leg attached
+directly after a `switch_1p_changeover` endpoint, or after a point on its branch that no
+switch feeds yet, gets its own sequential branch number (later root branches shift up);
+readers must not recompute either.
+
 An EV endpoint with `symbol: "ev"` may persist
 `evChargerProps.integratedDcResidualProtection: true` when the charger includes
 coordinated residual-DC protection or detection, such as 6 mA DC detection. Missing
@@ -218,6 +288,12 @@ one-wire symbol and rules. Readers must omit it from the situation plan without
 treating the missing placement as invalid. It remains visible in the panel view
 and is limited to one or two outlets (two or four DIN modules). Missing or `false`
 means an ordinary wall socket.
+
+`switchProps.protected` optionally marks a `switch_impulse` pushbutton with a
+protective break-glass cover. Missing or `false` means an ordinary pushbutton.
+It combines with `switchProps.verklikkerlamp` (indicator light), changes only the
+artwork, and requires no schema-version change. Readers without this drawing
+option should preserve it.
 
 Control addressing records which channel of a building-control device (KNX, DALI,
 Loxone, Niko Home Control or Qbus) feeds a load. It is descriptive only: addresses are labels for
@@ -409,6 +485,12 @@ fractional widths on this grid. Panel `gridView` may enable compact terminal-onl
 with `terminalStripTopRail` and `terminalStripBottomRail`. A terminal-strip slot assigned
 to one of those rows persists `terminalStripRail: "top"` or `"bottom"`; other device
 types ignore that marker and remain in the regular grid.
+A board `gridView` may carry an optional integer `fields` (default 1, at most 8) for a
+multi-field cabinet or several cabinets side by side. Every field has the same `rows` and
+`columns`; field `i` (from 0) starts at module column `i * (columns + 2)` of one global grid,
+so slot `col` values keep a single coordinate system and the two empty columns between
+fields are a gap. A module never straddles a field boundary. Files without `fields` have one
+field, and a loader that ignores `fields` keeps the modules at their stored positions.
 Automatic slot persistence retains the rail marker. When older automatic slots contain
 overlapping distinct terminal strips in a regular row and a terminal rail is enabled,
 the editor recovers those strips onto free terminal-rail positions.
@@ -1259,6 +1341,7 @@ older versions have greyscale `svgContent` itself and cannot be switched back to
 
 The loader accepts:
 
+- `2.4.0`, the native format for projects containing one-wire forks;
 - `2.3.0`, the current native format;
 - `2.2.0`, upgraded by repairing the routes of seeded wire runs (see below);
 - `2.1.0`, upgraded by seeding the canonical wire-run collection (see below);

@@ -131,7 +131,7 @@ import { createFindElementsInRectangleHandler } from '@/handlers/eendraad'
 import { canDropSymbolOnEmptyCanvas } from '@/lib/eendraad/dropBehaviors'
 import { isSupplyDropTarget } from '@/lib/eendraad/supplyDropTargets'
 import { PROTECTION_SYMBOL_IDS } from '@/lib/protectionKind'
-
+import { oneWireForksEnabled } from '@/lib/eendraad/oneWireForkProject'
 import { describeEnclosureKey } from '@/lib/panel/enclosureNames'
 import { getSymbolById, type SymbolMetadata } from '@/lib/symbols'
 import AddElementPicker from '@/components/eendraad/AddElementPicker'
@@ -592,11 +592,11 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
   }, [])
   const getBranchTargets = useCallback((symbol: SymbolMetadata, movingIds = branchMovingIds()) => {
     const zoom = canvasRef.current?.getLiveViewTransform().zoom ?? eendraadViewRef.current.zoom
-    const key = JSON.stringify([symbol.id, zoom, movingIds])
+    const key = JSON.stringify([symbol.id, symbol.searchPreset, zoom, movingIds])
     if (!branchTargetCache.current || branchTargetCache.current.layout !== layout || branchTargetCache.current.key !== key) {
       branchTargetCache.current = {
         layout, key, previousId: null,
-        targets: layout && layoutTree ? collectBranchDropTargets(layout, layoutTree, symbol, zoom, movingIds)
+        targets: layout && layoutTree ? collectBranchDropTargets(layout, layoutTree, symbol, zoom, movingIds, oneWireForksEnabled())
           : { intents: [], regions: [], endpointNodeIds: new Set(), circuitIds: new Set() },
       }
     }
@@ -640,7 +640,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
           : false,
       resolveSameSymbolAddMore: (position, symbol) => {
         if (!layoutTree) return null
-        const target = findSameSymbolAddMoreLayoutTargets(symbol.id, layoutTree, position)[0]
+        const target = findSameSymbolAddMoreLayoutTargets(symbol.searchPreset ? '' : symbol.id, layoutTree, position)[0]
         if (!target) return null
         const internalId = internalDragElementIdRef.current
         if (internalId) {
@@ -947,7 +947,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
     [setEendraadView]
   )
 
-  const { handleGetSelectionBounds, handleFitToView } = useEendraadSelectionBounds({
+  const { handleGetSelectionBounds, getPeerSelectionBounds, handleFitToView } = useEendraadSelectionBounds({
     layoutTree,
     requestFitToView,
     viewportUI,
@@ -1057,7 +1057,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
       if (branchDrop.handled && !branchDrop.intent) return
       if (!branchDrop.handled && positionHitsMultiplierBadge(layoutTree, position)) return
       const directSameSymbolTarget = branchDrop.handled ? branchDrop.intent?.sameSymbolTarget : findSameSymbolAddMoreLayoutTargets(
-        symbol.id,
+        symbol.searchPreset ? '' : symbol.id,
         layoutTree,
         position
       )[0]
@@ -1100,7 +1100,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
           }
         }
         layoutTree.panels.forEach(findEndpoint)
-        if (existingEndpoint && isConflictingOnSymbolDrop(symbol.id, existingEndpoint)) {
+        if (existingEndpoint && isConflictingOnSymbolDrop(symbol.id, existingEndpoint, symbol.searchPreset)) {
           logger.info(`[drop-diag] Conflicting configured endpoint drop blocked for symbol=${symbol.id}`)
           return
         }
@@ -1266,11 +1266,11 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
       logger.info(
         `[drop-diag] Executing drop: symbol=${symbol.id}, target=${JSON.stringify({ type: dropTarget.type, panelId: dropTarget.panelId, circuitId: dropTarget.circuitId, protectionId: dropTarget.protectionId })}`
       )
-      // The command applies the shared target rules (protection normalization, junction-panel
-      // boundary) and the drop engine as one undoable step.
+      // Apply shared drop rules and repairs in one undoable command.
       const placed = placeElectricalSymbol({
         ownerDocument: window.document,
         symbolId: symbol.id,
+        searchPreset: symbol.searchPreset,
         target: dropTarget,
         dropCanvasPosition: position,
         label: 'drop symbol from library onto installation plan',
@@ -1872,7 +1872,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
 
             {/* Debug: hit zone overlay (dev builds only, when enabled in settings) */}
             {import.meta.env.DEV && <TrunkLayoutDebugOverlay layout={layout} wireSegments={wireSegments} />}
-            <EendraadRemoteSelections getSelectionBounds={handleGetSelectionBounds} zoom={eendraadView.zoom} />
+            <EendraadRemoteSelections getSelectionBounds={getPeerSelectionBounds} zoom={eendraadView.zoom} />
             {}
           </Group>
         </BaseCanvas>

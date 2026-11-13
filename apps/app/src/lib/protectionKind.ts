@@ -57,6 +57,13 @@ export function isFunctionalProtectionType(type: ProtectionType | undefined): bo
   return type != null && type !== 'ROTATING_SWITCH' && type !== 'SPD'
 }
 
+/** A trunk protection's type: older files carry only the symbol, and a breaker is the default. */
+export function trunkProtectionType(
+  device: Pick<TrunkDevice, 'protectionType' | 'symbol'>,
+): ProtectionType {
+  return device.protectionType ?? PROTECTION_SYMBOL_ID_TO_TYPE[device.symbol] ?? 'MCB'
+}
+
 /** Protection types that can limit fault current through an overcurrent trip. */
 export function isOvercurrentProtectionType(type: ProtectionType | undefined): boolean {
   return type === 'MCB' || type === 'RCBO' || type === 'FUSE'

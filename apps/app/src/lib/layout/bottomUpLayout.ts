@@ -72,6 +72,7 @@ import type { Point } from '@/types/ui'
 import type { TrunkLayout, BranchLayout } from './wireSegments'
 
 import { getInfoBlockColumns } from '@/lib/infoBlockLayout'
+import { getProjectInfoBlockHeight } from '@/lib/infoBlockContent'
 import { ensureInstallationFeedTopology } from '@/lib/feedTopology'
 
 import type { FeedStubFeeder } from './feedStubFeeders'
@@ -104,7 +105,12 @@ import { getCircuitNotesPaintBounds } from './circuitNoteMetrics'
 import type { OneWireLayoutBlock } from './oneWireBlockLayout'
 
 import type { SupplyTopLabelPlacement } from './supplyTopLabelLayout'
-import { getSupplyAssemblyPanelRole, isPanelSupplyFrameDetached } from './supplyFrameDetachment'
+import {
+  getSupplyAssemblyPanelRole,
+  isPanelBehindSharedSupplyTransformer,
+  isPanelSupplyFrameDetached,
+  ownsDetachedSupplyFrame,
+} from './supplyFrameDetachment'
 import { collectConductorMarkGaps } from './conductorMarkSpacing'
 import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 export { estimateCircuitNotesWidth } from './circuitNoteMetrics'
@@ -366,11 +372,9 @@ export function getPanelDiagramId(panelLayout: BottomUpPanelLayout): string {
 
 /** Inputs that live outside the project but change the drawing's geometry. */
 export interface BottomUpLayoutOptions {
-  /**
-   * The effective installer profile has a logo that the project may show.
-   * Widens every frame's info block, so callers must pass the value the canvas renders.
-   */
+  /** Effective profile geometry must match the rendered info block. */
   infoBlockLogo?: boolean
+  infoBlockHeight?: number
   /**
    * Draw a sub-panel's incoming feeder at its natural length instead of reserving room for an
    * inserted feeder device. For small read-only previews only; the editor keeps the default.
@@ -386,6 +390,7 @@ export interface BottomUpLayoutResult {
   controlLinkNotes?: ReadonlyMap<string, string>
   /** Laid out with the installer logo column; derived previews must reuse it. */
   infoBlockLogo?: boolean
+  infoBlockHeight?: number
 }
 
 /**
@@ -735,7 +740,7 @@ function calculateBottomUpPanelLayout(
         // roughly four pixels between the visible text bottom and the bus.
         y: mainBusY - 10,
       },
-      label: panel.name,
+      label: options.feedOutputLabel ?? panel.name,
     })
   }
 
@@ -941,7 +946,7 @@ function calculateBottomUpLayoutScoped(
       installation,
       panels,
       {
-        infoBlockColumns,
+        infoBlockColumns, infoBlockHeight: layoutOptions.infoBlockHeight ?? getProjectInfoBlockHeight(project),
         compactSubPanelFeed: layoutOptions.compactSubPanelFeed,
         ...(suppressInlineSupplyTopology
           ? ({
@@ -951,6 +956,10 @@ function calculateBottomUpLayoutScoped(
               ownerPanelId: flatPanel.panel.id,
               frameRole: 'panel',
               supplyEndpointKind: 'continuation',
+              // Behind the shared transformer an empty board still meets its feed wire.
+              ...(detachSupply && isPanelBehindSharedSupplyTransformer(project, flatPanel.panel.id)
+                ? { continuationRail: true }
+                : {}),
             } as const)
           : {}),
       }
@@ -968,7 +977,7 @@ function calculateBottomUpLayoutScoped(
       expandPanelFrameLeftForMirroredSupply(panelLayout)
     }
 
-    if (detachSupply) {
+    if (detachSupply && ownsDetachedSupplyFrame(project, flatPanel.panel.id)) {
       const supplyDiagramPanel = clonePanelForDiagramRole(flatPanel.panel, 'supply')
       const detachedSupplyLayout = calculateBottomUpPanelLayout(
         project,
@@ -979,12 +988,21 @@ function calculateBottomUpLayoutScoped(
         installation,
         panels,
         {
-          infoBlockColumns,
+          infoBlockColumns, infoBlockHeight: layoutOptions.infoBlockHeight ?? getProjectInfoBlockHeight(project),
           diagramId: `${flatPanel.panel.id}--supply`,
           ownerPanelId: flatPanel.panel.id,
           frameRole: 'supply',
           supplyEndpointKind: 'mains',
           feedOutput: true,
+          // One shared feed serves every main board behind the site transformer.
+          ...(isPanelBehindSharedSupplyTransformer(project, flatPanel.panel.id)
+            ? {
+                feedOutputLabel: panels
+                  .filter((candidate) => isPanelBehindSharedSupplyTransformer(project, candidate.id))
+                  .map((candidate) => candidate.name)
+                  .join(', '),
+              }
+            : {}),
         }
       )
       mirrorDetachedSupplyPanelLayoutHorizontally(detachedSupplyLayout)
@@ -1296,6 +1314,6 @@ function calculateBottomUpLayoutScoped(
     panels: panelLayouts,
     totalWidth,
     totalHeight,
-    ...(infoBlockColumns.logo ? { infoBlockLogo: true } : {}),
+    ...(infoBlockColumns.logo ? { infoBlockLogo: true } : {}), infoBlockHeight: layoutOptions.infoBlockHeight ?? getProjectInfoBlockHeight(project),
   }
 }

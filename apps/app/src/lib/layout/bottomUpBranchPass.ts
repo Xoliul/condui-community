@@ -1,4 +1,6 @@
 import type { Circuit, Endpoint, Panel, ProtectionDevice, TrunkDevice } from '@/types/schema'
+import { hasOneWireForks } from '@/lib/eendraad/oneWireForkProject'
+import { layoutCircuitForkBranches } from './circuitForkBranches'
 import { DOMOTICA_MIN_ENDPOINT_OUTPUTS, DOMOTICA_MAX_ENDPOINT_OUTPUTS, DOMOTICA_OUTPUT_SPACING } from '@/lib/domoticaLayout'
 import { getCircuitBranches, getStandardCircuitBranches } from './endpointChains'
 import type { BranchLayout, TrunkLayout } from './wireSegments'
@@ -23,8 +25,6 @@ import {
   supportsCircuitConverterDcConnections,
 } from './circuitConverterGeometry'
 import {
-  getProtectionToTrunkDeviceCenterGap,
-  getTrunkDeviceToFirstBranchExtraGap,
   getTrunkDeviceVerticalPaintHeight,
   TRUNK_DEVICE_BRANCH_CLEARANCE,
 } from './trunkDeviceSpacing'
@@ -174,22 +174,12 @@ export function calculateFirstBranchY(
         : 0),
     0
   )
-  const firstDeviceGap = trunkDevicesBeforeBranches[0]
-    ? getProtectionToTrunkDeviceCenterGap(
-        trunkDevicesBeforeBranches[0],
-        constants.TRUNK_DEVICE_MCB_GAP
-      )
-    : constants.TRUNK_DEVICE_MCB_GAP
-  const firstBranchExtraGap = getTrunkDeviceToFirstBranchExtraGap(
-    trunkDevicesBeforeBranches[0]
-  )
   return trunkDevicesBeforeBranches.length > 0
     ? mcbStartY -
-        firstDeviceGap -
+        constants.TRUNK_DEVICE_MCB_GAP -
         (trunkDevicesBeforeBranches.length - 1) *
           (constants.TRUNK_DEVICE_SPACING + constants.SYMBOL_SIZE) -
         constants.BRANCH_START_OFFSET -
-        firstBranchExtraGap -
         converterReserve
     : mcbStartY - Math.max(constants.BRANCH_START_OFFSET, (circuitLayout.wireLabelSpan ?? 0) + CIRCUIT_WIRE_LABEL_BRANCH_CLEARANCE)
 }
@@ -307,9 +297,10 @@ export function getTrunkDeviceBranchGapY(
   constants: TrunkPlacementConstants
 ): number | undefined {
   if (device.trunkPosition <= 0) return undefined
-  const precedingBranch = branches[device.trunkPosition - 1]
+  const rootBranches = branches.filter((branch) => !branch.forkFrom)
+  const precedingBranch = rootBranches[device.trunkPosition - 1]
   if (!precedingBranch) return undefined
-  const followingBranch = branches[device.trunkPosition]
+  const followingBranch = rootBranches[device.trunkPosition]
   const growth = getDomoticaExtraRows(precedingBranch.endpoints, {
     DOMOTICA_MIN_ENDPOINT_OUTPUTS: constants.DOMOTICA_MIN_ENDPOINT_OUTPUTS ?? DOMOTICA_MIN_ENDPOINT_OUTPUTS,
     DOMOTICA_MAX_ENDPOINT_OUTPUTS: constants.DOMOTICA_MAX_ENDPOINT_OUTPUTS ?? DOMOTICA_MAX_ENDPOINT_OUTPUTS,
@@ -333,6 +324,12 @@ export function getTrunkDeviceBranchGapY(
     heights.slice(0, index).reduce((sum, height) => sum + height, 0) - heights[index]! / 2
 }
 
+/** Space a branch needs above its row for a converter's detached metadata card (0 without one). */
+export function getBranchMetadataCardClearance(endpoints: Circuit['endpoints'], symbolSize: number): number {
+  const cardHeight = Math.max(...endpoints.map(getBranchConverterMetadataCalloutHeight), 0)
+  return cardHeight > 0 ? cardHeight + BRANCH_METADATA_CARD_GAP + symbolSize / 2 + BRANCH_METADATA_COLLISION_CLEARANCE : 0
+}
+
 function createEndpointBranchRows(
   circuit: Circuit,
   startX: number,
@@ -342,6 +339,12 @@ function createEndpointBranchRows(
   nestedBranchLabelClearance: number,
   protection?: ProtectionDevice | null
 ): BranchLayout[] {
+  if (hasOneWireForks(circuit)) return layoutCircuitForkBranches(circuit, startX, startY, firstBranchY, {
+    branchLeadIn: constants.BRANCH_LEAD_IN, endpointSpacing: constants.ENDPOINT_HORIZONTAL_SPACING,
+    applianceAfterSocketGap: constants.APPLIANCE_AFTER_SOCKET_GAP, rowSpacing: constants.ENDPOINT_BRANCH_SPACING,
+    trunkDeviceSpacing: constants.TRUNK_DEVICE_SPACING, bottomHeight: getBranchBottomLabelHeight,
+    topReserve: (endpoints) => getBranchMetadataCardClearance(endpoints, constants.SYMBOL_SIZE),
+  })
   const endpointBranches = getStandardCircuitBranches(circuit)
   const storedBranches = (circuit.branches ?? []).filter((branch) => !branch.dcBusId)
   const result: BranchLayout[] = []
@@ -575,7 +578,7 @@ function processNestedCircuitBranches(
       constants
     )
 
-    if (getNonPanelEndpoints(nestedCircuit).length === 0) {
+    if (getNonPanelEndpoints(nestedCircuit).length === 0 && !hasOneWireForks(nestedCircuit)) {
       branches.push(createEmptyBranch(nestedCircuit, nestedStartX, nestedMcbY, nestedFirstBranchY))
     } else {
       branches.push(
@@ -645,7 +648,7 @@ export function calculateBranchLayoutPass(
     // made the pass O(circuits × totalBranches). Nested circuits are pushed later
     // by processNestedCircuitBranches, so these rows are exactly circuit.id's set.
     const circuitBranchRows =
-      getNonPanelEndpoints(circuit).length === 0
+      getNonPanelEndpoints(circuit).length === 0 && !hasOneWireForks(circuit)
         ? [createEmptyBranch(circuit, startX, startY, firstBranchY)]
         : createEndpointBranchRows(circuit, startX, startY, firstBranchY, constants, 0, circuitLayout.protection)
     branches.push(...circuitBranchRows)

@@ -217,6 +217,11 @@ function collectTargets(
   return { targets: candidates, truncated }
 }
 
+/** Whether a symbol ID can be placed in the one-wire schematic at all. */
+export function isSchematicLibrarySymbol(symbolId: string): boolean {
+  return librarySymbols(symbolId).length > 0
+}
+
 function librarySymbols(symbolId?: string): SymbolMetadata[] {
   return symbols.filter(
     (symbol) =>

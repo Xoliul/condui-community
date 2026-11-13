@@ -1052,7 +1052,7 @@ function PlacementSymbolInner({
                 y={-outlineHeight / 2}
                 width={outlineWidth}
                 height={outlineHeight}
-                fill={INTERACTIVE_HIT_FILL}
+                name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill={INTERACTIVE_HIT_FILL}
                 listening={i === 0 && !touchPrimary}
               />
               {renderSocketVectorSymbol(endpoint.symbol, outlineWidth, outlineHeight, symbolColor)}
@@ -1533,7 +1533,7 @@ function PlacementSymbolInner({
       {/* Hit target on top of visuals so panel body / image shapes cannot carve out dead zones */}
       <Rect
         {...placementHitRect}
-        fill={INTERACTIVE_HIT_FILL}
+        name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill={INTERACTIVE_HIT_FILL}
         listening={!touchPrimary}
         onMouseEnter={handlePlacementMouseEnter}
         onMouseLeave={handlePlacementMouseLeave}
@@ -1565,7 +1565,7 @@ function PlacementSymbolInner({
       {touchPrimary && (
         <Rect
           {...placementHitRect}
-          fill={INTERACTIVE_HIT_FILL}
+          name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill={INTERACTIVE_HIT_FILL}
           listening
           onMouseEnter={handlePlacementMouseEnter}
           onMouseLeave={handlePlacementMouseLeave}

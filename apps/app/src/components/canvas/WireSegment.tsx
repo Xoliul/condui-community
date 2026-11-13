@@ -9,7 +9,7 @@ import { memo, useCallback, useContext, useMemo, useState } from 'react'
 import { DiagramDetailContext } from './eendraad/DiagramDetailContext'
 import { ViewportDetailRegion } from './eendraad/ViewportDetailRegion'
 import { useTranslation } from 'react-i18next'
-import { Line, Group, Circle, Text as KonvaText } from 'react-konva'
+import { Line, Group, Circle, Rect, Text as KonvaText } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjectStore } from '@/stores/projectStore'
@@ -1123,16 +1123,12 @@ export const WireSegments = memo(function WireSegments({
 
   return (
     <>
-      {circuitWireJunctions.map(({ point, radius }) => (
-        <Circle
-          key={`wire-junction-${point.x}-${point.y}`}
-          name="eendraad-schematic-junction"
-          x={point.x}
-          y={point.y}
-          radius={radius}
-          fill={colors.wireColor}
-          listening={false}
-        />
+      {circuitWireJunctions.map(({ point, radius, shape }) => shape === 'dot' ? (
+        <Circle key={`wire-junction-${point.x}-${point.y}`} name="eendraad-schematic-junction"
+          x={point.x} y={point.y} radius={radius} fill={colors.wireColor} listening={false} />
+      ) : (
+        <Rect key={`wire-junction-${point.x}-${point.y}`} name="eendraad-schematic-junction"
+          x={point.x - radius} y={point.y - radius} width={radius * 2} height={radius * 2} fill={colors.wireColor} listening={false} />
       ))}
       {panelWires.map((wireSegment) => {
         const localRender = localizeWireSegment(wireSegment)

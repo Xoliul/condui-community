@@ -1,4 +1,5 @@
 import { getDerivedWiresForValidation } from '@/lib/validation/derivedWiresForValidation'
+import { isWireLengthLabelVisibleForSegment } from '@/lib/wireLabelVisibility'
 import { registerPrimitive } from './registry'
 import type {
   CheckContext,
@@ -886,10 +887,15 @@ function nonHouseholdCircuitShowsCableLength(
   const circuit = query.getCircuitById(scope.id)
   if (!circuit || circuit.code === 'PANEL') return { passed: true }
 
-  const hasVisibleLength =
-    hasVisiblePositiveWireLength(circuit) ||
-    hasVisiblePositiveWireLength(circuit.domainWireOverrides?.AC) ||
-    Object.values(circuit.sectionWireOverrides ?? {}).some(hasVisiblePositiveWireLength)
+  // Canonical wire runs can set or hide a length independently of legacy circuit defaults.
+  const wires = getDerivedWiresForValidation(query, project)
+  const hasVisibleLength = wires
+    ? wires.byCircuit.get(circuit.id)?.some((segment) =>
+        Number.isFinite(segment.wireLengthM) && isWireLengthLabelVisibleForSegment(segment)
+      )
+    : hasVisiblePositiveWireLength(circuit) ||
+      hasVisiblePositiveWireLength(circuit.domainWireOverrides?.AC) ||
+      Object.values(circuit.sectionWireOverrides ?? {}).some(hasVisiblePositiveWireLength)
   if (hasVisibleLength) return { passed: true }
 
   return {

@@ -267,11 +267,12 @@ const INPUT_SYMBOLS = new Set([
   'switch_shutter',
   'switch_1p_pull',
   'switch_impulse',
+  'light_sensor',
   'motion_detector',
   'smoke_detector',
 ])
 
-const DETECTOR_SYMBOLS = new Set(['motion_detector', 'smoke_detector'])
+const DETECTOR_SYMBOLS = new Set(['motion_detector', 'smoke_detector', 'light_sensor'])
 
 function isSwitchSymbol(symbol: Endpoint['symbol']): boolean {
   return symbol != null && INPUT_SYMBOLS.has(symbol) && !DETECTOR_SYMBOLS.has(symbol)

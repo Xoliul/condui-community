@@ -87,7 +87,7 @@ export function createLiveProjectSession(env?: CommandEnv): ProjectCommandSessio
         throw new CommandError('stale_revision', 'The project changed since this was prepared')
       }
       // A collaborative gesture previews with the ids the service will derive for it.
-      const prepared = collab?.prepare(before)
+      const prepared = collab?.prepare(before, batch, options?.label)
       const { project: next, results, events } = applyCommandBatch(
         before,
         parsed,

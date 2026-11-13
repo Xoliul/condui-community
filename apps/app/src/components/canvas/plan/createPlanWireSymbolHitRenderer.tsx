@@ -1,3 +1,4 @@
+import { INTERACTIVE_OVERLAY_EXPORT_NAME } from '@/lib/export/interactiveOverlayExport'
 import React from 'react'
 import { Circle } from 'react-konva'
 import type { Point } from '@/types/ui'
@@ -92,7 +93,7 @@ export function createPlanWireSymbolHitRenderer({
         return (
           <Circle
             key={`plan-wire-symbol-hit-${core ? 'core' : 'ring'}-${placement.id}`}
-            name={`plan-wire-symbol-hit-${placement.id}`}
+            name={`plan-wire-symbol-hit-${placement.id} ${INTERACTIVE_OVERLAY_EXPORT_NAME}`}
             x={placementPos.x}
             y={placementPos.y}
             radius={radius}

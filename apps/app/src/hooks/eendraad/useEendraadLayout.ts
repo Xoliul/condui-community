@@ -1,3 +1,4 @@
+import { useInfoBlockHeight } from '@/hooks/eendraad/useInfoBlockHeight'
 import { useDeferredValue, useMemo } from 'react'
 import { useProjectStore, type ProjectState } from '@/stores/projectStore'
 import { useUIStore, type UIState } from '@/stores/uiStore'
@@ -28,10 +29,11 @@ export function useEendraadLayout(enabled = true): BottomUpLayoutResult | null {
   )
   const renderProject = useDeferredValue(currentProject)
   const eendraadLayoutOverrides = useUIStore((state: UIState) => state.eendraadLayoutOverrides)
+  const infoBlockHeight = useInfoBlockHeight(enabled)
   const infoBlockLogo = useInfoBlockLogoVisible(enabled)
 
   return useMemo(() => {
     if (!enabled || !renderProject) return null
-    return getCachedEendraadLayout(renderProject, eendraadLayoutOverrides, { infoBlockLogo })
-  }, [enabled, renderProject, eendraadLayoutOverrides, infoBlockLogo])
+    return getCachedEendraadLayout(renderProject, eendraadLayoutOverrides, { infoBlockLogo, infoBlockHeight })
+  }, [enabled, renderProject, eendraadLayoutOverrides, infoBlockLogo, infoBlockHeight])
 }

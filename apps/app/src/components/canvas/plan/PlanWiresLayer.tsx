@@ -1,3 +1,4 @@
+import { INTERACTIVE_OVERLAY_EXPORT_NAME } from '@/lib/export/interactiveOverlayExport'
 import { useStore } from 'zustand'
 import {
   usePlanWireWaypointPreview,
@@ -771,7 +772,7 @@ export function PlanWiresLayer({
         x={riserPoint.x}
         y={riserPoint.y}
         radius={waypointRadius * 1.8}
-        fill="rgba(0,0,0,0.001)"
+        name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill="rgba(0,0,0,0.001)"
         draggable
         onMouseDown={(event) => {
           event.cancelBubble = true
@@ -897,7 +898,7 @@ export function PlanWiresLayer({
               />
             )}
             <Line
-              name="plan-wire-hit"
+              name={`plan-wire-hit ${INTERACTIVE_OVERLAY_EXPORT_NAME}`}
               id={route.id}
               fromPlacementId={route.from.placementId}
               toPlacementId={route.to.placementId}

@@ -1,7 +1,7 @@
 ---
 title: Symbole do schematu jednokreskowego i planu rozmieszczenia
 description: Symbole elektryczne do belgijskiego schematu jednokreskowego i planu rozmieszczenia z krótkim opisem każdego symbolu, od gniazda i łącznika schodowego po wyłącznik różnicowoprądowy i złącze kontrolne uziemienia.
-updated: 2026-10-12
+updated: 2026-11-04
 ---
 
 Poniżej znajdziesz symbole elektryczne, które występują na belgijskim schemacie jednokreskowym (eendraadschema) i planie rozmieszczenia, z krótkim opisem każdego z nich. Większość odpowiada tabeli 2.23 belgijskiego AREI, Księga 1 (rozdział 2.13), która jest listą otwartą. Dla elementów, których tam brakuje, na przykład magazynu energii lub ogranicznika przepięć, {{brand}} używa własnego symbolu.
@@ -116,6 +116,9 @@ Osobny styk, na przykład kontaktron drzwiowy lub wejście systemu automatyki do
 
 ### [switch_impulse]
 Przycisk wysyła krótki impuls do przekaźnika bistabilnego lub wejścia automatyki, zamiast bezpośrednio przełączać obwód.
+
+### [light_sensor]
+Wyłącznik zmierzchowy automatycznie włącza oświetlenie, gdy natężenie światła otoczenia spada poniżej ustawionego progu. Dwie strzałki skierowane w stronę styku wskazują, że reaguje on na światło. Jest to wyłącznik sterowany światłem, a nie czujnik ruchu.
 
 ### [motion_detector]
 Czujnik ruchu automatycznie włącza światło po wykryciu ruchu. Możesz podać technologię: IR, radar lub kombinację.

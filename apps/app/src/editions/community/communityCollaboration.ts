@@ -10,7 +10,7 @@ interface PreparedRequest {
 interface CommandBridge {
   projectId: string
   assertCanEdit(): void
-  prepare(project: unknown): PreparedRequest
+  prepare(project: unknown, batch: CommandInvocation[], label?: string): PreparedRequest
   enqueue(batch: CommandInvocation[], label: string | undefined, prepared: PreparedRequest): void
   undo(): boolean
   redo(): boolean

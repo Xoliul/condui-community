@@ -1,3 +1,4 @@
+import { captureForkPlacementBranches, insertSavedForkEndpoint } from './forkSymbolPlacement'
 import {
   addCircuitTrunkDeviceAtDrop,
   addCircuitDcPassiveDevice,
@@ -31,6 +32,7 @@ import { buildAutoSitplanPlacement } from '@/lib/plan/autoSitplanPlacement'
 
 import { resolveCircuitSitplanTargetFloorId } from '@/lib/plan/sitplanTargetFloor'
 import { canSymbolAppearOnSituationPlan } from '@/lib/plan/situationPlanSymbolEligibility'
+import { withSearchPresetCallbacks } from '@/lib/library/searchPresetDrop'
 import { isModularSocketLibraryId } from '@/lib/socket/modularSocket'
 import { generateId, getEndpointTypeFromSymbol, getSymbolKeyFromSymbol } from '@/utils'
 import { getNextAvailableCircuitCode } from '@/utils/project'
@@ -182,7 +184,7 @@ function insertEndpointIntoBranch(
   })
 }
 
-/** Place a plain switch or relay in series on an ordinary circuit trunk. */
+/** Place a shared switching device in series on an ordinary circuit trunk. */
 function addCircuitTrunkSwitchAtDrop(
   symbol: SymbolMetadata,
   target: DropTarget,
@@ -956,10 +958,8 @@ const endpointBehavior: DropBehavior = {
       }
     }
 
-    // Initialize branches if needed so the layout engine has structure.
-    const branches = circuit.branches?.length
-      ? circuit.branches
-      : initializeBranchesIfNeeded(circuit)
+    const forkBranches = captureForkPlacementBranches(circuit, target)
+    const branches = forkBranches ?? (circuit.branches?.length ? circuit.branches : initializeBranchesIfNeeded(circuit))
 
     const downstreamIds = target.branchEndpoints?.slice(
       typeof insertAfterEndpointId === 'string'
@@ -1013,12 +1013,12 @@ const endpointBehavior: DropBehavior = {
       }
     }
 
-    if (isDomoticaChildReplace) {
-      // addEndpoint inserted the replacement next to the target; deleteEndpoint removed
-      // the old target from endpoints, branches, and parent slot refs.
+    if (forkBranches) {
+      callbacks.updateCircuit(circuitId, { branches: insertSavedForkEndpoint(forkBranches, target, endpointId) })
+    } else if (isDomoticaChildReplace) {
+      // addEndpoint/deleteEndpoint already replaced the target in endpoints, branches and slots.
     } else if (isDomoticaOutputDrop) {
-      // Domotica output insertion is fully handled above by insertDomoticaChildEndpoint.
-      // Do not run generic branch bookkeeping with stale branch data.
+      // Fully handled by insertDomoticaChildEndpoint; skip branch bookkeeping on stale data.
     } else if (createNewBranch) {
       // Create a new branch with this endpoint at the hovered branch position.
       // `addEndpoint()` may already have inserted endpointId into an existing branch,
@@ -2187,7 +2187,7 @@ export const dropBehaviors: Record<string, DropBehavior> = {
   switch_1p_changeover: switchBehavior,
   switch_shutter: switchBehavior,
   switch_1p_pull: switchBehavior,
-  contact: switchBehavior,
+  contact: switchBehavior, light_sensor: switchBehavior,
   switch_impulse: switchBehavior,
   switch_cross: switchBehavior,
   motion_detector: switchBehavior,
@@ -2254,9 +2254,7 @@ export function canDropSymbolOnSupplyConverterDcWire(
   return true
 }
 
-/**
- * Execute drop behavior for a symbol
- */
+/** Execute drop behavior for a symbol */
 export function executeDropBehavior(
   symbol: SymbolMetadata,
   target: DropTarget,
@@ -2270,6 +2268,7 @@ export function executeDropBehavior(
         placementMethod: SymbolPlacementMethod
       } = { canvas: 'eendraad', placementMethod: 'library_drop' }
 ): void {
+  callbacks = withSearchPresetCallbacks(symbol, callbacks)
   const isProtectionSymbol = PROTECTION_SYMBOL_IDS.includes(
     symbol.id as (typeof PROTECTION_SYMBOL_IDS)[number]
   )

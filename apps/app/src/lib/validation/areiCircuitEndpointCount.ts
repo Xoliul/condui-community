@@ -1,5 +1,6 @@
 import type { Circuit, Endpoint } from '@/types/schema'
 import { getCircuitBranches } from '@/lib/layout/endpointChains'
+import { getForkControlGroups } from '@/lib/eendraad/forkControlGroups'
 
 export interface AreiEndpointCountBreakdownRow {
   id: string
@@ -71,7 +72,8 @@ export function computeAreiCircuitEndpointLimitCount(circuit: Circuit): {
     return true
   }
 
-  let branchGroups = getCircuitBranches(circuit)
+  const forkGroups = getForkControlGroups(circuit)
+  let branchGroups = forkGroups?.map((group) => group.endpoints) ?? getCircuitBranches(circuit)
   const coveredEndpointIds = new Set<string>()
   for (const group of branchGroups) {
     for (const ep of group) coveredEndpointIds.add(ep.id)
@@ -88,11 +90,11 @@ export function computeAreiCircuitEndpointLimitCount(circuit: Circuit): {
   // A group of fixed loads controlled by the same branch control device is one
   // socket-equivalent point. Socket endpoints themselves remain one point each.
   const groupedLoadRepresentativeIds = new Set<string>()
-  for (const branch of branchGroups) {
+  for (const [groupIndex, branch] of branchGroups.entries()) {
     const nonSocketLoads = branch.filter(
       (ep) => ep.type !== 'socket' && countsAsLoadEndpointForBranch(ep),
     )
-    const hasCommonControl = branch.some((ep) => ep.type === 'switch')
+    const hasCommonControl = forkGroups?.[groupIndex]?.controlled ?? branch.some((ep) => ep.type === 'switch')
     if (nonSocketLoads.length > 0 && hasCommonControl) {
       groupedLoadRepresentativeIds.add(nonSocketLoads[0]!.id)
     } else {

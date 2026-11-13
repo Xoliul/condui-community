@@ -247,8 +247,9 @@ export const createProtectionSlice: ProjectSliceCreator = (set, get) => ({
           cleanupPanelGridSlotsForDevice(panels, { kind: 'protection', id })
         }
         pruneStalePanelGridProtectionReferencesInProject(state.currentProject)
+        const endpointIdsAfterDeletion = collectPanelEndpointIds(panels)
         const removedEndpointIds = [...endpointIdsBeforeDeletion].filter(
-          (endpointId) => !collectPanelEndpointIds(panels).has(endpointId)
+          (endpointId) => !endpointIdsAfterDeletion.has(endpointId)
         )
         pruneEendraadFrames(state.currentProject, {
           removedMemberIds: [...ids, ...removedEndpointIds],

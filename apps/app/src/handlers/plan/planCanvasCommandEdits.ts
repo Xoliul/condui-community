@@ -1,7 +1,8 @@
 import { CommandError } from '@/lib/commands/project'
 import { logger } from '@/lib/logger'
 import { liveProjectSession, runProjectCommand } from '@/stores/liveProjectCommandSession'
-import type { ProjectState } from '@/stores/projectStore'
+import { buildQuickPlacerPlacementBatch } from '@/lib/plan/quickPlacerPlacementBatch'
+import { useProjectStore, type ProjectState } from '@/stores/projectStore'
 
 /** Plan canvas edits, committed as project commands with the store actions' signatures. */
 
@@ -10,15 +11,11 @@ export function updatePlanPlacement(
   placementId: string,
   updates: Parameters<ProjectState['updatePlacement']>[1]
 ): void {
-  const { floorId, pos, rotationDeg } = updates
-  const batch: Array<{ id: string; input: unknown }> = []
-  if (floorId)
-    batch.push({ id: 'plan.moveToFloor', input: { floorId, moves: [{ placementId, pos }] } })
-  if (rotationDeg != null || (!floorId && pos))
-    batch.push({
-      id: 'plan.movePlacements',
-      input: { moves: [{ placementId, rotationDeg, ...(floorId ? {} : { pos }) }] },
-    })
+  const batch = buildQuickPlacerPlacementBatch(
+    useProjectStore.getState().currentProject,
+    placementId,
+    updates
+  )
   if (batch.length === 0) return
   try {
     liveProjectSession.execute(batch, { label: 'place symbol', source: 'plan-quick-placer' })

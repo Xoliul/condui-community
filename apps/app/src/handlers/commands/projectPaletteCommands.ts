@@ -17,6 +17,8 @@ import {
 } from '@/lib/junction/junctionEditorUiHooks'
 
 const bindings = [
+  ['electrical.createFork', 'createFork'],
+  ['electrical.deleteEmptyFork', 'deleteEmptyFork'],
   ['electrical.addSupplyTransformer', 'addSupplyTransformer'],
   ['electrical.addPanelAtDomoticaOutput', 'addPanelAtDomoticaOutput'],
   ['electrical.assignEndpoints', 'moveToCircuit'],

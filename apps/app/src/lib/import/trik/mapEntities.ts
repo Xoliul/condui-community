@@ -27,6 +27,8 @@ import {
 import { ensureInstallationFeedTopology } from '@/lib/feedTopology'
 import { normalizeStoredProjectToV2 } from '@/lib/projectV2/migration'
 import { endpointSupportsMultiplier } from '@/utils/endpointMultipliers'
+import { oneWireForksEnabled } from '@/lib/eendraad/oneWireForkProject'
+import { numberBranchesForForks, selectTrikForkVariant } from '@/lib/import/trik/forkImport'
 import { generateId } from '@/utils/project'
 import { normalizeNominalVoltageSystem } from '@/constants/nominalVoltage'
 import {
@@ -442,6 +444,8 @@ export function inferCircuitKind(endpoints: Endpoint[]): Circuit['kind'] {
 export function mergeBranchMultiplierEndpoints(
   endpoints: Endpoint[],
   endpointBranchKeys: string[],
+  /** Endpoints a fork attaches after: nothing may be merged in behind them. */
+  keepSeparateAfter: ReadonlySet<string> = new Set(),
 ): {
   endpoints: Endpoint[]
   endpointBranchKeys: string[]
@@ -460,6 +464,7 @@ export function mergeBranchMultiplierEndpoints(
     const canMerge =
       !!previousEndpoint
       && previousBranchKey === branchKey
+      && !keepSeparateAfter.has(endpoints[index - 1]?.id ?? '')
       && endpointSupportsMultiplier(previousEndpoint)
       && endpointSupportsMultiplier(endpoint)
       && previousEndpoint.type === endpoint.type
@@ -495,6 +500,7 @@ export function addTrikCircuits(
   pendingTrikEendraadNotesOut: PendingTrikEendraadNote[],
   pendingTrikFrameMarkCornersOut: PendingTrikFrameMarkCorner[],
   hiddenSitplanPlacementIdsByFloorOut?: Map<string, string[]>,
+  forksEnabled = oneWireForksEnabled(),
 ): Map<string, TrikCircuitImportResult> {
   const usedCodes = new Set<string>()
   const importsBySourceId = new Map<string, TrikCircuitImportResult>()
@@ -507,6 +513,8 @@ export function addTrikCircuits(
     const manualCodeLock = !!rawFixed && circuitCode === rawFixed
     if (circuitCode) usedCodes.add(circuitCode)
 
+    const forkVariant = selectTrikForkVariant(trikCircuit, circuitCode, forksEnabled)
+    const circuitNodes = forkVariant?.nodes ?? trikCircuit.nodes
     const endpoints: Endpoint[] = []
     const endpointBranchKeys: string[] = []
     const satelliteNotasPerNode: Array<TrikNode['satelliteNotas'] | undefined> = []
@@ -516,7 +524,7 @@ export function addTrikCircuits(
     const trunkDeviceIdByTrikId = new Map(
       (trikCircuit.trunkDevices ?? []).map((device) => [device.id, generateId()]),
     )
-    for (const node of trikCircuit.nodes) {
+    for (const node of circuitNodes) {
       const endpointId = generateId()
       const endpoint: Endpoint = {
         id: endpointId,
@@ -638,16 +646,19 @@ export function addTrikCircuits(
     const preMergeEndpoints = endpoints.slice()
 
     for (const relation of trikCircuit.switchControls) {
-      const source = trikCircuit.nodes.find((node) => node.id === relation.switchId)
-      const target = trikCircuit.nodes.find((node) => node.id === relation.lightId)
+      const source = circuitNodes.find((node) => node.id === relation.switchId)
+      const target = circuitNodes.find((node) => node.id === relation.lightId)
       if (!source || !target) continue
-      const sourceEndpoint = endpoints[trikCircuit.nodes.indexOf(source)]
-      const targetEndpoint = endpoints[trikCircuit.nodes.indexOf(target)]
+      const sourceEndpoint = endpoints[circuitNodes.indexOf(source)]
+      const targetEndpoint = endpoints[circuitNodes.indexOf(target)]
       if (!sourceEndpoint || !targetEndpoint || sourceEndpoint.type !== 'switch') continue
       sourceEndpoint.controlledEndpointIds = [targetEndpoint.id]
     }
 
-    const merged = mergeBranchMultiplierEndpoints(endpoints, endpointBranchKeys)
+    const forkAnchorIds = new Set(
+      (forkVariant?.forkLegs ?? []).flatMap((leg) => endpointIdByNodeId.get(leg.afterNodeId) ?? []),
+    )
+    const merged = mergeBranchMultiplierEndpoints(endpoints, endpointBranchKeys, forkAnchorIds)
     endpoints.length = 0
     endpoints.push(...merged.endpoints)
     endpointBranchKeys.length = 0
@@ -824,10 +835,8 @@ export function addTrikCircuits(
       const endpoint = endpoints[index]
       if (endpoint) branchEndpointIds.get(key)?.push(endpoint.id)
     })
-    const branchNumberByKey = new Map<string, number>()
-    branchOrder.forEach((key, index) => {
-      branchNumberByKey.set(key, index + 1)
-    })
+    // A fork leg keeps the number of the branch it ultimately hangs from; only root branches count.
+    const branchNumberByKey = numberBranchesForForks(branchOrder, circuitNodes, forkVariant)
     endpoints.forEach((endpoint, index) => {
       const key = endpointBranchKeys[index]
       const branchNumber = key ? branchNumberByKey.get(key) : undefined
@@ -847,11 +856,14 @@ export function addTrikCircuits(
           notes: device.notes,
           trunkPosition: deviceIndex,
         }))
+      const afterNodeId = forkVariant?.forkLegs.find((leg) => leg.branchKey === key)?.afterNodeId
+      const attachedTo = afterNodeId ? endpointIdByNodeId.get(afterNodeId) : undefined
       return {
         id: generateId(),
-        label: circuitCode ? `${circuitCode}${index + 1}` : String(index + 1),
+        label: circuitCode ? `${circuitCode}${branchNumberByKey.get(key) ?? index + 1}` : String(branchNumberByKey.get(key) ?? index + 1),
         endpointIds: branchEndpointIds.get(key) ?? [],
         branchDevices: devicesForBranch.length > 0 ? devicesForBranch : undefined,
+        ...(attachedTo ? { forkFrom: { afterEndpointId: remapEndpointId(attachedTo) } } : {}),
       }
     })
 

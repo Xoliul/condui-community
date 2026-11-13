@@ -12,12 +12,14 @@ import { getProtectionResidualTypeOptions } from './protectionResidualTypeOption
 import type { TFunction } from 'i18next'
 import type {
   CurveType,
+  ProtectionDevice,
   ProtectionType,
   PolesConfig,
   ResidualCurrentType,
   SurgeProtectionKind,
 } from '@/types/schema'
 import CustomDropdown, { type CustomDropdownOption } from '@/components/common/CustomDropdown'
+import { useAdjustableTrip } from '@/components/documents/documentsHostedFeatures'
 import { getSymbolsByCategory } from '@/lib/symbols'
 import {
   POLE_CONFIG_OPTIONS,
@@ -70,6 +72,12 @@ export function getProtectionTypeDropdownOptions(
   })
 }
 
+/** The protection whose curve may become "Adjustable", and how it is edited. */
+export interface AdjustableTripTarget {
+  kind: 'protection' | 'trunkDevice'
+  protection: ProtectionDevice
+}
+
 /** Hosted: "Adjustable" as one more curve, with its trip settings under the dropdown. */
 export interface AdjustableTripControl {
   active: boolean
@@ -117,7 +125,7 @@ export interface ProtectionDeviceElectricalFieldsProps {
   }) => void
   isProtectionLabelVisible: (key: ProtectionLabelKey) => boolean
   toggleProtectionLabel: (key: ProtectionLabelKey) => void
-  adjustableTrip?: AdjustableTripControl | null
+  tripTarget?: AdjustableTripTarget
 }
 
 export function ProtectionDeviceElectricalFields({
@@ -142,9 +150,10 @@ export function ProtectionDeviceElectricalFields({
   onPatch,
   isProtectionLabelVisible,
   toggleProtectionLabel,
-  adjustableTrip,
+  tripTarget,
 }: ProtectionDeviceElectricalFieldsProps) {
   const installationProfile = useInstallationProfile()
+  const adjustableTrip = useAdjustableTrip(tripTarget)
   const isRCD = protectionType === 'RCD'
   const isRCBO = protectionType === 'RCBO'
   const isMCB = protectionType === 'MCB'

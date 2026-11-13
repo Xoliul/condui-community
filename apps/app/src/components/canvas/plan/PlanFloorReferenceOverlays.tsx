@@ -40,12 +40,13 @@ const PlanFloorOverlaySingle = memo(function PlanFloorOverlaySingle({
         : null,
     [currentProject, floorId]
   )
-  const offset = useProjectStore(
-    (s: ProjectState) => s.planCanvasPlanImageOffsetByFloorId[floorId] ?? DEFAULT_PLAN_IMAGE_OFFSET,
+  const cachedOffset = useProjectStore(
+    (s: ProjectState) => s.planCanvasPlanImageOffsetByFloorId[floorId],
   )
   const bitmap = usePlanImageBitmap(floor, themeMode)
   if (!floor) return null
 
+  const offset = floor.planImageOffset ?? cachedOffset ?? DEFAULT_PLAN_IMAGE_OFFSET
   const fp = currentProject ? selectProjectFloorPlan(currentProject, floorId) : floor.floorPlan
   const floorPxPerMeter = calculatePxPerMeter(floor) ?? PLAN_CANVAS_FALLBACK_PX_PER_METER
   const normalizedTargetPxPerMeter = targetPxPerMeter ?? PLAN_CANVAS_FALLBACK_PX_PER_METER

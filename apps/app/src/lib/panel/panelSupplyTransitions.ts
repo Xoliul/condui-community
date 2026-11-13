@@ -1,3 +1,4 @@
+import { getPanelGridFieldLayout, getPanelGridTotalColumns } from '@/lib/panel/panelGridFields'
 import type { ProjectV2 } from '@/types/projectV2'
 import type { PanelGridModuleRef } from '@/types/schema'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
@@ -38,8 +39,9 @@ export function returnFromSupplyPanelInProject(
     })),
     resolveModuleWidthCols(module, project, slot),
     grid.rows,
-    grid.columns,
-    grid.feedFromTop
+    getPanelGridTotalColumns(grid),
+    grid.feedFromTop,
+    getPanelGridFieldLayout(grid)
   )
   grid.supplyPanelSlots = grid.supplyPanelSlots!.filter(
     (slot) => panelGridModuleRefKey(slot.module) !== key

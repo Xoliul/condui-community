@@ -11,6 +11,15 @@ import {
 } from '@/lib/panel/panelGridModuleWidth'
 export { getModuleWidthInCols } from '@/lib/panel/panelGridModuleWidth'
 import { clamp } from '@/lib/geometry'
+import {
+  clampPanelGridStartToField,
+  findInPanelGridFields,
+  fitsInPanelGridField,
+  getPanelGridFieldLayout,
+  getPanelGridTotalColumns,
+  panelGridFieldRangesUnits,
+  type PanelGridFieldLayout,
+} from '@/lib/panel/panelGridFields'
 import { PanelGridRowOccupancy } from './panelGridRowOccupancy'
 import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
 import type { ProjectWithOptionalV2Electrical } from '@/lib/projectV2/electrical'
@@ -197,12 +206,21 @@ export function canResizeModulePlacement(
   placement: ModulePlacement & { inSupplyPanel?: boolean },
   placements: Array<ModulePlacement & { inSupplyPanel?: boolean }>,
   newWidthCols: number,
-  totalCols: number
+  totalCols: number,
+  /** Fields of the board: a module may not straddle a field boundary. */
+  fieldLayout?: PanelGridFieldLayout
 ): boolean {
   const widthUnits = Math.max(1, panelModulesToGridUnits(newWidthCols))
   const placementColUnits = panelModulesToGridUnits(placement.col)
   const totalUnits = panelModulesToGridUnits(totalCols)
   if (placementColUnits < 0 || placementColUnits + widthUnits > totalUnits) return false
+  if (
+    fieldLayout &&
+    fieldLayout.fields > 1 &&
+    !placement.inSupplyPanel &&
+    !fitsInPanelGridField(fieldLayout, placementColUnits, widthUnits)
+  )
+    return false
   const key = panelGridModuleRefKey(placement.ref)
   return !placements.some((other) => {
     if (panelGridModuleRefKey(other.ref) === key) return false
@@ -238,7 +256,8 @@ export function getPanelGridPlacements(
     slots: [],
   }
   const rows = config.rows
-  const cols = config.columns
+  const fieldLayout = getPanelGridFieldLayout(config)
+  const cols = getPanelGridTotalColumns(config)
   const colUnits = panelModulesToGridUnits(cols)
   const feedFromTop = config.feedFromTop
   const topRailOffset = getTerminalStripTopOffset(panel)
@@ -299,12 +318,15 @@ export function getPanelGridPlacements(
   }
 
   /** Find first free position on a given row starting from startCol. */
-  const findOnRow = (row: number, startCol: number, w: number): number | null => {
-    return findFree('main', row, startCol, w, colUnits - w)
-  }
-  const findOnRail = (rail: 'top' | 'bottom', w: number): number | null => {
-    return findFree(rail, 0, 0, w, colUnits - w)
-  }
+  /** Fields are searched in order, and a module never straddles a field boundary. */
+  const findOnRow = (row: number, startCol: number, w: number): number | null =>
+    findInPanelGridFields(fieldLayout, startCol, w, (start, maxStart) =>
+      findFree('main', row, start, w, maxStart)
+    )
+  const findOnRail = (rail: 'top' | 'bottom', w: number): number | null =>
+    findInPanelGridFields(fieldLayout, 0, w, (start, maxStart) =>
+      findFree(rail, 0, start, w, maxStart)
+    )
 
   /** Find first available spot anywhere in the grid, searching outward from preferredRow. */
   const findAnySpot = (
@@ -325,9 +347,12 @@ export function getPanelGridPlacements(
     }
     const startRow = feedFromTop ? 0 : rows - 1
     const step = feedFromTop ? 1 : -1
-    for (let r = startRow; r >= 0 && r < rows; r += step) {
-      const c = findOnRow(r, 0, w)
-      if (c != null) return { row: r, col: c }
+    // Fill the first field completely (all its rows) before the next one.
+    for (const range of panelGridFieldRangesUnits(fieldLayout)) {
+      for (let r = startRow; r >= 0 && r < rows; r += step) {
+        const c = findFree('main', r, range.start, w, range.end - w)
+        if (c != null) return { row: r, col: c }
+      }
     }
     return null
   }
@@ -391,7 +416,11 @@ export function getPanelGridPlacements(
           : false
     const isTerminalStrip = isTerminalStripModuleRef(ref, project)
     if (requestedRail && railEnabled && isTerminalStrip) {
-      const preferredCol = clamp(panelModulesToGridUnits(slot.col), 0, colUnits - w)
+      const preferredCol = clampPanelGridStartToField(
+        fieldLayout,
+        clamp(panelModulesToGridUnits(slot.col), 0, colUnits - w),
+        w
+      )
       // A persisted rail slot is manual layout too. Do not move it to the next
       // free position just because another module overlaps it.
       place(ref, terminalStripMemberRefs, 0, preferredCol, w, false, requestedRail)
@@ -421,7 +450,13 @@ export function getPanelGridPlacements(
         // Keep explicit overflow positions visible in the overflow band. For
         // an in-grid slot, the exact stored column is authoritative even when
         // it overlaps another manually positioned module.
-        preferredCol: isOverflow ? requestedCol : clamp(requestedCol, 0, Math.max(0, colUnits - w)),
+        preferredCol: isOverflow
+          ? requestedCol
+          : clampPanelGridStartToField(
+              fieldLayout,
+              clamp(requestedCol, 0, Math.max(0, colUnits - w)),
+              w
+            ),
         width: w,
         isOverflow,
       })
@@ -474,7 +509,8 @@ export function getPlacementForNewChildNextToParent(
   widthCols: number,
   rows: number,
   cols: number,
-  feedFromTop: boolean
+  feedFromTop: boolean,
+  fieldLayout?: PanelGridFieldLayout
 ): { row: number; col: number } | null {
   const cellKey = (r: number, c: number) => `${r},${c}`
   const widthUnits = Math.max(1, panelModulesToGridUnits(widthCols))
@@ -485,7 +521,10 @@ export function getPlacementForNewChildNextToParent(
     const start = panelModulesToGridUnits(p.col)
     for (let i = 0; i < w; i++) used.add(cellKey(p.row, start + i))
   }
+  const fitsField = (c: number, w: number) =>
+    !fieldLayout || fieldLayout.fields < 2 || fitsInPanelGridField(fieldLayout, c, w)
   const isFree = (r: number, c: number, w: number) => {
+    if (!fitsField(c, w)) return false
     for (let i = 0; i < w; i++) if (used.has(cellKey(r, c + i))) return false
     return true
   }

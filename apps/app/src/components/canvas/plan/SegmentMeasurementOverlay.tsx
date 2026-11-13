@@ -1,3 +1,4 @@
+import { INTERACTIVE_OVERLAY_EXPORT_NAME } from '@/lib/export/interactiveOverlayExport'
 import { useCanvasWindow } from '@/components/viewport/ViewportContext'
 import { useIsActiveViewport } from '@/components/viewport/ViewportUIStore'
 import { isKeyboardTypingTarget } from '@/lib/ui/keyboardTypingTarget'
@@ -588,7 +589,7 @@ export function SegmentMeasurementOverlay({
                   y={-hitBoxHeight / 2}
                   width={hitBoxWidth}
                   height={hitBoxHeight}
-                  fill="rgba(0,0,0,0.001)"
+                  name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill="rgba(0,0,0,0.001)"
                 />
               )}
               {editable && (

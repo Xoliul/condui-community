@@ -1,12 +1,17 @@
 import type { Circuit } from '@/types/schema'
 import type { LayoutNode } from '@/lib/layout/layoutTree'
 import { getCircuitBranches } from '@/lib/layout/endpointChains'
+import { collectOneWireEndpointRun, resolveOneWireBranchTopology } from './oneWireBranchTopology'
+import { hasOneWireForks } from './oneWireForkProject'
+import { isEndpointInOneWireConverterTree } from './oneWireConverterBranches'
 
 /**
  * Endpoints from the clicked endpoint to the end of its own branch, in branch order.
  * Neighbouring branches of the same circuit are never included.
  */
 export function getBranchDownstreamEndpointIds(circuit: Circuit, endpointId: string): string[] {
+  // A converter branch has no fork run: it selects like a circuit without forks.
+  if (hasOneWireForks(circuit) && !isEndpointInOneWireConverterTree(circuit, endpointId)) return collectOneWireEndpointRun(resolveOneWireBranchTopology({ ...circuit, branches: circuit.branches ?? [] }), endpointId)?.endpointIds ?? []
   const branch = getCircuitBranches(circuit).find((candidate) =>
     candidate.some((endpoint) => endpoint.id === endpointId)
   )
@@ -21,6 +26,10 @@ export function getBranchDownstreamEndpointIds(circuit: Circuit, endpointId: str
  * Domotica groups keep their dedicated move handling.
  */
 export function getBranchDragGroupEndpointIds(circuit: Circuit, endpointId: string): string[] | null {
+  if (hasOneWireForks(circuit) && !isEndpointInOneWireConverterTree(circuit, endpointId)) {
+    const ids = getBranchDownstreamEndpointIds(circuit, endpointId)
+    return ids.length > 1 ? ids : null
+  }
   // Branch-group moves operate on stored branches only.
   if (!circuit.branches?.length) return null
   const branch = getCircuitBranches(circuit).find((candidate) =>

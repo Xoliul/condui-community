@@ -124,13 +124,14 @@ const electricalPropertyEditSchema = z.discriminatedUnion('kind', [
     .strict(),
 ])
 
-const propertyEditSchema = z.union([
+/** Exported for the per-section MCP property tools; keep every kind reachable there. */
+export const propertyEditSchema = z.union([
   electricalPropertyEditSchema,
   extraElectricalPropertyEditSchema,
   generalPropertyEditSchema,
 ])
 
-const wireEditSchema = z
+export const wireEditSchema = z
   .object({
     circuitId: z.string().min(1),
     sectionRef: circuitSectionRefSchema.nullable().optional(),
@@ -139,7 +140,7 @@ const wireEditSchema = z
   })
   .strict()
 
-const installDateTargetSchema = z
+export const installDateTargetSchema = z
   .object({
     id: z.string().min(1),
     type: z.enum(['panel', 'protection', 'circuit', 'endpoint', 'trunkDevice']),
@@ -217,7 +218,7 @@ const semanticModuleVisibilitySchema = z.strictObject({
   module: panelModuleRefSchema,
   visible: z.boolean(),
 }).transform(({ module, ...action }) => ({ ...action, moduleRefKey: panelGridModuleRefKey(module) }))
-const propertyActionSchema = z.union([ordinaryPropertyActionSchema, extraElectricalActionSchema, semanticModuleVisibilitySchema])
+export const propertyActionSchema = z.union([ordinaryPropertyActionSchema, extraElectricalActionSchema, semanticModuleVisibilitySchema])
 
 export const propertiesEditInputSchema = z
   .object({

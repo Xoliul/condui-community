@@ -1,4 +1,5 @@
 import { current, produce } from 'immer'
+import { assertForkEditsPreserveTopology, reconcileForkTrunkPositions } from './forkIntegrity'
 import { preserveWireRuns } from '@/lib/wires/preserveWireRuns'
 import type { ProjectV2 } from '@/types/projectV2'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
@@ -12,6 +13,7 @@ import { withProjectMutationTime } from '@/lib/projectMutations/mutationTime'
 import type { ParsedInvocation } from './registry'
 import { CommandError, type CommandEnv, type CommandResult } from './types'
 import { resolveCreatedReferences } from './batchReferences'
+import { assertNoNewPlanPlacementConflicts } from './planPlacementIntegrity'
 
 /**
  * Domain repairs that must hold after any change, whoever made it. They used to run only as
@@ -78,6 +80,8 @@ export function applyCommandBatch(
             try {
               const wireBefore = current(draft) as ProjectV2
               const applied = command.apply(draft, input, env)
+              reconcileForkTrunkPositions(wireBefore, draft as ProjectV2)
+              assertForkEditsPreserveTopology(wireBefore, current(draft) as ProjectV2)
               const wires = preserveWireRuns(
                 wireBefore,
                 current(draft) as ProjectV2,
@@ -107,5 +111,7 @@ export function applyCommandBatch(
     )
   )
   if (next === base) return { project: base, results, events: [] }
-  return { project: finalizeProjectDomain(base, next), results, events }
+  const project = finalizeProjectDomain(base, next)
+  assertNoNewPlanPlacementConflicts(base, project)
+  return { project, results, events }
 }

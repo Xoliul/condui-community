@@ -43,6 +43,7 @@ import {
 } from './pdfPageLayout'
 import { getThemeColors } from '@/lib/theme/colors'
 import { drawLimitedWatermark, LIMITED_RASTER_JPEG_QUALITY } from './limitedWatermark'
+import { appendLimitedInspectionStamps } from './limitedInspectionStamp'
 
 const REFERENCE_LABEL_GAP_MM = 1.2
 const REFERENCE_URL_FONT_SIZE_PT = 5
@@ -53,6 +54,7 @@ export function getEendraadSchematicPlacement(
   paperSize: ExportPaperSize = 'A4',
   infoBlockNativeWidth?: number,
   schematicTopMm?: number,
+  infoBlockNativeHeight?: number,
 ): {
   scale: number
   viewBox: string
@@ -70,7 +72,7 @@ export function getEendraadSchematicPlacement(
   // Its left feeder may extend beside the box; rechecking the full bounds here
   // would discard that approved placement and recreate the empty bus-to-box gap.
   const scale = schematicTopMm == null
-    ? limitEendraadScaleToInfoBlockCollision(bounds.height, globalScale, infoBlockNativeWidth, paperSize)
+    ? limitEendraadScaleToInfoBlockCollision(bounds.height, globalScale, infoBlockNativeWidth, paperSize, undefined, infoBlockNativeHeight)
     : Math.min(globalScale,
         (getPageDimensions('landscape', paperSize).height - PAGE_MARGIN - schematicTopMm) /
           Math.max(bounds.height, 1))
@@ -81,7 +83,7 @@ export function getEendraadSchematicPlacement(
   // but never let it slide down into the info box.
   const topMm = schematicTopMm ?? getEendraadSchematicTopMm(paperSize)
   const area = getEendraadSchematicAreaMm('landscape', paperSize)
-  const obstacleTop = getEendraadInfoBlockObstacleMm('landscape', infoBlockNativeWidth, paperSize).y
+  const obstacleTop = getEendraadInfoBlockObstacleMm('landscape', infoBlockNativeWidth, paperSize, infoBlockNativeHeight).y
   const clearance = Math.max(0, obstacleTop - INFO_BLOCK_GAP_MM - topMm - scaledHeight)
   const offsetY = schematicTopMm == null
     ? Math.min(Math.max(0, (area.heightMm - scaledHeight) / 2), clearance)
@@ -113,6 +115,7 @@ export interface PdfPageInfoBlock {
   svgString: string
   /** Native SVG width; used to reserve the correct aspect-ratio-aware page zone. */
   nativeWidth: number
+  nativeHeight?: number
 }
 
 function addReferenceLinkToPdf(
@@ -206,6 +209,7 @@ export async function composePdfPage(
       hasInfoBlock: !!infoBlock?.svgString,
       hasPanelTitle: !!panelTitle,
       infoBlockNativeWidth: infoBlock?.nativeWidth,
+      infoBlockNativeHeight: infoBlock?.nativeHeight,
       paperSize,
     })
     const contentX = PAGE_MARGIN
@@ -224,6 +228,7 @@ export async function composePdfPage(
           paperSize,
           infoBlock?.nativeWidth,
           page.scene.eendraadSlice!.schematicTopMm,
+          infoBlock?.nativeHeight,
         )
       : null
     const scale = eendraadPlacement
@@ -327,7 +332,8 @@ export async function composePdfPage(
       const { widthMm: boxW, heightMm: boxH } = getInfoBlockReservedZoneMm(
         orientation,
         infoBlock.nativeWidth,
-        paperSize
+        paperSize,
+        infoBlock.nativeHeight
       )
       const boxX = pageWidth - PAGE_MARGIN - boxW
       const boxY = pageHeight - PAGE_MARGIN - boxH
@@ -341,7 +347,7 @@ export async function composePdfPage(
       const infoInner = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'svg')
       infoInner.setAttribute('width', `${boxW}`)
       infoInner.setAttribute('height', `${boxH}`)
-      infoInner.setAttribute('viewBox', `0 0 ${infoBlock.nativeWidth} ${INFO_BLOCK_HEIGHT}`)
+      infoInner.setAttribute('viewBox', `0 0 ${infoBlock.nativeWidth} ${infoBlock.nativeHeight ?? INFO_BLOCK_HEIGHT}`)
       infoInner.setAttribute('preserveAspectRatio', 'xMidYMid meet')
       while (infoBlockSvgEl.firstChild) {
         const node = infoBlockSvgEl.firstChild
@@ -485,6 +491,7 @@ export async function composeLimitedRasterPdfPage(
       hasInfoBlock: !!infoBlock?.svgString,
       hasPanelTitle: !!panelTitle,
       infoBlockNativeWidth: infoBlock?.nativeWidth,
+      infoBlockNativeHeight: infoBlock?.nativeHeight,
       paperSize,
     })
     const contentX = PAGE_MARGIN
@@ -503,6 +510,7 @@ export async function composeLimitedRasterPdfPage(
           paperSize,
           infoBlock?.nativeWidth,
           page.scene.eendraadSlice!.schematicTopMm,
+          infoBlock?.nativeHeight,
         )
       : null
     const scale = eendraadPlacement
@@ -577,11 +585,13 @@ export async function composeLimitedRasterPdfPage(
     positionedGroup.appendChild(contentSvg)
     positionedSvg.appendChild(positionedGroup)
 
+    let limitedInfoBlockZone: { x: number; y: number; width: number; height: number } | null = null
     if (infoBlock?.svgString) {
       const { widthMm: boxW, heightMm: boxH } = getInfoBlockReservedZoneMm(
         orientation,
         infoBlock.nativeWidth,
-        paperSize
+        paperSize,
+        infoBlock.nativeHeight
       )
       const boxX = pageWidth - PAGE_MARGIN - boxW
       const boxY = pageHeight - PAGE_MARGIN - boxH
@@ -592,7 +602,7 @@ export async function composeLimitedRasterPdfPage(
       const infoInner = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'svg')
       infoInner.setAttribute('width', `${boxW}`)
       infoInner.setAttribute('height', `${boxH}`)
-      infoInner.setAttribute('viewBox', `0 0 ${infoBlock.nativeWidth} ${INFO_BLOCK_HEIGHT}`)
+      infoInner.setAttribute('viewBox', `0 0 ${infoBlock.nativeWidth} ${infoBlock.nativeHeight ?? INFO_BLOCK_HEIGHT}`)
       infoInner.setAttribute('preserveAspectRatio', 'xMidYMid meet')
       while (infoBlockSvgEl.firstChild) {
         const node = infoBlockSvgEl.firstChild
@@ -601,7 +611,16 @@ export async function composeLimitedRasterPdfPage(
       }
       infoGroup.appendChild(infoInner)
       positionedSvg.appendChild(infoGroup)
+      limitedInfoBlockZone = { x: boxX, y: boxY, width: boxW, height: boxH }
     }
+
+    appendLimitedInspectionStamps(svgDoc, positionedSvg, {
+      pageWidthMm: pageWidth,
+      pageMarginMm: PAGE_MARGIN,
+      chromeScale: getChromeScale(paperSize),
+      textColor: themeColors.textColor,
+      infoBlock: limitedInfoBlockZone,
+    })
 
     const dataUrl = await rasterizeSvgPageToDataUrl(positionedSvg, exportTheme)
     pdf.addImage(dataUrl, 'JPEG', 0, 0, pageWidth, pageHeight)

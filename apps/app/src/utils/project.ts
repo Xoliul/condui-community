@@ -606,7 +606,7 @@ export function getNextAvailableCircuitCode(
   const panelId = _panelId ? String(_panelId) : ''
   const targetPanel = panelId ? findPanelById(projectPanels, panelId) : undefined
 
-  if (targetPanel) {
+  if (targetPanel && resolveLabelScheme(installation.labelScheme).circuit.panelPart !== 'continuous') {
     // Panel-local numbering: only codes already used on this panel count.
     for (const circuit of targetPanel.circuits) {
       addAlphabeticCode(circuit.code)

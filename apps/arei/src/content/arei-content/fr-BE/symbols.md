@@ -1,7 +1,7 @@
 ---
 title: Symboles pour schéma unifilaire et plan de situation
 description: Symboles électriques pour votre schéma unifilaire et plan de situation avec une courte explication par symbole, de la prise et l'interrupteur va-et-vient au différentiel et à la barrette de coupure.
-updated: 2026-10-12
+updated: 2026-11-04
 ---
 
 Voici les symboles électriques que vous rencontrez sur un schéma unifilaire et un plan de situation, avec une courte explication par symbole. La plupart correspondent au tableau 2.23 du RGIE Livre 1 (chapitre 2.13), une liste non limitative. Pour les éléments qui n'y figurent pas, comme une batterie domestique ou un parafoudre, {{brand}} utilise son propre symbole.
@@ -116,6 +116,9 @@ Un contact séparé, par exemple un contact de porte ou une entrée d'un systèm
 
 ### [switch_impulse]
 Un bouton-poussoir envoie une brève impulsion à un télérupteur ou une entrée domotique au lieu de commuter le circuit directement.
+
+### [light_sensor]
+Un interrupteur crépusculaire allume automatiquement l’éclairage lorsque la luminosité ambiante descend sous le seuil réglé. Les deux flèches vers le contact indiquent qu’il réagit à la lumière. Il s’agit d’un interrupteur commandé par la lumière, pas d’un détecteur de mouvement.
 
 ### [motion_detector]
 Un détecteur de mouvement allume l'éclairage automatiquement en cas de mouvement. Vous pouvez indiquer la technologie : IR, radar ou combinaison.

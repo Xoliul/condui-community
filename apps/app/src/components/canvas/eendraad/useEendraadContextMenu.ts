@@ -1,4 +1,5 @@
 import type { BottomUpPanelLayout } from '@/lib/layout/bottomUpLayout'
+import { getForkPaletteActions } from '@/lib/commands/ui/forkPaletteActions'
 import { createElement } from 'react'
 import { isKeyboardTypingTarget } from '@/lib/ui/keyboardTypingTarget'
 import type { useCanvasWindow } from '@/components/viewport/ViewportContext'
@@ -1114,6 +1115,11 @@ export function useEendraadContextMenu({
         } else {
           // Endpoint context menu
           const endpoint = getEndpointById(resolvedElementId!)
+          if (currentProject && getForkPaletteActions(currentProject, { type: 'endpoint', ids: [resolvedElementId!] }).some((action) => action.id === 'electrical.createFork')) {
+            items.push({ label: t('commandPalette.createFork'), onClick: () => {
+              runProjectCommand('electrical.createFork', { afterEndpointId: resolvedElementId! })
+            } })
+          }
           const supportsAddMore =
             !!endpoint && (endpointSupportsMultiplier(endpoint) || endpoint.type === 'socket')
           // The store refuses to delete the main panel's distribution symbol.

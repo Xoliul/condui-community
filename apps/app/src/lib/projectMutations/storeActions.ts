@@ -918,8 +918,9 @@ export function deleteProtectionInProject(
         // blank module position behind.
         cleanupPanelGridSlotsForDevice(panels, { kind: 'protection', id })
         pruneStalePanelGridProtectionReferencesInProject(project)
+        const endpointIdsAfterDeletion = collectPanelEndpointIds(panels)
         const removedEndpointIds = [...endpointIdsBeforeDeletion].filter(
-          (endpointId) => !collectPanelEndpointIds(panels).has(endpointId)
+          (endpointId) => !endpointIdsAfterDeletion.has(endpointId)
         )
         pruneEendraadFrames(project, {
           removedMemberIds: [id, ...removedEndpointIds],

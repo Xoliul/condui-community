@@ -25,6 +25,7 @@ type HistoryAssetPayload = {
  * current project's asset metadata.
  */
 function cloneProjectWithoutCopyingAssetPayloads(project: Project): Project {
+  const cloneStartedAt = import.meta.env?.VITE_E2E ? performance.now() : 0
   const payloads = new Map<string, HistoryAssetPayload>()
   const cloneInput: Project = {
     ...project,
@@ -56,8 +57,18 @@ function cloneProjectWithoutCopyingAssetPayloads(project: Project): Project {
     typeof structuredClone === 'function'
       ? structuredClone(cloneInput)
       : (JSON.parse(JSON.stringify(cloneInput)) as Project)
+  if (import.meta.env?.VITE_E2E) {
+    performance.measure('eendra:history-clone', { start: cloneStartedAt, end: performance.now() })
+  }
 
+  const estimateStartedAt = import.meta.env?.VITE_E2E ? performance.now() : 0
   historySnapshotBytes.set(snapshot, estimateRetainedBytes(cloneInput))
+  if (import.meta.env?.VITE_E2E) {
+    performance.measure('eendra:history-byte-estimate', {
+      start: estimateStartedAt,
+      end: performance.now(),
+    })
+  }
   lastEstimatedBytesByProjectId.set(
     project.project.id,
     historySnapshotBytes.get(snapshot) ?? CONSERVATIVE_UNKNOWN_SNAPSHOT_BYTES
@@ -119,10 +130,29 @@ function estimateProjectRetainedBytes(project: Project): number {
   return bytes
 }
 
+function estimatedSnapshotBytes(project: Project): number {
+  const cached = historySnapshotBytes.get(project)
+  if (cached !== undefined) return cached
+
+  const estimateStartedAt = import.meta.env?.VITE_E2E ? performance.now() : 0
+  const bytes = estimateProjectRetainedBytes(project)
+  if (import.meta.env?.VITE_E2E) {
+    performance.measure('eendra:history-byte-estimate-fallback', {
+      start: estimateStartedAt,
+      end: performance.now(),
+    })
+  }
+  // Values passed here are history snapshots. Even defensive clones that are not frozen
+  // are owned by the history stack and never mutated, so cache their first estimate too.
+  // Re-walking a campus-sized snapshot during each undo/redo made history trimming costly.
+  historySnapshotBytes.set(project, bytes)
+  lastEstimatedBytesByProjectId.set(project.project.id, bytes)
+  return bytes
+}
+
 export function getEstimatedHistoryBytes(snapshots: readonly Project[]): number {
   return snapshots.reduce(
-    (total, snapshot) =>
-      total + (historySnapshotBytes.get(snapshot) ?? estimateProjectRetainedBytes(snapshot)),
+    (total, snapshot) => total + estimatedSnapshotBytes(snapshot),
     0
   )
 }
@@ -139,7 +169,7 @@ export function trimProjectHistory(
   while (retained.length > minEntries && retainedBytes > maxEstimatedBytes) {
     const removed = retained.shift()
     if (removed) {
-      retainedBytes -= historySnapshotBytes.get(removed) ?? estimateProjectRetainedBytes(removed)
+      retainedBytes -= estimatedSnapshotBytes(removed)
     }
   }
   return retained
@@ -285,9 +315,7 @@ export function appendUndoSnapshotInStore(
 
 export function pushUndoSnapshot(snapshotProject: Project): void {
   const snapshot = captureProjectForHistory(snapshotProject)
-  getProjectStoreApi().setState((s: ProjectState) => {
-    return { undoStack: trimProjectHistory([...s.undoStack, snapshot]), redoStack: [] }
-  })
+  appendUndoSnapshotInStore(() => {}, snapshot)
 }
 
 export function flushPendingProjectHistory(): void {

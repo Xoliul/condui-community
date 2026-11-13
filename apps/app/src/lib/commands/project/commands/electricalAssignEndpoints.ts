@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { hasOneWireForks } from '@/lib/eendraad/oneWireForkProject'
 import { CommandError, defineProjectCommand } from '../types'
 import type { ProjectV2 } from '@/types/projectV2'
 import {
@@ -48,6 +49,8 @@ export const electricalAssignEndpoints = defineProjectCommand({
     if (endpoints.some((entry) => !entry)) {
       return { ok: false, code: 'endpoint_not_found', message: 'An endpoint no longer exists' }
     }
+    if (hasOneWireForks(target.circuit) || endpoints.some((entry) => hasOneWireForks(entry!.circuit)))
+      return { ok: false, code: 'fork_run_required', message: 'Move the complete run to preserve its forks' }
     if (endpoints.some((owner) => owner && isDomoticaPanelFeedEndpoint(owner.endpoint) &&
       owner.circuit.id !== input.targetCircuitId)) {
       return { ok: false, code: 'output_feed', message: 'A domotica output feeding a panel cannot be moved to another circuit.' }

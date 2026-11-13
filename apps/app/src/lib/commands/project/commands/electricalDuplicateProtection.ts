@@ -1,3 +1,4 @@
+import { getPanelGridTotalColumns } from '@/lib/panel/panelGridFields'
 import { z } from 'zod'
 import { runDuplicateProtectionLeft } from '@/lib/eendraad/duplicateProtectionLeftCore'
 import { findCircuitOnPanel } from '@/lib/eendraad/cloneCircuitContent'
@@ -175,7 +176,7 @@ export const electricalDuplicateProtection = defineProjectCommand({
           message: 'Grid panel does not own the protection',
         }
       }
-      if (input.gridPlacement.row >= grid.rows || input.gridPlacement.col >= grid.columns) {
+      if (input.gridPlacement.row >= grid.rows || input.gridPlacement.col >= getPanelGridTotalColumns(grid)) {
         return {
           ok: false,
           code: 'grid_slot_out_of_range',
@@ -186,7 +187,7 @@ export const electricalDuplicateProtection = defineProjectCommand({
         1,
         getModuleWidthInCols({ kind: 'protection', id: input.protectionId }, project)
       )
-      if (input.gridPlacement.col + duplicateWidth > grid.columns) {
+      if (input.gridPlacement.col + duplicateWidth > getPanelGridTotalColumns(grid)) {
         return {
           ok: false,
           code: 'grid_slot_out_of_range',

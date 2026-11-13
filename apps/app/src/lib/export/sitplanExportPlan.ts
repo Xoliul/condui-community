@@ -4,9 +4,11 @@ import {
   type ProjectWithOptionalV2Building,
 } from '@/lib/projectV2/buildingFloors'
 import {
+  selectProjectElectricalInstallation,
   selectProjectElectricalPanels,
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
+import { orderPanelsByNumber } from '@/lib/panel/panelNumberOrder'
 import { collectPlacementsOnFloor } from '@/utils/project'
 import type { Endpoint, Floor, Panel } from '@/types/schema'
 import type { FloorV2 } from '@/types/projectV2'
@@ -64,15 +66,6 @@ interface SitplanPlacementRecord {
   panelId: string
   label: string
   symbol: Endpoint['symbol']
-}
-
-function collectPanels(panels: Panel[]): Panel[] {
-  const all: Panel[] = []
-  for (const panel of panels) {
-    all.push(panel)
-    all.push(...collectPanels(panel.subPanels))
-  }
-  return all
 }
 
 function findPanelForEndpointInPanel(
@@ -241,7 +234,10 @@ export function buildSitplanExportTargets(
   }
 
   const placements = collectSitplanPlacements(project)
-  const panels = collectPanels(selectProjectElectricalPanels(project))
+  const panels = orderPanelsByNumber(
+    selectProjectElectricalPanels(project),
+    selectProjectElectricalInstallation(project),
+  )
   const targets: SitplanExportTarget[] = []
 
   for (const floor of floors) {

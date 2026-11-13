@@ -336,6 +336,7 @@ export function buildBranchNode(
       height: wireHeight,
     },
     domainId: branch.id,
+    branchLayout: branch,
     hitZone: {
       type: 'circuit',
       padding: 0,

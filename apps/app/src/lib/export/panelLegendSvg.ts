@@ -2,9 +2,11 @@ import { A4_PORTRAIT, PAGE_MARGIN } from './pageSizes'
 import type { Panel, Circuit, ProtectionDevice, CircuitKind } from '@/types/schema'
 import { getDerivedCircuitKind } from '@/lib/circuitKind'
 import {
+  getProjectElectricalInstallation,
   getProjectElectricalPanels,
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
+import { panelNumberRankById } from '@/lib/panel/panelNumberOrder'
 import type { ExportTheme } from './types'
 import { getThemeColors } from '@/lib/theme/colors'
 import { displayedProtectionCurve, formatProtectionCurveRating } from '@/lib/protectionLabels'
@@ -48,7 +50,11 @@ export function buildPanelCircuitLegendRows(
   project: ProjectWithOptionalV2Electrical
 ): CircuitLegendRow[] {
   const rows: CircuitLegendRow[] = []
-  const panelsWithPath = collectAllPanelsWithPath(getProjectElectricalPanels(project))
+  const rootPanels = getProjectElectricalPanels(project)
+  const rankById = panelNumberRankById(rootPanels, getProjectElectricalInstallation(project))
+  const panelsWithPath = collectAllPanelsWithPath(rootPanels).sort(
+    (left, right) => (rankById.get(left.panel.id) ?? 0) - (rankById.get(right.panel.id) ?? 0)
+  )
 
   for (const { panel, pathLabel } of panelsWithPath) {
     const candidates = new Map<

@@ -1,6 +1,7 @@
 import type { Endpoint, EnergyConversionDeviceProps, TrunkDevice } from '@/types/schema'
 import { getScopedControlLinkNote } from '@/lib/controlLink/controlLinkNoteContext'
 import { CERTIFICATION_LISTING_VISIBILITY_KEY, formatCompactDiagramField } from '@/lib/certificationLabels'
+import { wrapEndpointNoteText } from '@/lib/eendraad/endpointNoteWrap'
 
 /** Inline supplies start compact; an explicit visibility choice is preserved. */
 export function hideInlineConverterMetadataByDefault(endpoint: Endpoint): void {
@@ -69,6 +70,7 @@ export function isConversionLabelVisible(
  * One-wire note text for an endpoint. A valid control link replaces the endpoint's own
  * notes (and their visibility flag) with the resolved link text. Callers outside a
  * layout scope pass linkedNoteText explicitly (see getEndpointOneWireNoteText).
+ * Long lines are wrapped here so layout, canvas and export share the same lines.
  */
 export function getVisibleEndpointNoteText(
   endpoint: Pick<Endpoint, 'notes' | 'notesVisible' | 'domoticaChildProps' | 'symbol'> & {
@@ -79,9 +81,9 @@ export function getVisibleEndpointNoteText(
   if (endpoint.domoticaChildProps && endpoint.symbol !== 'domotica') return ''
   const linked =
     linkedNoteText ?? (endpoint.id ? getScopedControlLinkNote(endpoint.id) : undefined)
-  if (linked) return linked
+  if (linked) return wrapEndpointNoteText(linked)
   if (endpoint.notesVisible === false) return ''
-  return (endpoint.notes ?? '').trim()
+  return wrapEndpointNoteText((endpoint.notes ?? '').trim())
 }
 
 export function getVisibleConversionLabelParts(source: ConversionSource): ConversionLabelPart[] {
@@ -121,7 +123,13 @@ export function getVisibleConversionLabelParts(source: ConversionSource): Conver
       ['transformerRatedPower', conversionProps?.transformerRatedPowerKva, 'Sn', 'kVA'],
       ['transformerShortCircuitVoltage', conversionProps?.transformerShortCircuitVoltagePercent, 'uk', '%'],
     ] as const
+    const secondaryOutputs = conversionProps?.transformerSecondaryOutputsV
     for (const [key, value, label, unit] of nameplate) {
+      if (key === 'transformerSecondaryVoltage' && secondaryOutputs && secondaryOutputs.length > 1) {
+        if (isConversionLabelVisible(source, key))
+          parts.push({ key, text: `${label}: ${secondaryOutputs.join(' / ')} ${unit}` })
+        continue
+      }
       if (value != null && Number.isFinite(value) && value > 0 && isConversionLabelVisible(source, key))
         parts.push({ key, text: `${label}: ${value} ${unit}` })
     }

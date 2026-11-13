@@ -1,4 +1,6 @@
 /** Watermark and encoding shared by every page of a limited (locked-project) PDF export. */
+import { drawLimitedInspectionPagePattern, LIMITED_MARK_ANGLE_DEG } from './limitedInspectionStamp'
+
 export const LIMITED_RASTER_WATERMARK_OPACITY = 0.1
 export const LIMITED_RASTER_JPEG_QUALITY = 0.62
 
@@ -19,17 +21,21 @@ function loadLogo(): Promise<HTMLImageElement> {
 
 type WatermarkContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
 
-/** Draws the faint, tilted Condui.BE mark across the middle of a rendered page. */
+/**
+ * Draws the faint "not for inspection" pattern over the whole rendered page and the tilted
+ * Condui.BE mark across its middle.
+ */
 export async function drawLimitedWatermark(
   context: WatermarkContext,
   width: number,
   height: number,
   textColor: string
 ): Promise<void> {
+  drawLimitedInspectionPagePattern(context, width, height, textColor)
   context.save()
   context.globalAlpha = LIMITED_RASTER_WATERMARK_OPACITY
   context.translate(width / 2, height / 2)
-  context.rotate(-Math.PI / 8)
+  context.rotate((LIMITED_MARK_ANGLE_DEG * Math.PI) / 180)
 
   try {
     const logo = await loadLogo()

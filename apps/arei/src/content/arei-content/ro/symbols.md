@@ -1,7 +1,7 @@
 ---
 title: Simboluri pentru schema monofilară și planul de poziție
 description: Simboluri electrice pentru schema monofilară belgiană și planul de poziție, cu o scurtă explicație pentru fiecare simbol, de la priză și comutator cap-scară la dispozitivul diferențial și piesa de separație a prizei de pământ.
-updated: 2026-10-12
+updated: 2026-11-04
 ---
 
 Mai jos găsești simbolurile electrice care apar pe o schemă monofilară belgiană (eendraadschema) și pe planul de poziție, cu o scurtă explicație pentru fiecare. Cele mai multe corespund tabelului 2.23 din AREI belgian, Cartea 1 (capitolul 2.13), o listă neexhaustivă. Pentru componentele care lipsesc de acolo, de exemplu o baterie de acasă sau un descărcător de supratensiune, {{brand}} folosește un simbol propriu.
@@ -116,6 +116,9 @@ Un contact separat, de exemplu un contact de ușă sau o intrare a unui sistem d
 
 ### [switch_impulse]
 Un buton trimite un impuls scurt către un releu de impuls sau o intrare de automatizare, în loc să comute direct circuitul.
+
+### [light_sensor]
+Un întrerupător crepuscular aprinde automat iluminatul când lumina ambiantă scade sub pragul setat. Cele două săgeți spre contact indică faptul că acesta reacționează la lumină. Este un întrerupător comandat de lumină, nu un detector de mișcare.
 
 ### [motion_detector]
 Un detector de mișcare aprinde automat lumina la mișcare. Poți indica tehnologia: IR, radar sau o combinație.

@@ -1,3 +1,4 @@
+import { getPanelGridTotalColumns, snapPanelGridColToFields } from '@/lib/panel/panelGridFields'
 import { useCanvasWindow } from '@/components/viewport/ViewportContext'
 import { useViewportUIStore as useCanvasUIStore, useViewportUIApi } from '@/components/viewport/ViewportUIStore'
 import {
@@ -67,7 +68,7 @@ import {
   PANEL_FOCUS_SINGLE_PANEL_LINK_POLICY,
   type PanelSceneFilter,
 } from '@/lib/panel/applyPanelSceneFilter'
-import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
+import { DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
 import { getPanelFeedProjection } from '@/lib/feedTopology'
 import {
   getSharedSupplyRefKeysForPanel,
@@ -77,13 +78,16 @@ import {
 import { getCachedPanelOverflowCount } from '@/lib/panel/panelCanvasReadCache'
 import type { PanelGridSlot, PanelGridModuleRef, Circuit, Panel } from '@/types/schema'
 import type { ProjectState } from '@/stores/projectStore'
-import { getPanelDisplayName } from '@/utils/panelNames'
 import type { PanelCanvasMode, Selection as CanvasSelection } from '@/types/ui'
 import type { EditorCapabilities } from '@/lib/viewerMode'
 import { clamp, rectContainsRect } from '@/lib/geometry'
 import { HierarchyPanelCanvas } from './panel/HierarchyPanelCanvas'
 import { PanelOptionsMenu } from './panel/PanelOptionsMenu'
-import { buildPanelSelectorLabel, type PanelOption } from './panel/panelOptionsMenuUtils'
+import {
+  buildPanelOptions,
+  buildPanelSelectorLabel,
+  orderPanelOptionsByNumber,
+} from './panel/panelOptionsMenuUtils'
 import { PanelVisibilityMenu, type PanelVisibilityTarget } from './panel/PanelVisibilityMenu'
 import {
   usePanelContextMenu,
@@ -91,8 +95,6 @@ import {
   usePanelOptionsMenuState,
   usePanelViewportHandlers,
 } from '@/hooks/panel'
-
-type Project = NonNullable<ProjectState['currentProject']>
 
 function moduleRefMatchesSelection(ref: PanelGridModuleRef, selection: CanvasSelection): boolean {
   if (!selection.type || selection.ids.length === 0) return false
@@ -166,20 +168,6 @@ interface HierarchyDragPreview {
     width: number
     height: number
   }>
-}
-
-function flattenPanels(
-  panels: Panel[],
-  project?: Project | null,
-  depth = 0,
-  isRoot = true
-): PanelOption[] {
-  const out: PanelOption[] = []
-  for (const p of panels) {
-    out.push({ id: p.id, name: getPanelDisplayName(p, project), panel: p, depth, isRoot })
-    out.push(...flattenPanels(p.subPanels ?? [], project, depth + 1, false))
-  }
-  return out
 }
 
 interface PanelCanvasProps {
@@ -292,11 +280,23 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
 
   const panelList = useMemo(
     () =>
-      flattenPanels(
+      buildPanelOptions(
         currentProject ? getProjectElectricalPanels(currentProject) : [],
         currentProject
       ),
     [currentProject]
+  )
+  // The selector lists boards by number; the scene keeps the panel tree order.
+  const panelMenuOptions = useMemo(
+    () =>
+      currentProject
+        ? orderPanelOptionsByNumber(
+            panelList,
+            getProjectElectricalPanels(currentProject),
+            getProjectElectricalInstallation(currentProject)
+          )
+        : panelList,
+    [currentProject, panelList]
   )
   const hasActivePanelInProject =
     activePanelId != null && panelList.some((p) => p.id === activePanelId)
@@ -525,7 +525,7 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
     const frameMargin = 40
     const supplyGap = 20
     const rows = panel.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS
-    const cols = panel.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS
+    const cols = getPanelGridTotalColumns(panel.gridView)
     const supplyLayout = getSupplyPanelLayout(panel)
     const contentWidth = cols * CELL_W
     const contentHeight = rows * CELL_H + (rows - 1) * ROW_GAP
@@ -762,7 +762,7 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
   const FRAME_MARGIN = 40
   const SUPPLY_GAP = 20
   const rows = panel?.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS
-  const cols = panel?.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS
+  const cols = getPanelGridTotalColumns(panel?.gridView)
   const supplyLayout = getSupplyPanelLayout(panel)
   const contentWidth = cols * CELL_W
   const contentHeight = rows * CELL_H + (rows - 1) * ROW_GAP // Include gaps between rows
@@ -796,7 +796,6 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
       )
       if (draggedPlacement) {
         const currentRows = panel?.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS
-        const currentCols = panel?.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS
         const currentSupplyLayout = getSupplyPanelLayout(panel)
         const inSupply = draggedPlacement.inSupplyPanel === true
         const localY = y - (inSupply ? supplyPanelY : mainPanelY)
@@ -810,9 +809,10 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
           0,
           Math.min((inSupply ? currentSupplyLayout.rows : currentRows) - 1, snappedBase.row)
         )
-        const snappedCol = Math.max(
-          0,
-          Math.min((inSupply ? currentSupplyLayout.cols : currentCols) - moduleW, snappedBase.col)
+        const snappedCol = snapPanelGridColToFields(
+          inSupply ? undefined : panel?.gridView,
+          Math.max(0, Math.min((inSupply ? currentSupplyLayout.cols : getPanelGridTotalColumns(panel?.gridView)) - moduleW, snappedBase.col)),
+          moduleW
         )
         const initial = multiDragInitialRef.current
         if (initial.size > 1 && initial.has(panelGridModuleRefKey(ref))) {
@@ -1184,7 +1184,7 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
       // Rewire mode is handled by handleRewireDragEnd, not here
 
       const totalRows = panel.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS
-      const totalCols = panel.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS
+      const totalCols = getPanelGridTotalColumns(panel.gridView)
       const draggedKey = panelGridModuleRefKey(draggedRef)
 
       const isRefInSelection = (
@@ -1852,7 +1852,7 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
           combinedPlacements &&
           (() => {
             const rows = panel?.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS
-            const cols = panel?.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS
+            const cols = getPanelGridTotalColumns(panel?.gridView)
             const supplyRows = getSupplyPanelRows(panel)
             const supplyCols = getSupplyPanelColumns(panel)
             const supplyPanelVisible = !!(panel?.isMain && supplyModules.length > 0)
@@ -2200,7 +2200,7 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
           <FloatingControl
             icon={<PanelSelectorIcon className="w-6 h-6 text-gray-700 dark:text-gray-200" />}
             label={t('panelCanvas.panelOptions', 'Panel options')}
-            tooltipDescription={buildPanelSelectorLabel(effectivePanelCanvasMode, panelList)}
+            tooltipDescription={buildPanelSelectorLabel(effectivePanelCanvasMode, panelMenuOptions)}
             variant="menu"
             side="right"
             open={panelOptionsMenuOpen}
@@ -2211,7 +2211,7 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
             triggerTestId="e2e-panel-canvas-options"
           >
             <PanelOptionsMenu
-              panelOptions={panelList}
+              panelOptions={panelMenuOptions}
               panelCanvasMode={effectivePanelCanvasMode}
               selectedPanelForLayout={selectedPanelForLayout}
               hierarchyFeedFromTop={hierarchyFeedFromTop}

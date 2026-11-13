@@ -95,7 +95,7 @@ interface PreviewGraphCache {
 }
 
 /** Compute the simulated snapshot synchronously; only the hook owns its reuse policy. */
-function buildPreviewGraph(
+export function buildPreviewGraph(
   currentProject: ProjectState['currentProject'],
   previewIntent: DragPreviewState | null,
   currentLayout: BottomUpLayoutResult | null,
@@ -158,7 +158,7 @@ function buildPreviewGraph(
     overrides.set(key, value)
   })
 
-  const layoutOptions = { infoBlockLogo: currentLayout?.infoBlockLogo === true }
+  const layoutOptions = { infoBlockLogo: currentLayout?.infoBlockLogo === true, infoBlockHeight: currentLayout?.infoBlockHeight }
   const preliminaryLayout = calculateBottomUpLayout(sim.project, overrides, layoutOptions)
   const stableOverrides = currentLayout
     ? buildStablePreviewCircuitOverrides(

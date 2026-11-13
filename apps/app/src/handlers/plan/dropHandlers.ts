@@ -57,6 +57,7 @@ export function commitPlanSymbolDrop(
   const sitplanTarget = createUiDropBehaviorHooks().getSitplanTarget()
   const outcome = runProjectCommand('plan.placeSymbol', {
     symbolId: symbol.id,
+    searchPreset: symbol.searchPreset,
     floorId,
     floorLayer,
     pos: position,

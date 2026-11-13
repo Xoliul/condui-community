@@ -7,6 +7,7 @@ export type ForwardOverviewInteraction = (
 ) => void
 
 export const OverviewInteractionContext = createContext<ForwardOverviewInteraction | null>(null)
+export const OverviewPrecisionContext = createContext(true)
 
 export function useOverviewInteraction(): ForwardOverviewInteraction {
   const forward = useContext(OverviewInteractionContext)

@@ -1,5 +1,6 @@
 import { getPanelBusSections, getProtectionBusSectionId, getCircuitBusSectionId } from '@/lib/panel/panelBusSections'
 import { deriveWireAnchorKey } from '@/lib/projectV2/wireRuns'
+import { getStructureForkFeeds } from './forkBranchFeeds'
 import {
   circuitConverterDeviceConnections,
   circuitConverterEndpointConnections,
@@ -539,18 +540,17 @@ export function buildElectricalStructureSnapshot(project: ProjectV2): Electrical
       incomingTrunkNodesByPanelId.set(panelId, projectedTrunkNodeIds)
 
     const branchMemberIds = new Set<string>()
+    const forkFeeds = getStructureForkFeeds(circuit, circuitNodeId, endpointNodeIds, trunkNodeIdsByCanonicalId)
     for (const [branchIndex, branch] of (circuit.branches ?? []).entries()) {
-      // A trunk device at position k follows branch k-1. Earlier taps bypass
-      // it, just as they do in the one-wire drawing.
+      if (forkFeeds.has(branch.id) && forkFeeds.get(branch.id) === null) {
+        for (const id of branch.endpointIds) branchMemberIds.add(id)
+        continue
+      }
       const upstreamTrunk = trunks.filter((device) =>
         !hasLocalDcConnection(device) && (device.trunkPosition ?? 0) <= branchIndex).at(-1)
-      // A rail has explicit fan-out ownership rather than feeding every tap.
-      const branchSource = upstreamTrunk?.type === 'dc_bus'
+      const branchSource = forkFeeds.get(branch.id) ?? (upstreamTrunk?.type === 'dc_bus'
         ? circuitNodeId
-        : (upstreamTrunk ? trunkNodeIdsByCanonicalId.get(upstreamTrunk.id) : undefined) ?? circuitNodeId
-      // A DC-rail branch is a fan-out from the rail, not another direct child
-      // of the upstream protection in the visual structure graph. Keep circuit
-      // ownership as a fact, but start the visible branch path at its bus.
+        : (upstreamTrunk ? trunkNodeIdsByCanonicalId.get(upstreamTrunk.id) : undefined) ?? circuitNodeId)
       let previous = branch.dcBusId
         ? (trunkNodeIdsByCanonicalId.get(branch.dcBusId) ?? circuitNodeId)
         : branchSource

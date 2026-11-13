@@ -107,6 +107,12 @@ export type TrikCircuit = {
    * topology remains authoritative.
    */
   outboundPanelNotas?: string[]
+  /**
+   * The same circuit with each Leiding split below a device kept as a fork: `nodes` carry fork-leg
+   * branch keys and `forkLegs` attach those legs to the node before the Leiding. Only present when
+   * the file has such a split; used by the importer when one-wire forks are enabled.
+   */
+  forkVariant?: { nodes: TrikNode[]; forkLegs: TrikForkLeg[] }
 }
 
 /** Serial fuse (or similar) sitting on a branch between endpoints. */
@@ -567,3 +573,6 @@ export function parseJaNeeBoolean(value: string | null | undefined): boolean | u
   if (normalized === 'nee') return false
   return undefined
 }
+
+/** A branch key whose run attaches downstream of `afterNodeId` (a one-wire fork). */
+export type TrikForkLeg = { branchKey: string; afterNodeId: string }

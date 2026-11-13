@@ -3,12 +3,16 @@ import { editProperties, type InstallationPropertyPatch } from '@/handlers/prope
 import { getInstallationSupplyTransformer } from '@/lib/electrical/supplyTransformer'
 import CustomDropdown from '@/components/common/CustomDropdown'
 import { TransformerNameplateFields } from '../shared/TransformerNameplateFields'
+import { TransformerOutputBoards } from '../shared/TransformerOutputBoards'
+import {
+  getSupplyTransformerOutputBoards,
+} from '@/lib/electrical/feedNominalVoltage'
 import { updateInstallationAddressAndSite } from '@/handlers/properties/editGeneralProperties'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Eye, EyeOff, MapPin } from 'lucide-react'
 import { DebouncedTextInput, DebouncedTextarea } from '@/components/forms'
-import { getProjectElectricalInstallation } from '@/lib/projectV2/electrical'
+import { getProjectElectricalInstallation, getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import {
   isGeoapifyConfigured,
   searchGeoapifyAddresses,
@@ -218,6 +222,11 @@ export function ProjectProperties({
     [applyInstallationUpdate, readOnly]
   )
   const supplyTransformer = installation ? getInstallationSupplyTransformer(installation) : undefined
+  // Behind an own transformer each main board chooses its output on its busbar.
+  const transformerOutputBoards =
+    supplyTransformer && project && installation && resolveInstallationProfile(installation) === 'non_household'
+      ? getSupplyTransformerOutputBoards(installation, getProjectElectricalPanels(project))
+      : []
   const googleMapsUrl =
     typeof siteLocation?.latitude === 'number' && typeof siteLocation?.longitude === 'number'
       ? `https://www.google.com/maps/search/?api=1&query=${siteLocation.latitude},${siteLocation.longitude}`
@@ -593,6 +602,9 @@ export function ProjectProperties({
               <h4 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
                 {t('installation.voltage', 'Nominal Voltage')}
               </h4>
+              {transformerOutputBoards.length > 0 ? (
+                <TransformerOutputBoards boards={transformerOutputBoards} />
+              ) : (
               <div className="space-y-3">
                 <div>
                   <NominalVoltageSystemPicker
@@ -643,6 +655,7 @@ export function ProjectProperties({
                   </div>
                 </div>
               </div>
+              )}
             </div>
             <ConnectionCurrentField
               value={installation.connectionCurrentA}

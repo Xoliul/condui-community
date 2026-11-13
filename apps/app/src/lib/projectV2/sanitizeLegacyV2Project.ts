@@ -42,7 +42,7 @@ export function hasLegacyV2ProjectBloat(project: unknown): boolean {
     schemaVersion !== '2.0.0' &&
     schemaVersion !== '2.1.0' &&
     schemaVersion !== '2.2.0' &&
-    schemaVersion !== '2.3.0'
+    schemaVersion !== '2.3.0' && schemaVersion !== '2.4.0'
   )
     return false
 

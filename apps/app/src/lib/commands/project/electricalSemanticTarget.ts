@@ -34,6 +34,8 @@ export const electricalSemanticDestinationSchema = z.discriminatedUnion('kind', 
     afterCircuitId: id.optional(),
   }),
   z.strictObject({ kind: z.literal('protection'), protectionId: id }),
+  /** Behind an RCD: appended to its bus, or after one circuit already behind it. */
+  z.strictObject({ kind: z.literal('rcd'), protectionId: id, afterCircuitId: id.optional() }),
   z.strictObject({
     kind: z.literal('supply'),
     panelId: id,
@@ -187,6 +189,34 @@ export function resolveElectricalSemanticTarget(
     return {
       ok: true,
       target: { type: 'protection', panelId: owner.id, protectionId: destination.protectionId },
+    }
+  }
+
+  if (destination.kind === 'rcd') {
+    const owner = [...walkPanels(panels)].find((panel) =>
+      panel.protections.some((item) => item.id === destination.protectionId)
+    )
+    const rcd = owner?.protections.find((item) => item.id === destination.protectionId)
+    if (!owner || !rcd) return invalid('protection_not_found', 'Protection not found')
+    if (rcd.type !== 'RCD' && rcd.type !== 'RCBO')
+      return invalid('not_an_rcd', 'Only an RCD or RCBO has circuits behind it')
+    // The circuits behind an RCD hang off its carrier circuit's secondary bus.
+    const carrier = rcd.circuits?.[0]
+    if (!carrier) return invalid('rcd_carrier_missing', 'This RCD has no bus to place circuits on')
+    const behind = carrier.subCircuitIds ?? []
+    const after = destination.afterCircuitId ? behind.indexOf(destination.afterCircuitId) : behind.length - 1
+    if (destination.afterCircuitId && after < 0)
+      return invalid('rcd_anchor_not_found', 'That circuit is not behind this RCD')
+    return {
+      ok: true,
+      target: {
+        type: 'circuit',
+        panelId: owner.id,
+        circuitId: carrier.id,
+        protectionId: rcd.id,
+        secondaryBusInsertIndex: after + 1,
+        secondaryBusItemCount: behind.length,
+      },
     }
   }
 

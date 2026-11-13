@@ -7,7 +7,6 @@ import { getTrunkDeviceBranchGapY } from './bottomUpBranchPass'
 import { getEndpointLayoutOffsets } from './bottomUpBranchWidths'
 
 import {
-  getProtectionToTrunkDeviceCenterGap,
   getTrunkDeviceVerticalPaintHeight,
 } from './trunkDeviceSpacing'
 import {
@@ -222,7 +221,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
         branch.endpoints.forEach((endpoint, index) => {
           const endpointX = isDcBusBranch
             ? branch.branchX
-            : branch.branchX + (nestedOffsets[index]?.x ?? 0)
+            : branch.branchX + (branch.endpointXOffsets?.[index] ?? nestedOffsets[index]?.x ?? 0)
           const endpointY = branch.branchY + (nestedOffsets[index]?.y ?? 0)
           elements.push({
             id: `endpoint-${endpoint.id}`,
@@ -246,7 +245,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
             id: `branch-label-${branch.id}`,
             type: 'label',
             position: {
-              x: branch.branchX - LAYOUT_CONSTANTS.LABEL_OFFSET, // LOCAL coordinates
+              x: (branch.labelX ?? branch.branchX) - LAYOUT_CONSTANTS.LABEL_OFFSET, // LOCAL coordinates; legs share the root label column
               y: branch.branchY,
             },
             label: labelText,
@@ -330,10 +329,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
               : -1
             const precedingDevicePosition = precedingDevice
               ? mcbYForDevices -
-                getProtectionToTrunkDeviceCenterGap(
-                  precedingDevice,
-                  LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
-                ) -
+                LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP -
                 precedingDevices
                   .slice(0, precedingDeviceIndex)
                   .filter((candidate) => candidate.trunkPosition === precedingDevice.trunkPosition)
@@ -354,10 +350,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
               .indexOf(device)
             deviceY =
               mcbYForDevices -
-              getProtectionToTrunkDeviceCenterGap(
-                nestedTrunkDevices.find((candidate) => candidate.trunkPosition === 0) ?? device,
-                LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
-              ) -
+              LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP -
               devicesAtPos0Before *
                 (LAYOUT_CONSTANTS.TRUNK_DEVICE_SPACING + LAYOUT_CONSTANTS.SYMBOL_SIZE)
           } else {
@@ -384,10 +377,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
               // Fallback
               deviceY =
                 mcbYForDevices -
-                getProtectionToTrunkDeviceCenterGap(
-                  nestedTrunkDevices.find((candidate) => candidate.trunkPosition === 0) ?? device,
-                  LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
-                )
+                LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
             }
           }
 
@@ -561,10 +551,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
             : -1
           const precedingDevicePosition = precedingDevice
             ? mcbYForDevices -
-              getProtectionToTrunkDeviceCenterGap(
-                precedingDevice,
-                LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
-              ) -
+              LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP -
               precedingDevices
                 .slice(0, precedingDeviceIndex)
                 .filter((candidate) => candidate.trunkPosition === precedingDevice.trunkPosition)
@@ -586,10 +573,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
             .indexOf(device)
           deviceY =
             mcbYForDevices -
-            getProtectionToTrunkDeviceCenterGap(
-              trunkDevices.find((candidate) => candidate.trunkPosition === 0) ?? device,
-              LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
-            ) -
+            LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP -
             devicesAtPos0Before *
               (LAYOUT_CONSTANTS.TRUNK_DEVICE_SPACING + LAYOUT_CONSTANTS.SYMBOL_SIZE)
         } else {
@@ -616,10 +600,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
             // Fallback
             deviceY =
               mcbYForDevices -
-              getProtectionToTrunkDeviceCenterGap(
-                trunkDevices.find((candidate) => candidate.trunkPosition === 0) ?? device,
-                LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
-              )
+              LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
           }
         }
 
@@ -715,7 +696,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
                 branch.branchWidth -
                 ((endpointOffset?.x ?? 0) +
                   (LAYOUT_CONSTANTS.SUPPLY_DEVICE_SPACING - LAYOUT_CONSTANTS.BRANCH_LEAD_IN))
-              : branch.branchX + (endpointOffset?.x ?? 0)
+              : branch.branchX + (branch.endpointXOffsets?.[index] ?? endpointOffset?.x ?? 0)
         const endpointY = branch.branchY + (endpointOffset?.y ?? 0)
         elements.push({
           id: `endpoint-${endpoint.id}`,
@@ -744,7 +725,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
             // left of the trunk wire. CircuitLabel uses left-aligned
             // text with an 80px width for branch labels, so we shift
             // by that width here.
-            x: branch.branchX - LAYOUT_CONSTANTS.LABEL_OFFSET, // LOCAL coordinates
+            x: (branch.labelX ?? branch.branchX) - LAYOUT_CONSTANTS.LABEL_OFFSET, // LOCAL coordinates; legs share the root label column
             y: branch.branchY,
           },
           label: labelText,

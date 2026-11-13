@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type Konva from 'konva'
+import { memo, useCallback } from 'react'
+import { useSignatureImage } from '@/hooks/useSignatureImage'
+import { getInfoBlockContent } from '@/lib/infoBlockContent'
 import { useEditionFeatureAvailability } from '@/hooks/useEditionFeatureAvailability'
 import {
   resolveInfoBlockPresentation,
@@ -37,15 +38,9 @@ import {
   INFO_BLOCK_HEADER_LINE_GAP,
   INFO_BLOCK_BODY_TOP_GAP,
   INFO_BLOCK_HEADER_LINE_INSET,
-  INFO_BLOCK_BODY_LINE_HEIGHT,
-  INFO_BLOCK_TOTAL_WIDTH,
-  INFO_BLOCK_HEIGHT,
   INFO_BLOCK_INSTALLER_TOP_HEIGHT,
   INFO_BLOCK_IMAGE_AREA_HEIGHT,
   INFO_BLOCK_GENERAL_ROW_HEIGHT,
-  formatInstallationAddress,
-  formatInspectionAgencyDetails,
-  formatInstallerAddress,
   getInfoBlockColumnPositions,
   getInfoBlockColumns,
   getInfoBlockTotalWidth,
@@ -53,6 +48,7 @@ import {
 } from '@/lib/infoBlockLayout'
 import {
   getProjectElectricalInstallation,
+  getProjectElectricalPanels,
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import type { InstallerProfile } from '@/lib/installerProfile'
@@ -83,9 +79,11 @@ interface InfoBlockProps {
   pageNumber?: number
   /** If false, boxes are clickable and show selection (live editing). */
   interactive?: boolean
+  /** Tiny live diagrams retain selectable columns without unreadable text/image nodes. */
+  overview?: boolean
 }
 
-export function InfoBlock({
+export const InfoBlock = memo(function InfoBlock({
   x,
   y,
   viewTitle,
@@ -94,6 +92,7 @@ export function InfoBlock({
   showPageNumber = false,
   pageNumber,
   interactive = true,
+  overview = false,
 }: InfoBlockProps) {
   const { t } = useTranslation()
   const theme = useSettingsStore((state) => state.theme)
@@ -111,19 +110,7 @@ export function InfoBlock({
   const secondaryColor = getSecondaryTextColor(isDark)
 
   const logoImage = useInfoBlockLogoImage(profile?.logoDataUrl)
-  const [signatureImage, setSignatureImage] = useState<HTMLImageElement | null>(null)
-  const [signatureSource, setSignatureSource] = useState(profile?.signatureDataUrl)
-  if (signatureSource !== profile?.signatureDataUrl) {
-    setSignatureSource(profile?.signatureDataUrl)
-    if (!profile?.signatureDataUrl) setSignatureImage(null)
-  }
-  const installerNameRef = useRef<Konva.Text>(null)
-  const [installerNameHeight, setInstallerNameHeight] = useState(INFO_BLOCK_BODY_LINE_HEIGHT)
-  const inspectionAgencyNameRef = useRef<Konva.Text>(null)
-  const [inspectionAgencyNameHeight, setInspectionAgencyNameHeight] = useState(
-    INFO_BLOCK_BODY_LINE_HEIGHT
-  )
-
+  const signatureImage = useSignatureImage(profile?.signatureDataUrl, isDark)
   const fitImageInBox = useCallback(
     (
       image: HTMLImageElement | null,
@@ -149,21 +136,11 @@ export function InfoBlock({
     []
   )
 
-  useEffect(() => {
-    if (!profile?.signatureDataUrl) return
-    const img = new window.Image()
-    img.onload = () => setSignatureImage(img)
-    img.src = profile.signatureDataUrl
-    return () => {
-      img.src = ''
-    }
-  }, [profile?.signatureDataUrl])
-
   const countryLabel = t('installation.countryBelgium', 'Belgium')
   const installation = project ? getProjectElectricalInstallation(project) : undefined
-  const projectName = project?.project?.name ?? ''
-  const addressText = installation ? formatInstallationAddress(installation, countryLabel) : ''
-  const voltageText = installation ? getVoltageLabel(installation) : ''
+  const voltageText = installation
+    ? getVoltageLabel(installation, project ? getProjectElectricalPanels(project) : [])
+    : ''
   const eanText = project?.project?.meterEanCode ?? ''
   const updatedAt = project?.project?.updatedAt
   const dateText = updatedAt
@@ -197,8 +174,9 @@ export function InfoBlock({
   const headerInspectionAgency = t('project.inspectionAgency', 'Inspection agency')
   const columns = getInfoBlockColumns(project, { hasLogo: logoImage != null })
   const inspectionAgency = project?.project?.inspectionAgency
-  const inspectionAgencyDetails = formatInspectionAgencyDetails(inspectionAgency, countryLabel)
   const inspectionAgencyCompanyNumber = inspectionAgency?.companyNumber?.trim() ?? ''
+  const content = getInfoBlockContent(project, profile, countryLabel, fontFamily)
+  const infoBlockHeight = content.height
   const infoBlockWidth = getInfoBlockTotalWidth(columns)
 
   const isSelected = (id: InfoBlockBoxId) =>
@@ -228,7 +206,7 @@ export function InfoBlock({
   const bodyStartY = headerLineY + INFO_BLOCK_BODY_TOP_GAP
 
   const sepTopY = INFO_BLOCK_PADDING
-  const sepBottomY = INFO_BLOCK_HEIGHT - INFO_BLOCK_PADDING
+  const sepBottomY = infoBlockHeight - INFO_BLOCK_PADDING
   const col1Left = installerBoxX
   const col1Right = installerBoxX + INFO_BLOCK_BOX_WIDTHS.installer
   const col2Left = addressBoxX
@@ -251,7 +229,7 @@ export function InfoBlock({
       ? fitImageInBox(
           logoImage,
           INFO_BLOCK_BOX_WIDTHS.logo - INFO_BLOCK_PADDING * 2,
-          INFO_BLOCK_HEIGHT - INFO_BLOCK_PADDING * 2,
+          infoBlockHeight - INFO_BLOCK_PADDING * 2,
           logoBoxX + INFO_BLOCK_PADDING,
           INFO_BLOCK_PADDING
         )
@@ -264,32 +242,39 @@ export function InfoBlock({
     signatureY
   )
   const headerLetterSpacing = 0.5
-  const installeradressLineHeight = 1.5
-  const adressLineHeight = 1.5
-  const installerAddressText = profile
-    ? formatInstallerAddress(profile.address, countryLabel, {
-        phone: profile.phone,
-        mobile: profile.mobile,
-        email: profile.email,
-      })
-    : ''
-  const installerAddressY = bodyStartY + installerNameHeight
+  const installerAddressY = bodyStartY + content.installer.nameHeight
   const inspectionAgencyMetaWidth = inspectionAgencyCompanyNumber ? 66 : 0
   const inspectionAgencyNameWidth =
     INFO_BLOCK_BOX_WIDTHS.inspectionAgency - INFO_BLOCK_PADDING * 2 - inspectionAgencyMetaWidth
-  const inspectionAgencyDetailsY = bodyStartY + inspectionAgencyNameHeight
+  const inspectionAgencyDetailsY = bodyStartY + content.inspectionAgency.nameHeight
 
-  useLayoutEffect(() => {
-    const height = installerNameRef.current?.height()
-    if (!height || height === installerNameHeight) return
-    setInstallerNameHeight(height)
-  }, [fontFamily, installerNameHeight, installerTextWidth, profile?.name])
-
-  useLayoutEffect(() => {
-    const height = inspectionAgencyNameRef.current?.height()
-    if (!height || height === inspectionAgencyNameHeight) return
-    setInspectionAgencyNameHeight(height)
-  }, [fontFamily, inspectionAgency?.name, inspectionAgencyNameHeight, inspectionAgencyNameWidth])
+  if (overview && !installerSelected && !addressSelected && !eanSelected) {
+    const sectionsTop = bodyStartY + (showPageNumber && pageNumber != null ? INFO_BLOCK_GENERAL_ROW_HEIGHT : 0)
+    const sectionHeight = (infoBlockHeight - INFO_BLOCK_PADDING - sectionsTop) / 3
+    return (
+      <Group name="export-info-block" x={x} y={y} listening={interactive}>
+        <Rect width={infoBlockWidth} height={infoBlockHeight}
+          stroke={frameColor} strokeWidth={INFO_BLOCK_STROKE_WIDTH_FRAME}
+          fill={colors.background} listening={false} />
+        {columnPositions.separators.map((separatorX) => (
+          <Line key={separatorX} points={[separatorX, sepTopY, separatorX, sepBottomY]}
+            stroke={frameColor} strokeWidth={INFO_BLOCK_STROKE_WIDTH_SEPARATOR} listening={false} />
+        ))}
+        {interactive && (['logo', 'installer', 'address', 'general'] as const).map((column) => {
+          const columnX = columnPositions[column]
+          if (columnX == null) return null
+          const id = column === 'general' ? 'ean' : column === 'logo' ? 'installer' : column
+          return (
+            <Rect key={column} x={columnX} width={INFO_BLOCK_BOX_WIDTHS[column]}
+              y={column === 'general' ? sectionsTop + sectionHeight * 2 : 0}
+              height={column === 'general' ? sectionHeight : infoBlockHeight} fill="transparent"
+              onClick={(event) => handleBoxClick(event, id)}
+              onTap={(event) => handleBoxClick(event, id)} />
+          )
+        })}
+      </Group>
+    )
+  }
 
   return (
     <Group name="export-info-block" x={x} y={y} listening={interactive}>
@@ -298,7 +283,7 @@ export function InfoBlock({
         x={0}
         y={0}
         width={infoBlockWidth}
-        height={INFO_BLOCK_HEIGHT}
+        height={infoBlockHeight}
         stroke={frameColor}
         strokeWidth={INFO_BLOCK_STROKE_WIDTH_FRAME}
         fill={colors.background}
@@ -343,17 +328,17 @@ export function InfoBlock({
             listening={false}
           />
           <Text
-            ref={inspectionAgencyNameRef}
             x={inspectionAgencyBoxX + INFO_BLOCK_PADDING}
             y={bodyStartY}
-            text={inspectionAgency?.name ?? ''}
+            text={content.inspectionAgency.nameLines.join('\n')}
+            lineHeight={12 / 8}
             fontSize={INFO_BLOCK_FONT_SIZE_NAME}
             fontFamily={fontFamily}
             fontStyle="bold"
             fill={textColor}
             listening={false}
             width={inspectionAgencyNameWidth}
-            wrap="word"
+            wrap="none"
           />
           {inspectionAgencyCompanyNumber && (
             <Text
@@ -380,14 +365,14 @@ export function InfoBlock({
           <Text
             x={inspectionAgencyBoxX + INFO_BLOCK_PADDING}
             y={inspectionAgencyDetailsY}
-            text={inspectionAgencyDetails}
+            text={content.inspectionAgency.detailLines.join('\n')}
             fontSize={INFO_BLOCK_FONT_SIZE_BODY}
             fontFamily={fontFamily}
             fill={secondaryColor}
             listening={false}
             width={INFO_BLOCK_BOX_WIDTHS.inspectionAgency - INFO_BLOCK_PADDING * 2}
-            wrap="word"
-            lineHeight={adressLineHeight}
+            wrap="none"
+            lineHeight={12 / 7}
           />
         </Group>
       )}
@@ -400,7 +385,7 @@ export function InfoBlock({
               x={logoBoxX}
               y={0}
               width={INFO_BLOCK_BOX_WIDTHS.logo}
-              height={INFO_BLOCK_HEIGHT}
+              height={infoBlockHeight}
               fill="transparent"
               listening={true}
               onClick={(ev) => handleBoxClick(ev, 'installer')}
@@ -450,7 +435,7 @@ export function InfoBlock({
             x={installerBoxX}
             y={0}
             width={INFO_BLOCK_BOX_WIDTHS.installer}
-            height={INFO_BLOCK_HEIGHT}
+            height={infoBlockHeight}
             fill="transparent"
             listening={true}
             onClick={(ev) => handleBoxClick(ev, 'installer')}
@@ -464,38 +449,37 @@ export function InfoBlock({
               installerBoxX,
               0,
               INFO_BLOCK_BOX_WIDTHS.installer,
-              INFO_BLOCK_HEIGHT
+              infoBlockHeight
             )}
           />
         )}
 
         {/* Installer name + address */}
         <Text
-          ref={installerNameRef}
           x={installerBoxX + INFO_BLOCK_PADDING}
           y={bodyStartY}
-          text={profile?.name ?? ''}
+          text={content.installer.nameLines.join('\n')}
           fontSize={INFO_BLOCK_FONT_SIZE_NAME}
           fontFamily={fontFamily}
           fontStyle="bold"
           fill={textColor}
           listening={false}
           width={installerTextWidth}
-          wrap="word"
-          lineHeight={installeradressLineHeight}
+          wrap="none"
+          lineHeight={12 / 8}
           letterSpacing={headerLetterSpacing}
         />
         <Text
           x={installerBoxX + INFO_BLOCK_PADDING}
           y={installerAddressY}
-          text={installerAddressText}
+          text={content.installer.detailLines.join('\n')}
           fontSize={INFO_BLOCK_FONT_SIZE_BODY}
           fontFamily={fontFamily}
           fill={secondaryColor}
           listening={false}
           width={installerTextWidth}
-          wrap="word"
-          lineHeight={installeradressLineHeight}
+          wrap="none"
+          lineHeight={12 / 7}
         />
         {/* Signature (right side, lower half of the image area) */}
         {signatureImage && (
@@ -512,7 +496,7 @@ export function InfoBlock({
           x={installerBoxX + INFO_BLOCK_PADDING}
           // Right-aligned in the bottom-right corner of the installer column,
           // sitting just above the bottom padding.
-          y={INFO_BLOCK_HEIGHT - INFO_BLOCK_PADDING - INFO_BLOCK_FONT_SIZE_MADE_WITH}
+          y={infoBlockHeight - INFO_BLOCK_PADDING - INFO_BLOCK_FONT_SIZE_MADE_WITH}
           width={INFO_BLOCK_BOX_WIDTHS.installer - INFO_BLOCK_PADDING * 2}
           align="right"
           text={madeWithText}
@@ -555,7 +539,7 @@ export function InfoBlock({
             x={addressBoxX}
             y={0}
             width={INFO_BLOCK_BOX_WIDTHS.address}
-            height={INFO_BLOCK_HEIGHT}
+            height={infoBlockHeight}
             fill="transparent"
             listening={true}
             onClick={(ev) => handleBoxClick(ev, 'address')}
@@ -569,7 +553,7 @@ export function InfoBlock({
               addressBoxX,
               0,
               INFO_BLOCK_BOX_WIDTHS.address,
-              INFO_BLOCK_HEIGHT
+              infoBlockHeight
             )}
           />
         )}
@@ -577,7 +561,9 @@ export function InfoBlock({
         <Text
           x={addressBoxX + INFO_BLOCK_PADDING}
           y={bodyStartY}
-          text={projectName}
+          text={content.address.nameLines.join('\n')}
+          lineHeight={12 / 8}
+          wrap="none"
           fontSize={INFO_BLOCK_FONT_SIZE_NAME}
           fontFamily={fontFamily}
           fontStyle="bold"
@@ -588,15 +574,15 @@ export function InfoBlock({
         {/* Installation address text below project name */}
         <Text
           x={addressBoxX + INFO_BLOCK_PADDING}
-          y={bodyStartY + INFO_BLOCK_BODY_LINE_HEIGHT}
-          text={addressText}
+          y={bodyStartY + content.address.nameHeight}
+          text={content.address.detailLines.join('\n')}
           fontSize={INFO_BLOCK_FONT_SIZE_BODY}
           fontFamily={fontFamily}
           fill={textColor}
           listening={false}
           width={INFO_BLOCK_BOX_WIDTHS.address - INFO_BLOCK_PADDING * 2}
-          wrap="word"
-          lineHeight={adressLineHeight}
+          wrap="none"
+          lineHeight={12 / 7}
         />
       </Group>
 
@@ -647,7 +633,7 @@ export function InfoBlock({
           }
 
           const sectionsCount = 3 // date, voltage, EAN
-          const availableHeight = INFO_BLOCK_HEIGHT - INFO_BLOCK_PADDING - sectionsTop
+          const availableHeight = infoBlockHeight - INFO_BLOCK_PADDING - sectionsTop
           const sectionHeight = availableHeight / sectionsCount
 
           // Vertically center text in each section
@@ -771,6 +757,6 @@ export function InfoBlock({
       </Group>
     </Group>
   )
-}
+})
 
-export { INFO_BLOCK_TOTAL_WIDTH, INFO_BLOCK_HEIGHT }
+export { INFO_BLOCK_TOTAL_WIDTH, INFO_BLOCK_HEIGHT } from '@/lib/infoBlockLayout'

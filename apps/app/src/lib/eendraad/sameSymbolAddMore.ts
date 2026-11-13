@@ -10,6 +10,7 @@ import {
   getSupplyDeviceMultiplier,
   supportsSupplyDeviceMultiplier,
 } from '@/lib/supplyAssembly/inverterMultipliers'
+import { applySearchPreset } from '@/lib/library/searchPresets'
 import { isModularSocket, isModularSocketLibraryId } from '@/lib/socket/modularSocket'
 import {
   applyLibraryPresetToEndpoint,
@@ -79,7 +80,7 @@ function getEndpointMergeSettings(endpoint: Endpoint): string {
   return JSON.stringify({ symbol: endpoint.symbol, settings })
 }
 
-function getDefaultEndpointForLibrarySymbol(symbolId: string): Endpoint | null {
+function getDefaultEndpointForLibrarySymbol(symbolId: string, searchPreset?: string): Endpoint | null {
   const symbol = getSymbolById(symbolId)
   const type = symbol && getEndpointTypeFromSymbol(symbol)
   if (!symbol || !type) return null
@@ -92,6 +93,7 @@ function getDefaultEndpointForLibrarySymbol(symbolId: string): Endpoint | null {
     placements: [],
   }
   applyLibraryPresetToEndpoint(symbol, endpoint)
+  applySearchPreset({ id: symbolId, searchPreset }, endpoint)
   return endpoint
 }
 
@@ -107,8 +109,8 @@ export function endpointsShareMergeFamily(left: Endpoint, right: Endpoint): bool
 }
 
 /** A same-symbol or socket-variant drop onto a Domotica output cannot replace differing settings. */
-export function isConflictingOnSymbolDrop(symbolId: string, endpoint: Endpoint): boolean {
-  const incoming = getDefaultEndpointForLibrarySymbol(symbolId)
+export function isConflictingOnSymbolDrop(symbolId: string, endpoint: Endpoint, searchPreset?: string): boolean {
+  const incoming = getDefaultEndpointForLibrarySymbol(symbolId, searchPreset)
   if (!incoming) return false
   const sameMergeFamily =
     endpoint.symbol === incoming.symbol ||

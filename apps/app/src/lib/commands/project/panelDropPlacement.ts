@@ -1,10 +1,11 @@
+import { getPanelGridTotalColumns } from '@/lib/panel/panelGridFields'
 import { z } from 'zod'
 import type { ProjectV2 } from '@/types/projectV2'
 import type { PanelGridModuleRef } from '@/types/schema'
 import { getEditableProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { findPanelById, collectCircuits } from '@/lib/panel/panelTree'
 import { getModuleWidthInCols, panelGridModuleRefKey } from '@/lib/panel/panelGridLayout'
-import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
+import { DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
 import { placeSupplyModuleAfterInsert } from '@/lib/panel/panelSupplySlots'
 import {
   unhideModuleFromPanelInProject,
@@ -75,7 +76,7 @@ export function applyPanelDropPlacement(
   } else {
     const width = getModuleWidthInCols(module, project)
     const rows = panel.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS
-    const cols = panel.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS
+    const cols = getPanelGridTotalColumns(panel.gridView)
     const row = Math.min(intent.row, rows - 1)
     const col = Math.max(
       0,

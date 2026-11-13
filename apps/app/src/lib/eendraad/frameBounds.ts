@@ -21,6 +21,8 @@ import {
 } from '@/lib/protectionLabels'
 import { getSymbolLabelPosition } from '@/lib/symbolLabels'
 import { isVerticalSupplyDevice } from '@/lib/layout/supplyDeviceOrientation'
+import { getEndpointLabelExtents } from '@/lib/eendraad/endpointLabelFrameExtents'
+import { SYMBOL_SIZE as ENDPOINT_SYMBOL_SIZE } from '@/lib/canvas/symbolGeometry'
 
 export interface EendraadFrameBounds {
   x: number
@@ -108,13 +110,17 @@ export function computeEendraadFrameBounds({
   padding = 16,
   topExtra = 0,
   includeEndpointLabels = true,
+  includeEndpointNotes = false,
 }: {
   items: ResolvedFrameItem[]
   panelLayout: BottomUpPanelLayout
   getEndpointById: (id: string) => Endpoint | undefined
   padding?: number
   topExtra?: number
+  /** Include the branch point labels ("a1") left of the endpoints. */
   includeEndpointLabels?: boolean
+  /** Include the notes and metadata text painted below or beside the endpoints. */
+  includeEndpointNotes?: boolean
 }): EendraadFrameBounds | null {
   const extents: Array<{ left: number; right: number; top: number; bottom: number }> = []
   let rowLabels: Map<string, { left: number; right: number; top: number; bottom: number }> | undefined
@@ -126,6 +132,25 @@ export function computeEendraadFrameBounds({
 
       const endpoint = getEndpointById(id)
       const isDomoticaParent = endpoint?.symbol === 'domotica'
+      if (includeEndpointNotes && endpoint) {
+        const branch = panelLayout.branches.find((candidate) =>
+          candidate.endpoints.some((branchEndpoint) => branchEndpoint.id === id)
+        )
+        const labelExtents = getEndpointLabelExtents(endpoint, {
+          x: el.position.x,
+          y: el.position.y,
+          symbolSize: ENDPOINT_SYMBOL_SIZE,
+          socketExtra:
+            endpoint.type === 'socket'
+              ? Math.max(0, (endpoint.socketProps?.socketCount ?? 1) - 1) * MULTI_SOCKET_OFFSET
+              : 0,
+          branchWireX: branch?.branchX,
+          isBranchEnd: branch ? branch.endpoints.at(-1)?.id === id : true,
+          isSingleEndpointBranch:
+            branch != null && branch.endpoints.length === 1 && endpoint.type !== 'switch',
+        })
+        if (labelExtents) extents.push(labelExtents)
+      }
 
       if (isDomoticaParent) {
         const endpointCount = Math.max(
@@ -348,6 +373,7 @@ export function computeOneWireFrameBounds(
     getEndpointById,
     topExtra: titleInside ? ONE_WIRE_FRAME_TITLE_INSIDE_TOP_PADDING + frame.fontSize : 0,
     includeEndpointLabels: false,
+    includeEndpointNotes: true,
   })
 }
 

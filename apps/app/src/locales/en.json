@@ -1,4 +1,36 @@
 {
+  "oneWireFork": {
+    "invalidConnection": "Fork connection is unresolved."
+  },
+  "forkLab": {
+    "title": "Branching workspace",
+    "scope": "Experimental AC drafts · saved separately from projects",
+    "undo": "Undo",
+    "redo": "Redo",
+    "plain": "Plain circuit",
+    "save": "Save draft",
+    "download": "Download draft",
+    "open": "Open draft",
+    "empty": "Empty fork",
+    "move": "Move run",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "zoom": "Zoom",
+    "note": "Note",
+    "feed": "Feed ancestry",
+    "depth": "Depth",
+    "moveHandle": "Move handle",
+    "forkAfter": "Fork after",
+    "insert": "Insert into",
+    "root": "New root branch",
+    "targetHint": "Choose a symbol, then a blue destination.",
+    "selectHint": "Select a symbol to inspect or move it.",
+    "moveHint": "Choose a destination or drag the blue move handle.",
+    "saved": "Draft saved. Reload to reopen it.",
+    "storageError": "Could not save this draft.",
+    "invalidFile": "This file is not a valid branching draft.",
+    "rejected": "This edit cannot preserve the branch topology."
+  },
   "findPanel": {
     "title": "Find panel",
     "placeholder": "Search panels…",
@@ -151,7 +183,9 @@
     "offlineReloadNotReady": "Avoid reloading until you have opened the app once while online in this browser tab.",
     "offlineReloadDevHint": "Reload while offline only works with a production build (npm run build && vite preview), not the dev server.",
     "dismissOfflineBanner": "Dismiss offline notice",
-    "offlineIndicatorTitle": "You are offline"
+    "offlineIndicatorTitle": "You are offline",
+    "cloudSyncPendingTitle": "Not synced to the cloud",
+    "cloudSyncPendingMessage": "Your changes are saved on this device. Cloud sync keeps retrying."
   },
   "diagnostics": {
     "anonymousProjectName": "Diagnostics project ({{idShort}})",
@@ -283,6 +317,8 @@
     "zoom": "Zoom"
   },
   "commandPalette": {
+    "createFork": "Add fork",
+    "deleteEmptyFork": "Remove empty fork",
     "addPanelAtDomoticaOutput": "Add panel at output",
     "addSupplyTransformer": "Add supply transformer",
     "placeholder": "Search commands",
@@ -303,6 +339,7 @@
     "apply": "Apply",
     "unavailable": "Cannot apply this change. Check the values or reopen the action.",
     "fields": {
+      "branch": "Branch",
       "output": "Output",
       "circuit": "Circuit",
       "position": "Position",
@@ -623,6 +660,41 @@
     }
   },
   "settings": {
+    "mcp": {
+      "manageConnections": "Manage connections",
+      "copyUrl": "Copy server URL",
+      "copyPrompt": "Copy starter prompt",
+      "starterPrompt": "Use Condui MCP to work in the existing cloud project I name. If I don’t name one, ask which project I mean. Create a new project only when I ask for it. Summarize what you find and wait for my instructions before making edits.",
+      "urlCopied": "Server URL copied",
+      "promptCopied": "Starter prompt copied",
+      "copyFailed": "Couldn’t copy. Select the text to copy it manually.",
+      "needsServerStorage": "Available when projects are stored on the server.",
+      "turnOn": "Turn on",
+      "turnOff": "Turn off",
+      "newToken": "New token",
+      "tokenShownOnce": "Copy this token now. It is shown only once.",
+      "copyToken": "Copy token",
+      "tokenCopied": "Token copied",
+      "copyCommand": "Copy Claude Code command",
+      "commandCopied": "Command copied",
+      "changeFailed": "Couldn’t change the MCP settings.",
+      "communityStarterPrompt": "Use Condui MCP to work in the existing Condui project I name. If I don’t name one, ask which project I mean. Create a new project only when I ask for it. Summarize what you find and wait for my instructions before making edits.",
+      "client": {
+        "label": "AI client",
+        "claude": "Claude",
+        "chatgpt": "ChatGPT / Codex",
+        "other": "Other"
+      },
+      "hostedPasteAndSignIn": "Paste the server URL there and sign in with your Condui account. Edits save directly to the cloud project.",
+      "hostedOther": "This server uses OAuth sign-in with your Condui account. Edits save directly to the cloud project.",
+      "codexConfig": "Codex config (config.toml)",
+      "copyCodexConfig": "Copy Codex config",
+      "configCopied": "Config copied",
+      "headerLabel": "Send this header with every request",
+      "copyHeader": "Copy header",
+      "headerCopied": "Header copied",
+      "tokenHidden": "Replace <token> with your token. Lost it? Create a new token."
+    },
     "title": "Settings",
     "language": "Language",
     "interface": {
@@ -830,6 +902,9 @@
     "templateUseFailed": "Project could not be created from this template.",
     "templateDeleteFailed": "Template could not be deleted.",
     "recent": "Recent",
+    "searchProjects": "Search projects",
+    "loadMore": "Load more",
+    "noSearchResults": "No projects found",
     "recentProjects": "Recent Projects",
     "notificationBadgeTooltip": "New project notifications",
     "notifications": {
@@ -914,7 +989,8 @@
       "message": "This project was saved elsewhere after you opened it. Your latest changes here are not saved.",
       "reload": "Load latest version",
       "overwrite": "Keep my version"
-    }
+    },
+    "serverReloaded": "Updated with changes saved elsewhere"
   },
   "infoBlock": {
     "drawingSettings": "Project drawing",
@@ -1048,6 +1124,7 @@
     "residualType_B": "B (some EV / PV systems)",
     "residualTypeHelp_B": "Also smooth DC. Not every EV charger or PV inverter requires type B; check equipment requirements and built-in DC leakage protection.",
     "description": "Description",
+    "labelText": "Label text",
     "type_MCB": "Circuit breaker",
     "type_RCD": "Residual current device",
     "type_RCBO": "Residual current circuit breaker with overcurrent protection",
@@ -1057,7 +1134,8 @@
     "deleteLinkedPanelTitle": "Delete protection?",
     "deleteLinkedPanelMessage": "Linked panel: {{panelNames}}",
     "deleteLinkedPanelAction": "Delete panel too",
-    "deleteProtectionAction": "Delete protection only"
+    "deleteProtectionAction": "Delete protection only",
+    "labelTextHint": "Short text for the cabinet label; replaces the notes on the label."
   },
   "circuits": {
     "title": "Circuits",
@@ -1090,7 +1168,13 @@
     "addNewLabel": "Label",
     "addNewLabelPlaceholder": "e.g. A, B, Kitchen",
     "addNewLabelHint": "Leave empty to auto-label.",
-    "addNewPanel": "Panel"
+    "addNewPanel": "Panel",
+    "notes": "Notes",
+    "notesHide": "Hide on diagram",
+    "notesShow": "Show on diagram",
+    "notesVertical": "Draw notes vertically",
+    "notesHorizontal": "Draw notes horizontally",
+    "notesHint": "What this circuit feeds, shown on the one-wire diagram."
   },
   "planDrop": {
     "dialogTitle": "Add to circuit",
@@ -1136,6 +1220,8 @@
     "socketSwitchNone": "None",
     "socketSwitchOverlay": "Socket with two-pole switch",
     "socketSwitchOverlayLock": "Socket with two-pole lockable switch",
+    "socketSwitchOverlay_short": "Switch",
+    "socketSwitchOverlayLock_short": "Lockable",
     "socketWaterproof": "Waterproof",
     "socketCount": "Number of sockets",
     "setSocketCount": "Set number of sockets",
@@ -1149,6 +1235,7 @@
     "switchPoles3": "3 poles",
     "twoWayPoles": "Two-way poles",
     "verklikkerlamp": "Indicator light",
+    "protectedPushbutton": "Protected",
     "lightPointOptions": "Light point options",
     "lightPointSafety": "Safety (Veiligheidsstroombaan)",
     "lightPointAutonomous": "Autonomous",
@@ -1460,6 +1547,8 @@
     "feedFromBottom": "Feed from bottom",
     "rows": "Rows",
     "columns": "Columns",
+    "fields": "Sections",
+    "fieldNumber": "Section {{number}}",
     "topTerminalStripRail": "Top clamp rail",
     "bottomTerminalStripRail": "Bottom clamp rail",
     "showDomotica": "Show domotica",
@@ -1490,7 +1579,7 @@
     "overflowWarningMessage": "Some modules are in the overflow area. Move them into the panel grid or increase the panel size; label exports will omit them.",
     "labelSourceLabel": "Label",
     "labelSourceNotes": "Notes",
-    "labelSourceExtra": "Extra",
+    "labelSourceExtra": "Label text",
     "labelSourceTechnical": "Technical",
     "labelSourceFeeds": "Feeds",
     "labelSourceMain": "Main",
@@ -1588,6 +1677,7 @@
         "circuits": "Circuits",
         "sequence": "Sequence",
         "panelInLabel": "Panel in label",
+        "continueAcrossBoards": "Continue across boards",
         "panelPartNone": "None",
         "panelPartNumber": "Number",
         "panelPartFull": "Full",
@@ -1607,7 +1697,7 @@
         "betweenCircuitAndBranch": "Between circuit and branch",
         "separatorHelp": "Written between the parts of a label wherever they are separated, as in A1.1.",
         "subPanelsHelp": "Own number continues the sequence; under parent numbers a sub-panel after the panel that feeds it.",
-        "panelInLabelHelp": "What of the panel number starts each circuit label: nothing, the number only, or the full number with prefix.",
+        "panelInLabelHelp": "Start again on each board, include its number, or continue the circuit sequence across boards.",
         "numberingHelp": "Numbers boards in residential and non-residential installations.",
         "prefixHelp": "Letters before each board number, such as B in B1.",
         "panelSequenceHelp": "Use numbers, padded numbers or letters for boards.",
@@ -1619,6 +1709,7 @@
     }
   },
   "planImport": {
+    "collabTooLarge": "This floor plan is too large for live collaboration. Try a smaller image or import fewer pages at once.",
     "importFailed": "Could not import the plan.",
     "recognizeWalls": "Recognize editable walls",
     "recognitionFailed": "Could not recognize walls.",
@@ -1899,6 +1990,38 @@
     }
   },
   "symbols": {
+    "searchPresets": {
+      "relay_impulse": "Impulse relay",
+      "relay_timer": "Timer relay",
+      "relay_clock": "Time switch",
+      "relay_thermostat": "Thermostat relay",
+      "relay_dimmer": "Dimmer relay",
+      "switch_1p": "Single-pole switch",
+      "switch_2p": "Double-pole switch",
+      "switch_3p": "Three-pole switch",
+      "switch_4p": "Four-pole switch",
+      "switch_twoway_2p": "Two-pole two-way switch",
+      "pushbutton_protected": "Protected pushbutton",
+      "switch_indicator": "Switch with indicator",
+      "spd_lightning": "Lightning protection",
+      "spd_spark": "Spark-gap protection",
+      "light_wall": "Wall light",
+      "light_emergency": "Emergency light",
+      "light_decentral": "Self-contained emergency light",
+      "spot_straight": "Spot with straight beam",
+      "spot_diverging": "Spot with diverging beam",
+      "fluorescent_1": "Fluorescent light · 1 tube",
+      "fluorescent_2": "Fluorescent light · 2 tubes",
+      "fluorescent_3": "Fluorescent light · 3 tubes",
+      "heating_accumulation": "Storage heater",
+      "heating_fan": "Storage heater with fan",
+      "boiler_accumulation": "Storage water heater",
+      "socket_ungrounded": "Socket without earth",
+      "socket_waterproof": "Waterproof socket",
+      "detector_gas": "Gas detector",
+      "detector_heat": "Heat detector",
+      "detector_flame": "Flame detector"
+    },
     "library": "Symbol library",
     "recent": "Recent",
     "favorites": "Favorites",
@@ -1924,6 +2047,7 @@
     "switch_1p_changeover": "Changeover switch",
     "switch_shutter": "Roller Shutter Switch",
     "switch_1p_pull": "Pull switch",
+    "light_sensor": "Twilight switch",
     "contact": "Contact",
     "switch_impulse": "Pushbutton",
     "switch_cross": "Cross switch",
@@ -2052,6 +2176,7 @@
       "battery": "Battery",
       "dc_bus": "DC busbar",
       "note": "Note / Label",
+      "light_sensor": "Twilight switch",
       "contact": "Contact"
     }
   },
@@ -2925,6 +3050,7 @@
     "code": "Circuit"
   },
   "export": {
+    "notForInspection": "Not for inspection",
     "dialog": {
       "title": "Export to PDF",
       "selectCanvases": "Select canvases to export",
@@ -3040,7 +3166,8 @@
     "multiSelectSame": "Multiple items selected. Batch editing coming soon.",
     "selectedCount": "{{count}} items selected",
     "mixedValue": "Mixed",
-    "multiSelectUnsupported": "These items cannot be edited together."
+    "multiSelectUnsupported": "These items cannot be edited together.",
+    "notes": "Notes"
   },
   "stairs": {
     "width": "Stair width",
@@ -3489,6 +3616,8 @@
     "editAction": "Schematic assistant…",
     "createTitle": "Generate schematic",
     "editTitle": "Schematic assistant",
+    "mcpAction": "Connect AI…",
+    "mcpTitle": "Connect AI",
     "newProjectName": "New schematic",
     "scope": "One-wire schematic only. Review each change before applying.",
     "context": "Context",
@@ -3933,7 +4062,8 @@
     },
     "conflict": "Changed by someone else — try again",
     "peerOtherTab": "{{name}} (other tab)",
-    "peersMore": "{{count}} more"
+    "peersMore": "{{count}} more",
+    "agentActive": "An AI agent is editing"
   },
   "shortCircuit": {
     "defaultName": "Short-circuit calculation",
@@ -4075,7 +4205,10 @@
         "tsdS": "Short-time delay. Leave empty or 0 for no delay.",
         "iiA": "Instantaneous pick-up. Always counts as Ia."
       },
-      "selectCable": "Click to select the circuit, for example to change its cable."
+      "selectCable": "Click to select the circuit, for example to change its cable.",
+      "writeIk": "Puts the calculated Ik max, rounded up, on every board that states another value: on the one-line diagram and the cabinet labels.",
+      "statedIk": "The board states {{ka}}.",
+      "boardSheets": "PDF with one sheet per board, for in the cabinet."
     },
     "noMatches": "Nothing to show",
     "showAll": "Show all",
@@ -4087,6 +4220,11 @@
       "tsdS": "tsd",
       "iiA": "Ii",
       "adjustable": "Adjustable"
+    },
+    "writeIk": "Write Ik to boards",
+    "sheets": {
+      "download": "Board sheets",
+      "page": "Page {{page}} of {{pages}}"
     }
   }
 }

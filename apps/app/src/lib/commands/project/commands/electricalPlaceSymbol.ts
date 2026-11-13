@@ -1,4 +1,7 @@
 import { z } from 'zod'
+import { checkForkSymbolPlacement } from '@/lib/eendraad/forkSymbolPlacement'
+import { PROJECT_V2_FORK_SCHEMA_VERSION } from '@/types/projectV2'
+import { getSearchPreset } from '@/lib/library/searchPresets'
 import { placeElectricalSymbolInProject } from '@/lib/eendraad/electricalSymbolDrop'
 import { findPanelById } from '@/lib/panel/panelTree'
 import { getEditableProjectElectricalPanels } from '@/lib/projectV2/electrical'
@@ -46,6 +49,7 @@ export const electricalPlaceSymbol = defineProjectCommand({
   input: z
     .object({
       symbolId: z.string().min(1),
+      searchPreset: z.string().min(1).optional(),
       target: electricalDropTargetSchema.optional(),
       destination: electricalSemanticDestinationSchema.optional(),
       panelGrid: panelDropPlacementSchema.optional(),
@@ -76,6 +80,8 @@ export const electricalPlaceSymbol = defineProjectCommand({
         })
     }),
   check(project, input) {
+    if ('searchPreset' in input && input.searchPreset && !getSearchPreset(input.symbolId, input.searchPreset))
+      return { ok: false, code: 'invalid_preset', message: 'Unknown preset for this symbol' }
     if (!getSymbolById(input.symbolId)) {
       return { ok: false, code: 'unknown_symbol', message: 'Unknown symbol' }
     }
@@ -99,6 +105,11 @@ export const electricalPlaceSymbol = defineProjectCommand({
     const target = resolved.target
     const targetCheck = checkElectricalDropTarget(project, target, input.planPlacement?.floorId ?? input.sitplan?.activeFloorId)
     if (!targetCheck.ok) return targetCheck
+    if (target.forkAfterEndpointId || target.forkBranchId) {
+      const owner = findCircuitOwner(getEditableProjectElectricalPanels(project), target.circuitId ?? '')
+      if (!owner || !checkForkSymbolPlacement(owner.circuit, target, input.symbolId))
+        return { ok: false, code: 'unsupported_fork', message: 'This symbol cannot be placed on that fork' }
+    }
     if (input.symbolId === 'panel_distribution' && target.domoticaOutput) {
       const owner = findCircuitOwner(getEditableProjectElectricalPanels(project), target.circuitId ?? '')
       const module = owner?.circuit.endpoints.find((endpoint) => endpoint.id === target.endpointId)
@@ -214,6 +225,7 @@ export const electricalPlaceSymbol = defineProjectCommand({
       project,
       {
         symbolId: input.symbolId,
+        searchPreset: input.searchPreset,
         target,
         dropCanvasPosition: input.dropCanvasPosition,
         ...(input.planPlacement ? { planPlacement: { ...input.planPlacement, id: env.newId(), rotationMode: 'explicit' as const } } : {}),
@@ -236,6 +248,7 @@ export const electricalPlaceSymbol = defineProjectCommand({
     if (!outcome.mutated) {
       throw new CommandError('check_failed', 'Nothing was placed', { reason: 'nothing_placed' })
     }
+    if (target.forkAfterEndpointId || target.forkBranchId) project.schemaVersion = PROJECT_V2_FORK_SCHEMA_VERSION
     const created: EntityRef[] = [
       ...additionalCreated,
       ...outcome.created.map((entry) => ({

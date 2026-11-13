@@ -17,7 +17,6 @@ import {
 } from './circuitNoteMetrics'
 
 import {
-  getProtectionToTrunkDeviceCenterGap,
   getTrunkDeviceVerticalPaintHeight,
 } from './trunkDeviceSpacing'
 import {
@@ -187,10 +186,7 @@ export function placePanelCircuitNotes(input: PlacePanelCircuitNotesInput) {
           : -1
         const precedingDevicePosition = precedingDevice
           ? mcbYForDevices -
-            getProtectionToTrunkDeviceCenterGap(
-              precedingDevice,
-              LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
-            ) -
+            LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP -
             precedingDevices
               .slice(0, precedingDeviceIndex)
               .filter((candidate) => candidate.trunkPosition === precedingDevice.trunkPosition)
@@ -209,10 +205,7 @@ export function placePanelCircuitNotes(input: PlacePanelCircuitNotesInput) {
           .indexOf(device)
         return (
           mcbYForDevices -
-          getProtectionToTrunkDeviceCenterGap(
-            trunkDevices.find((candidate) => candidate.trunkPosition === 0) ?? device,
-            LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
-          ) -
+          LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP -
           devicesAtPositionBefore *
             (LAYOUT_CONSTANTS.TRUNK_DEVICE_SPACING + LAYOUT_CONSTANTS.SYMBOL_SIZE)
         )
@@ -234,10 +227,7 @@ export function placePanelCircuitNotes(input: PlacePanelCircuitNotesInput) {
       }
       return (
         mcbYForDevices -
-        getProtectionToTrunkDeviceCenterGap(
-          trunkDevices.find((candidate) => candidate.trunkPosition === 0) ?? device,
-          LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
-        )
+        LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
       )
     }
 

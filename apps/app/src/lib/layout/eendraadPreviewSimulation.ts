@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid'
+import { isSavedForkMove, simulateSavedForkMove } from './simulateSavedForkMove'
 import { hideInlineConverterMetadataByDefault } from '@/lib/conversionLabels'
 import type {
   Panel,
@@ -136,10 +137,7 @@ export type { EendraadPreviewChangeSet } from './eendraadPreviewModel'
 
 let outputPlacementRegistry: ProjectCommandRegistry | undefined
 
-/**
- * Shallow clone helper for preview projects.
- * For preview we only need structural copies; JSON clone is sufficient and cheap at this scale.
- */
+/** Structural preview copy. */
 function cloneProject<T extends PreviewProject>(project: T): T {
   return JSON.parse(JSON.stringify(project)) as T
 }
@@ -1268,6 +1266,7 @@ export function simulateEndpointSelectionMoveOnProject(
   target: DropTarget
 ): EendraadPreviewChangeSet | null {
   if (!project || !target.circuitId) return null
+  if (isProjectV2(project) && isSavedForkMove(project, moving.sourceCircuitId, target)) return simulateSavedForkMove(project, moving, target)
   const cloned = cloneProject(project)
   const sourceCircuit = findCircuitInProject(cloned, moving.sourceCircuitId)
   const targetCircuit = findCircuitInProject(cloned, target.circuitId)
@@ -1368,13 +1367,12 @@ export function simulateDropOnProject(
     endpoint.domoticaChildProps.parentEndpointId === outputRef?.parentEndpointId &&
     endpoint.domoticaChildProps.outputIndex === outputRef.outputIndex &&
     endpoint.domoticaChildProps.outputGroup === outputRef.outputGroup)
-  if (isProjectV2(project) && outputRef && (symbol.id === 'panel_distribution' || rowFeedsBoard)) {
-    // Output-fed boards and their sibling loads must preview the real placement.
-    // The legacy board simulation attaches the whole circuit to the new board.
+  if (isProjectV2(project) && (target.forkAfterEndpointId || target.forkBranchId || symbol.searchPreset || (outputRef && (symbol.id === 'panel_distribution' || rowFeedsBoard)))) {
+    // Forks and output-fed boards preview the real placement command.
     outputPlacementRegistry ??= new ProjectCommandRegistry().register(electricalPlaceSymbol)
     try {
       const placed = applyCommandBatch(project, outputPlacementRegistry.parse([
-        { id: 'electrical.placeSymbol', input: { symbolId: symbol.id, target } },
+        { id: 'electrical.placeSymbol', input: { symbolId: symbol.id, searchPreset: symbol.searchPreset, target } },
       ]), { newId: () => nanoid(16), now: () => '2000-01-01T00:00:00.000Z', language: 'en' })
       if (placed.project === project) return null
       const created = placed.results.flatMap((result) => result.created)

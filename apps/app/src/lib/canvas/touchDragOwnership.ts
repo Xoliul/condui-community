@@ -19,7 +19,7 @@ export function isNodeDraggableForTouch(
   let n: Konva.Node | null = node
   let depth = 0
   while (n && n !== stage && depth < 10) {
-    const name = n.name()
+    const name = n.name()?.split(' ')[0]
     if (typeof n.draggable === 'function' && n.draggable()) return true
     // Measurement labels own their single-finger drag gesture. Treat them like
     // draggable canvas content so the camera pan recognizer does not steal it.

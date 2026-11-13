@@ -9,7 +9,7 @@ import { clamp } from '@/lib/geometry'
 export const ZOOM_100 = 2
 
 /** Minimum internal zoom (displayed as (ZOOM_MIN / ZOOM_100) * 100%). */
-export const ZOOM_MIN = 0.1
+export const ZOOM_MIN = 0.001
 
 /** Maximum internal zoom (displayed as (ZOOM_MAX / ZOOM_100) * 100%). */
 export const ZOOM_MAX = 10
@@ -85,8 +85,8 @@ export const SELECTION_OUTLINE_CORNER_RADIUS_PX_MAX = 6
 export const SELECTION_OUTLINE_MIN_BOX_PX = 7.5
 /** Display zoom (%) at and above which selection boxes use natural symbol size only. */
 export const SELECTION_OUTLINE_FLOOR_START_DISPLAY_PERCENT = 25
-/** Display zoom (%) at min internal zoom — full floor applies here (see ZOOM_MIN). */
-export const SELECTION_OUTLINE_FLOOR_END_DISPLAY_PERCENT = (ZOOM_MIN / ZOOM_100) * 100
+/** Below 5% display zoom, retain the full screen-space selection floor. */
+export const SELECTION_OUTLINE_FLOOR_END_DISPLAY_PERCENT = 5
 export const HOVER_OUTLINE_STROKE_PX = 1
 export const HOVER_OUTLINE_STROKE_PX_MIN = 1
 export const HOVER_OUTLINE_STROKE_PX_MAX = 2

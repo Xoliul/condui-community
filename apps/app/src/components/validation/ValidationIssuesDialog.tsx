@@ -41,6 +41,7 @@ import { IncompleteChecksDetails } from './IncompleteChecksDetails'
 import { cableSpecificationFocusSegment } from '@/lib/validation/cableSpecifications'
 import { AffectedCircuitTargets } from './AffectedCircuitTargets'
 import { ValidationIssueBadge } from './ValidationIssueBadge'
+import { useRevealValidationProperty, validationPropertyTarget } from './useValidationPropertyTarget'
 import {
   HIDDEN_SITUATION_PLAN_RULE_ID,
   openHiddenSituationPlanValidationDialog,
@@ -51,6 +52,7 @@ interface ValidationIssuesDialogProps {
   onClose?: () => void
   onHeaderPointerDown?: (event: ReactPointerEvent<HTMLDivElement>) => void
   headerActions?: ReactNode
+  onRevealProperties?: () => void
 }
 
 const DC_CROSS_SECTION_HEURISTIC_RULE_ID = 'be.areibook1.2025.dc-cross-section-heuristic'
@@ -193,9 +195,11 @@ function ValidationIssuesDialog({
   onClose = () => {},
   onHeaderPointerDown,
   headerActions,
+  onRevealProperties,
 }: ValidationIssuesDialogProps) {
   const canValidate = useCanValidateCurrentProject()
   const focusSelectionOnCanvas = useFocusSelectionOnCanvas()
+  const revealProperty = useRevealValidationProperty(onRevealProperties)
   const { t } = useTranslation()
   const currentProject = useProjectStore((state: ProjectState) => state.currentProject)
   const language = useSettingsStore((state) => state.language)
@@ -1026,16 +1030,10 @@ function ValidationIssuesDialog({
         }
       }
     }
-    if (!selectionType) {
-      if (elementIds.length === 0) {
-        onClose()
-        return
-      }
-      selectionType = 'endpoint'
-      ids = elementIds
-    }
-
-    const nextSelection = explicitSelection ?? { type: selectionType, ids }
+    const propertyTarget = validationPropertyTarget(issue, currentProject)
+    const fallback: Selection = { type: selectionType ?? 'endpoint', ids: selectionType ? ids : elementIds }
+    const nextSelection = propertyTarget?.selection ?? explicitSelection ?? fallback
+    if (nextSelection.ids.length === 0) return onClose()
     if (nextSelection.type === 'wire') {
       logger.info('[Wire Selection Debug][validation click]', {
         ruleId: issue.ruleId,
@@ -1049,11 +1047,12 @@ function ValidationIssuesDialog({
       })
     }
     setSelection(nextSelection)
+    if (propertyTarget) revealProperty(propertyTarget)
     trackGoogleAnalyticsEvent('validation_issue_focus', {
       rule_id: issue.ruleId,
       severity: issue.severity,
       scope_type: issue.scope.type,
-      selection_type: explicitSelection?.type ?? selectionType,
+      selection_type: nextSelection.type,
       source: 'validation_card',
       interaction_method: interactionMethod,
     })

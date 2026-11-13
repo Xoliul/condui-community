@@ -4,6 +4,9 @@ import { DebouncedTextInput } from '@/components/forms'
 import type { EnergyConversionDeviceProps } from '@/types/schema'
 import CustomDropdown from '@/components/common/CustomDropdown'
 import { SUPPLY_TRANSFORMER_PRIMARY_PRESETS_V } from '@/lib/electrical/supplyTransformer'
+import { getSupplyTransformerSecondaryVoltagesV } from '@/lib/electrical/feedNominalVoltage'
+import { getProjectElectricalInstallation, getProjectElectricalPanels } from '@/lib/projectV2/electrical'
+import { useProjectStore } from '@/stores/projectStore'
 
 const fields = [
   ['transformerPrimaryVoltageV', 'primaryVoltage', 'Primary voltage (V)', [230, 400, ...SUPPLY_TRANSFORMER_PRIMARY_PRESETS_V, 10000, 11000, 12000, 15000]],
@@ -82,9 +85,29 @@ export function TransformerNameplateFields({ value, onChange, readOnly = false }
 }) {
   const { t } = useTranslation()
   const isSupply = value.transformerRole === 'supply'
+  // A site transformer feeding boards at several voltages has one secondary per output.
+  const project = useProjectStore((state) => state.currentProject)
+  const installation = isSupply && project ? getProjectElectricalInstallation(project) : undefined
+  const secondaryOutputsV = installation && project
+    ? getSupplyTransformerSecondaryVoltagesV(installation, getProjectElectricalPanels(project))
+    : undefined
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       {fields.map(([key, label, fallback, suggestions]) => {
+        if (isSupply && key === 'transformerSecondaryVoltageV' && secondaryOutputsV && secondaryOutputsV.length > 1) {
+          const text = t(`endpoints.transformer.${label}`, fallback)
+          return (
+            <div key={key}>
+              <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">{text}</span>
+              <input
+                aria-label={text}
+                value={secondaryOutputsV.join(' / ')}
+                disabled
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+              />
+            </div>
+          )
+        }
         return (
           <NameplateNumberField
             key={key}
@@ -98,6 +121,37 @@ export function TransformerNameplateFields({ value, onChange, readOnly = false }
           />
         )
       })}
+    </div>
+  )
+}
+
+/** Nameplate of the winding behind a main board's own transformer output. */
+export function TransformerOutputRatingFields({ ratedKva, ukPercent, onChange, readOnly = false }: {
+  ratedKva: number | undefined
+  ukPercent: number | undefined
+  onChange: (patch: { ratedKva?: number | null; ukPercent?: number | null }) => void
+  readOnly?: boolean
+}) {
+  const { t } = useTranslation()
+  const [, , powerFallback, powerSuggestions] = fields[2]
+  const [, , ukFallback] = fields[3]
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <NameplateNumberField
+        label={t('endpoints.transformer.ratedPower', powerFallback)}
+        value={ratedKva}
+        suggestions={powerSuggestions}
+        disabled={readOnly}
+        onChange={(value) => onChange({ ratedKva: value ?? null })}
+      />
+      <NameplateNumberField
+        label={t('endpoints.transformer.shortCircuitVoltage', ukFallback)}
+        value={ukPercent}
+        suggestions={[]}
+        disabled={readOnly}
+        max={100}
+        onChange={(value) => onChange({ ukPercent: value ?? null })}
+      />
     </div>
   )
 }

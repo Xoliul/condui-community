@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SUPPLY_VOLTAGE_SYSTEMS } from '@/constants/nominalVoltage'
 import {
   cableSpec,
   patchObject,
@@ -19,6 +20,7 @@ const num = z.number().finite().nonnegative().nullable()
 export const panelGridPropertiesSchema = patchObject({
   rows: z.number().int().min(1).max(32),
   columns: z.number().int().min(1).max(48),
+  fields: z.number().int().min(1).max(8).optional(),
   feedFromTop: z.boolean(),
   terminalStripTopRail: bool,
   terminalStripBottomRail: bool,
@@ -189,6 +191,17 @@ export const extraElectricalActionSchema = z.discriminatedUnion('kind', [
     kind: z.literal('projectSupplyConnection'),
     connection: z.enum(['direct', 'transformer']),
   }).strict(),
+  z.object({
+    kind: z.literal('rootFeedNominalVoltage'),
+    panelId: z.string().min(1),
+    system: z.enum(SUPPLY_VOLTAGE_SYSTEMS).nullable(),
+  }).strict(),
+  z.object({
+    kind: z.literal('rootFeedTransformerOutput'),
+    panelId: z.string().min(1),
+    ratedKva: z.number().finite().positive().nullable().optional(),
+    ukPercent: z.number().finite().positive().max(100).nullable().optional(),
+  }).strict(),
   z
     .object({
       kind: z.literal('busbarPhaseOrder'),
@@ -297,6 +310,8 @@ export type ExtraElectricalAction = z.output<typeof extraElectricalActionSchema>
 export function isExtraElectricalAction(action: { kind: string }): action is ExtraElectricalAction {
   return [
     'projectSupplyConnection',
+    'rootFeedNominalVoltage',
+    'rootFeedTransformerOutput',
     'supplyUnit',
     'busbarPhaseOrder',
     'supplyWire',

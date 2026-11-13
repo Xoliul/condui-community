@@ -1,3 +1,8 @@
+import {
+  getPanelGridTotalColumns,
+  panelGridModuleFitsFields,
+  type PanelGridFieldSource,
+} from '@/lib/panel/panelGridFields'
 import { getModuleWidthInCols } from '@/lib/panel/panelGridLayout'
 import {
   cloneCircuitContent,
@@ -80,7 +85,7 @@ function ensureDuplicateCircuitRightOfSourceOnSecondaryBus(
   parent.subCircuitIds = [...without.slice(0, iSrc + 1), newCircuitId, ...without.slice(iSrc + 1)]
 }
 
-function addDuplicateProtectionSlotRightMutation(
+export function addDuplicateProtectionSlotRightMutation(
   panel: Panel,
   sourceProtectionId: string,
   newProtectionId: string,
@@ -95,6 +100,7 @@ function addDuplicateProtectionSlotRightMutation(
     slots: PanelGridSlot[] | undefined,
     rows: number,
     columns: number,
+    fieldGrid?: PanelGridFieldSource,
   ): boolean => {
     if (!slots?.length) return false
     const idx = slots.findIndex(
@@ -116,6 +122,7 @@ function addDuplicateProtectionSlotRightMutation(
     }
     const isFree = (row: number, col: number): boolean => {
       if (row < 0 || row >= rows || col < 0 || col + duplicateWidth > columns) return false
+      if (!panelGridModuleFitsFields(fieldGrid, col, duplicateWidth)) return false
       for (let offset = 0; offset < duplicateWidth; offset++) {
         if (occupied.has(`${row},${col + offset}`)) return false
       }
@@ -169,7 +176,7 @@ function addDuplicateProtectionSlotRightMutation(
     return true
   }
 
-  if (!tryPatch(gv.slots, gv.rows, gv.columns)) {
+  if (!tryPatch(gv.slots, gv.rows, getPanelGridTotalColumns(gv), gv)) {
     tryPatch(
       gv.supplyPanelSlots,
       gv.supplyPanelRows ?? gv.rows,

@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 import './i18n'
 import Home from '@/editions/community/CommunityHome'
 import ProjectPage from '@/editions/community/CommunityProjectPage'
@@ -13,6 +14,10 @@ import {
 import { useBaseAppEffects } from '@/hooks/useBaseAppEffects'
 import { useCommunitySymbolFavoritesSync } from '@/editions/community/communitySymbolFavorites'
 import { useCommunityEditorPreferencesSync } from '@/editions/community/communityEditorPreferences'
+
+const OneWireForkDevPage = import.meta.env.DEV
+  ? lazy(() => import('./pages/dev/OneWireForkDevPage'))
+  : null
 
 export default function CommunityApp() {
   useBaseAppEffects()
@@ -29,6 +34,9 @@ export default function CommunityApp() {
           <Route index element={<Home />} />
           <Route path="demo" element={<DemoProjectPage />} />
           <Route path="project/:id" element={<ProjectPage />} />
+          {OneWireForkDevPage ? (
+            <Route path="dev/onewire-forks" element={<Suspense fallback={null}><OneWireForkDevPage /></Suspense>} />
+          ) : null}
         </Route>
         <Route path="*" element={<UnprefixedLanguageRedirect />} />
       </Routes>

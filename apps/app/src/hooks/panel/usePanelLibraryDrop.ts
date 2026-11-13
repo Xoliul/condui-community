@@ -1,3 +1,4 @@
+import { getPanelGridTotalColumns } from '@/lib/panel/panelGridFields'
 import { placeElectricalSymbol } from '@/handlers/eendraad/placeElectricalSymbol'
 import { useCallback, useRef, useState } from 'react'
 import type { ProjectState } from '@/stores/projectStore'
@@ -28,7 +29,7 @@ import {
 } from '@/lib/panel/panelGridLayout'
 import { getLastAssignableCircuit } from '@/lib/panel/panelTree'
 import { trackSymbolPlace } from '@/lib/analytics/editorEventAnalytics'
-import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
+import { DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
 import {
   canDropModularSocketOnPanel,
   findPreferredModularSocketCircuit,
@@ -119,7 +120,7 @@ export function usePanelLibraryDrop({
       const FRAME_MARGIN = 40
       const SUPPLY_GAP = 20
       const rows = panel?.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS
-      const cols = panel?.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS
+      const cols = getPanelGridTotalColumns(panel?.gridView)
       const supplyRows = getSupplyPanelRows(panel)
       const supplyCols = getSupplyPanelColumns(panel)
       const contentWidth = cols * CELL_W
@@ -286,7 +287,7 @@ export function usePanelLibraryDrop({
 
       if (symbol.id === 'panel_distribution') {
         const placed = placeElectricalSymbol({
-          symbolId: symbol.id,
+          symbolId: symbol.id, searchPreset: symbol.searchPreset,
           target: { type: null },
           label: 'drop panel from library',
         })
@@ -309,7 +310,7 @@ export function usePanelLibraryDrop({
       const FRAME_MARGIN = 40
       const SUPPLY_GAP = 20
       const rows = panel?.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS
-      const cols = panel?.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS
+      const cols = getPanelGridTotalColumns(panel?.gridView)
       const contentWidth = cols * CELL_W
       const contentHeight = rows * CELL_H + (rows - 1) * ROW_GAP
       const panelFrameHeight = contentHeight + FRAME_MARGIN * 2
@@ -453,7 +454,7 @@ export function usePanelLibraryDrop({
           )
         }
         const placed = placeElectricalSymbol({
-          symbolId: symbol.id,
+          symbolId: symbol.id, searchPreset: symbol.searchPreset,
           target: {
             type: 'supplyWire',
             panelId: panel.id,
@@ -510,7 +511,7 @@ export function usePanelLibraryDrop({
         const parentCircuitId = parentProtection?.circuits?.[0]?.id
         const snapped = snapToGrid(localX, localY - mainPanelY + CELL_H / 2)
         const placed = placeElectricalSymbol({
-          symbolId: symbol.id,
+          symbolId: symbol.id, searchPreset: symbol.searchPreset,
           target: { type: 'mainBus', panelId: panel.id },
           panelGrid: {
             scope: 'main',
@@ -544,7 +545,7 @@ export function usePanelLibraryDrop({
         }
 
         const placed = placeElectricalSymbol({
-          symbolId: symbol.id,
+          symbolId: symbol.id, searchPreset: symbol.searchPreset,
           target: {
             type: 'circuit',
             circuitId: targetCircuit.id,
@@ -596,7 +597,7 @@ export function usePanelLibraryDrop({
         }
 
         const placed = placeElectricalSymbol({
-          symbolId: symbol.id,
+          symbolId: symbol.id, searchPreset: symbol.searchPreset,
           target: { type: 'circuit', panelId: panel.id, circuitId: targetCircuit.id },
           panelGrid: {
             scope: 'main',

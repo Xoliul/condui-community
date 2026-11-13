@@ -1,5 +1,6 @@
 /** Supply and earthing topology projected into positioned converter, changeover and DC devices. */
 import type { TrunkDevice } from '@/types/schema'
+import { withSupplyTransformerOutputs } from '@/lib/electrical/feedNominalVoltage'
 import {
   LAYOUT_CONSTANTS,
   MAIN_BUS_RENDER_STROKE_WIDTH,
@@ -248,9 +249,12 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
             index < (feedProjection.sharedDeviceCount ?? 0) + panelInputStart)
         : feedProjection.devices
       : null
-  const supplyTrunkDevices =
+  const supplyTrunkDevices = withSupplyTransformerOutputs(
     projectedFeedDevices ||
-    (receivingInputDevices.length > 0 ? receivingInputDevices : panelLocalRootContinuationDevices)
+    (receivingInputDevices.length > 0 ? receivingInputDevices : panelLocalRootContinuationDevices),
+    installation,
+    rootPanels ?? [panel]
+  )
   const hasSupplyDevices = supplyTrunkDevices.length > 0
   const supplyChangeoverIndex = supplyTrunkDevices.findIndex(
     (device) => device.symbol === 'source_changeover'

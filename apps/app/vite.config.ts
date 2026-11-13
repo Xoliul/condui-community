@@ -139,6 +139,7 @@ const hostedCollaborationModulePrefixes = [
   'apps/app/src/hooks/useCollab',
   'apps/app/src/components/canvas/eendraad/EendraadRemoteSelections',
   'apps/app/src/components/canvas/plan/PlanRemoteSelections',
+  'apps/app/src/components/canvas/panel/PanelRemoteSelections',
 ] as const
 
 export function assertNoHostedCollaborationModules(moduleIds: Iterable<string>): void {
@@ -272,9 +273,11 @@ const aliases = {
   './collabProjectBridge': './src/editions/community/communityCollaboration.ts',
   '@/hooks/useCollabHistory': './src/editions/community/communityHistory.ts',
   './EendraadRemoteSelections': './src/editions/community/communityRemoteSelections.tsx',
+  './PanelRemoteSelections': './src/editions/community/communityRemoteSelections.tsx',
   '@/components/canvas/plan/PlanRemoteSelections':
     './src/editions/community/communityRemoteSelections.tsx',
   '@/hooks/useExerciseValidationAccess': './src/editions/community/communityExerciseValidationAccess.ts',
+  '@/hooks/useCloudSyncLag': './src/editions/community/communityCloudSyncLag.ts',
   '@/components/import/TrikMergeMenuItem': './src/editions/community/communityTrikMergeMenuItem.tsx',
   '@/lib/junction/junctionHostedHooks': './src/editions/community/communityJunctionHooks.ts',
   '@/lib/junction/junctionCommandHooks': './src/editions/community/communityJunctionCommandHooks.ts',
@@ -312,6 +315,7 @@ const aliases = {
     './src/editions/community/useCommunityFeatureAvailability.ts',
   '@/components/properties/editors/InstallerProperties':
     './src/editions/community/CommunityInstallerProperties.tsx',
+  './EditionMcpSettings': './src/editions/community/CommunityMcpSettings.tsx',
 } as const
 
 function cleanOutput() {

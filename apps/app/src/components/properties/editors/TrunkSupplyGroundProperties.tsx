@@ -112,8 +112,9 @@ import {
   ProtectionDeviceElectricalFields,
   getProtectionTypeDropdownOptions,
   protectionTypeToSymbolKey,
-  PROTECTION_SYMBOL_ID_TO_TYPE,
 } from '../ProtectionDeviceElectricalFields'
+import { trunkProtectionType } from '@/lib/protectionKind'
+import { supplyProtectionAsDevice } from '@/lib/shortCircuit/supplyProtection'
 import { SynergridListPicker } from '../SynergridListPicker'
 import { ChangeoverGridSourcePicker } from '../shared/ChangeoverGridSourcePicker'
 import {
@@ -1460,7 +1461,7 @@ export function TrunkDeviceProperties({
 
       {isInlineSwitch && (
         <>
-          {/* Circuit-trunk switches are always plain switches; only supply DC lanes offer other types. */}
+          {/* Circuit-trunk controls keep their placed type; only supply DC lanes offer a type picker. */}
           {device.type !== 'switch' && (
             <SwitchTypeDropdown
               value={normalizeSwitchSymbol(device.symbol)}
@@ -1526,10 +1527,7 @@ export function TrunkDeviceProperties({
               symbolLabelDisplay: toggleProtectionLabelVisibility(device, key),
             })
           }
-          const effectiveProtectionType =
-            device.protectionType ??
-            (device.symbol ? PROTECTION_SYMBOL_ID_TO_TYPE[device.symbol] : undefined) ??
-            'MCB'
+          const effectiveProtectionType = trunkProtectionType(device)
 
           return (
             <ProtectionDeviceElectricalFields
@@ -1562,6 +1560,7 @@ export function TrunkDeviceProperties({
               onPatch={(patch) => handleUpdate(patch)}
               isProtectionLabelVisible={isProtectionLabelVisible}
               toggleProtectionLabel={toggleProtectionLabel}
+              tripTarget={isSupplyDevice ? { kind: 'trunkDevice', protection: supplyProtectionAsDevice(device) } : undefined}
             />
           )
         })()}
@@ -2223,7 +2222,6 @@ export function TrunkDeviceProperties({
 export function GroundProperties() {
   const { t } = useTranslation()
   const currentProject = useProjectStore((state: ProjectState) => state.currentProject)
-  const updateInstallation = updateInstallationProperties
 
   const installation = currentProject ? getProjectElectricalInstallation(currentProject) : undefined
   if (!installation) {
@@ -2238,15 +2236,16 @@ export function GroundProperties() {
     <div className="space-y-4">
       <OptionalNumberField
         label={t('installation.earthResistance', 'Earth resistance')}
+        propertyField="earthResistanceOhm"
         unit="Ω"
         value={installation.earthResistanceOhm}
-        onChange={(earthResistanceOhm) => updateInstallation({ earthResistanceOhm })}
+        onChange={(earthResistanceOhm) => updateInstallationProperties({ earthResistanceOhm })}
       />
       <div>
         <label className={labelClass}>{t('properties.notes', 'Notes')}</label>
         <DebouncedTextarea
           value={installation.notes || ''}
-          onCommit={(v) => updateInstallation({ notes: v })}
+          onCommit={(v) => updateInstallationProperties({ notes: v })}
           delayMs={500}
           className={selectClass + ' resize-none'}
           rows={4}

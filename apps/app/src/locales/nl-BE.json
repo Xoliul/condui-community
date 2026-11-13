@@ -1,4 +1,36 @@
 {
+  "oneWireFork": {
+    "invalidConnection": "De aansluiting van de vertakking is onduidelijk."
+  },
+  "forkLab": {
+    "title": "Vertakkingen testen",
+    "scope": "Experimentele AC-tekeningen · apart van projecten bewaard",
+    "undo": "Ongedaan maken",
+    "redo": "Opnieuw",
+    "plain": "Gewone kring",
+    "save": "Tekening bewaren",
+    "download": "Tekening downloaden",
+    "open": "Tekening openen",
+    "empty": "Lege vertakking",
+    "move": "Tak verplaatsen",
+    "delete": "Verwijderen",
+    "cancel": "Annuleren",
+    "zoom": "Zoom",
+    "note": "Opmerking",
+    "feed": "Voedingspad",
+    "depth": "Diepte",
+    "moveHandle": "Verplaatsgreep",
+    "forkAfter": "Vertakken na",
+    "insert": "Invoegen in",
+    "root": "Nieuwe hoofdtak",
+    "targetHint": "Kies een symbool en daarna een blauwe bestemming.",
+    "selectHint": "Selecteer een symbool om het te bekijken of te verplaatsen.",
+    "moveHint": "Kies een bestemming of sleep de blauwe verplaatsgreep.",
+    "saved": "Tekening bewaard. Herlaad om ze te openen.",
+    "storageError": "De tekening kon niet bewaard worden.",
+    "invalidFile": "Dit bestand is geen geldige vertakkingstekening.",
+    "rejected": "Deze bewerking kan de takstructuur niet behouden."
+  },
   "findPanel": {
     "title": "Bord zoeken",
     "placeholder": "Borden zoeken…",
@@ -151,7 +183,9 @@
     "offlineReloadNotReady": "Vermijd herladen tot je de app minstens één keer online in deze browsertab hebt geopend.",
     "offlineReloadDevHint": "Herladen terwijl je offline bent werkt alleen met een productiebuild (npm run build && vite preview), niet met de dev-server.",
     "dismissOfflineBanner": "Offline melding sluiten",
-    "offlineIndicatorTitle": "Je bent offline"
+    "offlineIndicatorTitle": "Je bent offline",
+    "cloudSyncPendingTitle": "Niet gesynchroniseerd met de cloud",
+    "cloudSyncPendingMessage": "Je wijzigingen zijn op dit apparaat opgeslagen. De cloudsynchronisatie blijft het opnieuw proberen."
   },
   "diagnostics": {
     "anonymousProjectName": "Diagnosticsproject ({{idShort}})",
@@ -283,6 +317,8 @@
     "zoom": "Zoomen"
   },
   "commandPalette": {
+    "createFork": "Vertakking toevoegen",
+    "deleteEmptyFork": "Lege vertakking verwijderen",
     "addPanelAtDomoticaOutput": "Bord toevoegen op uitgang",
     "addSupplyTransformer": "Voedingstransformator toevoegen",
     "placeholder": "Opdrachten zoeken",
@@ -303,6 +339,7 @@
     "apply": "Toepassen",
     "unavailable": "Deze wijziging kan niet worden toegepast. Controleer de waarden of open de actie opnieuw.",
     "fields": {
+      "branch": "Tak",
       "output": "Uitgang",
       "circuit": "Kring",
       "position": "Positie",
@@ -623,6 +660,41 @@
     }
   },
   "settings": {
+    "mcp": {
+      "manageConnections": "Verbindingen beheren",
+      "copyUrl": "Kopieer server-URL",
+      "copyPrompt": "Kopieer startprompt",
+      "starterPrompt": "Gebruik Condui MCP om te werken in het bestaande cloudproject dat ik noem. Noem ik er geen, vraag dan welk project ik bedoel. Maak alleen een nieuw project als ik erom vraag. Vat samen wat je vindt en wacht op mijn instructies voor je wijzigingen aanbrengt.",
+      "urlCopied": "Server-URL gekopieerd",
+      "promptCopied": "Startprompt gekopieerd",
+      "copyFailed": "Kopiëren mislukt. Selecteer de tekst en kopieer die handmatig.",
+      "needsServerStorage": "Beschikbaar wanneer projecten op de server bewaard worden.",
+      "turnOn": "Inschakelen",
+      "turnOff": "Uitschakelen",
+      "newToken": "Nieuwe token",
+      "tokenShownOnce": "Kopieer deze token nu. Hij wordt maar één keer getoond.",
+      "copyToken": "Token kopiëren",
+      "tokenCopied": "Token gekopieerd",
+      "copyCommand": "Claude Code-opdracht kopiëren",
+      "commandCopied": "Opdracht gekopieerd",
+      "changeFailed": "De MCP-instellingen konden niet gewijzigd worden.",
+      "communityStarterPrompt": "Gebruik Condui MCP om te werken in het bestaande Condui-project dat ik noem. Noem ik er geen, vraag dan welk project ik bedoel. Maak alleen een nieuw project als ik erom vraag. Vat samen wat je vindt en wacht op mijn instructies voor je wijzigingen aanbrengt.",
+      "client": {
+        "label": "AI-client",
+        "claude": "Claude",
+        "chatgpt": "ChatGPT / Codex",
+        "other": "Andere"
+      },
+      "hostedPasteAndSignIn": "Plak daar de server-URL en meld je aan met je Condui-account. Wijzigingen worden rechtstreeks in het cloudproject opgeslagen.",
+      "hostedOther": "Deze server gebruikt OAuth-aanmelding met je Condui-account. Wijzigingen worden rechtstreeks in het cloudproject opgeslagen.",
+      "codexConfig": "Codex-configuratie (config.toml)",
+      "copyCodexConfig": "Codex-configuratie kopiëren",
+      "configCopied": "Configuratie gekopieerd",
+      "headerLabel": "Stuur deze header mee met elke aanvraag",
+      "copyHeader": "Header kopiëren",
+      "headerCopied": "Header gekopieerd",
+      "tokenHidden": "Vervang <token> door je token. Kwijt? Maak een nieuw token."
+    },
     "title": "Instellingen",
     "language": "Taal",
     "interface": {
@@ -830,6 +902,9 @@
     "templateUseFailed": "Het project kon niet vanuit dit sjabloon/template worden gemaakt.",
     "templateDeleteFailed": "Het sjabloon/template kon niet worden verwijderd.",
     "recent": "Recent",
+    "searchProjects": "Projecten zoeken",
+    "loadMore": "Meer laden",
+    "noSearchResults": "Geen projecten gevonden",
     "recentProjects": "Recente projecten",
     "notificationBadgeTooltip": "Nieuwe projectmeldingen",
     "notifications": {
@@ -914,7 +989,8 @@
       "message": "Dit project werd elders opgeslagen nadat je het opende. Je laatste wijzigingen hier zijn niet bewaard.",
       "reload": "Laatste versie laden",
       "overwrite": "Mijn versie behouden"
-    }
+    },
+    "serverReloaded": "Bijgewerkt met elders opgeslagen wijzigingen"
   },
   "infoBlock": {
     "drawingSettings": "Projecttekening",
@@ -1048,6 +1124,7 @@
     "residualType_B": "B (bepaalde laadpalen / PV)",
     "residualTypeHelp_B": "Ook zuivere gelijkstroom. Niet elke laadpaal of PV-omvormer vereist type B; controleer de toestelvoorschriften en interne DC-lekbeveiliging.",
     "description": "Beschrijving",
+    "labelText": "Labeltekst",
     "type_MCB": "Automaat",
     "type_RCD": "Differentieelschakelaar",
     "type_RCBO": "Differentieelautomaat",
@@ -1057,7 +1134,8 @@
     "deleteLinkedPanelTitle": "Beveiliging verwijderen?",
     "deleteLinkedPanelMessage": "Gekoppeld bord: {{panelNames}}",
     "deleteLinkedPanelAction": "Bord ook verwijderen",
-    "deleteProtectionAction": "Alleen beveiliging verwijderen"
+    "deleteProtectionAction": "Alleen beveiliging verwijderen",
+    "labelTextHint": "Korte tekst voor het kastlabel; komt in de plaats van de notities op het label."
   },
   "circuits": {
     "title": "Stroombanen",
@@ -1090,7 +1168,13 @@
     "addNewLabel": "Label",
     "addNewLabelPlaceholder": "bv. A, B, Keuken",
     "addNewLabelHint": "Laat leeg voor automatische labeling.",
-    "addNewPanel": "Bord"
+    "addNewPanel": "Bord",
+    "notes": "Notities",
+    "notesHide": "Verbergen op schema",
+    "notesShow": "Tonen op schema",
+    "notesVertical": "Notities verticaal tekenen",
+    "notesHorizontal": "Notities horizontaal tekenen",
+    "notesHint": "Wat deze kring voedt, zichtbaar op het eendraadschema."
   },
   "planDrop": {
     "dialogTitle": "Toevoegen aan kring",
@@ -1136,6 +1220,8 @@
     "socketSwitchNone": "Geen",
     "socketSwitchOverlay": "Contactdoos met tweepolige schakelaar",
     "socketSwitchOverlayLock": "Contactdoos met tweepolige vergrendelingschakelaar",
+    "socketSwitchOverlay_short": "Schakelaar",
+    "socketSwitchOverlayLock_short": "Vergrendeld",
     "socketWaterproof": "Waterdicht",
     "socketCount": "Aantal contactdozen",
     "setSocketCount": "Aantal contactdozen instellen",
@@ -1149,6 +1235,7 @@
     "switchPoles3": "3 polen",
     "twoWayPoles": "Polen (wissel)",
     "verklikkerlamp": "Verklikkerlamp",
+    "protectedPushbutton": "Afgeschermd",
     "lightPointOptions": "Opties lichtpunt",
     "lightPointSafety": "Veiligheidsstroombaan",
     "lightPointAutonomous": "Autonoom",
@@ -1460,6 +1547,8 @@
     "feedFromBottom": "Voeding van onder",
     "rows": "Rijen",
     "columns": "Kolommen",
+    "fields": "Velden",
+    "fieldNumber": "Veld {{number}}",
     "topTerminalStripRail": "Klemmenrail bovenaan",
     "bottomTerminalStripRail": "Klemmenrail onderaan",
     "showDomotica": "Toon domotica",
@@ -1490,7 +1579,7 @@
     "overflowWarningMessage": "Sommige modules staan in de overloopzone. Plaats ze in het bordraster of vergroot het bord; label-exports laten ze weg.",
     "labelSourceLabel": "Label",
     "labelSourceNotes": "Notities",
-    "labelSourceExtra": "Extra",
+    "labelSourceExtra": "Labeltekst",
     "labelSourceTechnical": "Technisch",
     "labelSourceFeeds": "Voedt",
     "labelSourceMain": "Hoofd",
@@ -1588,6 +1677,7 @@
         "circuits": "Kringen",
         "sequence": "Reeks",
         "panelInLabel": "Bord in label",
+        "continueAcrossBoards": "Doortellen over borden",
         "panelPartNone": "Geen",
         "panelPartNumber": "Nummer",
         "panelPartFull": "Volledig",
@@ -1607,7 +1697,7 @@
         "betweenCircuitAndBranch": "Tussen kring en aftakking",
         "separatorHelp": "Komt tussen de delen van een label waar die gescheiden zijn, zoals in A1.1.",
         "subPanelsHelp": "Eigen nummer telt gewoon verder; onder hoofdbord nummert een onderbord na het bord dat het voedt.",
-        "panelInLabelHelp": "Welk deel van het bordnummer vooraan elk kringlabel staat: niets, alleen het nummer of het volledige nummer met voorvoegsel.",
+        "panelInLabelHelp": "Begin opnieuw per bord, voeg het bordnummer toe of tel kringen door over alle borden.",
         "numberingHelp": "Nummert borden in huishoudelijke en niet-huishoudelijke installaties.",
         "prefixHelp": "Letters voor elk bordnummer, zoals B in B1.",
         "panelSequenceHelp": "Gebruik cijfers, cijfers met een voorloopnul of letters voor borden.",
@@ -1619,6 +1709,7 @@
     }
   },
   "planImport": {
+    "collabTooLarge": "Dit grondplan is te groot om samen te bewerken. Probeer een kleinere afbeelding of importeer minder pagina’s tegelijk.",
     "importFailed": "Kon het plan niet importeren.",
     "recognizeWalls": "Bewerkbare muren herkennen",
     "recognitionFailed": "Muren herkennen is mislukt.",
@@ -1899,6 +1990,38 @@
     }
   },
   "symbols": {
+    "searchPresets": {
+      "relay_impulse": "Teleruptor",
+      "relay_timer": "Tijdrelais",
+      "relay_clock": "Schakelklok",
+      "relay_thermostat": "Thermostaatrelais",
+      "relay_dimmer": "Dimmerrelais",
+      "switch_1p": "Enkelpolige schakelaar",
+      "switch_2p": "Dubbelpolige schakelaar",
+      "switch_3p": "Driepolige schakelaar",
+      "switch_4p": "Vierpolige schakelaar",
+      "switch_twoway_2p": "Dubbelpolige wisselschakelaar",
+      "pushbutton_protected": "Beschermde drukknop",
+      "switch_indicator": "Schakelaar met verklikkerlamp",
+      "spd_lightning": "Bliksembeveiliging",
+      "spd_spark": "Vonkbrugbeveiliging",
+      "light_wall": "Wandlamp",
+      "light_emergency": "Noodverlichting",
+      "light_decentral": "Decentrale noodverlichting",
+      "spot_straight": "Spot met rechte bundel",
+      "spot_diverging": "Spot met divergerende bundel",
+      "fluorescent_1": "TL-verlichting · 1 buis",
+      "fluorescent_2": "TL-verlichting · 2 buizen",
+      "fluorescent_3": "TL-verlichting · 3 buizen",
+      "heating_accumulation": "Accumulatieverwarming",
+      "heating_fan": "Accumulatieverwarming met ventilator",
+      "boiler_accumulation": "Accumulatieboiler",
+      "socket_ungrounded": "Stopcontact zonder aarding",
+      "socket_waterproof": "Waterdicht stopcontact",
+      "detector_gas": "Gasdetector",
+      "detector_heat": "Hittedetector",
+      "detector_flame": "Vlamdetector"
+    },
     "library": "Symbolenbibliotheek",
     "recent": "Recent",
     "favorites": "Favorieten",
@@ -1924,6 +2047,7 @@
     "switch_1p_changeover": "Omschakelaar",
     "switch_shutter": "Rolluikschakelaar",
     "switch_1p_pull": "Trekschakelaar",
+    "light_sensor": "Schemerschakelaar",
     "contact": "Contact",
     "switch_impulse": "Drukknop",
     "switch_cross": "Kruisschakelaar",
@@ -2052,6 +2176,7 @@
       "battery": "Batterij",
       "dc_bus": "DC-rail",
       "note": "Notitie / Label",
+      "light_sensor": "Schemerschakelaar",
       "contact": "Contact"
     }
   },
@@ -2925,6 +3050,7 @@
     "code": "Stroombaan"
   },
   "export": {
+    "notForInspection": "Niet voor keuring",
     "dialog": {
       "title": "Exporteren naar PDF",
       "selectCanvases": "Selecteer canvas om te exporteren",
@@ -3040,7 +3166,8 @@
     "multiSelectSame": "Meerdere items geselecteerd. Groepsbewerking komt binnenkort.",
     "selectedCount": "{{count}} item(s) geselecteerd",
     "mixedValue": "Gemengd",
-    "multiSelectUnsupported": "Deze items kunnen niet samen worden bewerkt."
+    "multiSelectUnsupported": "Deze items kunnen niet samen worden bewerkt.",
+    "notes": "Notities"
   },
   "stairs": {
     "width": "Trapbreedte",
@@ -3489,6 +3616,8 @@
     "editAction": "Schema-assistent…",
     "createTitle": "Schema genereren",
     "editTitle": "Schema-assistent",
+    "mcpAction": "AI verbinden…",
+    "mcpTitle": "AI verbinden",
     "newProjectName": "Nieuw schema",
     "scope": "Alleen het eendraadschema. Controleer elke wijziging voor je ze toepast.",
     "context": "Context",
@@ -3933,7 +4062,8 @@
     },
     "conflict": "Gewijzigd door iemand anders — probeer opnieuw",
     "peerOtherTab": "{{name}} (ander tabblad)",
-    "peersMore": "nog {{count}}"
+    "peersMore": "nog {{count}}",
+    "agentActive": "Een AI-agent is aan het bewerken"
   },
   "shortCircuit": {
     "defaultName": "Kortsluitberekening",
@@ -4075,7 +4205,10 @@
         "tsdS": "Vertraging van Isd. Leeg of 0 voor geen vertraging.",
         "iiA": "Ogenblikkelijke uitschakeling. Telt altijd als Ia."
       },
-      "selectCable": "Klik om de kring te selecteren, bijvoorbeeld om de kabel te wijzigen."
+      "selectCable": "Klik om de kring te selecteren, bijvoorbeeld om de kabel te wijzigen.",
+      "writeIk": "Zet de berekende Ik max, naar boven afgerond, op elk bord dat een andere waarde vermeldt: op het eendraadschema en de bordetiketten.",
+      "statedIk": "Het bord vermeldt {{ka}}.",
+      "boardSheets": "PDF met één blad per bord, voor in de kast."
     },
     "noMatches": "Niets te tonen",
     "showAll": "Alles tonen",
@@ -4087,6 +4220,11 @@
       "tsdS": "tsd",
       "iiA": "Ii",
       "adjustable": "Instelbaar"
+    },
+    "writeIk": "Ik naar borden schrijven",
+    "sheets": {
+      "download": "Bordbladen",
+      "page": "Pagina {{page}} van {{pages}}"
     }
   }
 }

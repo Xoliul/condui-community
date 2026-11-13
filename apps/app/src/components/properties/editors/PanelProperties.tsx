@@ -31,6 +31,7 @@ import {
   getProjectElectricalPanels,
 } from '@/lib/projectV2/electrical'
 import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
+import { getPanelGridFields, MAX_PANEL_GRID_FIELDS } from '@/lib/panel/panelGridFields'
 import { PanelGridDimensionInput } from '../shared/PanelGridDimensionInput'
 // Panel Properties Component
 export function PanelProperties({
@@ -220,6 +221,7 @@ export function PanelProperties({
       {installation && !isHouseholdInstallation(installation) ? (
         <OptionalNumberField
           label={t('panels.expectedShortCircuit', 'Expected max. short-circuit current')}
+          propertyField={`expectedShortCircuitKa:${panelId}`}
           unit="kA"
           value={panel.expectedShortCircuitKa}
           resetKey={panelId}
@@ -399,6 +401,13 @@ export function PanelProperties({
           min={1}
           max={48}
           onChange={(columns) => updatePanelGrid(panelId, { columns })}
+        />
+        <PanelGridDimensionInput
+          label={t('panelCanvas.fields')}
+          value={getPanelGridFields(panel.gridView)}
+          min={1}
+          max={MAX_PANEL_GRID_FIELDS}
+          onChange={(fields) => updatePanelGrid(panelId, { fields })}
         />
         <button
           type="button"

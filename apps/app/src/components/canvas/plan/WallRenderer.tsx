@@ -1,3 +1,4 @@
+import { INTERACTIVE_OVERLAY_EXPORT_NAME } from '@/lib/export/interactiveOverlayExport'
 import { useWallVolumeComponents } from './useWallVolumeComponents'
 import React from 'react'
 import { Group, Line, Circle, Rect, Arc } from 'react-konva'
@@ -31,7 +32,6 @@ import {
   isCurvedWall,
   wallWithDerivedPath,
 } from '@/lib/plan/wallCurve'
-
 const INTERACTIVE_HIT_FILL = 'rgba(0,0,0,0.001)'
 import { getWallTotalLength, getWallPathBetweenDistances } from '@/handlers/plan/wallDrawing'
 import {
@@ -544,7 +544,7 @@ function WallRendererInner({
           offsetY={thickness / 2}
           rotation={angleDeg}
           strokeWidth={0}
-          fill="rgba(0,0,0,0.001)"
+          name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill="rgba(0,0,0,0.001)"
         />
         {/* Door leaf in the middle */}
         <Rect
@@ -745,7 +745,7 @@ function WallRendererInner({
           offsetY={thickness / 2}
           rotation={angleDeg}
           strokeWidth={0}
-          fill="rgba(0,0,0,0.001)"
+          name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill="rgba(0,0,0,0.001)"
         />
 
         {/* Glass in the middle */}
@@ -887,7 +887,7 @@ function WallRendererInner({
               x={point.x}
               y={point.y}
               radius={pointHitRadius}
-              fill={INTERACTIVE_HIT_FILL}
+              name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill={INTERACTIVE_HIT_FILL}
               listening={wallsListening}
               draggable={pointDraggable}
               {...bindPointPointer}
@@ -1090,7 +1090,7 @@ function WallRendererInner({
               ))}
               <Line
                 points={linePts}
-                stroke="rgba(0,0,0,0.001)"
+                name={INTERACTIVE_OVERLAY_EXPORT_NAME} stroke="rgba(0,0,0,0.001)"
                 strokeWidth={fillThickness + wallOutlineStrokeWidth * 2}
                 lineCap="butt"
                 lineJoin="round"
@@ -1289,7 +1289,7 @@ function WallRendererInner({
                     {hasGroupedSimpleFallback && (
                       <Line
                         points={linePts}
-                        stroke={INTERACTIVE_HIT_FILL}
+                        name={INTERACTIVE_OVERLAY_EXPORT_NAME} stroke={INTERACTIVE_HIT_FILL}
                         strokeWidth={fillThickness + borderThickness * 2}
                         lineCap="butt"
                         lineJoin="miter"
@@ -1378,7 +1378,7 @@ function WallRendererInner({
                     {hasMergedWallVolume && (
                       <Line
                         points={linePts}
-                        stroke="rgba(0,0,0,0.001)"
+                        name={INTERACTIVE_OVERLAY_EXPORT_NAME} stroke="rgba(0,0,0,0.001)"
                         strokeWidth={fillThickness}
                         lineCap={'butt'}
                         lineJoin={'miter'}

@@ -11,6 +11,7 @@ import type {
   TrikBranchDevice,
   TrikCircuit,
   TrikCircuitTrunkDevice,
+  TrikForkLeg,
   TrikFigure,
   TrikNode,
   TrikPanelBoard,
@@ -437,8 +438,14 @@ function buildTrikCircuitFromBreaker(
   const trunkDevices: TrikCircuitTrunkDevice[] = []
   const branchDevices: TrikBranchDevice[] = []
   const controls: Array<{ switchId: string; lightId: string }> = []
+  let forkVariant: TrikCircuit['forkVariant']
   // At most one converter per circuit sits on the trunk; its DC outputs are TRiK child leidingen.
   let trunkConverter: { element: Element; id: string } | undefined
+  // A Leiding below a device with several children is a split of that cable. Pass 1 keeps each
+  // extra child as a fork leg; pass 2 flattens them onto the run (the long-standing mapping).
+  let keepForkLegs = true
+  const forkLegs: TrikForkLeg[] = []
+  const lastNodeIdByKey = new Map<string, string>()
 
   if (firstLeiding) {
     const walk = (
@@ -452,6 +459,12 @@ function buildTrikCircuitFromBreaker(
       const traversalChildren = getTraversalChildren(current)
       if (traversalChildren.length === 0) return
       const splitHere = !forceLinearBranch && traversalChildren.length > 1
+      const forkAnchorId = keepForkLegs && forceLinearBranch && !activeDomoticaModuleId && current.tagName === 'Leiding'
+        && traversalChildren.filter((child) => child.tagName !== 'Nota').length > 1
+        && current.parentElement?.parentElement?.getAttribute('Id') === lastNodeIdByKey.get(branchKey)
+        ? lastNodeIdByKey.get(branchKey)
+        : undefined
+      let forkChildIndex = 0
       const converterOutputChildren =
         trunkConverter?.element === current
           ? traversalChildren.filter((child) => child.tagName !== 'Nota')
@@ -473,12 +486,18 @@ function buildTrikCircuitFromBreaker(
             node.converterDcConnection = childConverterOutput
           }
           nodes.push(node)
+          if (node.branchKey) lastNodeIdByKey.set(node.branchKey, node.id)
         }
         const isDirectDomoticaChild = !!activeDomoticaModuleId && current.tagName === 'DomoticaModule'
         const directOutputRootNodeId = isDirectDomoticaChild
           ? (child.getAttribute('Id')?.trim() || activeDomoticaOutputRootNodeId)
           : activeDomoticaOutputRootNodeId
-        const structuralKey = splitHere ? `${branchKey}.${index + 1}` : branchKey
+        let forkLegKey: string | undefined
+        if (forkAnchorId && child.tagName !== 'Nota' && forkChildIndex++ > 0) {
+          forkLegKey = `${branchKey}~${forkAnchorId}.${forkChildIndex - 1}`
+          forkLegs.push({ branchKey: forkLegKey, afterNodeId: forkAnchorId })
+        }
+        const structuralKey = forkLegKey ?? (splitHere ? `${branchKey}.${index + 1}` : branchKey)
         const normalizedStructuralKey = (structuralKey.replace(/^\./, '') || '1')
         if (isDubbeleWissel(child)) {
           const splitBranchStarts = resolveDubbeleWisselBranchStarts(child)
@@ -521,8 +540,17 @@ function buildTrikCircuitFromBreaker(
               attachSatelliteMarksToNode(mappedNode, child)
               pushNode(mappedNode)
             }
-            branchStarts.forEach((branchStart) => {
-              walk(branchStart, linearKey, true, activeDomoticaModuleId, activeDomoticaOutputRootNodeId, childConverterOutput)
+            // A changeover switch has two outputs: the first continues the run; with forks kept every
+            // further output is a leg after the switch (flattened onto the run in the second pass).
+            const keepLegsAfter = keepForkLegs && !activeDomoticaModuleId && mappedNode ? mappedNode.id : undefined
+            branchStarts.forEach((branchStart, startIndex) => {
+              if (!keepLegsAfter || startIndex === 0) {
+                walk(branchStart, linearKey, true, activeDomoticaModuleId, activeDomoticaOutputRootNodeId, childConverterOutput)
+                return
+              }
+              const legKey = `${linearKey}~${keepLegsAfter}.${startIndex}`
+              forkLegs.push({ branchKey: legKey, afterNodeId: keepLegsAfter })
+              walk(branchStart, legKey, true, activeDomoticaModuleId, activeDomoticaOutputRootNodeId, childConverterOutput)
             })
             return
           }
@@ -650,6 +678,16 @@ function buildTrikCircuitFromBreaker(
       })
     }
     walk(firstLeiding, '')
+    if (forkLegs.length > 0) {
+      forkVariant = { nodes: nodes.slice(), forkLegs: forkLegs.slice() }
+      nodes.length = 0
+      trunkDevices.length = 0
+      branchDevices.length = 0
+      controls.length = 0
+      trunkConverter = undefined
+      keepForkLegs = false
+      walk(firstLeiding, '')
+    }
   }
 
   const protectionType = classifyProtectionType(breaker)
@@ -686,6 +724,7 @@ function buildTrikCircuitFromBreaker(
     trunkDevices: trunkDevices.length > 0 ? trunkDevices : undefined,
     branchDevices: branchDevices.length > 0 ? branchDevices : undefined,
     outboundPanelNotas: collectOutboundPanelNotasFromLeiding(firstLeiding),
+    ...(forkVariant ? { forkVariant } : {}),
   }
   circuitsOut.push(circuitRecord)
 

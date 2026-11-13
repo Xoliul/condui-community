@@ -1,3 +1,4 @@
+import { getInfoBlockContent } from '@/lib/infoBlockContent'
 /**
  * Renders the info block (installer, installation address, general) as SVG for PDF export.
  * Layout and dimensions match InfoBlock.tsx / infoBlockLayout.ts (single source of truth).
@@ -11,6 +12,7 @@ import type { InstallerProfile } from '@/lib/installerProfile'
 import type { ProjectPartyContact } from '@/types/schema'
 import {
   getProjectElectricalInstallation,
+  getProjectElectricalPanels,
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import {
@@ -26,12 +28,8 @@ import {
   INFO_BLOCK_BODY_TOP_GAP,
   INFO_BLOCK_HEADER_LINE_INSET,
   INFO_BLOCK_BODY_LINE_HEIGHT,
-  INFO_BLOCK_HEIGHT,
   INFO_BLOCK_INSTALLER_TOP_HEIGHT,
   INFO_BLOCK_IMAGE_AREA_HEIGHT,
-  formatInstallationAddress,
-  formatInspectionAgencyDetails,
-  formatInstallerAddress,
   getInfoBlockColumnPositions,
   getInfoBlockColumns,
   getInfoBlockTotalWidth,
@@ -77,7 +75,7 @@ export interface InfoBlockSvgOptions {
 }
 
 /**
- * Build an SVG string for the info block at its native dynamic width and fixed height.
+ * Build an SVG string for the info block at its content-driven native width and height.
  * The caller scales and positions it on the PDF page.
  */
 export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
@@ -103,6 +101,8 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
     options.canCustomizeInfoBlock === true,
   )
 
+  const content = getInfoBlockContent(project, profile, countryLabel, fontFamily)
+  const infoBlockHeight = content.height
   const colors = getThemeColors(isDark ? 'dark' : 'light')
   const frameColor = colors.frameColor
   const textColor = colors.textColor
@@ -122,7 +122,7 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
   const bodyStartY = headerLineY + INFO_BLOCK_BODY_TOP_GAP
 
   const sepTopY = INFO_BLOCK_PADDING
-  const sepBottomY = INFO_BLOCK_HEIGHT - INFO_BLOCK_PADDING
+  const sepBottomY = infoBlockHeight - INFO_BLOCK_PADDING
   const col1Left = installerBoxX
   const col1Right = installerBoxX + INFO_BLOCK_BOX_WIDTHS.installer
   const col2Left = addressBoxX
@@ -134,10 +134,10 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
   const imageAreaY = INFO_BLOCK_PADDING + INFO_BLOCK_INSTALLER_TOP_HEIGHT
   const signatureY = imageAreaY + halfImageHeight
 
-  const projectName = project?.project?.name ?? ''
   const installation = project ? getProjectElectricalInstallation(project) : undefined
-  const addressText = installation ? formatInstallationAddress(installation, countryLabel) : ''
-  const voltageText = installation ? getVoltageLabel(installation) : ''
+  const voltageText = installation
+    ? getVoltageLabel(installation, project ? getProjectElectricalPanels(project) : [])
+    : ''
   const eanText = project?.project?.meterEanCode ?? ''
   const updatedAt = project?.project?.updatedAt
   const dateText = updatedAt
@@ -154,25 +154,17 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
         : `EAN ${eanText}`
       : ''
 
-  const installerAddress = profile
-    ? formatInstallerAddress(profile.address, countryLabel, {
-        phone: profile.phone,
-        mobile: profile.mobile,
-        email: profile.email,
-      })
-    : ''
   const inspectionAgency = project?.project?.inspectionAgency
-  const inspectionAgencyDetails = formatInspectionAgencyDetails(inspectionAgency, countryLabel)
   const inspectionAgencyCompanyNumber = inspectionAgency?.companyNumber?.trim() ?? ''
 
   const lines: string[] = []
 
   // Root SVG
   lines.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${infoBlockWidth}" height="${INFO_BLOCK_HEIGHT}" viewBox="0 0 ${infoBlockWidth} ${INFO_BLOCK_HEIGHT}">`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${infoBlockWidth}" height="${infoBlockHeight}" viewBox="0 0 ${infoBlockWidth} ${infoBlockHeight}">`
   )
   lines.push(
-    `<rect x="0" y="0" width="${infoBlockWidth}" height="${INFO_BLOCK_HEIGHT}" fill="none" stroke="${frameColor}" stroke-width="${INFO_BLOCK_STROKE_WIDTH_FRAME}"/>`
+    `<rect x="0" y="0" width="${infoBlockWidth}" height="${infoBlockHeight}" fill="none" stroke="${frameColor}" stroke-width="${INFO_BLOCK_STROKE_WIDTH_FRAME}"/>`
   )
   columnPositions.separators.forEach((separatorX) => {
     lines.push(
@@ -188,18 +180,18 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
     lines.push(
       `<line x1="${inspectionAgencyBoxX + INFO_BLOCK_HEADER_LINE_INSET}" y1="${headerLineY}" x2="${inspectionRight - INFO_BLOCK_HEADER_LINE_INSET}" y2="${headerLineY}" stroke="${frameColor}" stroke-width="${INFO_BLOCK_STROKE_WIDTH_SEPARATOR}"/>`
     )
-    lines.push(
-      `<text x="${inspectionAgencyBoxX + INFO_BLOCK_PADDING}" y="${bodyStartY + INFO_BLOCK_FONT_SIZE_NAME}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="${INFO_BLOCK_FONT_SIZE_NAME}" font-weight="bold" fill="${textColor}">${escapeXml(inspectionAgency?.name ?? '')}</text>`
-    )
+    content.inspectionAgency.nameLines.forEach((line, index) => {
+      lines.push(`<text x="${inspectionAgencyBoxX + INFO_BLOCK_PADDING}" y="${bodyStartY + INFO_BLOCK_FONT_SIZE_NAME + index * 12}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="8" font-weight="bold" fill="${textColor}">${escapeXml(line)}</text>`)
+    })
     if (inspectionAgencyCompanyNumber) {
       lines.push(
         `<text x="${inspectionRight - INFO_BLOCK_PADDING}" y="${bodyStartY + 6}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="6" font-style="italic" fill="${secondaryColor}" fill-opacity="0.8" text-anchor="end">${escapeXml(inspectionAgencyCompanyNumber)}</text>`
       )
     }
-    inspectionAgencyDetails.split('\n').forEach((line, index) => {
+    content.inspectionAgency.detailLines.forEach((line, index) => {
       const y =
         bodyStartY +
-        INFO_BLOCK_BODY_LINE_HEIGHT +
+        content.inspectionAgency.nameHeight +
         INFO_BLOCK_FONT_SIZE_BODY +
         index * INFO_BLOCK_BODY_LINE_HEIGHT
       lines.push(
@@ -210,7 +202,7 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
 
   if (logoBoxX != null && profile?.logoDataUrl) {
     lines.push(
-      `<image href="${profile.logoDataUrl}" x="${logoBoxX + INFO_BLOCK_PADDING}" y="${INFO_BLOCK_PADDING}" width="${INFO_BLOCK_BOX_WIDTHS.logo - INFO_BLOCK_PADDING * 2}" height="${INFO_BLOCK_HEIGHT - INFO_BLOCK_PADDING * 2}" preserveAspectRatio="xMidYMid meet"/>`
+      `<image href="${profile.logoDataUrl}" x="${logoBoxX + INFO_BLOCK_PADDING}" y="${INFO_BLOCK_PADDING}" width="${INFO_BLOCK_BOX_WIDTHS.logo - INFO_BLOCK_PADDING * 2}" height="${infoBlockHeight - INFO_BLOCK_PADDING * 2}" preserveAspectRatio="xMidYMid meet"/>`
     )
   }
 
@@ -221,20 +213,11 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
   lines.push(
     `<line x1="${col1Left + INFO_BLOCK_HEADER_LINE_INSET}" y1="${headerLineY}" x2="${col1Right - INFO_BLOCK_HEADER_LINE_INSET}" y2="${headerLineY}" stroke="${frameColor}" stroke-width="${INFO_BLOCK_STROKE_WIDTH_SEPARATOR}"/>`
   )
-  lines.push(
-    `<text x="${installerBoxX + INFO_BLOCK_PADDING}" y="${bodyStartY + INFO_BLOCK_FONT_SIZE_NAME}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="${INFO_BLOCK_FONT_SIZE_NAME}" font-weight="bold" fill="${textColor}">${escapeXml(profile?.name ?? '')}</text>`
-  )
-  // Installer address (can be multiline). SVG y is baseline; place first line so its top is at bodyStartY + BODY_LINE_HEIGHT to match canvas.
-  const addrLines = installerAddress.split('\n')
-  addrLines.forEach((line, i) => {
-    const y =
-      bodyStartY +
-      INFO_BLOCK_BODY_LINE_HEIGHT +
-      INFO_BLOCK_FONT_SIZE_BODY +
-      i * INFO_BLOCK_BODY_LINE_HEIGHT
-    lines.push(
-      `<text x="${installerBoxX + INFO_BLOCK_PADDING}" y="${y}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="${INFO_BLOCK_FONT_SIZE_BODY}" fill="${secondaryColor}">${escapeXml(line)}</text>`
-    )
+  content.installer.nameLines.forEach((line, index) => {
+    lines.push(`<text x="${installerBoxX + INFO_BLOCK_PADDING}" y="${bodyStartY + 8 + index * 12}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="8" font-weight="bold" fill="${textColor}">${escapeXml(line)}</text>`)
+  })
+  content.installer.detailLines.forEach((line, index) => {
+    lines.push(`<text x="${installerBoxX + INFO_BLOCK_PADDING}" y="${bodyStartY + content.installer.nameHeight + 7 + index * 12}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="7" fill="${secondaryColor}">${escapeXml(line)}</text>`)
   })
   // Signature
   if (profile?.signatureDataUrl) {
@@ -244,7 +227,7 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
   }
   // Made-with text: right-aligned at bottom of installer column
   if (madeWithText) lines.push(
-    `<text x="${col1Right - INFO_BLOCK_PADDING}" y="${INFO_BLOCK_HEIGHT - INFO_BLOCK_PADDING}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="${INFO_BLOCK_FONT_SIZE_MADE_WITH}" fill="${secondaryColor}" text-anchor="end">${escapeXml(madeWithText)}</text>`
+    `<text x="${col1Right - INFO_BLOCK_PADDING}" y="${infoBlockHeight - INFO_BLOCK_PADDING}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="${INFO_BLOCK_FONT_SIZE_MADE_WITH}" fill="${secondaryColor}" text-anchor="end">${escapeXml(madeWithText)}</text>`
   )
 
   // Address column
@@ -254,20 +237,11 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
   lines.push(
     `<line x1="${col2Left + INFO_BLOCK_HEADER_LINE_INSET}" y1="${headerLineY}" x2="${col2Right - INFO_BLOCK_HEADER_LINE_INSET}" y2="${headerLineY}" stroke="${frameColor}" stroke-width="${INFO_BLOCK_STROKE_WIDTH_SEPARATOR}"/>`
   )
-  lines.push(
-    `<text x="${addressBoxX + INFO_BLOCK_PADDING}" y="${bodyStartY + INFO_BLOCK_FONT_SIZE_NAME}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="${INFO_BLOCK_FONT_SIZE_NAME}" font-weight="bold" fill="${textColor}">${escapeXml(projectName)}</text>`
-  )
-  // Installation address lines. SVG y is baseline; place first line so its top is at bodyStartY + BODY_LINE_HEIGHT (below project name) to match canvas.
-  const installAddrLines = addressText.split('\n')
-  installAddrLines.forEach((line, i) => {
-    const y =
-      bodyStartY +
-      INFO_BLOCK_BODY_LINE_HEIGHT +
-      INFO_BLOCK_FONT_SIZE_BODY +
-      i * INFO_BLOCK_BODY_LINE_HEIGHT
-    lines.push(
-      `<text x="${addressBoxX + INFO_BLOCK_PADDING}" y="${y}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="${INFO_BLOCK_FONT_SIZE_BODY}" fill="${textColor}">${escapeXml(line)}</text>`
-    )
+  content.address.nameLines.forEach((line, index) => {
+    lines.push(`<text x="${addressBoxX + INFO_BLOCK_PADDING}" y="${bodyStartY + 8 + index * 12}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="8" font-weight="bold" fill="${textColor}">${escapeXml(line)}</text>`)
+  })
+  content.address.detailLines.forEach((line, index) => {
+    lines.push(`<text x="${addressBoxX + INFO_BLOCK_PADDING}" y="${bodyStartY + content.address.nameHeight + 7 + index * 12}" font-family="${escapeXml(fontFamily)}, sans-serif" font-size="7" fill="${textColor}">${escapeXml(line)}</text>`)
   })
 
   // General column
@@ -279,7 +253,7 @@ export function buildInfoBlockSvg(options: InfoBlockSvgOptions): string {
   )
   // General column: date, voltage, EAN. SVG y is baseline; add fontSize so text top matches canvas (centerOffset from section top).
   const sectionsCount = 3
-  const availableHeight = INFO_BLOCK_HEIGHT - INFO_BLOCK_PADDING - bodyStartY
+  const availableHeight = infoBlockHeight - INFO_BLOCK_PADDING - bodyStartY
   const sectionHeight = availableHeight / sectionsCount
   const centerOffset = (sectionHeight - INFO_BLOCK_FONT_SIZE_BODY) / 2
   const dateY = bodyStartY + centerOffset + INFO_BLOCK_FONT_SIZE_BODY

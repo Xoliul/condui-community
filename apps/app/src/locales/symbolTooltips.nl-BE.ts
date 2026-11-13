@@ -37,6 +37,7 @@ export const symbolTooltipsNlBE = {
   switch_1p_changeover: 'Omschakelaar die tussen twee circuits kiest.',
   switch_shutter: "Op- en neerbediening voor rolluiken of zonwering.",
   switch_1p_pull: 'Trekschakelaar, vaak aan het plafond.',
+  light_sensor: "Schakelt verlichting in wanneer het donker wordt.",
   contact: 'Los contact, bv. een ingangscontact voor domotica.',
   switch_impulse: 'Drukknop of impulsschakelaar voor teleruptor of domotica.',
   motion_detector: 'Bewegingsdetector die schakelt.',

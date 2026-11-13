@@ -38,7 +38,8 @@ export function getEendraadTopChromeHeightMm(paperSize: ExportPaperSize = 'A4'):
 export function getInfoBlockReservedZoneMm(
   orientation: 'landscape' | 'portrait',
   nativeWidth = INFO_BLOCK_TOTAL_WIDTH,
-  paperSize: ExportPaperSize = 'A4'
+  paperSize: ExportPaperSize = 'A4',
+  nativeHeight = INFO_BLOCK_HEIGHT
 ): { widthMm: number; heightMm: number } {
   // The standard info box has the same absolute width cap on every sheet; A3
   // shrinks it so it takes a smaller share of the larger page. Optional columns
@@ -49,7 +50,7 @@ export function getInfoBlockReservedZoneMm(
   const standardWidthMm =
     Math.min(landscapeUsableWidth * 0.36, INFO_BLOCK_MAX_WIDTH_MM) * chromeScale
   const grownWidthMm = standardWidthMm * Math.max(1, nativeWidth / INFO_BLOCK_TOTAL_WIDTH)
-  const aspect = INFO_BLOCK_HEIGHT / nativeWidth
+  const aspect = nativeHeight / nativeWidth
   if (orientation === 'landscape') {
     const widthMm = Math.min(grownWidthMm, landscapeUsableWidth * INFO_BLOCK_MAX_SHEET_SHARE)
     return { widthMm, heightMm: widthMm * aspect }
@@ -65,6 +66,7 @@ export function getPdfContentHeightMm(
     hasInfoBlock: boolean
     hasPanelTitle: boolean
     infoBlockNativeWidth?: number
+    infoBlockNativeHeight?: number
     paperSize?: ExportPaperSize
   }
 ): number {
@@ -74,7 +76,7 @@ export function getPdfContentHeightMm(
   let height = usableHeight - (options.hasPanelTitle ? getPanelTitleHeightMm(paperSize) : 0)
   if (options.hasInfoBlock) {
     height -=
-      getInfoBlockReservedZoneMm(orientation, options.infoBlockNativeWidth, paperSize).heightMm +
+      getInfoBlockReservedZoneMm(orientation, options.infoBlockNativeWidth, paperSize, options.infoBlockNativeHeight).heightMm +
       INFO_BLOCK_GAP_MM
   }
   return Math.max(20, height)
@@ -143,10 +145,11 @@ export function getEendraadTopObstaclesMm(
 export function getEendraadInfoBlockObstacleMm(
   orientation: 'landscape' | 'portrait' = 'landscape',
   nativeWidth?: number,
-  paperSize: ExportPaperSize = 'A4'
+  paperSize: ExportPaperSize = 'A4',
+  nativeHeight = INFO_BLOCK_HEIGHT
 ): { x: number; y: number; width: number; height: number } {
   const page = getPageDimensions(orientation, paperSize)
-  const reserved = getInfoBlockReservedZoneMm(orientation, nativeWidth, paperSize)
+  const reserved = getInfoBlockReservedZoneMm(orientation, nativeWidth, paperSize, nativeHeight)
   return {
     x: page.width - PAGE_MARGIN - reserved.widthMm,
     y: page.height - PAGE_MARGIN - reserved.heightMm,
@@ -165,11 +168,12 @@ export function limitEendraadScaleToInfoBlockCollision(
   scale: number,
   nativeWidth?: number,
   paperSize: ExportPaperSize = 'A4',
-  schematicTopMm = getEendraadSchematicTopMm(paperSize)
+  schematicTopMm = getEendraadSchematicTopMm(paperSize),
+  nativeHeight = INFO_BLOCK_HEIGHT
 ): number {
   const height = Math.max(packHeightPx, 1)
   const area = getEendraadSchematicAreaMm('landscape', paperSize)
-  const obstacle = getEendraadInfoBlockObstacleMm('landscape', nativeWidth, paperSize)
+  const obstacle = getEendraadInfoBlockObstacleMm('landscape', nativeWidth, paperSize, nativeHeight)
   const topMm = schematicTopMm
   let next = scale
   const schematicRect = () => ({

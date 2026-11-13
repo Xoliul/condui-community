@@ -41,7 +41,7 @@ function supplyMembership(slots: readonly PanelGridSlot[] = []): string[] {
 function sameGrid(left?: PanelGridConfig, right?: PanelGridConfig): boolean {
   if (left === right) return true
   if (!sameFieldsExcept(left ?? {}, right ?? {}, [
-    'rows', 'columns', 'feedFromTop', 'terminalStripTopRail', 'terminalStripBottomRail',
+    'rows', 'columns', 'fields', 'feedFromTop', 'terminalStripTopRail', 'terminalStripBottomRail',
     'supplyPanelRows', 'supplyPanelColumns', 'slots', 'supplyPanelSlots',
     'hiddenModuleKeys', 'shownModuleKeys',
   ])) return false

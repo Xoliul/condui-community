@@ -1,4 +1,36 @@
 {
+  "oneWireFork": {
+    "invalidConnection": "La connexion de la branche est indéterminée."
+  },
+  "forkLab": {
+    "title": "Tester les ramifications",
+    "scope": "Dessins CA expérimentaux · enregistrés séparément des projets",
+    "undo": "Annuler",
+    "redo": "Rétablir",
+    "plain": "Circuit simple",
+    "save": "Enregistrer le dessin",
+    "download": "Télécharger le dessin",
+    "open": "Ouvrir un dessin",
+    "empty": "Branche vide",
+    "move": "Déplacer la branche",
+    "delete": "Supprimer",
+    "cancel": "Abandonner",
+    "zoom": "Zoom",
+    "note": "Remarque",
+    "feed": "Chemin d’alimentation",
+    "depth": "Profondeur",
+    "moveHandle": "Poignée de déplacement",
+    "forkAfter": "Ramifier après",
+    "insert": "Insérer dans",
+    "root": "Nouvelle branche principale",
+    "targetHint": "Choisissez un symbole, puis une destination bleue.",
+    "selectHint": "Sélectionnez un symbole pour l’examiner ou le déplacer.",
+    "moveHint": "Choisissez une destination ou faites glisser la poignée bleue.",
+    "saved": "Dessin enregistré. Rechargez pour le rouvrir.",
+    "storageError": "Impossible d’enregistrer ce dessin.",
+    "invalidFile": "Ce fichier n’est pas un dessin de ramifications valide.",
+    "rejected": "Cette modification ne peut pas préserver la structure des branches."
+  },
   "findPanel": {
     "title": "Rechercher un tableau",
     "placeholder": "Rechercher des tableaux…",
@@ -151,7 +183,9 @@
     "offlineReloadNotReady": "Évitez de recharger tant que vous n'avez pas ouvert l'app au moins une fois en ligne dans cet onglet.",
     "offlineReloadDevHint": "Le rechargement hors ligne ne fonctionne qu'avec une build de production (npm run build && vite preview), pas avec le serveur de dev.",
     "dismissOfflineBanner": "Fermer l'avertissement hors ligne",
-    "offlineIndicatorTitle": "Vous êtes hors ligne"
+    "offlineIndicatorTitle": "Vous êtes hors ligne",
+    "cloudSyncPendingTitle": "Non synchronisé avec le cloud",
+    "cloudSyncPendingMessage": "Vos modifications sont enregistrées sur cet appareil. La synchronisation cloud réessaie automatiquement."
   },
   "diagnostics": {
     "anonymousProjectName": "Projet diagnostics ({{idShort}})",
@@ -283,6 +317,8 @@
     "zoom": "Zoomer"
   },
   "commandPalette": {
+    "createFork": "Ajouter une branche",
+    "deleteEmptyFork": "Supprimer la branche vide",
     "addPanelAtDomoticaOutput": "Ajouter un tableau à la sortie",
     "addSupplyTransformer": "Ajouter un transformateur d’alimentation",
     "placeholder": "Rechercher une commande",
@@ -303,6 +339,7 @@
     "apply": "Appliquer",
     "unavailable": "Impossible d’appliquer cette modification. Vérifiez les valeurs ou rouvrez l’action.",
     "fields": {
+      "branch": "Branche",
       "output": "Sortie",
       "circuit": "Circuit",
       "position": "Position",
@@ -623,6 +660,41 @@
     }
   },
   "settings": {
+    "mcp": {
+      "manageConnections": "Gérer les connexions",
+      "copyUrl": "Copier l’URL du serveur",
+      "copyPrompt": "Copier le prompt de départ",
+      "starterPrompt": "Utilise Condui MCP pour travailler dans le projet cloud existant que je te nomme. Si je n’en nomme aucun, demande-moi de quel projet il s’agit. Ne crée un nouveau projet que si je te le demande. Résume ce que tu trouves et attends mes instructions avant de modifier quoi que ce soit.",
+      "urlCopied": "URL du serveur copiée",
+      "promptCopied": "Prompt de départ copié",
+      "copyFailed": "La copie a échoué. Sélectionnez le texte pour le copier manuellement.",
+      "needsServerStorage": "Disponible lorsque les projets sont enregistrés sur le serveur.",
+      "turnOn": "Activer",
+      "turnOff": "Désactiver",
+      "newToken": "Nouveau jeton",
+      "tokenShownOnce": "Copiez ce jeton maintenant. Il n’est affiché qu’une seule fois.",
+      "copyToken": "Copier le jeton",
+      "tokenCopied": "Jeton copié",
+      "copyCommand": "Copier la commande Claude Code",
+      "commandCopied": "Commande copiée",
+      "changeFailed": "Impossible de modifier les paramètres MCP.",
+      "communityStarterPrompt": "Utilise Condui MCP pour travailler dans le projet Condui existant que je te nomme. Si je n’en nomme aucun, demande-moi de quel projet il s’agit. Ne crée un nouveau projet que si je te le demande. Résume ce que tu trouves et attends mes instructions avant de modifier quoi que ce soit.",
+      "client": {
+        "label": "Client IA",
+        "claude": "Claude",
+        "chatgpt": "ChatGPT / Codex",
+        "other": "Autre"
+      },
+      "hostedPasteAndSignIn": "Collez-y l’URL du serveur et connectez-vous avec votre compte Condui. Les modifications sont enregistrées directement dans le projet cloud.",
+      "hostedOther": "Ce serveur utilise la connexion OAuth avec votre compte Condui. Les modifications sont enregistrées directement dans le projet cloud.",
+      "codexConfig": "Configuration Codex (config.toml)",
+      "copyCodexConfig": "Copier la configuration Codex",
+      "configCopied": "Configuration copiée",
+      "headerLabel": "Envoyez cet en-tête avec chaque requête",
+      "copyHeader": "Copier l’en-tête",
+      "headerCopied": "En-tête copié",
+      "tokenHidden": "Remplacez <token> par votre jeton. Perdu ? Créez un nouveau jeton."
+    },
     "title": "Paramètres",
     "language": "Langue",
     "interface": {
@@ -830,6 +902,9 @@
     "templateUseFailed": "Le projet n’a pas pu être créé à partir de ce modèle.",
     "templateDeleteFailed": "Le modèle n’a pas pu être supprimé.",
     "recent": "Récents",
+    "searchProjects": "Rechercher des projets",
+    "loadMore": "Charger plus",
+    "noSearchResults": "Aucun projet trouvé",
     "recentProjects": "Projets récents",
     "notificationBadgeTooltip": "Nouvelles notifications du projet",
     "notifications": {
@@ -914,7 +989,8 @@
       "message": "Ce projet a été enregistré ailleurs après son ouverture. Vos dernières modifications ici ne sont pas enregistrées.",
       "reload": "Charger la dernière version",
       "overwrite": "Garder ma version"
-    }
+    },
+    "serverReloaded": "Mis à jour avec des modifications enregistrées ailleurs"
   },
   "infoBlock": {
     "drawingSettings": "Dessin du projet",
@@ -1048,6 +1124,7 @@
     "residualType_B": "B (certaines bornes / installations PV)",
     "residualTypeHelp_B": "Aussi le courant continu lisse. Le type B n’est pas toujours nécessaire pour une borne ou un onduleur PV ; vérifiez les prescriptions et la protection interne contre les fuites DC.",
     "description": "Description",
+    "labelText": "Texte d'étiquette",
     "type_MCB": "Disjoncteur",
     "type_RCD": "Interrupteur différentiel",
     "type_RCBO": "Disjoncteur différentiel",
@@ -1057,7 +1134,8 @@
     "deleteLinkedPanelTitle": "Supprimer la protection ?",
     "deleteLinkedPanelMessage": "Tableau relié : {{panelNames}}",
     "deleteLinkedPanelAction": "Supprimer aussi le tableau",
-    "deleteProtectionAction": "Supprimer seulement la protection"
+    "deleteProtectionAction": "Supprimer seulement la protection",
+    "labelTextHint": "Texte court pour l'étiquette du tableau ; remplace les notes sur l'étiquette."
   },
   "circuits": {
     "title": "Circuits",
@@ -1090,7 +1168,13 @@
     "addNewLabel": "Libellé",
     "addNewLabelPlaceholder": "p. ex. A, B, Cuisine",
     "addNewLabelHint": "Laisser vide pour un libellé automatique.",
-    "addNewPanel": "Tableau"
+    "addNewPanel": "Tableau",
+    "notes": "Notes",
+    "notesHide": "Masquer sur le schéma",
+    "notesShow": "Afficher sur le schéma",
+    "notesVertical": "Dessiner les notes verticalement",
+    "notesHorizontal": "Dessiner les notes horizontalement",
+    "notesHint": "Ce que ce circuit alimente, affiché sur le schéma unifilaire."
   },
   "planDrop": {
     "dialogTitle": "Ajouter au circuit",
@@ -1136,6 +1220,8 @@
     "socketSwitchNone": "Aucun",
     "socketSwitchOverlay": "Prise de courant avec interrupteur bipolaire",
     "socketSwitchOverlayLock": "Prise de courant avec interrupteur bipolaire à verrouillage",
+    "socketSwitchOverlay_short": "Interrupteur",
+    "socketSwitchOverlayLock_short": "Verrouillable",
     "socketWaterproof": "Étanche",
     "socketCount": "Nombre de prises",
     "setSocketCount": "Définir le nombre de prises",
@@ -1149,6 +1235,7 @@
     "switchPoles3": "3 pôles",
     "twoWayPoles": "Pôles (va-et-vient)",
     "verklikkerlamp": "Témoin lumineux",
+    "protectedPushbutton": "Protégé",
     "lightPointOptions": "Options point lumineux",
     "lightPointSafety": "Sécurité (circuit de sécurité)",
     "lightPointAutonomous": "Autonome",
@@ -1460,6 +1547,8 @@
     "feedFromBottom": "Alimentation par le bas",
     "rows": "Lignes",
     "columns": "Colonnes",
+    "fields": "Travées",
+    "fieldNumber": "Travée {{number}}",
     "topTerminalStripRail": "Rail de bornes supérieur",
     "bottomTerminalStripRail": "Rail de bornes inférieur",
     "showDomotica": "Afficher domotique",
@@ -1490,7 +1579,7 @@
     "overflowWarningMessage": "Certains modules sont dans la zone de débordement. Replacez-les dans la grille ou agrandissez le tableau ; les exports d’étiquettes les excluront.",
     "labelSourceLabel": "Étiquette",
     "labelSourceNotes": "Notes",
-    "labelSourceExtra": "Extra",
+    "labelSourceExtra": "Texte d'étiquette",
     "labelSourceTechnical": "Technique",
     "labelSourceFeeds": "Alimente",
     "labelSourceMain": "Général",
@@ -1589,6 +1678,7 @@
         "circuits": "Circuits",
         "sequence": "Séquence",
         "panelInLabel": "Tableau dans le label",
+        "continueAcrossBoards": "Continuer entre les tableaux",
         "panelPartNone": "Aucun",
         "panelPartNumber": "Numéro",
         "panelPartFull": "Complet",
@@ -1608,7 +1698,7 @@
         "betweenCircuitAndBranch": "Entre circuit et dérivation",
         "separatorHelp": "Placé entre les parties d’un label lorsqu’elles sont séparées, comme dans A1.1.",
         "subPanelsHelp": "Numéro propre poursuit la séquence ; sous le tableau parent numérote un sous-tableau après le tableau qui l’alimente.",
-        "panelInLabelHelp": "Partie du numéro de tableau en tête de chaque label de circuit : rien, le numéro seul ou le numéro complet avec préfixe.",
+        "panelInLabelHelp": "Recommencer par tableau, inclure son numéro ou continuer la séquence entre les tableaux.",
         "numberingHelp": "Numérote les tableaux des installations domestiques et non domestiques.",
         "prefixHelp": "Lettres avant chaque numéro de tableau, comme B dans B1.",
         "panelSequenceHelp": "Utilise des chiffres, des chiffres avec un zéro initial ou des lettres pour les tableaux.",
@@ -1620,6 +1710,7 @@
     }
   },
   "planImport": {
+    "collabTooLarge": "Ce plan est trop volumineux pour l’édition collaborative. Essayez une image plus petite ou importez moins de pages à la fois.",
     "importFailed": "Impossible d'importer le plan.",
     "recognizeWalls": "Reconnaître les murs modifiables",
     "recognitionFailed": "Impossible de reconnaître les murs.",
@@ -1900,6 +1991,38 @@
     }
   },
   "symbols": {
+    "searchPresets": {
+      "relay_impulse": "Télérupteur",
+      "relay_timer": "Relais temporisé",
+      "relay_clock": "Interrupteur horaire",
+      "relay_thermostat": "Relais thermostatique",
+      "relay_dimmer": "Relais variateur",
+      "switch_1p": "Interrupteur unipolaire",
+      "switch_2p": "Interrupteur bipolaire",
+      "switch_3p": "Interrupteur tripolaire",
+      "switch_4p": "Interrupteur tétrapolaire",
+      "switch_twoway_2p": "Va-et-vient bipolaire",
+      "pushbutton_protected": "Bouton-poussoir protégé",
+      "switch_indicator": "Interrupteur avec voyant",
+      "spd_lightning": "Protection contre la foudre",
+      "spd_spark": "Protection à éclateur",
+      "light_wall": "Applique murale",
+      "light_emergency": "Éclairage de secours",
+      "light_decentral": "Éclairage de secours autonome",
+      "spot_straight": "Spot à faisceau droit",
+      "spot_diverging": "Spot à faisceau divergent",
+      "fluorescent_1": "Éclairage fluorescent · 1 tube",
+      "fluorescent_2": "Éclairage fluorescent · 2 tubes",
+      "fluorescent_3": "Éclairage fluorescent · 3 tubes",
+      "heating_accumulation": "Chauffage à accumulation",
+      "heating_fan": "Chauffage à accumulation avec ventilateur",
+      "boiler_accumulation": "Chauffe-eau à accumulation",
+      "socket_ungrounded": "Prise sans terre",
+      "socket_waterproof": "Prise étanche",
+      "detector_gas": "Détecteur de gaz",
+      "detector_heat": "Détecteur de chaleur",
+      "detector_flame": "Détecteur de flamme"
+    },
     "library": "Bibliothèque de symboles",
     "recent": "Récent",
     "favorites": "Favoris",
@@ -1925,6 +2048,7 @@
     "switch_1p_changeover": "Interrupteur à bascule",
     "switch_shutter": "Interrupteur de volet roulant",
     "switch_1p_pull": "Interrupteur à tirette",
+    "light_sensor": "Interrupteur crépusculaire",
     "contact": "Contact",
     "switch_impulse": "Bouton-poussoir",
     "switch_cross": "Interrupteur de croisement",
@@ -2053,6 +2177,7 @@
       "battery": "Batterie",
       "dc_bus": "Jeu de barres CC",
       "note": "Note / Étiquette",
+      "light_sensor": "Interrupteur crépusculaire",
       "contact": "Contact"
     }
   },
@@ -2926,6 +3051,7 @@
     "code": "Circuit"
   },
   "export": {
+    "notForInspection": "Pas pour le contrôle",
     "dialog": {
       "title": "Exporter en PDF",
       "selectCanvases": "Sélectionner les canevas à exporter",
@@ -3040,7 +3166,8 @@
     "multiSelectSame": "Plusieurs éléments sélectionnés. L'édition groupée arrive bientôt.",
     "selectedCount": "{{count}} élément(s) sélectionné(s)",
     "mixedValue": "Mixte",
-    "multiSelectUnsupported": "Ces éléments ne peuvent pas être modifiés ensemble."
+    "multiSelectUnsupported": "Ces éléments ne peuvent pas être modifiés ensemble.",
+    "notes": "Notes"
   },
   "stairs": {
     "width": "Largeur de l'escalier",
@@ -3489,6 +3616,8 @@
     "editAction": "Assistant de schéma…",
     "createTitle": "Générer un schéma",
     "editTitle": "Assistant de schéma",
+    "mcpAction": "Connecter une IA…",
+    "mcpTitle": "Connecter une IA",
     "newProjectName": "Nouveau schéma",
     "scope": "Schéma unifilaire uniquement. Vérifiez chaque modification avant de l’appliquer.",
     "context": "Contexte",
@@ -3933,7 +4062,8 @@
     },
     "conflict": "Modifié par quelqu’un d’autre — réessayez",
     "peerOtherTab": "{{name}} (autre onglet)",
-    "peersMore": "{{count}} de plus"
+    "peersMore": "{{count}} de plus",
+    "agentActive": "Un agent IA est en train de modifier"
   },
   "shortCircuit": {
     "defaultName": "Calcul de court-circuit",
@@ -4075,7 +4205,10 @@
         "tsdS": "Temporisation court retard. Vide ou 0 sans temporisation.",
         "iiA": "Déclenchement instantané. Compte toujours comme Ia."
       },
-      "selectCable": "Cliquez pour sélectionner le circuit, par exemple pour changer son câble."
+      "selectCable": "Cliquez pour sélectionner le circuit, par exemple pour changer son câble.",
+      "writeIk": "Inscrit l’Ik max calculé, arrondi vers le haut, sur chaque tableau qui indique une autre valeur : sur le schéma unifilaire et les étiquettes du tableau.",
+      "statedIk": "Le tableau indique {{ka}}.",
+      "boardSheets": "PDF avec une fiche par tableau, à placer dans l’armoire."
     },
     "noMatches": "Rien à afficher",
     "showAll": "Tout afficher",
@@ -4087,6 +4220,11 @@
       "tsdS": "tsd",
       "iiA": "Ii",
       "adjustable": "Réglable"
+    },
+    "writeIk": "Inscrire Ik sur les tableaux",
+    "sheets": {
+      "download": "Fiches de tableau",
+      "page": "Page {{page}} sur {{pages}}"
     }
   }
 }

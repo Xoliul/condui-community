@@ -1,4 +1,6 @@
+import { getPanelGridTotalColumns } from '@/lib/panel/panelGridFields'
 import type { ProjectV2 } from '@/types/projectV2'
+import { getForkPaletteActions } from './forkPaletteActions'
 import type { Selection } from '@/types/ui'
 import type { Panel, PanelGridModuleRef, PanelGridSlot, TrunkDevice } from '@/types/schema'
 import type { CommandInvocation } from '../project'
@@ -349,7 +351,7 @@ export function getProjectPaletteActions(
             kind: 'main' as const,
             panelId: panel.id,
             rows: panel.gridView.rows,
-            columns: panel.gridView.columns,
+            columns: getPanelGridTotalColumns(panel.gridView),
             slots: panel.gridView.slots,
             moduleKeys: mainKeys.get(panel.id),
           },
@@ -684,6 +686,7 @@ export function getProjectPaletteActions(
     })
   return [
     ...actions,
+    ...getForkPaletteActions(project, selection),
     ...getFloorPaletteActions(project, activeFloorId),
     ...getBuildingPaletteActions(project, selection, activeFloorId),
     ...getPlacementPanelPaletteActions(project, selection, activeFloorId, activePanelId),

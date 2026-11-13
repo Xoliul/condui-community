@@ -342,7 +342,7 @@ export function LabelSchemeDialogContent() {
 
   const styleKey = styleKeyFor(draft, savedStyles)
   const lastSaved = savedStyles.find((style) => style.id === lastSavedId) ?? null
-  const panelPartOn = numbering && draft.circuit.panelPart !== 'none'
+  const panelPartOn = numbering && labelSchemeUsesPanelPart(draft)
   const panelIsNumeric = draft.panel.style !== 'upper'
   const circuitIsNumeric = isNumericCircuitStyle(draft.circuit.style)
   const panelJoinForced = panelPartOn && panelIsNumeric && circuitIsNumeric
@@ -729,37 +729,41 @@ export function LabelSchemeDialogContent() {
                   update((scheme) => ({ ...scheme, circuit: { ...scheme.circuit, style } }))
                 }
               />
-              {advancedPanelLabels && numbering ? (
-                <Segmented<LabelScheme['circuit']['panelPart']>
-                  label={t('canvas.eendraadNaming.scheme.panelInLabel', 'Panel in label')}
-                  help={t(
-                    'canvas.eendraadNaming.scheme.panelInLabelHelp',
-                    'What of the panel number starts each circuit label: nothing, the number only, or the full number with prefix.'
-                  )}
-                  value={draft.circuit.panelPart}
-                  options={[
-                    {
-                      value: 'none',
-                      label: sample(circuitExamples.none),
-                      title: t('canvas.eendraadNaming.scheme.panelPartNone', 'None'),
-                    },
-                    {
-                      value: 'number',
-                      label: sample(circuitExamples.number),
-                      title: t('canvas.eendraadNaming.scheme.panelPartNumber', 'Number'),
-                    },
-                    {
-                      value: 'full',
-                      label: sample(circuitExamples.full),
-                      title: t('canvas.eendraadNaming.scheme.panelPartFull', 'Full'),
-                      disabled: !draft.panel.prefix,
-                    },
-                  ]}
-                  onChange={(panelPart) =>
-                    update((scheme) => ({ ...scheme, circuit: { ...scheme.circuit, panelPart } }))
-                  }
-                />
-              ) : null}
+              <Segmented<LabelScheme['circuit']['panelPart']>
+                labelAbove
+                label={t('canvas.eendraadNaming.scheme.panelInLabel', 'Panel in label')}
+                help={t(
+                  'canvas.eendraadNaming.scheme.panelInLabelHelp',
+                  'Start again on each board, include its number, or continue the circuit sequence across boards.'
+                )}
+                value={draft.circuit.panelPart}
+                options={[
+                  {
+                    value: 'continuous',
+                    label: t('canvas.eendraadNaming.scheme.continueAcrossBoards', 'Continue across boards'),
+                  },
+                  {
+                    value: 'none',
+                    label: sample(circuitExamples.none),
+                    title: t('canvas.eendraadNaming.scheme.panelPartNone', 'None'),
+                  },
+                  {
+                    value: 'number',
+                    label: sample(circuitExamples.number),
+                    title: t('canvas.eendraadNaming.scheme.panelPartNumber', 'Number'),
+                    disabled: !advancedPanelLabels || !numbering,
+                  },
+                  {
+                    value: 'full',
+                    label: sample(circuitExamples.full),
+                    title: t('canvas.eendraadNaming.scheme.panelPartFull', 'Full'),
+                    disabled: !advancedPanelLabels || !numbering || !draft.panel.prefix,
+                  },
+                ]}
+                onChange={(panelPart) =>
+                  update((scheme) => ({ ...scheme, circuit: { ...scheme.circuit, panelPart } }))
+                }
+              />
               {panelPartOn ? (
                 <Segmented<boolean>
                   label={t(

@@ -1,3 +1,4 @@
+import { getPanelGridTotalColumns } from '@/lib/panel/panelGridFields'
 import { logger } from '@/lib/logger'
 /* eslint-disable react-refresh/only-export-components */
 import { useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
@@ -49,7 +50,6 @@ import {
 import { findTrunkDeviceInProject } from '@/utils/project'
 import { useIsMarqueeSelecting } from '@/contexts/SelectionPreviewContext'
 import { useUIStore } from '@/stores/uiStore'
-import { DEFAULT_PANEL_GRID_COLUMNS } from '@/lib/panel/panelGridDefaults'
 import {
   routePanelWire,
   type PanelWirePathRegion,
@@ -1163,7 +1163,7 @@ function computeWires(
   }
 
   // Use panel content bounds so the side corridor stays truly at row edges.
-  const cols = panelForContext.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS
+  const cols = getPanelGridTotalColumns(panelForContext.gridView)
   let mainPanelLeftX = hierarchyRoute ? hierarchyRoute.panelLeftX + hierarchyRoute.panelInset : 0
   let mainPanelRightX = hierarchyRoute
     ? hierarchyRoute.panelRightX - hierarchyRoute.panelInset

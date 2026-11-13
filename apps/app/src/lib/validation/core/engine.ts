@@ -14,7 +14,7 @@ import type {
 } from './types'
 import { buildValidationCoverageReport } from '../coverage'
 import { DefaultQueryAPI } from './query-api'
-import { getApplicableRulesetDate } from './date-resolver'
+import { getApplicableRulesetDate, withScopeEntityPathIndex } from './date-resolver'
 import { selectRulePack } from './ruleset-resolver'
 import { getValidationJurisdiction } from './jurisdiction'
 import { getPrimitive } from './primitives'
@@ -26,6 +26,7 @@ import {
 } from '@/lib/projectV2/electrical'
 import i18n from '@/lib/validation/validationI18n'
 import { collectTerminalStripValidationIssues } from '@/lib/terminalStrip/validation'
+import { collectOneWireForkIssues } from '../oneWireForkIssues'
 import { withElectricalSnapshotIndex } from '@/lib/projectV2/electricalLookupIndex'
 
 export interface ValidationOptions {
@@ -445,7 +446,7 @@ export function validateProject(
   options: ValidationOptions = {}
 ): Issue[] {
   return withElectricalSnapshotIndex(getProjectElectricalPanels(project), () =>
-    validateProjectSnapshot(project, options)
+    withScopeEntityPathIndex(project, () => validateProjectSnapshot(project, options))
   )
 }
 
@@ -458,7 +459,7 @@ export function validateProjectWithCoverage(
   // Worker inputs are plain structured clones. Share lookups only for this
   // synchronous read pass, without freezing or retaining the caller's document.
   const issues = withElectricalSnapshotIndex(getProjectElectricalPanels(project), () =>
-    validateProjectSnapshot(project, options, coverageEntries)
+    withScopeEntityPathIndex(project, () => validateProjectSnapshot(project, options, coverageEntries))
   )
   const reboundEntries = coverageEntries.map((entry) => {
     if (entry.issueIds.length === 0) return entry
@@ -484,7 +485,8 @@ function validateProjectSnapshot(
   const terminalStripIssues = collectTerminalStripValidationIssues(project, (key, options) =>
     i18n.t(key, options)
   )
-  const allIssues: Issue[] = [...terminalStripIssues]
+  const forkIssues = collectOneWireForkIssues(project, (key) => i18n.t(key))
+  const allIssues: Issue[] = [...terminalStripIssues, ...forkIssues]
   for (const issue of terminalStripIssues) {
     coverageEntries?.push({
       ruleId: issue.ruleId,

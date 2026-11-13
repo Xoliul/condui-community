@@ -87,6 +87,7 @@ const SWITCH_SYMBOLS = new Set<string>([
   'switch_1p_pull',
   'switch_impulse',
   'switch_cross',
+  'light_sensor',
   'motion_detector',
   'smoke_detector',
   'relay',
@@ -1407,13 +1408,13 @@ function manualPlanWireRouteIsStillLegal(
  */
 export function healPlanWiring(project: PlanWiringProject): boolean {
   let changed = false
-  const projectFloorIds = new Set(selectProjectBuildingFloors(project).map((floor) => floor.id))
-  const index = collectPlanWiringIndex(selectProjectElectricalPanels(project))
-
   const raw = selectProjectPlanWiringProjection(project)
   if (raw.routes.length === 0 && Object.keys(raw.visibility ?? {}).length === 0) {
     return false
   }
+
+  const projectFloorIds = new Set(selectProjectBuildingFloors(project).map((floor) => floor.id))
+  const index = collectPlanWiringIndex(selectProjectElectricalPanels(project))
 
   if (raw.version !== 1) {
     changed = true

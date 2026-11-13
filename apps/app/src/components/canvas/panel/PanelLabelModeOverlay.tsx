@@ -100,8 +100,8 @@ function sameSources(left: PanelLabelCellSource[], right: PanelLabelCellSource[]
 function uniformSources(items: PanelLabelItem[], side: PanelLabelCellSide): PanelLabelCellSource[] {
   const first = items[0]
   if (!first) return []
-  const sources = getPanelLabelSources(first.values.config, side)
-  return items.every((item) => sameSources(getPanelLabelSources(item.values.config, side), sources))
+  const sources = getPanelLabelSources(first.values.config, side, first.values)
+  return items.every((item) => sameSources(getPanelLabelSources(item.values.config, side, item.values), sources))
     ? sources
     : []
 }
@@ -148,7 +148,7 @@ function panelLabelRowKey(item: PanelLabelItem): string {
 function sourceLabel(source: PanelLabelCellSource, t: (key: string, fallback: string) => string) {
   if (source === 'label') return t('panelCanvas.labelSourceLabel', 'Label')
   if (source === 'notes') return t('panelCanvas.labelSourceNotes', 'Notes')
-  if (source === 'labelNotes') return t('panelCanvas.labelSourceExtra', 'Extra')
+  if (source === 'labelNotes') return t('panelCanvas.labelSourceExtra', 'Label text')
   if (source === 'feeds') return t('panelCanvas.labelSourceFeeds', 'Feeds')
   return t('panelCanvas.labelSourceTechnical', 'Technical')
 }
@@ -227,7 +227,7 @@ function LabelCell({
   const cellWidth = hovered || focused ? expandedWidth : moduleGeometry.width
   const cellLeft = item.placement.x * zoom - (cellWidth - moduleGeometry.width) / 2
   const showSourceBubbles = canEdit && focused
-  const selectedSources = getPanelLabelSources(item.values.config, side)
+  const selectedSources = getPanelLabelSources(item.values.config, side, item.values)
   const activeSources: PanelLabelCellSource[] =
     hasDraftChanges && source !== 'notes' && source !== 'labelNotes'
       ? ['labelNotes']
@@ -246,8 +246,8 @@ function LabelCell({
   )
   const fontSize = Math.min(bandFontSize, draftFontSize) * zoom
   const mainSide = panelMainProtectionSide(
-    getPanelLabelSources(item.values.config, 'top'),
-    getPanelLabelSources(item.values.config, 'bottom')
+    getPanelLabelSources(item.values.config, 'top', item.values),
+    getPanelLabelSources(item.values.config, 'bottom', item.values)
   )
   const mainBandText =
     item.mainRole && mainSide === side
@@ -313,7 +313,7 @@ function LabelCell({
 
   const updateSource = (nextSource: PanelLabelCellSource) => {
     const nextSources = toggledSources(selectedSources, nextSource)
-    const nextConfig = setPanelLabelSources(item.values.config, side, nextSources)
+    const nextConfig = setPanelLabelSources(item.values.config, side, nextSources, item.values)
     onUpdate(item.ref, {
       ...pendingDraftUpdate,
       panelLabel: nextConfig,
@@ -331,12 +331,12 @@ function LabelCell({
     setAlignment(nextAlignment)
     onUpdate(item.ref, {
       ...pendingDraftUpdate,
-      panelLabel: setPanelLabelAlignment(item.values.config, side, nextAlignment),
+      panelLabel: setPanelLabelAlignment(item.values.config, side, nextAlignment, item.values),
     })
   }
 
   const swapThisModule = () => {
-    const nextConfig = swapPanelLabelSources(item.values.config)
+    const nextConfig = swapPanelLabelSources(item.values.config, item.values)
     const nextValues = hasDraftChanges
       ? source === 'notes'
         ? { ...item.values, notes: draft }
@@ -731,7 +731,7 @@ export function PanelLabelModeOverlay({
         changes.push({
           ref: item.ref,
           updates: {
-            panelLabel: setPanelLabelSources(item.values.config, bulkTarget.side, nextSources),
+            panelLabel: setPanelLabelSources(item.values.config, bulkTarget.side, nextSources, item.values),
           },
         })
       }
@@ -753,7 +753,7 @@ export function PanelLabelModeOverlay({
         changes.push({
           ref: item.ref,
           updates: {
-            panelLabel: setPanelLabelAlignment(item.values.config, bulkTarget.side, nextAlignment),
+            panelLabel: setPanelLabelAlignment(item.values.config, bulkTarget.side, nextAlignment, item.values),
           },
         })
       }
@@ -907,7 +907,7 @@ export function PanelLabelModeOverlay({
       changes.push({
         ref: item.ref,
         updates: {
-          panelLabel: swapPanelLabelSources(item.values.config),
+          panelLabel: swapPanelLabelSources(item.values.config, item.values),
         },
       })
     }

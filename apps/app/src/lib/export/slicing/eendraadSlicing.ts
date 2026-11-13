@@ -195,7 +195,8 @@ function getPackBounds(
 export function chooseEendraadPanelScale(
   packHeightPx: number,
   paperSize: ExportPaperSize = 'A4',
-  infoBlockNativeWidth?: number
+  infoBlockNativeWidth?: number,
+  infoBlockNativeHeight?: number
 ): number {
   // A3 keeps the A4 physical scale so the wider sheet carries more circuits per
   // page instead of enlarging the same content. The A3 sheet is larger in both
@@ -205,14 +206,15 @@ export function chooseEendraadPanelScale(
   const a4Scale = limitEendraadScaleToInfoBlockCollision(
     packHeightPx,
     heightFit,
-    infoBlockNativeWidth
+    infoBlockNativeWidth,
+    'A4', undefined, infoBlockNativeHeight
   )
   if (paperSize === 'A4') return a4Scale
   return limitEendraadScaleToInfoBlockCollision(
     packHeightPx,
     a4Scale,
     infoBlockNativeWidth,
-    paperSize
+    paperSize, undefined, infoBlockNativeHeight
   )
 }
 
@@ -362,8 +364,9 @@ function chooseEendraadPacking(
   paperSize: ExportPaperSize,
   panelTitle?: string,
 ): { scale: number; schematicTopMm?: number } {
+  const infoHeight = panelLayout.layoutBlocks?.find((block) => block.kind === 'info-block')?.height
   const infoWidth = getPanelInfoBlockNativeWidth(panelLayout)
-  const normalScale = chooseEendraadPanelScale(packBounds.height, paperSize, infoWidth)
+  const normalScale = chooseEendraadPanelScale(packBounds.height, paperSize, infoWidth, infoHeight)
   if (normalScale >= COMPACT_PACKING_SCALE_THRESHOLD) return { scale: normalScale }
   // Without a title reserve, keep the ordinary conservative placement.
   if (panelTitle == null) return { scale: normalScale }
@@ -399,7 +402,7 @@ function chooseEendraadPacking(
     if (slices.length > maxPages) return null
     const page = getPageDimensions('landscape', paper)
     const contentWidth = page.width - PAGE_MARGIN * 2
-    const info = getEendraadInfoBlockObstacleMm('landscape', infoWidth, paper)
+    const info = getEendraadInfoBlockObstacleMm('landscape', infoWidth, paper, infoHeight)
     const headers = getEendraadTopObstaclesMm(paper, panelTitle)
     let minTop = PAGE_MARGIN
     let maxTop = page.height - PAGE_MARGIN - packBounds.height * scale
@@ -514,7 +517,7 @@ export async function calculateEendraadSlices(
         schematicArea.heightMm / sceneBounds.height
       ),
       getPanelInfoBlockNativeWidth(panelLayout),
-      paperSize
+      paperSize, undefined, panelLayout.layoutBlocks?.find((block) => block.kind === 'info-block')?.height
     )
     return {
       slices: [

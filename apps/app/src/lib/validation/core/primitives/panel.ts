@@ -22,6 +22,7 @@ import {
   projectInstallation,
 } from './common'
 import { isHouseholdInstallation } from '@/lib/installationProfile'
+import { resolvePanelNominalVoltage } from '@/lib/electrical/feedNominalVoltage'
 import { resolveEffectiveEarthingSystem } from '@/lib/panel/panelEarthingSync'
 import {
   getActiveConductorCount,
@@ -82,7 +83,10 @@ function activeConductorsForBoardIsolation(panel: Panel, project: ValidationProj
     }
   }
 
-  return activeConductorsForSystem(projectInstallation(project)?.nominalVoltage?.system)
+  const installation = projectInstallation(project)
+  return activeConductorsForSystem(
+    installation ? resolvePanelNominalVoltage(installation, projectPanels(project), panel.id).system : undefined
+  )
 }
 
 function poleCountFromDevice(device: { polesConfig?: string; poles?: number }): number | undefined {
@@ -153,7 +157,9 @@ function protectionPhaseCompatibility(context: CheckContext): Issue[] | CheckRes
   }
   const panel = query.getPanelById(scope.id)
   const installation = projectInstallation(project)
-  const system = installation?.nominalVoltage.system
+  const system = installation && panel
+    ? resolvePanelNominalVoltage(installation, projectPanels(project), panel.id).system
+    : installation?.nominalVoltage.system
   if (!panel) {
     return { passed: true, coverage: { status: 'missing-information', reason: 'board-scope-not-found', missingFacts: ['panel record'] } }
   }

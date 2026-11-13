@@ -105,7 +105,7 @@ export function isValidationDebugEnabled(): boolean {
     if (typeof window !== 'undefined') {
       const debugWindow = window as Window & { __EENDRA_VALIDATION_DEBUG__?: boolean }
       if (debugWindow.__EENDRA_VALIDATION_DEBUG__ === true) return true
-      if (window.localStorage?.getItem('eendra.validation.debug') === '1') return true
+      if (debugWindow.localStorage?.getItem('eendra.validation.debug') === '1') return true
     }
   } catch {
     // ignore

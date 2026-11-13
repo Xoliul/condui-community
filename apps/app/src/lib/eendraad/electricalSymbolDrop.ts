@@ -19,6 +19,7 @@ import domainI18n, { getDomainTranslator } from '@/lib/i18n/domainI18n'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
 import { getEditableProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { PROTECTION_SYMBOL_IDS } from '@/lib/protectionKind'
+import { withSearchPreset } from '@/lib/library/searchPresets'
 import { getSymbolById } from '@/lib/symbols'
 import { findPanelOwnDistributionEndpoint } from '@/lib/eendraad/panelSupplyLink'
 import { findPanelById } from '@/lib/panel/panelTree'
@@ -34,6 +35,7 @@ const PROTECTION_IDS = new Set<string>(PROTECTION_SYMBOL_IDS)
 
 export interface ElectricalSymbolDropInput {
   symbolId: string
+  searchPreset?: string
   target: DropTarget
   /** The dropped symbol's own situation-plan placement (plan canvas drops). */
   planPlacement?: Pick<Placement, 'id' | 'floorId' | 'layer' | 'pos' | 'rotationDeg' | 'rotationMode' | 'scale'>
@@ -133,7 +135,8 @@ export function placeElectricalSymbolInProject(
     ? (getDomainTranslator(language) as TFunction)
     : (domainI18n.t.bind(domainI18n) as TFunction)
 ): ElectricalSymbolDropOutcome {
-  const symbol = getSymbolById(input.symbolId)
+  const catalogSymbol = getSymbolById(input.symbolId)
+  const symbol = catalogSymbol ? withSearchPreset(catalogSymbol, input.searchPreset) : null
   if (!symbol) return { status: 'blocked', reason: 'unknown_symbol' }
   if (input.planPlacement && !canSymbolAppearOnSituationPlan(input.symbolId))
     return { status: 'rejected', message: 'This symbol cannot be placed on the situation plan' }
@@ -144,7 +147,7 @@ export function placeElectricalSymbolInProject(
   // The same configured-family rule must hold in dry runs and on every canvas.
   if (target.domoticaChildDropIntent === 'replace' && target.circuitId && target.endpointId) {
     const endpoint = findCircuit(project, target.circuitId)?.endpoints.find((entry) => entry.id === target.endpointId)
-    if (endpoint && isConflictingOnSymbolDrop(input.symbolId, endpoint))
+    if (endpoint && isConflictingOnSymbolDrop(input.symbolId, endpoint, input.searchPreset))
       return { status: 'blocked', reason: 'conflicting_endpoint_preset' }
   }
 

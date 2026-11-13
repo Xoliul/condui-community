@@ -1,3 +1,4 @@
+import { getInfoBlockContent } from '@/lib/infoBlockContent'
 import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import { describeExportError } from './describeExportError'
 import { logger } from '@/lib/logger'
@@ -38,6 +39,7 @@ import { prepareEendraadScene } from './sceneProviders/eendraadSceneProvider'
 import { calculateEendraadSlices } from './slicing/eendraadSlicing'
 import { A4_LANDSCAPE, A4_PORTRAIT, getPageDimensions, type ExportPaperSize } from './pageSizes'
 import { buildInfoBlockSvg } from './infoBlockSvg'
+import { prepareSignatureImage } from '@/lib/image/signatureImage'
 import { getInfoBlockColumns, getInfoBlockTotalWidth } from '@/lib/infoBlockLayout'
 import { resolveInfoBlockLogoForExport } from '@/lib/infoBlockLogoImage'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -123,7 +125,7 @@ function buildExportPlan(options: ExportOptions, context: ExportContext): Export
   if (options.includeEendraad === true && eendraadLayout) {
     // For each panel, we'll calculate slices during scene preparation
     // For now, create placeholder pages - actual slicing happens in prepareSceneForPage
-    const orderedLayouts = orderEendraadLayoutsForExport(eendraadLayout.panels)
+    const orderedLayouts = orderEendraadLayoutsForExport(eendraadLayout.panels, project)
     for (const panelLayout of orderedLayouts) {
       const diagramId = getPanelDiagramId(panelLayout)
       // We'll create one page per panel initially, then slice during preparation
@@ -418,6 +420,11 @@ export async function exportToPDF(
             logoDataUrl: await resolveInfoBlockLogoForExport(brandedProfile.logoDataUrl),
           }
         : brandedProfile
+      if (effectiveProfile?.signatureDataUrl) {
+        effectiveProfile.signatureDataUrl = await prepareSignatureImage(
+          effectiveProfile.signatureDataUrl, exportTheme === 'dark',
+        ).then((image) => image.src).catch(() => null)
+      }
       const { language } = useSettingsStore.getState()
       const countryLabel = i18n.t('installation.countryBelgium', 'Belgium')
       const madeWithText = i18n.t('infoBlock.madeWith', {
@@ -430,6 +437,7 @@ export async function exportToPDF(
         getInfoBlockColumns(project, { hasLogo: Boolean(effectiveProfile?.logoDataUrl) })
       )
       const fontFamily = getExportFontFamily()
+      const infoBlockNativeHeight = getInfoBlockContent(project, effectiveProfile, countryLabel, fontFamily).height
 
       const getViewTitleForSceneKind = (kind: ExportScene['kind']): string => {
         switch (kind) {
@@ -649,6 +657,7 @@ export async function exportToPDF(
                   {
                     svgString: infoBlockSvg,
                     nativeWidth: infoBlockNativeWidth,
+                    nativeHeight: infoBlockNativeHeight,
                   },
                   panelTitle,
                   exportTheme
@@ -661,6 +670,7 @@ export async function exportToPDF(
                   {
                     svgString: infoBlockSvg,
                     nativeWidth: infoBlockNativeWidth,
+                    nativeHeight: infoBlockNativeHeight,
                   },
                   panelTitle,
                   referenceLink,

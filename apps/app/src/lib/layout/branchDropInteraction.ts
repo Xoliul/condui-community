@@ -8,6 +8,9 @@ import { findSameSymbolAddMoreLayoutTargets, type SameSymbolAddMoreLayoutTarget 
 import { getEndpointTypeFromSymbol } from '@/utils/symbolMapping'
 import type { SymbolMetadata } from '@/lib/symbols'
 import type { Point } from '@/types/ui'
+import { collectSavedForkDropTargets } from './savedForkDropTargets'
+import { canEditOneWireForks } from '@/lib/eendraad/oneWireForkProject'
+import { isChangeoverSwitchEndpoint } from '@/lib/eendraad/circuitPointNumbering'
 import type { Circuit } from '@/types/schema'
 import { circuitAcceptsTrunkSwitch, isCircuitTrunkSwitchSymbol, isCircuitTrunkSwitchDropTarget } from '@/lib/eendraad/circuitTrunkSwitch'
 import { isTerminalPanelFeederCircuit } from '@/lib/eendraad/panelSupplyLink'
@@ -19,7 +22,7 @@ export function getBranchDropPreviewUnit(zoom: number): number {
 
 export interface BranchDropIntent {
   id: string
-  kind: 'insert' | 'branch' | 'multiply' | 'trunk'
+  kind: 'insert' | 'branch' | 'multiply' | 'trunk' | 'fork'
   target: DropTarget
   /** Acquisition handle, independent of selection and final layout geometry. */
   point: Point
@@ -60,6 +63,14 @@ export function resolveBranchDropFallback(
   if (targets.intents.some((intent) => intent.kind === 'multiply' &&
     intent.sameSymbolTarget?.target.endpoint?.id === target.endpointId)) return null
   const computed = computeEndpointInsertAfter(target, circuit, symbol)
+  // After a changeover switch with a fork slot, a padded hit means that fork (see savedForkDropTargets).
+  const fork = isChangeoverSwitchEndpoint(circuit, target.endpointId) ? targets.intents.find((intent) =>
+    intent.kind === 'fork' && intent.target.circuitId === target.circuitId &&
+    intent.target.forkAfterEndpointId === target.endpointId) : undefined
+  if (fork) return fork
+  // A same-symbol drop on the symbol right after a changeover switch became that switch's fork.
+  const branchInstead = targets.intents.find((intent) => intent.kind === 'fork' && intent.id.endsWith(`/multiply/${target.endpointId}`))
+  if (branchInstead) return branchInstead
   return targets.intents.find((intent) => intent.kind === (computed.createNewBranch ? 'branch' : 'insert') &&
     intent.target.circuitId === target.circuitId &&
     (!target.diagramId || intent.target.diagramId === target.diagramId) &&
@@ -74,13 +85,14 @@ export function collectBranchDropTargets(
   symbol: SymbolMetadata,
   zoom: number,
   movingEndpointIds: readonly string[] = [],
+  allowForks = false,
 ): BranchDropTargets {
   const result: BranchDropTargets = { intents: [], regions: [], endpointNodeIds: new Set(), circuitIds: new Set() }
   const type = getEndpointTypeFromSymbol(symbol)
   if (!type || !['socket', 'switch', 'light_point', 'fixed_appliance'].includes(type) ||
       isEnergyConversionEndpointSymbol(symbol.id) || isDcOnlyEndpointSymbol(symbol) || !Number.isFinite(zoom) || zoom <= 0) return result
   const moving = new Set(movingEndpointIds)
-  const multipliers = moving.size ? [] : findSameSymbolAddMoreLayoutTargets(symbol.id, tree)
+  const multipliers = moving.size ? [] : findSameSymbolAddMoreLayoutTargets(symbol.searchPreset ? '' : symbol.id, tree)
   const findBranchSlot = createCircuitTrunkBranchSlotFinder(tree)
   const trunkHitOptions = { trunkBranchSlotAt: (point: Point) => findBranchSlot(point, { includeBranchRows: false }) }
   for (const panel of layout.panels) {
@@ -91,8 +103,9 @@ export function collectBranchDropTargets(
     for (const branch of panel.branches) {
       const column = panel.circuits.find((candidate) => candidate.circuit.id === branch.circuitId)
       const circuit = column?.circuit
-      // Empty circuits need the same explicit choice as populated stems. Their short
-      // wire and empty-branch hit areas overlap, so geometry alone hides this choice.
+      if (branch.forkFrom || branch.storedBranchId && circuit?.branches?.find((entry) => entry.id === branch.storedBranchId)?.keepEmpty) continue
+      // An empty circuit has no branch for a trunk switch to control, so its stem offers
+      // only the first branch; the explicit target keeps the drop from becoming a trunk device.
       if (circuit && column && !branch.endpoints.length && !circuit.endpoints.length &&
           !circuit.trunkDevices?.length && circuitAcceptsTrunkSwitch(circuit) &&
           !moving.size && isCircuitTrunkSwitchSymbol(symbol.id) &&
@@ -108,15 +121,11 @@ export function collectBranchDropTargets(
           type: 'circuit', panelId: panel.ownerPanelId ?? panel.panel.id, diagramId,
           circuitId: circuit.id, wireDomain: 'AC', circuitTrunkSegmentIndex: 0,
         }
-        result.intents.push({ id: `${id}/trunk`, kind: 'trunk', target,
-          point: wirePoint, wirePoint, direction, radiusPx: 8 })
         result.intents.push({ id, kind: 'branch',
           target: { ...target, branchEndpoints: [], branchInsertIndex: 0 },
-          point: { x: wirePoint.x + direction * 20 / zoom, y: wirePoint.y },
-          wirePoint, direction, radiusPx: 10 })
+          point: wirePoint, wirePoint, direction, radiusPx: 10 })
         result.circuitIds.add(circuit.id)
-        result.regions.push({ left: wirePoint.x - (direction > 0 ? 12 : 32) / zoom,
-          right: wirePoint.x + (direction > 0 ? 32 : 12) / zoom,
+        result.regions.push({ left: wirePoint.x - 12 / zoom, right: wirePoint.x + 12 / zoom,
           top: wirePoint.y - 11 / zoom, bottom: wirePoint.y + 11 / zoom })
         continue
       }
@@ -160,8 +169,12 @@ export function collectBranchDropTargets(
           : last.x + direction * 24 / zoom,
         y: branch.branchY,
       })
+      // Fork rows place their own slots either side of a tap (`savedForkDropTargets.ts`).
+      const taps = allowForks && canEditOneWireForks(circuit)
+        ? new Set((circuit.branches ?? []).flatMap((entry) => entry.forkFrom ? [entry.forkFrom.afterEndpointId] : [])) : null
       const add = (index: number, bodyIndex?: number) => {
         const after = ids[index - 1] ?? null
+        if (bodyIndex == null && after && taps?.has(after)) return
         const target = { ...targetBase, endpointId: after ?? ids[0], insertAfterEndpointId: after }
         const computed = computeEndpointInsertAfter(target, circuit, symbol)
         const actualIndex = computed.insertAfterEndpointId == null ? 0 : ids.indexOf(computed.insertAfterEndpointId) + 1
@@ -213,7 +226,8 @@ export function collectBranchDropTargets(
             slot.insertIndex >= start && slot.insertIndex <= start + selectedBranches.length) continue
         const id = `${diagramId}/${circuit.id}/stem/${slot.insertIndex}`
         if (result.intents.some((intent) => intent.id === id)) continue
-        const trunkTarget = !moving.size && isCircuitTrunkSwitchSymbol(symbol.id)
+        // A trunk switch controls the branches after it; past the last branch it controls nothing.
+        const trunkTarget = !moving.size && isCircuitTrunkSwitchSymbol(symbol.id) && slot.insertIndex < slot.branchCount
           ? findDropTarget(tree, { x: slot.trunkX, y: slot.slotY }, trunkHitOptions) : null
         const hasTrunkInsert = !!trunkTarget && isCircuitTrunkSwitchDropTarget(trunkTarget)
         if (hasTrunkInsert) result.intents.push({
@@ -230,6 +244,7 @@ export function collectBranchDropTargets(
       }
     }
   }
+  if (allowForks) collectSavedForkDropTargets(layout, symbol, zoom, movingEndpointIds, result)
   return result
 }
 

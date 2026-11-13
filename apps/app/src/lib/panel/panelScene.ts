@@ -1,3 +1,4 @@
+import { getPanelGridTotalColumns } from '@/lib/panel/panelGridFields'
 import { getAllCircuits, isTerminalStripDevice } from '@/lib/eendraad/projectElectricalDomain'
 /**
  * Pure construction of the panel hierarchy scene (surfaces + connectors).
@@ -28,7 +29,7 @@ import { assemblyOwnsPanelInput, buildSupplyElectricalTopology, type SupplyPhysi
 import { selectProjectSupplyAssemblies } from '@/lib/projectV2/electrical'
 import { getPanelBusSections } from '@/lib/panel/panelBusSections'
 import { isSupplyDeviceVisibleInPanel } from '@/lib/panel/supplyPanelVisibility'
-import { getSharedSupplyFrameDevices, SHARED_SUPPLY_FRAME_ID } from './sharedSupplyFrame'
+import { getSharedSupplyFrameDevices, isSharedSupplyFrameVisible, SHARED_SUPPLY_FRAME_ID } from './sharedSupplyFrame'
 import {
   CELL_H,
   CELL_W,
@@ -418,8 +419,7 @@ export function buildFullPanelScene(params: BuildPanelSceneParams): BuiltPanelSc
     sharedWidth,
     ...sharedPlacements.map((placement) => placement.x + placement.width + PANEL_SCENE_FRAME_MARGIN * 2)
   )
-  const sharedVisible = sharedRefs.length > 0 ||
-    rootPanels.find((panel) => panel.isMain)?.gridView?.supplyPanelVisible !== false
+  const sharedVisible = isSharedSupplyFrameVisible(currentProject)
   const sharedHeight = sharedVisible ? CELL_H + PANEL_SCENE_FRAME_MARGIN * 2 : 0
   const sharedBandHeight = sharedVisible ? sharedHeight + rootGap : 0
 
@@ -428,7 +428,7 @@ export function buildFullPanelScene(params: BuildPanelSceneParams): BuiltPanelSc
 
   const buildSurfaceForPanel = (panel: Panel): Omit<PanelSceneSurface, 'x' | 'y'> => {
     const rows = panel.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS
-    const cols = panel.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS
+    const cols = getPanelGridTotalColumns(panel.gridView)
     const supplyLayout = getSupplyPanelLayout(panel)
     const feedFromTop = panel.gridView?.feedFromTop ?? false
     const mainContentHeight = rows * CELL_H + Math.max(0, rows - 1) * ROW_GAP

@@ -37,6 +37,7 @@ export const symbolTooltipsEn = {
   switch_1p_changeover: 'Changeover switch between two circuits.',
   switch_shutter: "Up/down control for roller shutters or blinds.",
   switch_1p_pull: 'Pull switch, often at the ceiling.',
+  light_sensor: "Switches lighting on when it gets dark.",
   contact: 'Loose contact, e.g. an input contact for home automation.',
   switch_impulse: 'Push button or impulse switch for teleruptor or smart home.',
   motion_detector: 'Motion detector that switches a circuit.',

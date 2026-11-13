@@ -31,6 +31,7 @@ let enabledPromise: Promise<boolean> | null = null
 const knownRevisions = new Map<string, number>()
 const conflictedProjects = new Set<string>()
 const forcedProjects = new Set<string>()
+const savingProjects = new Map<string, number>()
 
 export function isServerStorageEnabled(): Promise<boolean> {
   enabledPromise ??= fetch(API_ROOT, { cache: 'no-store', headers: { Accept: 'application/json' } })
@@ -48,6 +49,7 @@ export function resetServerStorageStateForTests(): void {
   knownRevisions.clear()
   conflictedProjects.clear()
   forcedProjects.clear()
+  savingProjects.clear()
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<{ status: number; body: T }> {
@@ -80,9 +82,14 @@ export async function getServerProject(
     `${projectPath(id)}${options.touch ? '?touch=1' : ''}`,
   )
   if (status === 404) return undefined
-  knownRevisions.set(id, body.metadata.revision)
-  conflictedProjects.delete(id)
+  trackServerRevision(id, body.metadata.revision)
   return body
+}
+
+/** Bases later saves on this revision; restores an earlier one when a loaded version is discarded. */
+export function trackServerRevision(id: string, revision: number): void {
+  knownRevisions.set(id, revision)
+  conflictedProjects.delete(id)
 }
 
 /**
@@ -96,15 +103,24 @@ export async function putServerProject(
 ): Promise<ServerProjectMetadata> {
   if (conflictedProjects.has(id)) throw new ServerStorageConflictError(id)
   const force = forcedProjects.has(id) && !options.createOnly
-  const { status, body } = await request<{ metadata: ServerProjectMetadata }>(projectPath(id), {
-    method: 'PUT',
-    body: JSON.stringify({
-      project,
-      baseRevision: options.createOnly ? null : (knownRevisions.get(id) ?? null),
-      force,
-      lastOpened: options.lastOpened,
-    }),
-  })
+  savingProjects.set(id, (savingProjects.get(id) ?? 0) + 1)
+  let response: { status: number; body: { metadata: ServerProjectMetadata } }
+  try {
+    response = await request<{ metadata: ServerProjectMetadata }>(projectPath(id), {
+      method: 'PUT',
+      body: JSON.stringify({
+        project,
+        baseRevision: options.createOnly ? null : (knownRevisions.get(id) ?? null),
+        force,
+        lastOpened: options.lastOpened,
+      }),
+    })
+  } finally {
+    const remaining = (savingProjects.get(id) ?? 1) - 1
+    if (remaining > 0) savingProjects.set(id, remaining)
+    else savingProjects.delete(id)
+  }
+  const { status, body } = response
   if (status === 409) {
     if (!options.createOnly) {
       conflictedProjects.add(id)
@@ -117,6 +133,21 @@ export async function putServerProject(
   forcedProjects.delete(id)
   knownRevisions.set(id, body.metadata.revision)
   return body.metadata
+}
+
+/** The project's current revision on the server, without loading the project. */
+export async function getServerProjectRevision(id: string): Promise<number | undefined> {
+  const { status, body } = await request<{ metadata: ServerProjectMetadata }>(`${projectPath(id)}/metadata`)
+  return status === 404 ? undefined : body.metadata.revision
+}
+
+/** Revision this browser last read or wrote, and whether it is writing one right now. */
+export function getKnownServerRevision(id: string): number | undefined {
+  return knownRevisions.get(id)
+}
+
+export function isServerProjectSaving(id: string): boolean {
+  return savingProjects.has(id)
 }
 
 /** Lets the next save replace the newer version on the server. */

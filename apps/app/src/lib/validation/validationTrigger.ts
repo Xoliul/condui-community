@@ -45,7 +45,6 @@ const NON_VALIDATION_KEYS = new Set([
   // UI-only flags (visual toggles)
   'showDomainChangeLabel',
   'symbolLabelDisplay',
-  'hideWireLabel',
   'notesVisible',
   'waterproof',
   'switchOverlay',
@@ -68,7 +67,7 @@ const NON_VALIDATION_KEYS = new Set([
 ])
 
 // These affect documentation rules even though their names look like display-only flags.
-const VALIDATION_RELEVANT_DISPLAY_KEYS = new Set(['showWireLengthLabel'])
+const VALIDATION_RELEVANT_DISPLAY_KEYS = new Set(['hideWireLabel', 'showWireLengthLabel'])
 const OPTIONAL_VISUAL_PROPERTY_GROUPS = new Set(['socketProps', 'lightPointProps'])
 
 function isCircuitLikeObject(obj: Record<string, unknown>): boolean {

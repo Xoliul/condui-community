@@ -145,6 +145,7 @@ export function createEmptyCircuitInProject(
 
 export interface PlanSymbolDropInput {
   symbolId: string
+  searchPreset?: string
   pos: Point
   floorId: string
   floorLayer: string
@@ -220,6 +221,7 @@ export function placeSymbolOnPlanInProject(
     project,
     {
       symbolId: input.symbolId,
+      searchPreset: input.searchPreset,
       target: {
         type: 'circuit',
         panelId: input.panelId,

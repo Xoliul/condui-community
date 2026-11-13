@@ -1355,7 +1355,7 @@ export function TrunkDeviceSymbol({
           y={outlineY - 2}
           width={DOMOTICA_BOX_WIDTH}
           height={domoticaHeight + 4}
-          fill="rgba(0, 0, 0, 0.01)"
+          name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill="rgba(0, 0, 0, 0.01)"
         />
         <Rect
           x={0}

@@ -20,7 +20,13 @@ import {
 import type { ProjectV2 } from '@/types/projectV2'
 import type { PanelGridSlot } from '@/types/schema'
 import type { PanelGridConfig } from '@/types/schema'
-import { applyPanelColumnChange, applyPanelRowChange } from './panelRowChange'
+import {
+  applyPanelColumnChange,
+  applyPanelFieldsChange,
+  applyPanelRowChange,
+  normalizePanelSlotsToFields,
+} from './panelRowChange'
+import { getPanelGridFields } from './panelGridFields'
 
 export function updatePanelGridInProject(
   project: ProjectV2,
@@ -45,16 +51,34 @@ export function updatePanelGridInProject(
   panel.gridView ??= current
   const rowChanged = updates.rows != null && updates.rows !== current.rows
   const columnsChanged = updates.columns != null && updates.columns !== current.columns
+  const fieldsChanged =
+    updates.fields != null && getPanelGridFields(updates) !== getPanelGridFields(current)
   let slots = current.slots ?? []
   if (rowChanged) slots = applyPanelRowChange(panel, project, updates.rows!).slots
+  if (fieldsChanged)
+    slots = applyPanelFieldsChange(
+      { ...panel, gridView: { ...current, rows: updates.rows ?? current.rows, slots } },
+      project,
+      getPanelGridFields(updates)
+    ).slots
   if (columnsChanged)
     slots = applyPanelColumnChange(
-      { ...panel, gridView: { ...current, rows: updates.rows ?? current.rows, slots } },
+      {
+        ...panel,
+        gridView: {
+          ...current,
+          rows: updates.rows ?? current.rows,
+          fields: updates.fields ?? current.fields,
+          slots,
+        },
+      },
       project,
       updates.columns!
     ).slots
   Object.assign(panel.gridView, updates)
-  if (rowChanged || columnsChanged) panel.gridView.slots = slots
+  // One field is the default; do not persist it.
+  if (panel.gridView.fields === 1) delete panel.gridView.fields
+  if (rowChanged || columnsChanged || fieldsChanged) panel.gridView.slots = slots
   return true
 }
 
@@ -108,9 +132,10 @@ export function updatePanelGridSlotsInProject(
       isPanelGridSlotModuleCurrent(project, slot.module)
   )
   const currentMainSlots = panel.gridView.slots ?? []
-  if (arePanelGridSlotsEqual(currentMainSlots, validMainSlots)) return false
+  const fieldSlots = normalizePanelSlotsToFields(panel, project, validMainSlots)
+  if (arePanelGridSlotsEqual(currentMainSlots, fieldSlots)) return false
 
-  panel.gridView.slots = validMainSlots
+  panel.gridView.slots = fieldSlots
   const dedupeSupplyAgainstMain = () => {
     const supplySlots = panel.gridView?.supplyPanelSlots
     if (supplySlots && supplySlots.length > 0) {

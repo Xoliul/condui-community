@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { loadProject } from '@/lib/db'
@@ -11,6 +11,8 @@ import { useUIStore } from '@/stores/uiStore'
 import { useValidationStore } from '@/stores/validationStore'
 import CommunityLayout from './CommunityLayout'
 import CommunityStorageConflictDialog from './CommunityStorageConflictDialog'
+import { getKnownServerRevision, trackServerRevision } from './communityServerStorage'
+import { isServerProjectClean, useServerProjectWatch } from './useServerProjectWatch'
 
 function saveEditorState(projectId: string): void {
   const ui = useUIStore.getState()
@@ -33,15 +35,28 @@ export default function CommunityProjectPage() {
   const { t } = useTranslation()
   const [phase, setPhase] = useState<'opening' | 'ready' | 'missing'>('opening')
   const currentProject = useProjectStore((state) => state.currentProject)
+  // Bumped when the server holds a newer version (MCP or another device); re-runs the open below.
+  const [reloadCount, setReloadCount] = useState(0)
+  const [showReloaded, setShowReloaded] = useState(false)
+  const requestReload = useCallback(() => setReloadCount((count) => count + 1), [])
+  useServerProjectWatch(id, phase === 'ready', requestReload)
 
   useEffect(() => {
     if (!id) return
     let cancelled = false
+    let noticeTimer: number | undefined
+    const reloading = reloadCount > 0
     const open = async () => {
+      const knownRevision = getKnownServerRevision(id)
       const project = await loadProject(id)
       if (cancelled) return
       if (!project) {
-        setPhase('missing')
+        if (!reloading) setPhase('missing')
+        return
+      }
+      // Edits made while the newer version loaded win; their next save reports the conflict.
+      if (reloading && !isServerProjectClean(id)) {
+        if (knownRevision !== undefined) trackServerRevision(id, knownRevision)
         return
       }
       const projectStore = useProjectStore.getState()
@@ -63,17 +78,22 @@ export default function CommunityProjectPage() {
           sanitizeViewportLayoutSnapshot(project.project.lastViewportLayout) ??
           getPreferredDefaultLayout(),
       )
+      if (reloading) {
+        setShowReloaded(true)
+        noticeTimer = window.setTimeout(() => setShowReloaded(false), 3000)
+      }
       await preloadProjectRasterImages(project, { concurrency: 2 })
       if (!cancelled) setPhase('ready')
     }
     void open().catch(() => {
-      if (!cancelled) setPhase('missing')
+      if (!cancelled && !reloading) setPhase('missing')
     })
     return () => {
       cancelled = true
+      window.clearTimeout(noticeTimer)
       saveEditorState(id)
     }
-  }, [id])
+  }, [id, reloadCount])
 
   useEffect(() => {
     if (!id || !currentProject || currentProject.project.id !== id) return
@@ -86,6 +106,14 @@ export default function CommunityProjectPage() {
       <>
         <CommunityLayout />
         <CommunityStorageConflictDialog projectId={id} />
+        {showReloaded && (
+          <div
+            role="status"
+            className="pointer-events-none fixed bottom-4 left-1/2 z-[90] -translate-x-1/2 rounded-md bg-gray-900/90 px-3 py-1.5 text-sm text-white shadow-lg dark:bg-gray-700/95"
+          >
+            {t('project.serverReloaded', 'Updated with changes saved elsewhere')}
+          </div>
+        )}
       </>
     )
   }

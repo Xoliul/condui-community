@@ -114,6 +114,7 @@ const switchProps = patchObject({
   poles: nullable(z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])),
   twoPole: bool,
   verklikkerlamp: bool,
+  protected: bool,
   switchingCount: positiveCount,
 })
 const lightPointProps = patchObject({
@@ -368,7 +369,7 @@ export const endpointPatchSchema = patchObject({
         'switch_1p_changeover',
         'switch_shutter',
         'switch_1p_pull',
-        'contact',
+        'contact', 'light_sensor',
         'switch_impulse',
         'switch_cross',
         'motion_detector',
@@ -464,7 +465,7 @@ const labelSchemeProperties: z.ZodType<LabelScheme, LabelScheme> = z.object({
   }).passthrough(),
   circuit: z.object({
     style: z.enum(['upper', 'lower', 'number', 'number2']),
-    panelPart: z.enum(['none', 'number', 'full']),
+    panelPart: z.enum(['none', 'number', 'full', 'continuous']),
     joinPanel: z.boolean(),
   }).passthrough(),
   branch: z.object({ join: z.boolean() }).passthrough(),

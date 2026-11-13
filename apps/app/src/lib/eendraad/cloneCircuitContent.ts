@@ -112,6 +112,8 @@ export function cloneCircuitContent(
       return {
       id: newId(),
         label: branch.label,
+        ...(branch.keepEmpty ? { keepEmpty: true as const } : {}),
+        ...(branch.forkFrom ? { forkFrom: { afterEndpointId: endpointIdMap.get(branch.forkFrom.afterEndpointId) ?? branch.forkFrom.afterEndpointId } } : {}),
         endpointIds: branch.endpointIds
           .map((eid) => endpointIdMap.get(eid))
           .filter((id): id is string => !!id),

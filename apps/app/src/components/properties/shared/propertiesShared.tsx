@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useInstallationProfile } from '@/hooks/useInstallationProfile'
 import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff } from 'lucide-react'
@@ -215,6 +215,7 @@ export function OptionalNumberField({
   resetKey,
   step = '0.1',
   disabled = false,
+  propertyField,
 }: {
   label: string
   unit: string
@@ -223,14 +224,18 @@ export function OptionalNumberField({
   resetKey?: unknown
   step?: string
   disabled?: boolean
+  propertyField?: string
 }) {
+  const id = useId()
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+      <label htmlFor={id} className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
         {label}
       </label>
       <div className="flex items-center gap-2">
         <DebouncedTextInput
+          id={id}
+          data-property-field={propertyField}
           type="number"
           min="0"
           step={step}

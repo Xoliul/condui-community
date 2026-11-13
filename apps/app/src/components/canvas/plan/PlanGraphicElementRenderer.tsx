@@ -912,7 +912,7 @@ function GraphicElementNode({
         y={-renderElement.height / 2}
         width={renderElement.width}
         height={renderElement.height}
-        fill="rgba(0,0,0,0.001)"
+        name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill="rgba(0,0,0,0.001)"
         listening={active}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}

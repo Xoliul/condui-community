@@ -36,7 +36,6 @@ import {
 } from '../shared/propertiesSharedUtils'
 import { getProjectElectricalInstallation } from '@/lib/projectV2/electrical'
 import { editProperties } from '@/handlers/properties/editProperties'
-import { useAdjustableTrip } from '@/components/documents/documentsHostedFeatures'
 // Protection Properties Component
 export function ProtectionProperties({
   protectionId,
@@ -57,7 +56,6 @@ export function ProtectionProperties({
     ? getProjectElectricalInstallation(currentProject)
     : undefined
   const openDialog = useDialogStore((state) => state.openDialog)
-  const adjustableTrip = useAdjustableTrip(protection)
   const panelForProtection = useProjectStore((state: ProjectState) =>
     state.getPanelForProtection(protectionId)
   )
@@ -387,14 +385,19 @@ export function ProtectionProperties({
         onPatch={(patch) => onUpdate(protectionId, patch)}
         isProtectionLabelVisible={isProtectionLabelVisible}
         toggleProtectionLabel={toggleProtectionLabel}
-        adjustableTrip={adjustableTrip}
+        tripTarget={{ kind: 'protection', protection }}
       />
 
       {/* Notes - for protections with circuits, edit circuit notes (with show/orientation toggles); otherwise edit protection notes */}
       {hasCircuits && firstCircuit ? (
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <label className={labelClass + ' mb-0'}>{t('circuits.notes', 'Notes')}</label>
+            <label
+              className={labelClass + ' mb-0 cursor-help'}
+              title={t('circuits.notesHint', 'What this circuit feeds, shown on the one-wire diagram.')}
+            >
+              {t('circuits.notes', 'Notes')}
+            </label>
             <button
               type="button"
               onClick={() =>
@@ -452,7 +455,12 @@ export function ProtectionProperties({
         </div>
       ) : (
         <div>
-          <label className={labelClass}>{t('protections.description', 'Description')}</label>
+          <label
+            className={labelClass + ' cursor-help'}
+            title={t('circuits.notesHint', 'What this circuit feeds, shown on the one-wire diagram.')}
+          >
+            {t('protections.description', 'Description')}
+          </label>
           <DebouncedTextarea
             value={protection.notes || ''}
             onCommit={(v) => onUpdate(protectionId, { notes: v })}
@@ -463,6 +471,24 @@ export function ProtectionProperties({
           />
         </div>
       )}
+
+      {/* Short text for the cabinet label; when filled, the notes stay off the label. */}
+      <div>
+        <label
+          className={labelClass + ' cursor-help'}
+          title={t('protections.labelTextHint', 'Short text for the cabinet label; replaces the notes on the label.')}
+        >
+          {t('protections.labelText', 'Label text')}
+        </label>
+        <DebouncedTextarea
+          value={protection.labelNotes || ''}
+          onCommit={(v) => onUpdate(protectionId, { labelNotes: v })}
+          delayMs={500}
+          rows={2}
+          className={`${selectClass} resize-none`}
+          placeholder={t('protections.labelText', 'Label text')}
+        />
+      </div>
     </div>
   )
 }

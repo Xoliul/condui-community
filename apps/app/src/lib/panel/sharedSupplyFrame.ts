@@ -14,6 +14,17 @@ export function getSharedSupplyFrameDevices(project: ProjectWithOptionalV2Electr
   )
 }
 
+/**
+ * Whether the board overview draws the shared supply frame. Panel scene and PDF export plan both
+ * use this, so the export never asks for a page the scene did not draw.
+ */
+export function isSharedSupplyFrameVisible(project: ProjectWithOptionalV2Electrical): boolean {
+  return (
+    getSharedSupplyFrameDevices(project).length > 0 ||
+    getProjectElectricalPanels(project).find((panel) => panel.isMain)?.gridView?.supplyPanelVisible !== false
+  )
+}
+
 /** Dismiss the empty physical frame, retaining all electrical devices and connections. */
 export function dismissEmptySharedSupplyFrame(project: ProjectWithOptionalV2Electrical): boolean {
   if (getSharedSupplyFrameDevices(project).length > 0) return false

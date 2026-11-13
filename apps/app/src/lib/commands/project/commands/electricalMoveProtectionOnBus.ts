@@ -42,7 +42,8 @@ const protectionDropSchema = z.discriminatedUnion('kind', [
     panelId: z.string().min(1),
     parentCircuitId: z.string().min(1),
     circuitId: z.string().min(1),
-    insertIndex: z.number().int().nonnegative(),
+    /** Position among the parent's sub-circuits; omitted appends at the end. */
+    insertIndex: z.number().int().nonnegative().optional(),
     itemCount: z.number().int().nonnegative().optional(),
     insertBeforeCircuitContent: z.boolean().optional(),
   }),
@@ -53,6 +54,44 @@ const protectionDropSchema = z.discriminatedUnion('kind', [
     insertIndex: z.number().int().nonnegative(),
   }),
 ])
+
+type MoveInput = z.infer<typeof protectionDropSchema>
+type DropTarget = z.infer<typeof electricalDropTargetSchema>
+
+/**
+ * The editor's drag surface always sends an exact position. Agents may leave it out, which means
+ * "append at the end" of the main bus, the RCD's bus or the parent circuit's secondary bus.
+ */
+function withAppendTarget(project: ProjectV2, target: DropTarget): DropTarget {
+  const panel = target.panelId
+    ? findPanelById(getEditableProjectElectricalPanels(project), target.panelId)
+    : undefined
+  if (!panel) return target
+  if (target.type === 'mainBus' && target.mainBusInsertIndex == null)
+    return { ...target, mainBusInsertIndex: getMainBusItemsWithIndices(panel).length }
+  if (target.type === 'rcd' && target.secondaryBusInsertIndex == null && target.protectionId) {
+    const rcd = panel.protections.find((protection) => protection.id === target.protectionId)
+    if (!rcd) return target
+    const carrier = rcd.circuits?.[0]
+    return {
+      ...target,
+      secondaryBusInsertIndex: carrier?.subCircuitIds?.length ?? 0,
+      secondaryBusItemCount: undefined,
+    }
+  }
+  return target
+}
+
+function withAppendPositions(project: ProjectV2, input: MoveInput): MoveInput {
+  if (input.kind === 'protectionDrop' || input.kind === 'protectionSelectionDrop')
+    return { ...input, target: withAppendTarget(project, input.target) }
+  if (input.kind === 'secondaryBus' && input.insertIndex == null) {
+    const panel = findPanelById(getEditableProjectElectricalPanels(project), input.panelId)
+    const parent = panel && getAllCircuits(panel).find((circuit) => circuit.id === input.parentCircuitId)
+    return { ...input, insertIndex: parent?.subCircuitIds?.length ?? 0, itemCount: undefined }
+  }
+  return input
+}
 
 function refs(ids: readonly string[], kind: EntityRef['kind']): EntityRef[] {
   return [...new Set(ids)].map((id) => ({ kind, id }))
@@ -101,7 +140,8 @@ export const electricalMoveProtectionOnBus = defineProjectCommand({
   id: 'electrical.moveProtectionOnBus',
   version: 1,
   input: protectionDropSchema,
-  check(project, input) {
+  check(project, rawInput) {
+    const input = withAppendPositions(project, rawInput)
     if (input.kind === 'promoteCircuit') {
       const panel = findPanelById(getEditableProjectElectricalPanels(project), input.panelId)
       if (!panel) return { ok: false, code: 'panel_not_found', message: 'Panel not found' }
@@ -144,7 +184,7 @@ export const electricalMoveProtectionOnBus = defineProjectCommand({
       if (!parent || !moving)
         return { ok: false, code: 'circuit_not_found', message: 'Circuit not found' }
       const itemCount = input.itemCount ?? parent.subCircuitIds?.length ?? 0
-      if (input.insertIndex > itemCount) {
+      if ((input.insertIndex ?? itemCount) > itemCount) {
         return {
           ok: false,
           code: 'secondary_bus_index_out_of_range',
@@ -289,8 +329,9 @@ export const electricalMoveProtectionOnBus = defineProjectCommand({
       ? { ok: false, code: boundary, message: 'This move crosses a junction panel boundary' }
       : { ok: true }
   },
-  apply(draft, input) {
+  apply(draft, rawInput) {
     const project = draft as ProjectV2
+    const input = withAppendPositions(project, rawInput)
     if (input.kind === 'promoteCircuit') {
       const result = promoteCircuitToMainBusInProject(project, input)
       if (result.reason)
@@ -306,7 +347,10 @@ export const electricalMoveProtectionOnBus = defineProjectCommand({
       }
     }
     if (input.kind === 'secondaryBus') {
-      const result = moveCircuitOnSecondaryBusInProject(project, input)
+      const result = moveCircuitOnSecondaryBusInProject(project, {
+        ...input,
+        insertIndex: input.insertIndex ?? 0,
+      })
       if (result.reason)
         throw new CommandError('check_failed', 'Circuit cannot be moved to this secondary bus', {
           reason: result.reason,

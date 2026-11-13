@@ -115,7 +115,7 @@ function writableFields(schema: Schema) {
   return inventory(object(schema.items) ?? schema)
 }
 
-const examples: Record<
+export const projectCommandExamples: Record<
   string,
   Array<{ purpose: string; input: unknown; section?: string; variant?: string }>
 > = {
@@ -331,7 +331,7 @@ export function describeProjectCommand(
       },
     }
   }
-  const selectedExamples = (examples[commandId] ?? [])
+  const selectedExamples = (projectCommandExamples[commandId] ?? [])
     .filter(
       (example) =>
         (!options.section || example.section === options.section) &&

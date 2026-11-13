@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { useCanvasWindow } from '@/components/viewport/ViewportContext'
 import { FloatingControl } from '../canvas/FloatingControls'
 import CanvasFloatingControlRail from '../canvas/CanvasFloatingControlRail'
 import { useCanvasOverlayScale } from '@/contexts/CanvasOverlayScaleContext'
@@ -65,6 +66,7 @@ function FloorPlanTools({
   onGraphicAssetChange,
 }: FloorPlanToolsProps) {
   const { t } = useTranslation()
+  const canvasWindow = useCanvasWindow() as Window & typeof globalThis
   const { height: overlayHeight } = useCanvasOverlayScale()
   const graphicToolRef = useRef<HTMLDivElement>(null)
   const graphicHoverCloseTimerRef = useRef<number | null>(null)
@@ -75,19 +77,19 @@ function FloorPlanTools({
     useState<GraphicPickerPosition | null>(null)
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(pointer: coarse)')
+    const mediaQuery = canvasWindow.matchMedia('(pointer: coarse)')
     const syncPointer = () => setCoarsePointer(mediaQuery.matches)
     syncPointer()
     mediaQuery.addEventListener('change', syncPointer)
     return () => mediaQuery.removeEventListener('change', syncPointer)
-  }, [])
+  }, [canvasWindow])
 
   useEffect(() => {
     if (!graphicPickerOpen) return
     const handleDismiss = () => setGraphicPickerOpen(false)
-    window.addEventListener(CANVAS_OVERLAY_DISMISS_EVENT, handleDismiss)
-    return () => window.removeEventListener(CANVAS_OVERLAY_DISMISS_EVENT, handleDismiss)
-  }, [graphicPickerOpen])
+    canvasWindow.addEventListener(CANVAS_OVERLAY_DISMISS_EVENT, handleDismiss)
+    return () => canvasWindow.removeEventListener(CANVAS_OVERLAY_DISMISS_EVENT, handleDismiss)
+  }, [canvasWindow, graphicPickerOpen])
 
   const [pickerTool, setPickerTool] = useState(activeTool)
   if (pickerTool !== activeTool) {
@@ -100,26 +102,26 @@ function FloorPlanTools({
   useEffect(
     () => () => {
       if (graphicHoverCloseTimerRef.current !== null) {
-        window.clearTimeout(graphicHoverCloseTimerRef.current)
+        canvasWindow.clearTimeout(graphicHoverCloseTimerRef.current)
       }
     },
-    []
+    [canvasWindow]
   )
 
   const cancelGraphicHoverClose = useCallback(() => {
     if (graphicHoverCloseTimerRef.current === null) return
-    window.clearTimeout(graphicHoverCloseTimerRef.current)
+    canvasWindow.clearTimeout(graphicHoverCloseTimerRef.current)
     graphicHoverCloseTimerRef.current = null
-  }, [])
+  }, [canvasWindow])
 
   const scheduleGraphicHoverClose = useCallback(() => {
     if (coarsePointer) return
     cancelGraphicHoverClose()
-    graphicHoverCloseTimerRef.current = window.setTimeout(() => {
+    graphicHoverCloseTimerRef.current = canvasWindow.setTimeout(() => {
       setGraphicShelfHovered(false)
       graphicHoverCloseTimerRef.current = null
     }, 120)
-  }, [cancelGraphicHoverClose, coarsePointer])
+  }, [cancelGraphicHoverClose, coarsePointer, canvasWindow])
 
   const closeGraphicPicker = useCallback(() => {
     cancelGraphicHoverClose()
@@ -135,7 +137,12 @@ function FloorPlanTools({
     const wrapper = graphicToolRef.current
     const trigger = wrapper?.querySelector('button')
     const canvasRoot = wrapper?.closest('[data-canvas-overlay-root]')
-    if (!(trigger instanceof HTMLElement) || !(canvasRoot instanceof HTMLElement)) return
+    if (
+      !(trigger instanceof canvasWindow.HTMLElement) ||
+      !(canvasRoot instanceof canvasWindow.HTMLElement)
+    ) {
+      return
+    }
 
     const triggerRect = trigger.getBoundingClientRect()
     const canvasRect = canvasRoot.getBoundingClientRect()
@@ -144,7 +151,7 @@ function FloorPlanTools({
       canvasRect.top + GRAPHIC_PICKER_EDGE_INSET_PX
     )
     const bottomLimit = Math.min(
-      window.innerHeight - GRAPHIC_PICKER_EDGE_INSET_PX,
+      canvasWindow.innerHeight - GRAPHIC_PICKER_EDGE_INSET_PX,
       canvasRect.bottom - GRAPHIC_PICKER_EDGE_INSET_PX
     )
     const anchoredBottom = Math.min(triggerRect.bottom, bottomLimit)
@@ -154,20 +161,20 @@ function FloorPlanTools({
     )
     const preferredLeft = triggerRect.right
     const rightmostLeft =
-      window.innerWidth -
+      canvasWindow.innerWidth -
       GRAPHIC_PICKER_WIDTH_PX -
       GRAPHIC_PICKER_GAP_PX -
       GRAPHIC_PICKER_EDGE_INSET_PX
 
     setGraphicPickerPosition({
-      bottom: Math.max(GRAPHIC_PICKER_EDGE_INSET_PX, window.innerHeight - anchoredBottom),
+      bottom: Math.max(GRAPHIC_PICKER_EDGE_INSET_PX, canvasWindow.innerHeight - anchoredBottom),
       left: Math.max(
         GRAPHIC_PICKER_EDGE_INSET_PX,
         Math.min(preferredLeft, rightmostLeft)
       ),
       maxHeight: Math.min(maxHeight, Math.max(120, overlayHeight - 24)),
     })
-  }, [overlayHeight])
+  }, [canvasWindow, overlayHeight])
 
   useLayoutEffect(() => {
     if (!showGraphicPicker) return
@@ -175,16 +182,18 @@ function FloorPlanTools({
     updateGraphicPickerPosition()
     const canvasRoot = graphicToolRef.current?.closest('[data-canvas-overlay-root]')
     const resizeObserver =
-      canvasRoot instanceof HTMLElement ? new ResizeObserver(updateGraphicPickerPosition) : null
-    if (canvasRoot instanceof HTMLElement) resizeObserver?.observe(canvasRoot)
-    window.addEventListener('resize', updateGraphicPickerPosition)
-    document.addEventListener('scroll', updateGraphicPickerPosition, true)
+      canvasRoot instanceof canvasWindow.HTMLElement
+        ? new canvasWindow.ResizeObserver(updateGraphicPickerPosition)
+        : null
+    if (canvasRoot instanceof canvasWindow.HTMLElement) resizeObserver?.observe(canvasRoot)
+    canvasWindow.addEventListener('resize', updateGraphicPickerPosition)
+    canvasWindow.document.addEventListener('scroll', updateGraphicPickerPosition, true)
     return () => {
       resizeObserver?.disconnect()
-      window.removeEventListener('resize', updateGraphicPickerPosition)
-      document.removeEventListener('scroll', updateGraphicPickerPosition, true)
+      canvasWindow.removeEventListener('resize', updateGraphicPickerPosition)
+      canvasWindow.document.removeEventListener('scroll', updateGraphicPickerPosition, true)
     }
-  }, [showGraphicPicker, updateGraphicPickerPosition])
+  }, [canvasWindow, showGraphicPicker, updateGraphicPickerPosition])
 
   // Visible floor plan tools; the default select+move tool is implicit and has no bubble.
   const tools: Array<{
@@ -259,8 +268,7 @@ function FloorPlanTools({
   const graphicPickerShelf =
     selectedGraphicAsset &&
     showGraphicPicker &&
-    graphicPickerPosition &&
-    typeof document !== 'undefined'
+    graphicPickerPosition
       ? createPortal(
           <div
             data-testid="floor-plan-graphic-picker"
@@ -326,7 +334,7 @@ function FloorPlanTools({
               })}
             </div>
           </div>,
-          document.body
+          canvasWindow.document.body
         )
       : null
 

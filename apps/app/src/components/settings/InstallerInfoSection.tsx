@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { SignaturePreview } from './SignaturePreview'
 import { useEffect, useState, useRef } from 'react'
 import { EMPTY_INSTALLER_PROFILE } from '@/editions/community/communityInstallerProfileModel'
 import {
@@ -275,11 +276,9 @@ export function InstallerInfoSection() {
           {signatureDataUrl && (
             <>
               <div className="inline-flex items-center gap-2 border border-gray-200 dark:border-gray-600 rounded-md p-1 bg-gray-50 dark:bg-gray-800">
-                <img
-                  src={signatureDataUrl}
-                  alt=""
+                <SignaturePreview
+                  source={signatureDataUrl}
                   className="h-10 max-w-[120px] object-contain"
-                  aria-hidden
                 />
               </div>
               <button

@@ -33,6 +33,7 @@ import {
 } from './'
 import { FrameComponent } from './FrameComponent'
 import RenderNode from './RenderNode'
+import { OneWireDragGhost } from './OneWireDragGhost'
 
 import { NoteSymbol } from './NoteSymbol'
 
@@ -1145,14 +1146,19 @@ export function useEendraadSceneArtwork({
   const canvasDragArtwork = useMemo(
     () => (
       <Group name="canvas-drag-artwork" listening={false}>
+        {layout?.panels.flatMap((panel) => panel.branches.filter((branch) => branch.forkFrom && !branch.endpoints.length)
+          .map((branch) => <Circle key={`empty-fork-${branch.id}`} name={`empty-onewire-fork-${branch.storedBranchId}`}
+            x={branch.branchX + branch.branchWidth} y={branch.branchY} radius={3.5} stroke="#0284c7" fill="#e0f2fe" strokeWidth={1} />))}
         {simulatedDragArtwork}
+        <OneWireDragGhost layout={layout} layoutTree={layoutTree} wireSegments={wireSegments} translate={t}
+          advancedPanelLabels={advancedPanelLabels} getProtectionById={getProtectionById} getPanelById={getPanelById} />
         {artworkPreview?.sameSymbolAddMore && <SameSymbolAddMorePreview
           target={artworkPreview.sameSymbolAddMore}
           increment={artworkPreview.movingEndpointSelection
             ? Math.max(1, getEndpointById(artworkPreview.movingEndpointSelection.draggedEndpointId)?.placements.length ?? 1) : 1}
           zoom={canvasRef.current?.getLiveViewTransform().zoom ?? eendraadView.zoom} />}
         {layout && artworkPreview?.branchIntent && <BranchInsertionPreview
-          layout={layout} intent={artworkPreview.branchIntent} />}
+          layout={layout} intent={artworkPreview.branchIntent} project={currentProject} preview={artworkPreview} />}
         {branchDropTargets && <BranchDropHints targets={branchDropTargets}
           activeId={artworkPreview?.branchIntent?.id ?? null}
           zoom={canvasRef.current?.getLiveViewTransform().zoom ?? eendraadView.zoom} />}
@@ -1232,6 +1238,10 @@ export function useEendraadSceneArtwork({
       simulatedDragArtwork,
       wireSegments,
       canvasRef,
+      t,
+      advancedPanelLabels,
+      getProtectionById,
+      getPanelById,
     ]
   )
 

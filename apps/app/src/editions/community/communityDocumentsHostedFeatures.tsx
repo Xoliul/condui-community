@@ -1,7 +1,6 @@
 /* eslint react-refresh/only-export-components: off -- Community stubs mirror the hosted Documents API. */
 import type { ProjectDocument } from '@/lib/documents/projectDocuments'
-import type { AdjustableTripControl } from '@/components/properties/ProtectionDeviceElectricalFields'
-import type { ProtectionDevice } from '@/types/schema'
+import type { AdjustableTripControl, AdjustableTripTarget } from '@/components/properties/ProtectionDeviceElectricalFields'
 
 /** Community edition of the Documents canvas' hosted parts: no paid-project tables or team library. */
 export type TeamDocumentLibraryAccess = { teamId: string; canManage: boolean }
@@ -65,7 +64,7 @@ export function ShortCircuitDocumentView(_props: { documentId: string }): null {
   return null
 }
 
-export function useAdjustableTrip(_protection: ProtectionDevice | undefined): AdjustableTripControl | null {
+export function useAdjustableTrip(_target: AdjustableTripTarget | undefined): AdjustableTripControl | null {
   return null
 }
 

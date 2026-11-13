@@ -477,6 +477,14 @@ export function readProjectEntities(
 export function listProjectCommands(registry: ProjectCommandRegistry) {
   return registry.list().map(({ id: commandId, version }) => ({ id: commandId, version }))
 }
+/** Steers agents to the symbols the editor library leads with, where the bare ID is the unusual variant. */
+const AGENT_SYMBOL_HINTS: Readonly<Record<string, string>> = {
+  socket_gnd_child: 'The ordinary socket: protective earth contact and child protection. Use this unless told otherwise.',
+  socket: 'Socket without protective earth or child protection. Only for an explicitly ungrounded socket.',
+  socket_gnd: 'Socket with protective earth but without child protection.',
+  socket_child: 'Socket with child protection but without protective earth.',
+}
+
 export function findProjectSymbols(
   input: {
     query?: string
@@ -506,8 +514,8 @@ export function findProjectSymbols(
   return {
     symbols: matches
       .slice(query.offset, query.offset + query.limit)
-      .map((symbol) =>
-        pick(symbol, [
+      .map((symbol) => {
+        const fields = pick(symbol, [
           'id',
           'name',
           'nameNL',
@@ -520,7 +528,9 @@ export function findProjectSymbols(
           'inheritsWireDomain',
           'libraryPreset',
         ])
-      ),
+        const hint = AGENT_SYMBOL_HINTS[symbol.id]
+        return hint ? { ...fields, hint } : fields
+      }),
     total: matches.length,
     nextOffset: query.offset + query.limit < matches.length ? query.offset + query.limit : null,
   }

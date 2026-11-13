@@ -88,7 +88,7 @@ export function takeOrdinaryEndpointForMove(
   source.circuit.branches = source.circuit.branches?.map((branch) => ({
     ...branch,
     endpointIds: branch.endpointIds.filter((id) => id !== endpointId),
-  })).filter((branch) => branch.endpointIds.length > 0)
+  })).filter((branch) => branch.endpointIds.length > 0 || branch.keepEmpty)
   return endpoint
 }
 
@@ -352,7 +352,7 @@ export function assignEndpointsToCircuitInProject(
           ...branch,
           endpointIds: branch.endpointIds.filter((id) => !removing.has(id)),
         }))
-        .filter((branch) => branch.endpointIds.length > 0)
+        .filter((branch) => branch.endpointIds.length > 0 || branch.keepEmpty)
     }
   }
   for (const id of movableIds) {

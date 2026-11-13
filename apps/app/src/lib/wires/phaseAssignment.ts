@@ -28,6 +28,7 @@ import {
 } from '@/lib/panel/panelBusSections'
 import { deriveHandoffPhaseSupplyPaths } from '@/lib/supplyAssembly/phasePaths'
 import { resolvePanelSupplyLinkForPanelInPanels } from '@/lib/eendraad/panelSupplyLink'
+import { installationSupportsFeedVoltages, resolvePanelNominalVoltage } from '@/lib/electrical/feedNominalVoltage'
 
 export type PhaseAssignmentOption = {
   value: string
@@ -669,7 +670,9 @@ export function getPanelIncomingPhaseState(
   busSectionId?: string,
   supplyAssemblies: readonly OffGridSupplyAssembly[] = []
 ): PanelIncomingPhaseState {
-  const system = installation?.nominalVoltage.system
+  const system = installation
+    ? resolvePanelNominalVoltage(installation, panels, panel.id).system
+    : undefined
   if (!installation || !supportsExplicitPhaseSelection(system)) return {}
   if (panel.isMain === false) {
     const panelFeed = findPanelFeed(panel.id, panels)
@@ -806,6 +809,19 @@ function findPanelForCircuit(circuitId: string, panels: Panel[]): Panel | undefi
 }
 
 /** Find the circuit carrying a panel's incoming feeder from its parent panel. */
+/** Circuits behind a board with its own transformer output use that board's system. */
+function resolveCircuitSystem(
+  circuit: Circuit,
+  panels: Panel[],
+  system: VoltageSystem,
+  installation: Installation | undefined
+): VoltageSystem {
+  if (!installation || system !== installation.nominalVoltage.system ||
+    !installationSupportsFeedVoltages(installation)) return system
+  const panel = findPanelForCircuit(circuit.id, panels)
+  return panel ? resolvePanelNominalVoltage(installation, panels, panel.id).system : system
+}
+
 function findPanelFeed(panelId: string, panels: Panel[]): PanelFeedInfo | undefined {
   const index = getElectricalSnapshotIndex(panels)
   if (index) return index.panelFeedersByPanelId.get(panelId)
@@ -821,6 +837,7 @@ function getInheritedCircuitPhaseStateInternal(
   system?: VoltageSystem,
   installation?: Installation
 ): InheritedCircuitPhaseState {
+  system = resolveCircuitSystem(circuit, panels, system, installation)
   if (visitedCircuits.has(circuit.id)) return {}
   const nextVisitedCircuits = new Set(visitedCircuits).add(circuit.id)
 
@@ -888,6 +905,7 @@ function getEffectiveCircuitPhaseStateInternal(
   system?: VoltageSystem,
   installation?: Installation
 ): InheritedCircuitPhaseState {
+  system = resolveCircuitSystem(circuit, panels, system, installation)
   if (visitedCircuits.has(circuit.id)) return {}
   const inherited = getInheritedCircuitPhaseStateInternal(
     circuit,

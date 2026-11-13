@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { getSearchPreset } from '@/lib/library/searchPresets'
 import { findPanelById } from '@/lib/panel/panelTree'
 import {
   createEmptyCircuitInProject,
@@ -10,7 +11,12 @@ import { selectProjectBuildingFloors } from '@/lib/projectV2/buildingFloors'
 import { getSymbolById } from '@/lib/symbols'
 import type { ProjectV2 } from '@/types/projectV2'
 import { getEndpointTypeFromSymbol } from '@/utils/symbolMapping'
-import { defineProjectCommand, type CommandCheck, type EntityRef } from '../types'
+import { moveProtectionOnBusInProject } from '@/lib/eendraad/busMoveMutations'
+import { updateCircuitInProject } from '@/lib/eendraad/circuitMutations'
+import { maybeApplyAutomaticEendraadNamingForPanel } from '@/lib/eendraad/projectElectricalDomain'
+import { buildPlanDropAvailableCircuitCodeOptions } from '@/lib/plan/planDropPicker'
+import { createCircuitCodeSequence } from '@/utils/project'
+import { CommandError, defineProjectCommand, type CommandCheck, type EntityRef } from '../types'
 import { collectTopologyRefs, diffTopologyRefs } from '../topologyRefs'
 
 const point = z.object({ x: z.number().finite(), y: z.number().finite() })
@@ -22,6 +28,16 @@ function checkPanel(project: ProjectV2, panelId: string): CommandCheck {
     : { ok: false, code: 'panel_not_found', message: 'Panel not found' }
 }
 
+function checkRcd(project: ProjectV2, panelId: string, rcdProtectionId: string | undefined): CommandCheck {
+  if (!rcdProtectionId) return { ok: true }
+  const panel = findPanelById(getEditableProjectElectricalPanels(project), panelId)
+  const rcd = panel?.protections.find((protection) => protection.id === rcdProtectionId)
+  if (!rcd) return { ok: false, code: 'protection_not_found', message: 'The RCD is not on this panel' }
+  return rcd.type === 'RCD' || rcd.type === 'RCBO'
+    ? { ok: true }
+    : { ok: false, code: 'not_an_rcd', message: 'Only an RCD or RCBO has circuits behind it' }
+}
+
 /** Adds a new MCB with an empty circuit on a panel, with the plan-drop defaults. */
 export const circuitCreateEmpty = defineProjectCommand({
   id: 'circuit.createEmpty',
@@ -31,8 +47,15 @@ export const circuitCreateEmpty = defineProjectCommand({
     kind: dropKind,
     protectionLabel: z.string().optional(),
     circuitNotes: z.string().optional(),
+    /** Append the new breaker behind this RCD instead of on the main bus. */
+    rcdProtectionId: z.string().min(1).optional(),
+    /** Circuit code; 'auto' takes the first free code of the project's label scheme. The breaker label follows it. */
+    code: z.string().trim().min(1).max(40).optional(),
   }),
-  check: (project, input) => checkPanel(project, input.panelId),
+  check: (project, input) => {
+    const panel = checkPanel(project, input.panelId)
+    return panel.ok ? checkRcd(project, input.panelId, input.rcdProtectionId) : panel
+  },
   apply(draft, input, env) {
     const before = collectTopologyRefs(draft as ProjectV2)
     const circuitId = createEmptyCircuitInProject(
@@ -44,6 +67,32 @@ export const circuitCreateEmpty = defineProjectCommand({
       env.language
     )
     if (!circuitId) throw new Error('The circuit could not be created')
+    if (input.rcdProtectionId) {
+      const panel = findPanelById(getEditableProjectElectricalPanels(draft as ProjectV2), input.panelId)!
+      const breaker = panel.protections.find((protection) => protection.circuits?.some(({ id }) => id === circuitId))
+      const rcd = panel.protections.find((protection) => protection.id === input.rcdProtectionId)
+      const moved = breaker && rcd && moveProtectionOnBusInProject(draft as ProjectV2, breaker.id, {
+        type: 'rcd',
+        panelId: panel.id,
+        protectionId: rcd.id,
+        secondaryBusInsertIndex: rcd.circuits?.[0]?.subCircuitIds?.length ?? 0,
+      })
+      if (!moved || !moved.changed)
+        throw new CommandError('check_failed', 'The circuit could not be placed behind the RCD', {
+          reason: moved?.reason ?? 'breaker_not_found',
+        })
+    }
+    if (input.code) {
+      const project = draft as ProjectV2
+      const panel = findPanelById(getEditableProjectElectricalPanels(project), input.panelId)!
+      const code = input.code === 'auto'
+        ? buildPlanDropAvailableCircuitCodeOptions(panel, circuitId, undefined, createCircuitCodeSequence(project, panel.id))[0]
+        : input.code
+      // An automatic code stays automatic, as for circuits dropped in the editor; only a chosen code is locked.
+      if (code)
+        updateCircuitInProject(project, circuitId, input.code === 'auto' ? { code } : { code, eendraadManualCodeLock: true })
+      if (input.code === 'auto') maybeApplyAutomaticEendraadNamingForPanel(project, panel.id)
+    }
     const ref: EntityRef = { kind: 'circuit', id: circuitId }
     const diff = diffTopologyRefs(before, collectTopologyRefs(draft as ProjectV2))
     return { ...diff, created: [ref, ...diff.created.filter((item) => item.kind !== ref.kind || item.id !== ref.id)], related: [ref] }
@@ -70,6 +119,7 @@ export const planPlaceSymbol = defineProjectCommand({
         .string()
         .min(1)
         .refine((id) => id !== 'panel_distribution'),
+      searchPreset: z.string().min(1).optional(),
       floorId: z.string().min(1),
       floorLayer: z.string().min(1).default('electrical'),
       pos: point,
@@ -87,6 +137,8 @@ export const planPlaceSymbol = defineProjectCommand({
     }),
   ]),
   check(project, input) {
+    if ('searchPreset' in input && input.searchPreset && !getSearchPreset(input.symbolId, input.searchPreset))
+      return { ok: false, code: 'invalid_preset', message: 'Unknown preset for this symbol' }
     const symbol = getSymbolById(input.symbolId)
     if (!symbol || ('circuit' in input && !getEndpointTypeFromSymbol(symbol))) {
       return {

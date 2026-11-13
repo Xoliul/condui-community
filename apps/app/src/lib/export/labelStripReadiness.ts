@@ -5,7 +5,8 @@ import {
   panelGridModuleRefKey,
   resolveModuleWidthCols,
 } from '@/lib/panel/panelGridLayout'
-import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
+import { DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
+import { getPanelGridTotalColumns } from '@/lib/panel/panelGridFields'
 import { panelModulesToGridUnits } from '@/lib/panel/panelGridUnits'
 
 export interface PanelCanvasModule {
@@ -32,8 +33,7 @@ export function getPanelCanvasOverflowModuleKeys(
   const mainModules = modules.filter((module) => module.inSupplyPanel !== true)
   const overflowKeys = new Set<string>()
   const rows = Math.max(1, panel.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS)
-  const columns = Math.max(1, panel.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS)
-  const columnUnits = panelModulesToGridUnits(columns)
+  const columnUnits = panelModulesToGridUnits(getPanelGridTotalColumns(panel.gridView))
 
   for (const module of mainModules) {
     if (module.slot == null) continue

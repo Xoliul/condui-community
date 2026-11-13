@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+import { selectProjectBrowserPage, type ProjectBrowserQuery } from '@/lib/projectStorage/projectBrowser'
 import type { ProjectV2 } from '@/types/projectV2'
 import {
   normalizeStoredProjectToV2,
@@ -135,6 +136,10 @@ export async function listProjects(): Promise<ProjectMetadata[]> {
 
 function listBrowserProjects(): Promise<ProjectMetadata[]> {
   return db.projectMetadata.orderBy('lastOpened').reverse().toArray()
+}
+
+export async function getProjectBrowserPage(query: ProjectBrowserQuery): Promise<ProjectMetadata[]> {
+  return selectProjectBrowserPage(await listProjects(), query) as ProjectMetadata[]
 }
 
 export async function getRecentProjects(limit = 50): Promise<ProjectMetadata[]> {

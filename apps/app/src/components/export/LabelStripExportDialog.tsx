@@ -5,10 +5,11 @@ import type { Panel, PanelGridConfig, PanelGridModuleRef, PanelGridSlot } from '
 import type { AuxiliaryElectricalEnclosure } from '@/types/supplyAssembly'
 import { useProjectStore } from '@/stores/projectStore'
 import {
+  getProjectElectricalInstallation,
   getProjectElectricalPanels,
   selectProjectAuxiliaryElectricalEnclosures,
 } from '@/lib/projectV2/electrical'
-import { flattenPanels } from '@/utils/eendraad/panelHelpers'
+import { orderPanelsByNumber } from '@/lib/panel/panelNumberOrder'
 import { getPanelDisplayName } from '@/utils/panelNames'
 import { collectJunctionIdentities } from '@/lib/junctionIdentity'
 import {
@@ -280,7 +281,10 @@ export function LabelStripExportDialog({
 
   const sources = useMemo<LabelStripSource[]>(() => {
     if (!currentProject) return []
-    const panels = flattenPanels(getProjectElectricalPanels(currentProject))
+    const panels = orderPanelsByNumber(
+      getProjectElectricalPanels(currentProject),
+      getProjectElectricalInstallation(currentProject)
+    )
     const panelSources = panels.map((panel: Panel) => {
       const modules = getPanelGridModules(panel.id).filter(
         (module) => !(module.ref.kind === 'trunkDevice' && module.ref.scope === 'ground')

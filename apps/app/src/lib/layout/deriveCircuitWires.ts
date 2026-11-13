@@ -1,5 +1,6 @@
 /** Circuit-level wire derivation, keeping recursive DC-bus and branch traversal together. */
 import { deriveWireAnchorKey } from '@/lib/projectV2/wireRuns'
+import { deriveSavedForkWires } from './deriveSavedForkWires'
 import { logger } from '@/lib/logger'
 import { generateId } from '@/utils'
 import type { LayoutNode } from './layoutTree'
@@ -447,7 +448,8 @@ export function deriveMcbWires(
   const directDcBusFeeder = protection?.directDcBusFeeder === true
 
   // Find branches, trunk devices, direct endpoint children (sub-panel symbols), and parent wire end for this circuit
-  const branchNodes = mcbNode.children.filter((c) => c.type === 'branch')
+  const branchNodes = mcbNode.children.filter((c) => c.type === 'branch' && !c.branchLayout?.forkFrom && !c.branchLayout?.forkUnresolved)
+  segments.push(...deriveSavedForkWires(mcbNode, circuit, panel))
   const trunkDeviceNodes = mcbNode.children
     .filter((c) => c.type === 'trunkDevice')
     .sort((a, b) => b.bounds.y - a.bounds.y) // Sort by Y descending (bottom to top = MCB to branches)

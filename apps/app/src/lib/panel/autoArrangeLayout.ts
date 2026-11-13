@@ -3,6 +3,7 @@
  * Does not expand the user's row count; overflow goes to the same overflow column band as manual layout.
  */
 import type { PanelGridModuleRef, PanelGridSlot } from '@/types/schema'
+import { panelGridFieldRangesUnits, type PanelGridFieldLayout } from '@/lib/panel/panelGridFields'
 import {
   PANEL_GRID_OVERFLOW_GAP_MODULES,
   PANEL_GRID_UNITS_PER_MODULE,
@@ -530,7 +531,8 @@ function findFirstFreeMainOrOverflowUnitSlot(
   width: number,
   panelRows: number,
   panelCols: number,
-  feedFromTop: boolean
+  feedFromTop: boolean,
+  fieldLayout?: PanelGridFieldLayout
 ): { row: number; col: number; isOverflow: boolean } {
   const rows = Math.max(1, panelRows)
   const cols = Math.max(1, panelCols)
@@ -556,9 +558,16 @@ function findFirstFreeMainOrOverflowUnitSlot(
     : Array.from({ length: rows }, (_, i) => rows - 1 - i)
 
   if (w <= cols) {
-    for (const row of rowOrder) {
-      for (let col = 0; col <= cols - w; col++) {
-        if (isFree(row, col, w)) return { row, col, isOverflow: false }
+    // With several fields, fill one field at a time and never straddle a boundary.
+    const ranges =
+      fieldLayout && fieldLayout.fields > 1
+        ? panelGridFieldRangesUnits(fieldLayout)
+        : [{ start: 0, end: cols }]
+    for (const range of ranges) {
+      for (const row of rowOrder) {
+        for (let col = range.start; col <= range.end - w; col++) {
+          if (isFree(row, col, w)) return { row, col, isOverflow: false }
+        }
       }
     }
   }
@@ -579,7 +588,8 @@ export function findFirstFreeMainOrOverflowSlot(
   width: number,
   panelRows: number,
   panelCols: number,
-  feedFromTop: boolean
+  feedFromTop: boolean,
+  fieldLayout?: PanelGridFieldLayout
 ): { row: number; col: number; isOverflow: boolean } {
   const result = findFirstFreeMainOrOverflowUnitSlot(
     occupied.map((slot) => ({
@@ -590,7 +600,8 @@ export function findFirstFreeMainOrOverflowSlot(
     panelModulesToGridUnits(width),
     panelRows,
     panelModulesToGridUnits(panelCols),
-    feedFromTop
+    feedFromTop,
+    fieldLayout
   )
   return { ...result, col: panelGridUnitsToModules(result.col) }
 }

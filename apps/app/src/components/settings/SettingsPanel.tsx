@@ -8,6 +8,8 @@ import { InstallerInfoSection } from '@/components/settings/InstallerInfoSection
 import { LAYOUT_PRESET_DEFS } from '@/components/viewport/LayoutSelector'
 import { isLayoutPresetAvailable } from '@/stores/uiStore'
 import { APP_BUILD_COMMIT, formatAppBuildDate, getAppBuildCommitShortLabel } from '@/lib/appBuildInfo'
+import { EditionMcpSettings } from './EditionMcpSettings'
+
 
 const LANGUAGES = LANGUAGE_OPTIONS
 
@@ -285,6 +287,8 @@ export function SettingsPanel({
 
       <ProjectDrawingSettings canEditProject={canEditProject} />
       <InstallerInfoSection />
+      {}
+      <EditionMcpSettings />
     </div>
   )
 }

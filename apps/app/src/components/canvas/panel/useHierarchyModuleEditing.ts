@@ -1,3 +1,8 @@
+import {
+  getPanelGridFieldLayout,
+  panelGridFieldEndCol,
+  snapPanelGridColToFields,
+} from '@/lib/panel/panelGridFields'
 import type {
   Project,
   HierarchySurface,
@@ -100,7 +105,7 @@ export function useHierarchyModuleEditing({
         normalizePanelModuleMeasure(placement.width / CELL_W)
       )
       const row = clamp(snapped.row, 0, surface.rows - 1)
-      const col = clamp(snapped.col, 0, Math.max(0, surface.cols - moduleCols))
+      const col = snapPanelGridColToFields(surface.panel?.gridView, clamp(snapped.col, 0, Math.max(0, surface.cols - moduleCols)), moduleCols)
 
       const store = useProjectStore.getState()
       let duplicateRef: PanelGridModuleRef | null = null
@@ -252,7 +257,9 @@ export function useHierarchyModuleEditing({
 
   const getHierarchyMaxWidth = useCallback(
     (surface: HierarchySurface, placement: ModulePlacement & { inSupplyPanel?: boolean }) => {
-      const totalCols = placement.inSupplyPanel ? surface.supplyCols : surface.cols
+      const totalCols = placement.inSupplyPanel
+        ? surface.supplyCols
+        : Math.min(surface.cols, panelGridFieldEndCol(surface.panel?.gridView, placement.col))
       const remaining = Math.max(1, totalCols - placement.col)
       if (placement.ref.kind === 'domotica') {
         const endpoint = useProjectStore.getState().getEndpointById(placement.ref.endpointId)
@@ -275,7 +282,8 @@ export function useHierarchyModuleEditing({
         placement,
         surface.placements.filter((other) => !other.junctionPanelTerminal),
         newWidthCols,
-        placement.inSupplyPanel ? surface.supplyCols : surface.cols
+        placement.inSupplyPanel ? surface.supplyCols : surface.cols,
+        getPanelGridFieldLayout(surface.panel?.gridView)
       ),
     []
   )

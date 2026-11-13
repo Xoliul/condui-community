@@ -659,6 +659,11 @@ export function mapTrikElementToNode(element: Element): TrikNode | null {
       endpointNote,
     }
   }
+  // A connection clamp is a terminal-strip occurrence in its place in the run; pins are
+  // assigned per circuit once the project is assembled (`terminalStrips.ts`).
+  if (tag === 'Aansluitklem') {
+    return { id, type: 'fixed_appliance', symbol: 'terminal_strip', branchKey, endpointNote }
+  }
   if (tag === 'Aftakkast') {
     return {
       id,
@@ -770,7 +775,7 @@ export function mapTrikElementToNode(element: Element): TrikNode | null {
       return {
         id,
         type: 'switch',
-        symbol: 'switch',
+        symbol: 'light_sensor',
         branchKey,
         endpointNote,
         switchPoles: parseTrikBreakerSwitchPoles(element) ?? 1,

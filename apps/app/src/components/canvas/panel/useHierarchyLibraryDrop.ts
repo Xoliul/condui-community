@@ -1,3 +1,4 @@
+import { snapPanelGridColToFields } from '@/lib/panel/panelGridFields'
 import type { BuiltPanelScene } from '@/lib/panel/panelScene'
 import { getLibraryDropWidthCols } from './hierarchyPanelSceneQueries'
 
@@ -225,9 +226,16 @@ export function useHierarchyLibraryDrop({
       const localX = position.x - gridLeft
       const localY = position.y - gridTop
       const widthCols = getLibraryDropWidthCols(symbol, currentProject)
-      const requestedCol = Math.max(
-        0,
-        Math.min(surface.cols - widthCols, Math.round(localX / CELL_W) - Math.floor(widthCols / 2))
+      const requestedCol = snapPanelGridColToFields(
+        surface.panel?.gridView,
+        Math.max(
+          0,
+          Math.min(
+            surface.cols - widthCols,
+            Math.round(localX / CELL_W) - Math.floor(widthCols / 2)
+          )
+        ),
+        widthCols
       )
       const requestedRow = clamp(snapToGrid(localX, localY + CELL_H / 2).row, 0, surface.rows - 1)
 
@@ -369,7 +377,7 @@ export function useHierarchyLibraryDrop({
       const { row, col } = resolved.slot
       if ((PROTECTION_SYMBOL_IDS as readonly string[]).includes(symbol.id)) {
         placeElectricalSymbol({
-          symbolId: symbol.id,
+          symbolId: symbol.id, searchPreset: symbol.searchPreset,
           target: { type: 'mainBus', panelId: panel.id },
           panelGrid: {
             scope: 'main',
@@ -387,7 +395,7 @@ export function useHierarchyLibraryDrop({
         const circuit = getLastAssignableCircuit(panel)
         if (!circuit) return
         placeElectricalSymbol({
-          symbolId: symbol.id,
+          symbolId: symbol.id, searchPreset: symbol.searchPreset,
           target: {
             type: 'circuit',
             panelId: panel.id,
@@ -416,7 +424,7 @@ export function useHierarchyLibraryDrop({
         if (!protection) return
         const circuit = findPreferredModularSocketCircuit(panel, protection)
         placeElectricalSymbol({
-          symbolId: symbol.id,
+          symbolId: symbol.id, searchPreset: symbol.searchPreset,
           target: circuit
             ? { type: 'circuit', panelId: panel.id, circuitId: circuit.id }
             : { type: 'mainBus', panelId: panel.id },

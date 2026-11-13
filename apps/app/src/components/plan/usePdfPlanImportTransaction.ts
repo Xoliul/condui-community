@@ -30,6 +30,7 @@ import {
 import { rescaleImportedPlanAsset, scalePlanPoint } from '@/lib/plan/rescalePlan'
 import { useWallScanStore, type WallScanTarget } from '@/stores/wallScanStore'
 import { liveProjectSession } from '@/stores/liveProjectCommandSession'
+import { CommandError } from '@/lib/commands/project'
 import { type CommandInvocation } from '@/lib/commands/project'
 
 interface PdfPlanImportTransactionOptions {
@@ -603,7 +604,11 @@ export function usePdfPlanImportTransaction({
         saveProjectAfterImport()
       } catch (error) {
         logger.error('[planImport] Plan import failed:', error)
-        setImportError(t('planImport.importFailed'))
+        setImportError(t(
+          error instanceof CommandError && error.details?.reason === 'collab_too_large'
+            ? 'planImport.collabTooLarge'
+            : 'planImport.importFailed'
+        ))
       } finally {
         setIsApplyingPdfImport(false)
       }

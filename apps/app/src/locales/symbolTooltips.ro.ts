@@ -27,6 +27,7 @@ export const symbolTooltipsRo: Record<SymbolTooltipId, string> = {
   "switch_1p_changeover": "Comutator care selectează unul dintre două circuite.",
   switch_shutter: "Comandă de ridicare și coborâre pentru rulouri sau jaluzele.",
   "switch_1p_pull": "Întrerupător cu șnur, adesea montat pe tavan.",
+  light_sensor: "Aprinde iluminatul la lăsarea întunericului.",
   "contact": "Contact liber, de ex. contact de intrare pentru domotică.",
   "switch_impulse": "Buton sau întrerupător cu impuls pentru releu de impuls sau domotică.",
   "motion_detector": "Detector de mișcare cu comutare.",

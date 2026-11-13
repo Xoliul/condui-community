@@ -9,7 +9,8 @@ import Konva from 'konva'
 import type { ExportScene, ExportOptions } from '../types'
 import { ExportError } from '../types'
 import { findContentLayer, findCanvasContentGroup, calculateSceneBounds } from './helpers'
-import { waitForExportStage } from './waitForExportStage'
+import { EXPORT_STAGE_WAIT_MS, waitForExportStage } from './waitForExportStage'
+import { describeMissingExportStage } from './exportStageDiagnostics'
 import { collectAndRemoveSymbolImagesForExport } from '../symbolSvgInject'
 import { adjustSymbolImagesForExport } from './symbolImageExport'
 import { useUIStore } from '@/stores/uiStore'
@@ -70,7 +71,7 @@ export async function preparePanelScene(
   if (!stage) {
     throw new ExportError(
       'STAGE_UNAVAILABLE',
-      `Panel stage not available for ${exportMode.kind}. Canvas may not be mounted.`
+      `Panel stage not available for ${exportMode.kind}. Canvas may not be mounted. ${describeMissingExportStage(EXPORT_STAGE_WAIT_MS)}`
     )
   }
 

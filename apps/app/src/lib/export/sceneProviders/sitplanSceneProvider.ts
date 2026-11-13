@@ -9,7 +9,8 @@ import Konva from 'konva'
 import type { ExportScene, ExportOptions } from '../types'
 import { ExportError } from '../types'
 import { findContentLayer, findCanvasContentGroup, calculateSceneBounds } from './helpers'
-import { waitForExportStage } from './waitForExportStage'
+import { EXPORT_STAGE_WAIT_MS, waitForExportStage } from './waitForExportStage'
+import { describeMissingExportStage } from './exportStageDiagnostics'
 import { useUIStore } from '@/stores/uiStore'
 import { useCanvasRegistryStore } from '@/stores/canvasRegistryStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -109,7 +110,7 @@ export async function prepareSitplanScene(
   if (!stage) {
     throw new ExportError(
       'STAGE_UNAVAILABLE',
-      `Floor ${floorId} stage not available. Canvas may not be mounted.`
+      `Floor ${floorId} stage not available. Canvas may not be mounted. ${describeMissingExportStage(EXPORT_STAGE_WAIT_MS)}`
     )
   }
 

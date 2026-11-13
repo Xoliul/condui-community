@@ -24,6 +24,7 @@ export const SWITCH_TYPE_SYMBOLS: SymbolKey[] = symbols
       (s.id === 'switch' ||
         s.id.startsWith('switch_') ||
         s.id === 'contact' ||
+        s.id === 'light_sensor' ||
         s.id === 'motion_detector' ||
         s.id === 'smoke_detector')
   )

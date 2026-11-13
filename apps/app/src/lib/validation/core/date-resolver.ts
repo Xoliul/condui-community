@@ -18,10 +18,92 @@ export interface ScopeEntityPath {
   entity: Panel | ProtectionDevice | Circuit | Endpoint
 }
 
+const scopeKey = (type: string, id: string) => `${type}:${id}`
+
+/**
+ * Every scope's path from one walk in the same order as the per-scope search below, keeping the
+ * first path found for each scope, so each scope resolves to exactly what that search returns.
+ */
+function buildScopeEntityPaths(project: DateResolverProject): Map<string, ScopeEntityPath[]> {
+  const paths = new Map<string, ScopeEntityPath[]>()
+  const record = (key: string, path: ScopeEntityPath[]) => {
+    if (!paths.has(key)) paths.set(key, path)
+  }
+  const graph = buildCircuitGraphIndex(project)
+  const protectionFeedPaths = new Map<string, ScopeEntityPath[]>()
+
+  const walk = (panels: Panel[], ancestors: ScopeEntityPath[]) => {
+    for (const panel of panels) {
+      const panelEntry: ScopeEntityPath = { type: 'panel', id: panel.id, entity: panel }
+      const findInCircuit = (circuit: Circuit, basePath: ScopeEntityPath[], visited: Set<string>) => {
+        if (visited.has(circuit.id)) return
+        visited.add(circuit.id)
+        const circuitPath = [...basePath, { type: 'circuit' as const, id: circuit.id, entity: circuit }]
+        record(scopeKey('circuit', circuit.id), [...ancestors, ...circuitPath])
+        for (const endpoint of circuit.endpoints) {
+          record(scopeKey('device', endpoint.id), [
+            ...ancestors,
+            ...circuitPath,
+            { type: 'endpoint', id: endpoint.id, entity: endpoint },
+          ])
+        }
+        for (const subCircuitId of circuit.subCircuitIds ?? []) {
+          const referenceTarget = resolveCircuitReference(graph, subCircuitId)
+          if (referenceTarget.kind === 'protection') {
+            protectionFeedPaths.set(referenceTarget.protection.id, circuitPath)
+          } else if (
+            referenceTarget.kind === 'circuit' &&
+            graph.canonicalOwnerByCircuitId.get(referenceTarget.circuit.id)?.panel.id === panel.id
+          ) {
+            findInCircuit(referenceTarget.circuit, circuitPath, visited)
+          }
+        }
+      }
+
+      record(scopeKey('board', panel.id), [...ancestors, panelEntry])
+      for (const protection of panel.protections) {
+        const protectionBasePath = protectionFeedPaths.get(protection.id) ?? [panelEntry]
+        const protectionEntry: ScopeEntityPath = { type: 'protection', id: protection.id, entity: protection }
+        record(scopeKey('device', protection.id), [...ancestors, ...protectionBasePath, protectionEntry])
+        for (const circuit of protection.circuits ?? []) {
+          findInCircuit(circuit, [...protectionBasePath, protectionEntry], new Set())
+        }
+      }
+      for (const circuit of panel.circuits) findInCircuit(circuit, [panelEntry], new Set())
+      walk(panel.subPanels, [...ancestors, panelEntry])
+    }
+  }
+
+  walk(getProjectElectricalPanels(project), [])
+  return paths
+}
+
+const scopedPathIndexes = new WeakMap<object, { paths?: Map<string, ScopeEntityPath[]> }>()
+
+/**
+ * Shares scope paths during one synchronous, read-only validation pass over `project`. Without
+ * it each lookup rebuilds the circuit index and searches the tree, which grows quadratically with
+ * the project. Nothing is retained after the pass.
+ */
+export function withScopeEntityPathIndex<T>(project: DateResolverProject, read: () => T): T {
+  if (scopedPathIndexes.has(project)) return read()
+  scopedPathIndexes.set(project, {})
+  try {
+    return read()
+  } finally {
+    scopedPathIndexes.delete(project)
+  }
+}
+
 /**
  * Get the entity path from root to the scope entity
  */
 export function getScopeEntityPath(project: DateResolverProject, scope: Scope): ScopeEntityPath[] {
+  const scoped = scopedPathIndexes.get(project)
+  if (scoped) {
+    scoped.paths ??= buildScopeEntityPaths(project)
+    return [...(scoped.paths.get(scopeKey(scope.type, scope.id)) ?? [])]
+  }
   const path: ScopeEntityPath[] = []
   const graph = buildCircuitGraphIndex(project)
   const protectionFeedPaths = new Map<string, ScopeEntityPath[]>()

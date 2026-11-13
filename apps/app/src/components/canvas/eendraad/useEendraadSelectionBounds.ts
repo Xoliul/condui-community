@@ -12,6 +12,8 @@ import { computeEendraadCircuitFocusBounds } from '@/lib/eendraad/focusCircuit'
 import { endpointIdsForPlacementSelection } from '@/lib/ui/crossCanvasSelection'
 
 import { resolveSupplyWireSegmentByMetadata } from '@/lib/eendraad/wireSelectionIdentity'
+import type { Endpoint } from '@/types/schema'
+import { getEndpointOutlineGeometry } from './canvasSymbols'
 
 type ViewportUIState = ReturnType<ReturnType<typeof useViewportUIApi>['getState']>
 interface EendraadSelectionBoundsOptions {
@@ -30,7 +32,7 @@ export function useEendraadSelectionBounds({
 }: EendraadSelectionBoundsOptions) {
   // Selection bounds in 1‑wire view (used by BaseCanvas fit-to-selection)
   const handleGetSelectionBounds = useCallback(
-    (selectionOverride?: Selection) => {
+    (selectionOverride?: Selection, forPeer = false) => {
       const selection = selectionOverride ?? viewportUI.getState().selection
       if (!selection.type || !selection.ids || selection.ids.length === 0) {
         return null
@@ -183,6 +185,10 @@ export function useEendraadSelectionBounds({
         acceptableTypes.push('supply')
       } else if (selection.type === 'panel') {
         acceptableTypes.push('panel')
+      } else if (selection.type === 'busSection' && selection.busSectionMetadata) {
+        // A busbar is framed by its board.
+        acceptableTypes.push('panel')
+        selectedIds = new Set([selection.busSectionMetadata.panelId])
       }
 
       if (acceptableTypes.length === 0) return null
@@ -199,7 +205,19 @@ export function useEendraadSelectionBounds({
           selectedIds.has(node.domainId) &&
           acceptableTypes.includes(node.type)
         ) {
-          const { x, y, width, height } = node.bounds
+          let { x, y, width, height } = node.bounds
+          let padding = 10
+          if (forPeer && node.type === 'endpoint' && node.domainRef && node.visual?.type === 'symbol' &&
+            node.visual.symbolId !== 'domotica' && node.visual.symbolId !== 'panel_distribution') {
+            // Layout bounds start at the electrical anchor and reserve space for the branch.
+            // The peer highlight should frame the same centered artwork as a local selection.
+            const outline = getEndpointOutlineGeometry(node.domainRef as Endpoint, node.visual.mirrorHorizontally)
+            x += outline.centerX - outline.width / 2
+            y -= outline.height / 2
+            width = outline.width
+            height = outline.height
+            padding = 0
+          }
           if (
             Number.isFinite(x) &&
             Number.isFinite(y) &&
@@ -208,10 +226,10 @@ export function useEendraadSelectionBounds({
             width > 0 &&
             height > 0
           ) {
-            minX = Math.min(minX, x)
-            minY = Math.min(minY, y)
-            maxX = Math.max(maxX, x + width)
-            maxY = Math.max(maxY, y + height)
+            minX = Math.min(minX, x - padding)
+            minY = Math.min(minY, y - padding)
+            maxX = Math.max(maxX, x + width + padding)
+            maxY = Math.max(maxY, y + height + padding)
             found = true
           }
         }
@@ -236,13 +254,7 @@ export function useEendraadSelectionBounds({
         return null
       }
 
-      const padding = 10
-      return {
-        x: minX - padding,
-        y: minY - padding,
-        width: maxX - minX + padding * 2,
-        height: maxY - minY + padding * 2,
-      }
+      return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
     },
     [wireSegments, layoutTree, viewportUI]
   )
@@ -256,5 +268,10 @@ export function useEendraadSelectionBounds({
     requestFitToView(canvasesToFit)
   }, [requestFitToView, viewportUI])
 
-  return { handleGetSelectionBounds, handleFitToView }
+  const getPeerSelectionBounds = useCallback(
+    (selection: Selection) => handleGetSelectionBounds(selection, true),
+    [handleGetSelectionBounds]
+  )
+
+  return { handleGetSelectionBounds, getPeerSelectionBounds, handleFitToView }
 }

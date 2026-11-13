@@ -16,12 +16,20 @@ import { findTrunkDeviceInProject } from '@/utils/project'
 import { collectJunctionIdentities, getJunctionIdentity } from '@/lib/junctionIdentity'
 import {
   getProjectElectrical,
+  getProjectElectricalInstallation,
   getProjectElectricalPanels,
   selectProjectAuxiliaryElectricalEnclosures,
 } from '@/lib/projectV2/electrical'
+import { orderPanelsByNumber } from '@/lib/panel/panelNumberOrder'
 import { getPanelGridPlacements, resolveModuleWidthCols } from '@/lib/panel/panelGridLayout'
 import { getSharedSupplyFrameDevices } from '@/lib/panel/sharedSupplyFrame'
 import { DEFAULT_PANEL_GRID_COLUMNS } from '@/lib/panel/panelGridDefaults'
+import {
+  getPanelGridFieldLayout,
+  panelGridFieldRangesUnits,
+  panelGridFieldStartModules,
+} from '@/lib/panel/panelGridFields'
+import { panelModulesToGridUnits } from '@/lib/panel/panelGridUnits'
 import { RESIDUAL_CURRENT_DELTA } from '@/lib/protectionLabels'
 import {
   getPanelLabelSources,
@@ -303,12 +311,12 @@ function segmentForModule(
   const widthCols = resolveModuleWidthCols(primary, project, module.slot)
   const mainRole = getPanelMainProtectionRole(primary, project, values.config)
   const mainSide = panelMainProtectionSide(
-    getPanelLabelSources(values.config, 'top'),
-    getPanelLabelSources(values.config, 'bottom')
+    getPanelLabelSources(values.config, 'top', values),
+    getPanelLabelSources(values.config, 'bottom', values)
   )
   const [firstHeight, secondHeight] = heightPair(include)
   const partsForSide = (side: 'top' | 'bottom') => {
-    const sources = getPanelLabelSources(values.config, side)
+    const sources = getPanelLabelSources(values.config, side, values)
     const double = include.stripMode === 'double'
     const cellHeight = double && side === 'bottom' ? secondHeight : firstHeight
     const bandHeight =
@@ -442,7 +450,10 @@ function buildSourceRows(
 ): SourceRow[] {
   const selected = new Set(options.selectedSourceKeys)
   const rows: SourceRow[] = []
-  const panels = flattenPanels(getProjectElectricalPanels(project))
+  const panels = orderPanelsByNumber(
+    getProjectElectricalPanels(project),
+    getProjectElectricalInstallation(project)
+  )
   for (const panel of panels) {
     if (!selected.has(sourceKey('panel', panel.id))) continue
     const providedModules = canvasModules(panel, project, provider)
@@ -522,15 +533,45 @@ function buildSourceRows(
     // Print in the order the canvas shows: the supply area sits above the board when it is
     // the main board or fed from the top, otherwise below it.
     const supplyFirst = panel.isMain === true || panel.gridView?.feedFromTop === true
-    const groups = supplyFirst
-      ? [...areaGroups(true), ...areaGroups(false)]
-      : [...areaGroups(false), ...areaGroups(true)]
-    for (const group of groups) {
-      if (group.modules.length > 0 || !options.skipEmptyRows) {
+    // Every field of a multi-field board has its own strip per row.
+    const fieldLayout = getPanelGridFieldLayout(panel.gridView)
+    const fieldRanges = panelGridFieldRangesUnits(fieldLayout)
+    const mainEntries = (fieldLayout.fields < 2 ? [null] : fieldRanges.map((_, field) => field)).flatMap(
+      (field) => areaGroups(false).map((group) => ({ group, field }))
+    )
+    const supplyEntries = areaGroups(true).map((group) => ({ group, field: null }))
+    const entries = supplyFirst
+      ? [...supplyEntries, ...mainEntries]
+      : [...mainEntries, ...supplyEntries]
+    for (const { group, field } of entries) {
+      const range = field == null ? null : fieldRanges[field]!
+      const fieldModules =
+        range == null
+          ? group.modules
+          : group.modules
+              .filter((module) => {
+                const start = panelModulesToGridUnits(module.slot?.col ?? 0)
+                return start >= range.start && start < range.end
+              })
+              .map((module) => ({
+                ...module,
+                slot: module.slot && {
+                  ...module.slot,
+                  col: module.slot.col - panelGridFieldStartModules(fieldLayout, field!),
+                },
+              }))
+      if (fieldModules.length > 0 || !options.skipEmptyRows) {
         rows.push({
-          sourceLabel: group.inSupplyPanel ? supplyLabel : panel.name,
+          sourceLabel: group.inSupplyPanel
+            ? supplyLabel
+            : field == null
+              ? panel.name
+              : `${panel.name} · ${i18n.t('panelCanvas.fieldNumber', {
+                  defaultValue: 'Section {{number}}',
+                  number: field + 1,
+                })}`,
           row: group.row,
-          modules: group.modules,
+          modules: fieldModules,
           columnCount:
             group.inSupplyPanel && !panel.isMain
               ? (panel.gridView?.supplyPanelColumns ??

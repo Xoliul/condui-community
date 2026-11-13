@@ -41,6 +41,8 @@ import type { ProjectV2 } from '@/types/projectV2'
 import { getDerivedCircuitKind } from '@/lib/circuitKind'
 import { resolvePlanPxPerMeter } from '@/lib/plan/planScale'
 import { findWireRunForAnchor, selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
+import { manualTraceFor } from './manualPlanWireTrace'
+import { createForkLegFeeders } from './forkLegFeeders'
 import type {
   CableSpec,
   Circuit,
@@ -439,37 +441,6 @@ function polylineLength(points: readonly Point2[]): number {
     total += distance(points[index - 1]!, points[index]!)
   }
   return total
-}
-
-interface ManualTrace {
-  /** Waypoints in travel order from `from` to `to`. */
-  waypoints: Point2[]
-  /** Moved riser position, for traces arriving from another floor. */
-  riserPos?: Point2
-}
-
-/**
- * The manual plan wire trace drawn for this placement pair, if any. Traces live on the floor
- * where the cable arrives; a same-floor trace may be stored in either direction.
- */
-function manualTraceFor(
-  traces: readonly PlanWireRoute[],
-  from: RouteLocation,
-  to: RouteLocation
-): ManualTrace | undefined {
-  if (!from.placementId || !to.placementId) return undefined
-  for (const trace of traces) {
-    if (trace.source !== 'manual' || trace.hidden || trace.floorId !== to.floorId) continue
-    const a = trace.from.placementId
-    const b = trace.to.placementId
-    if (a === from.placementId && b === to.placementId) {
-      return { waypoints: trace.waypoints ?? [], riserPos: trace.riser?.pos }
-    }
-    if (from.floorId === to.floorId && a === to.placementId && b === from.placementId) {
-      return { waypoints: [...(trace.waypoints ?? [])].reverse() }
-    }
-  }
-  return undefined
 }
 
 /**
@@ -1728,6 +1699,7 @@ export function estimateCableRoutes(
     const live: Reached[] = []
     const reachedByPlacement = new Map<string, Reached>()
     const wiresAtLive = new Map<Reached, number>()
+    const forkLegFeeders = createForkLegFeeders<Reached>(circuit)
     for (const unit of units) {
       const root = rootFor(unit[0]!)
       if (!root.location || live.some((point) => point.group === root.group)) continue
@@ -1763,6 +1735,8 @@ export function estimateCableRoutes(
       pending.forEach((unit, candidate) => {
         const entry = unit[0]!.locations[0]!
         const group = rootFor(unit[0]!).group
+        const feeders = forkLegFeeders.candidates(unit, pending, live)
+        if (!feeders.length) return
         const drawnEntry = drawnEntryOf(unit)
         const drawn = drawnEntry?.drawn
         const drawnFeeder = drawn ? reachedByPlacement.get(`${group}:${drawn}`) : undefined
@@ -1771,14 +1745,14 @@ export function estimateCableRoutes(
         const sourceUnit = drawn ? unitByPlacement.get(drawn) : undefined
         if (!drawnFeeder && sourceUnit && sourceUnit !== unit && pendingUnits.has(sourceUnit) &&
           rootFor(sourceUnit[0]!).group === group) return
-        if (drawnFeeder && best > -Infinity) {
+        if (drawnFeeder && (feeders === live || feeders.includes(drawnFeeder)) && best > -Infinity) {
           best = -Infinity
           unitIndex = candidate
           entryPosition = drawnEntry!.position
           feeder = drawnFeeder
           return
         }
-        for (const point of live) {
+        for (const point of feeders) {
           if (point.group !== group) continue
           const wires = wiresAtLive.get(point)
           const penaltyM = wires == null ? 0 : Math.max(0, wires - 1) * BRANCH_PENALTY_M
@@ -1823,6 +1797,7 @@ export function estimateCableRoutes(
           }
         }
         reachedInUnit.set(position, point)
+        forkLegFeeders.reach(stop.endpoint.id, point)
       }
       place(entryPosition, feeder)
       // The rest of the unit: a wire drawn inside it decides where a point hangs; otherwise a

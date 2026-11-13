@@ -8,6 +8,7 @@ import {
 import { findParentPanel, getPanelSymbolLabel } from '@/lib/panel/panelDiagramLabels'
 import { resolveEffectiveEarthingSystem } from '@/lib/panel/panelEarthingSync'
 import { walkPanels } from '@/lib/panel/panelTree'
+import { orderPanelsByNumber } from '@/lib/panel/panelNumberOrder'
 import { getPanelDisplayName } from '@/utils/panelNames'
 import { getVoltageSummaryLabel } from '@/utils/voltageLabel'
 
@@ -52,7 +53,7 @@ export function buildBoardLabels(
   const rootPanels = getProjectElectricalPanels(project)
   const selected = new Set(panelIds)
   const labels: BoardLabel[] = []
-  for (const panel of walkPanels(rootPanels)) {
+  for (const panel of orderPanelsByNumber(rootPanels, installation)) {
     if (!selected.has(panel.id)) continue
     const { code, name } = panelCodeAndName(project, panel)
     const lines: string[] = []
@@ -85,6 +86,11 @@ export function buildBoardLabels(
       )
     }
 
+    // AREI 3.1.2.2.b: the board marking states its expected maximum short-circuit current.
+    if (panel.expectedShortCircuitKa != null && panel.expectedShortCircuitKa > 0) {
+      const ka = String(Math.round(panel.expectedShortCircuitKa * 100) / 100)
+      lines.push(t('panels.diagramShortCircuit', { ka, defaultValue: `Ik max: ${ka} kA` }))
+    }
     if (panel.location?.trim()) lines.push(panel.location.trim())
     labels.push({ panelId: panel.id, code, name, lines })
   }

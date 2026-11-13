@@ -36,6 +36,7 @@ export function getEndpointTypeFromSymbol(symbol: SymbolMetadata): EndpointType 
     id === 'switch_shutter' ||
     id === 'switch_1p_pull' ||
     id === 'contact' ||
+    id === 'light_sensor' ||
     id === 'switch_impulse' ||
     id === 'switch_cross' ||
     id === 'motion_detector' ||
@@ -164,6 +165,7 @@ export function getSymbolKeyFromSymbol(symbol: SymbolMetadata): SymbolKey | unde
     id === 'switch_shutter' ||
     id === 'switch_1p_pull' ||
     id === 'contact' ||
+    id === 'light_sensor' ||
     id === 'switch_impulse' ||
     id === 'switch_cross' ||
     id === 'motion_detector' ||
@@ -259,6 +261,7 @@ export function isSwitchSymbol(symbol: SymbolMetadata): boolean {
     id === 'switch_shutter' ||
     id === 'switch_1p_pull' ||
     id === 'contact' ||
+    id === 'light_sensor' ||
     id === 'switch_impulse' ||
     id === 'switch_cross' ||
     id === 'motion_detector' ||
@@ -303,6 +306,7 @@ export function isInBetweenDevice(symbol: SymbolMetadata): boolean {
     id === 'switch_shutter' ||
     id === 'switch_1p_pull' ||
     id === 'contact' ||
+    id === 'light_sensor' ||
     id === 'switch_impulse' ||
     id === 'switch_cross' ||
     id === 'motion_detector' ||

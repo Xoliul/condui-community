@@ -157,18 +157,30 @@ export function defaultPanelLabelSource(
   return side === 'top' ? 'labelNotes' : 'label'
 }
 
-export function defaultPanelLabelSources(side: PanelLabelCellSide): PanelLabelCellSource[] {
-  return side === 'top' ? ['labelNotes'] : ['label', 'notes']
+/** Only the label text decides a default; the other values never change which cells print what. */
+export type PanelLabelDefaultValues = Pick<PanelLabelValues, 'labelNotes'>
+
+/**
+ * A filled label text prints in the top cell and keeps the (often long) notes off the cabinet
+ * label; without one the bottom cell keeps showing the notes beside the code.
+ */
+export function defaultPanelLabelSources(
+  side: PanelLabelCellSide,
+  values?: PanelLabelDefaultValues
+): PanelLabelCellSource[] {
+  if (side === 'top') return ['labelNotes']
+  return values?.labelNotes ? ['label'] : ['label', 'notes']
 }
 
 export function getPanelLabelSources(
   config: PanelLabelConfig | undefined,
-  side: PanelLabelCellSide
+  side: PanelLabelCellSide,
+  values?: PanelLabelDefaultValues
 ): PanelLabelCellSource[] {
   const cell = config?.[side]
   if (cell?.sources?.length) return [...new Set(cell.sources)]
   if (cell?.source) return [cell.source]
-  return defaultPanelLabelSources(side)
+  return defaultPanelLabelSources(side, values)
 }
 
 export function getPanelLabelSource(
@@ -194,7 +206,7 @@ export function getPanelLabelText(
   side: PanelLabelCellSide,
   values: PanelLabelValues
 ): string {
-  const sources = getPanelLabelSources(config, side)
+  const sources = getPanelLabelSources(config, side, values)
   return sources
     .map((source) => getPanelLabelSourceText(source, sources, values))
     .filter(Boolean)
@@ -215,10 +227,11 @@ export function setPanelLabelSource(
 export function setPanelLabelSources(
   config: PanelLabelConfig | undefined,
   side: PanelLabelCellSide,
-  sources: PanelLabelCellSource[]
+  sources: PanelLabelCellSource[],
+  values?: PanelLabelDefaultValues
 ): PanelLabelConfig {
   const uniqueSources = [...new Set(sources)]
-  const fallback = defaultPanelLabelSources(side)
+  const fallback = defaultPanelLabelSources(side, values)
   const normalized = uniqueSources.length > 0 ? uniqueSources : fallback
   return {
     ...config,
@@ -233,21 +246,26 @@ export function setPanelLabelSources(
 export function setPanelLabelAlignment(
   config: PanelLabelConfig | undefined,
   side: PanelLabelCellSide,
-  alignment: NonNullable<PanelLabelConfig[PanelLabelCellSide]>['alignment']
+  alignment: NonNullable<PanelLabelConfig[PanelLabelCellSide]>['alignment'],
+  values?: PanelLabelDefaultValues
 ): PanelLabelConfig {
+  const sources = getPanelLabelSources(config, side, values)
   return {
     ...config,
     [side]: {
-      source: config?.[side]?.source ?? defaultPanelLabelSource(side),
-      sources: config?.[side]?.sources ?? defaultPanelLabelSources(side),
+      source: config?.[side]?.source ?? sources[0]!,
+      sources: config?.[side]?.sources ?? sources,
       alignment,
     },
   }
 }
 
-export function swapPanelLabelSources(config: PanelLabelConfig | undefined): PanelLabelConfig {
-  const topSources = getPanelLabelSources(config, 'top')
-  const bottomSources = getPanelLabelSources(config, 'bottom')
+export function swapPanelLabelSources(
+  config: PanelLabelConfig | undefined,
+  values?: PanelLabelDefaultValues
+): PanelLabelConfig {
+  const topSources = getPanelLabelSources(config, 'top', values)
+  const bottomSources = getPanelLabelSources(config, 'bottom', values)
   return {
     ...config,
     top: { ...config?.bottom, source: bottomSources[0]!, sources: bottomSources },

@@ -28,8 +28,8 @@ import {
   getInfoBlockMinFrameSize,
   getInfoBlockTotalWidth,
   hasOptionalInfoBlockColumns,
-  INFO_BLOCK_HEIGHT,
   INFO_BLOCK_FRAME_MARGIN,
+  INFO_BLOCK_HEIGHT,
 } from '@/lib/infoBlockLayout'
 
 import {
@@ -369,9 +369,10 @@ export function buildPanelLayoutFrame(input: BuildPanelLayoutFrameInput): Bottom
       : 28
   let frameY = minY - frameTopTitlePadding
   let frameWidth = totalWidthWithSupply + FRAME_PADDING * 2
+  const infoBlockHeight = options.infoBlockHeight ?? INFO_BLOCK_HEIGHT
   const infoBlockWidth = getInfoBlockTotalWidth(options.infoBlockColumns)
   const { minWidth: minFrameWidth, minHeight: minFrameHeight } = getInfoBlockMinFrameSize(
-    options.infoBlockColumns
+    options.infoBlockColumns, infoBlockHeight
   )
   frameWidth = Math.max(frameWidth, minFrameWidth) + (options.feedOutput ? 36 : 0)
 
@@ -1083,7 +1084,7 @@ export function buildPanelLayoutFrame(input: BuildPanelLayoutFrameInput): Bottom
 
   const collisionClearance = 10
   const compactInfoTop = renderedMainBusY + LAYOUT_CONSTANTS.BUS_THICKNESS / 2 + collisionClearance
-  const compactFrameBottom = compactInfoTop + INFO_BLOCK_HEIGHT + INFO_BLOCK_FRAME_MARGIN
+  const compactFrameBottom = compactInfoTop + infoBlockHeight + INFO_BLOCK_FRAME_MARGIN
   const measuredLayoutBottom = Math.max(
     frameBottomY,
     ...layoutObstacles.map((block) => block.y + block.height)
@@ -1096,7 +1097,7 @@ export function buildPanelLayoutFrame(input: BuildPanelLayoutFrameInput): Bottom
     initialFrameBottom: Math.max(compactFrameBottom, contentFrameBottom),
     frameMargin: INFO_BLOCK_FRAME_MARGIN,
     blockWidth: infoBlockWidth,
-    blockHeight: INFO_BLOCK_HEIGHT,
+    blockHeight: infoBlockHeight,
     obstacles: layoutObstacles,
     clearance: collisionClearance,
     // A panel-side supply arrangement may sit directly beside the info block;
@@ -1202,9 +1203,9 @@ export function buildPanelLayoutFrame(input: BuildPanelLayoutFrameInput): Bottom
     kind: 'info-block',
     label: `info block (${infoArrangement.placement})`,
     x: frameX + frameWidth - infoBlockWidth - INFO_BLOCK_FRAME_MARGIN,
-    y: frameY + frameHeight - INFO_BLOCK_HEIGHT - INFO_BLOCK_FRAME_MARGIN,
+    y: frameY + frameHeight - infoBlockHeight - INFO_BLOCK_FRAME_MARGIN,
     width: infoBlockWidth,
-    height: INFO_BLOCK_HEIGHT,
+    height: infoBlockHeight,
   }
   const layoutBlocks = [
     ...layoutObstacles.map((block) => ({

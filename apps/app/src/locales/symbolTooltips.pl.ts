@@ -27,6 +27,7 @@ export const symbolTooltipsPL = {
   "switch_1p_changeover": "Przełącznik do wyboru jednego z dwóch obwodów.",
   switch_shutter: "Sterowanie podnoszeniem i opuszczaniem rolet lub żaluzji.",
   "switch_1p_pull": "Łącznik pociągany, często montowany na suficie.",
+  light_sensor: "Włącza oświetlenie po zapadnięciu zmroku.",
   "contact": "Styk, np. wejście styku dla automatyki domowej.",
   "switch_impulse": "Przycisk lub łącznik impulsowy do sterowania przekaźnikiem bistabilnym lub automatyką domową.",
   "motion_detector": "Czujnik ruchu sterujący przełączaniem.",

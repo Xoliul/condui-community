@@ -8,6 +8,7 @@ export interface CircuitWireConnection {
   circuitId: string
   domain: string
   targetKey: string
+  sourceKey: string
   branchKey?: string
   rootKey?: string
   empty: boolean
@@ -33,6 +34,7 @@ export function getWireTopologyContext(project: ProjectV2) {
   const connections = new Map<string, CircuitWireConnection>()
   const byTarget = new Map<string, CircuitWireConnection>()
   const roots = new Map<string, CircuitWireConnection[]>()
+  const feeds = new Map<string, CircuitWireConnection[]>()
   for (const edge of snapshot.relationships) {
     const anchor = edge.properties?.wireAnchor
     if (typeof anchor !== 'string' || !anchor.startsWith('circuit:') || connections.has(anchor))
@@ -57,11 +59,14 @@ export function getWireTopologyContext(project: ProjectV2) {
       domain,
       rootKey,
       targetKey: `${to.kind}:${to.source.entityId}:${domain}`,
+      sourceKey: `${from.kind}:${from.source.entityId}:${domain}`,
       branchKey: branch && rootKey ? `${rootKey}:${branch}` : undefined,
       empty: edge.properties?.emptyCircuitWire === true,
       rail: (edge.properties?.wire as { medium?: string } | undefined)?.medium === 'busbar',
     }
     connections.set(anchor, connection)
+    const siblings = feeds.get(connection.sourceKey) ?? []
+    siblings.push(connection); feeds.set(connection.sourceKey, siblings)
     if (to.kind === 'endpoint' || to.kind === 'trunk-device')
       byTarget.set(connection.targetKey, connection)
     if (rootKey) {
@@ -70,5 +75,5 @@ export function getWireTopologyContext(project: ProjectV2) {
       roots.set(rootKey, group)
     }
   }
-  return { connections, byTarget, roots }
+  return { connections, byTarget, roots, feeds }
 }

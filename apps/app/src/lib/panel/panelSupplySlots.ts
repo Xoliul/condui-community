@@ -1,3 +1,5 @@
+import { packSlotsInFields } from '@/lib/panel/fieldAutoArrange'
+import { getPanelGridFieldLayout, getPanelGridTotalColumns } from '@/lib/panel/panelGridFields'
 import { getPanelFeedProjection } from '@/lib/feedTopology'
 import { getSubPanelMainBusFeedDevice } from '@/lib/panel/subPanelFeed'
 import {
@@ -24,7 +26,7 @@ import {
   panelGridModuleRefKey,
   resolveModuleWidthCols,
 } from '@/lib/panel/panelGridLayout'
-import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
+import { DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
 import { MIN_PANEL_GRID_MODULE_WIDTH, panelModulesToGridUnits } from '@/lib/panel/panelGridUnits'
 
 export type PanelSupplySlotProject = ProjectWithOptionalV2Electrical
@@ -132,7 +134,7 @@ export function rebalanceSupplyOverflowIntoMain(
   targetProject: PanelSupplySlotProject
 ): { mainSlots: PanelGridSlot[]; supplySlots: PanelGridSlot[] } {
   const { rows: supplyRows, cols: supplyCols } = getSupplyPanelLayout(targetPanel)
-  const cols = targetPanel.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS
+  const cols = getPanelGridTotalColumns(targetPanel.gridView)
   const rows = targetPanel.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS
   const feedFromTop = targetPanel.gridView?.feedFromTop ?? false
   const existingMainSlots = targetPanel.gridView?.slots ?? []
@@ -193,7 +195,14 @@ export function rebalanceSupplyOverflowIntoMain(
       MIN_PANEL_GRID_MODULE_WIDTH,
       resolveModuleWidthCols(ref, targetProject, prev)
     )
-    const spot = findFirstFreeMainOrOverflowSlot(occupied, width, rows, cols, feedFromTop)
+    const spot = findFirstFreeMainOrOverflowSlot(
+      occupied,
+      width,
+      rows,
+      cols,
+      feedFromTop,
+      getPanelGridFieldLayout(targetPanel.gridView)
+    )
     const nextSlot = {
       row: spot.row,
       col: spot.col,
@@ -271,7 +280,7 @@ export function buildPanelAutoArrangeSlots({
   targetPanel: Panel
   targetProject: PanelSupplySlotProject
 }): { mainSlots: PanelGridSlot[]; supplySlots: PanelGridSlot[] } {
-  const cols = targetPanel.gridView?.columns ?? DEFAULT_PANEL_GRID_COLUMNS
+  const cols = getPanelGridTotalColumns(targetPanel.gridView)
   const feedFromTop = targetPanel.gridView?.feedFromTop ?? false
   const panelRows = targetPanel.gridView?.rows ?? DEFAULT_PANEL_GRID_ROWS
   const existingMainSlots = targetPanel.gridView?.slots ?? []
@@ -536,17 +545,20 @@ export function buildPanelAutoArrangeSlots({
 
   for (const ref of moduleOrder) addLeafGroup([ref])
 
-  const packed =
+  const inFields = (pack: (rows: number, columns: number) => PanelGridSlot[]) =>
+    packSlotsInFields(targetPanel.gridView, panelRows, feedFromTop, widthFor, pack)
+  const packed = inFields((rows, columns) =>
     arrangedGroups.length > 0
       ? packAutoArrangeMainGroupSlots(
           arrangedGroups,
-          panelRows,
-          cols,
+          rows,
+          columns,
           feedFromTop,
           widthFor,
           feedSideDirection
         )
-      : packAutoArrangeMainSlots([], panelRows, cols, feedFromTop, widthFor, feedSideDirection)
+      : packAutoArrangeMainSlots([], rows, columns, feedFromTop, widthFor, feedSideDirection)
+  )
   // Hierarchy groups normally get dedicated row blocks so parent/child
   // relationships remain legible. If that policy creates overflow, retry with
   // a compact linear pack and keep whichever plan fits more physical modules.
@@ -560,13 +572,8 @@ export function buildPanelAutoArrangeSlots({
       panelColUnits
   const inGridCount = (slots: PanelGridSlot[]) => slots.filter(fitsInPanel).length
   const compactPacked = packed.some((slot) => !fitsInPanel(slot))
-    ? packAutoArrangeMainSlots(
-        moduleOrder,
-        panelRows,
-        cols,
-        feedFromTop,
-        widthFor,
-        feedSideDirection
+    ? inFields((rows, columns) =>
+        packAutoArrangeMainSlots(moduleOrder, rows, columns, feedFromTop, widthFor, feedSideDirection)
       )
     : packed
   const effectivePacked = inGridCount(compactPacked) > inGridCount(packed) ? compactPacked : packed

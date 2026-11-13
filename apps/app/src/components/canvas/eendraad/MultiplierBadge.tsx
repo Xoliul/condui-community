@@ -1,3 +1,4 @@
+import { INTERACTIVE_OVERLAY_EXPORT_NAME } from '@/lib/export/interactiveOverlayExport'
 import { useState } from 'react'
 import { Group, Rect, Text } from 'react-konva'
 import {
@@ -46,7 +47,7 @@ export function MultiplierBadge({
         y={-1}
         width={width + 2}
         height={height + 2}
-        fill="rgba(0,0,0,0.001)"
+        name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill="rgba(0,0,0,0.001)"
         stroke={hovered ? fill : undefined}
         strokeWidth={hovered ? 0.75 : 0}
         dash={[2, 2]}

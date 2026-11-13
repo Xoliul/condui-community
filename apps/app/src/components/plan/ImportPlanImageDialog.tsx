@@ -751,7 +751,7 @@ function ImportPlanImageDialog({
       logger.warn('[planImport] Image import command rejected:', {
         code: error.details?.reason ?? error.code,
       })
-      alert(t('planImport.importFailed'))
+      alert(t(error.details?.reason === 'collab_too_large' ? 'planImport.collabTooLarge' : 'planImport.importFailed'))
       return
     }
     if (!targetFloorId) return

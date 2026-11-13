@@ -69,11 +69,19 @@ import type { CableSpec, TrunkDevice, CircuitPhaseAssignment } from '@/types/sch
 import { getPanelBusSections, getPrimaryPanelBusSectionId } from '@/lib/panel/panelBusSections'
 import { getBusbarPhaseOrder } from '@/lib/wires/phaseAssignment'
 import { checkProjectSupplyConnection, setProjectSupplyConnectionInProject } from '@/lib/electrical/projectSupplyConnection'
+import {
+  checkRootFeedNominalVoltage,
+  checkRootFeedTransformerOutput,
+  setRootFeedNominalVoltageInProject,
+  setRootFeedTransformerOutputInProject,
+} from '@/lib/electrical/feedNominalVoltageEdit'
 export function checkExtraElectricalAction(
   project: ProjectV2,
   action: ExtraElectricalAction
 ): CommandCheck {
   if (action.kind === 'projectSupplyConnection') return checkProjectSupplyConnection(project)
+  if (action.kind === 'rootFeedNominalVoltage') return checkRootFeedNominalVoltage(project, action.panelId)
+  if (action.kind === 'rootFeedTransformerOutput') return checkRootFeedTransformerOutput(project, action.panelId)
   if (action.kind === 'panelBusFeedBoundary') {
     const panel = findPanelById(getProjectElectricalPanels(project), action.panelId)
     if (!panel || panel.isMain === false || !getProjectElectricalInstallation(project))
@@ -213,6 +221,16 @@ export function applyExtraElectricalAction(
 ): EntityRef[] {
   if (action.kind === 'projectSupplyConnection') {
     return setProjectSupplyConnectionInProject(project, action.connection, env)
+      ? [{ kind: 'installation', id: 'electrical' }]
+      : []
+  }
+  if (action.kind === 'rootFeedNominalVoltage') {
+    return setRootFeedNominalVoltageInProject(project, action.panelId, action.system)
+      ? [{ kind: 'installation', id: 'electrical' }]
+      : []
+  }
+  if (action.kind === 'rootFeedTransformerOutput') {
+    return setRootFeedTransformerOutputInProject(project, action.panelId, action)
       ? [{ kind: 'installation', id: 'electrical' }]
       : []
   }

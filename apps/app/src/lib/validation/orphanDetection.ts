@@ -79,69 +79,14 @@ import {
   isSupplyDeviceVisibleInPanel,
 } from '@/lib/panel/supplyPanelVisibility'
 import { trunkDeviceCanAppearInPanelGrid } from '@/lib/eendraad/projectElectricalDomain'
+import {
+  collectPlanPlacementIdentityConflicts,
+  type PlanPlacementIdentityConflict,
+} from '@/lib/plan/planPlacementIdentity'
 
 type OrphanDetectionProject = ProjectWithOptionalV2Electrical &
   ProjectWithOptionalV2Building &
   AnnotationProject
-
-type PlanPlacementOwner = {
-  kind: 'endpoint' | 'trunkDevice'
-  id: string
-  label: string
-}
-
-type PlanPlacementIdentityConflict = {
-  placementId: string
-  owners: PlanPlacementOwner[]
-}
-
-function collectPlanPlacementIdentityConflicts(
-  project: OrphanDetectionProject
-): PlanPlacementIdentityConflict[] {
-  const ownersByPlacementId = new Map<string, PlanPlacementOwner[]>()
-  const add = (placementId: string, owner: PlanPlacementOwner) => {
-    const owners = ownersByPlacementId.get(placementId) ?? []
-    owners.push(owner)
-    ownersByPlacementId.set(placementId, owners)
-  }
-  const addDevice = (device: TrunkDevice) => {
-    for (const placement of device.placements ?? []) {
-      add(placement.id, { kind: 'trunkDevice', id: device.id, label: device.label || device.id })
-    }
-  }
-  const visit = (panels: Panel[]) => {
-    for (const panel of panels) {
-      for (const circuit of collectCircuits(panel)) {
-        for (const endpoint of circuit.endpoints) {
-          for (const placement of endpoint.placements) {
-            add(placement.id, {
-              kind: 'endpoint',
-              id: endpoint.id,
-              label: endpoint.label || endpoint.id,
-            })
-          }
-        }
-        for (const device of circuit.trunkDevices ?? []) addDevice(device)
-        for (const branch of circuit.branches ?? []) {
-          for (const device of branch.branchDevices ?? []) addDevice(device)
-        }
-      }
-      visit(panel.subPanels ?? [])
-    }
-  }
-  visit(getProjectElectricalPanels(project))
-  for (const device of getAllSupplyTrunkDevices(project)) addDevice(device)
-  for (const device of collectAllGroundTrunkDevices(
-    getProjectElectricalPanels(project),
-    getProjectElectricalInstallation(project)
-  )) {
-    addDevice(device)
-  }
-
-  return [...ownersByPlacementId.entries()]
-    .filter(([, owners]) => owners.length > 1)
-    .map(([placementId, owners]) => ({ placementId, owners }))
-}
 
 function validationUnnamedCircuitLabel(): string {
   return i18next.t('validation.labels.unnamedCircuit', {

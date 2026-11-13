@@ -1,3 +1,4 @@
+import { getProjectInfoBlockHeight } from '@/lib/infoBlockContent'
 import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import {
   calculateBottomUpLayout,
@@ -293,7 +294,7 @@ export function getCachedEendraadLayout(
   const variantCache = getOrCreateWeakMap(framesCache, frames, () => new Map())
   const variantKey = `${getInfoBlockVariantKey(
     getInfoBlockColumns(project, { hasLogo: layoutOptions.infoBlockLogo })
-  )}${layoutOptions.compactSubPanelFeed ? ':compact-feed' : ''}`
+  )}:${layoutOptions.infoBlockHeight ?? getProjectInfoBlockHeight(project)}${layoutOptions.compactSubPanelFeed ? ':compact-feed' : ''}`
   const cached = variantCache.get(variantKey)
   if (cached) return cached
 
@@ -351,6 +352,7 @@ export function getCachedEendraadWireSegments(
   if (cached) return cached
 
   const startedAt = import.meta.env?.VITE_E2E ? performance.now() : 0
+  const deriveStartedAt = startedAt
   const derivedWires = deriveWires(
     layoutTree,
     getProjectElectricalPanels(project),
@@ -359,6 +361,10 @@ export function getCachedEendraadWireSegments(
     (deviceId) => resolveSupplyDeviceMounting(project, deviceId),
     selectProjectWireRuns(project)
   )
+  const reconciliationStartedAt = import.meta.env?.VITE_E2E ? performance.now() : 0
+  if (import.meta.env?.VITE_E2E) {
+    performance.measure('eendra:wire-core', { start: deriveStartedAt, end: reconciliationStartedAt })
+  }
   const previousByTopology = new Map<string, WireSegment[]>()
   const projectKey = projectCacheKey(project)
   for (const segment of latestWiresByProjectId.get(projectKey) ?? []) {
@@ -373,6 +379,12 @@ export function getCachedEendraadWireSegments(
     if (wireRenderValueKey(previous) === wireRenderValueKey(segment)) return previous
     return { ...segment, id: previous.id }
   })
+  if (import.meta.env?.VITE_E2E) {
+    performance.measure('eendra:wire-reconciliation', {
+      start: reconciliationStartedAt,
+      end: performance.now(),
+    })
+  }
   rememberLatest(latestWiresByProjectId, projectKey, wires)
   enclosureCache.set(auxiliaryEnclosuresCacheKey, wires)
   if (import.meta.env?.VITE_E2E) {

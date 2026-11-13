@@ -10,9 +10,7 @@
  * 2. Non-symbol nodes (busBar, branch, trunk, label) use TOP-LEFT positioning.
  *    Their effective bounds are [x, y] to [x + w, y + h].
  *
- * Two-pass priority:
- *   Pass 1 (core): Find deepest node whose CORE bounds contain the cursor.
- *   Pass 2 (padded): If pass 1 found nothing, find deepest node whose PADDED bounds contain cursor.
+ * Prefer the deepest core hit, then the deepest padded hit.
  *
  * This ensures that hovering ON the bus returns mainBus (core match), even though
  * an MCB's padded zone extends near the bus area.
@@ -101,6 +99,8 @@ export interface DropTarget {
   branchEndpoints?: string[] // Endpoints on the branch that was dropped on
   /** Layout branch id (`branch-{circuitId}-{index}`) when the drop is on a branch wire */
   branchId?: string
+  forkAfterEndpointId?: string
+  forkBranchId?: string; adoptForksOf?: string; releaseForkLegsOf?: string // tap sides, see savedForkDropTargets.ts
   /** Explicit branch slot on a circuit trunk: moved branches are inserted before this branch index. */
   branchInsertIndex?: number
   /** Insertion point for a branch-local DC device, measured from the bus. */

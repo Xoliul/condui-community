@@ -6,6 +6,7 @@ import { resolveInstallationProfile } from '@/lib/installationProfile'
 import { placeElectricalSymbolInProject } from '@/lib/eendraad/electricalSymbolDrop'
 import { deleteEntitiesInProject } from '@/lib/eendraad/entityDeletion'
 import { ensureInstallationFeedTopology } from '@/lib/feedTopology'
+import { clearRootFeedNominalVoltages } from './feedNominalVoltageEdit'
 import { DEFAULT_SUPPLY_TRANSFORMER_PRIMARY_V, getInstallationSupplyTransformer, getInstallationSupplyTransformers } from './supplyTransformer'
 
 /** The project connection owns the common incoming wire; panel-local transformers stay separate. */
@@ -38,6 +39,7 @@ export function setProjectSupplyConnectionInProject(
     deleteEntitiesInProject(project, {
       refs: sources.map((device) => ({ kind: 'trunkDevice', id: device.id })),
     })
+    clearRootFeedNominalVoltages(project)
     return true
   }
   const panel = getProjectElectricalPanels(project).find((candidate) => candidate.isMain !== false)!
@@ -67,12 +69,17 @@ export function setProjectSupplyConnectionInProject(
   const storedDevices = installation.mainSupply.supplyTrunkDevices ?? installation.feedTopology?.sharedFeed.trunkDevices ?? []
   if (!changed && storedDevices[0]?.id === transformer.id) return false
   if (changed) transformer.conversionProps = next
-  // LV metering/protection must stay on the output side of this source.
+  // A newly adopted source moves before LV metering/protection. An existing source keeps
+  // meters and protections the user put before it: that is MV-side metering/protection.
   const devices = [...storedDevices]
   const index = devices.findIndex((device) => device.id === transformer.id)
-  if (index > 0) {
+  const mvSideCount = props.transformerRole === 'supply'
+    ? devices.findIndex((device) => device.type !== 'energy_meter' && device.type !== 'protection')
+    : 0
+  const target = mvSideCount < 0 ? devices.length : mvSideCount
+  if (index > target) {
     devices.splice(index, 1)
-    devices.unshift(transformer)
+    devices.splice(target, 0, transformer)
     devices.forEach((device, position) => { device.trunkPosition = position })
     changed = true
   }

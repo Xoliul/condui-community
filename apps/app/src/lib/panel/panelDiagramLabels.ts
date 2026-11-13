@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next'
+import { installationForPanel } from '@/lib/electrical/feedNominalVoltage'
 import { normalizeNominalVoltageSystem } from '@/constants/nominalVoltage'
 import type { EarthingSystemType, Installation, Panel } from '@/types/schema'
 import { resolveEffectiveEarthingSystem } from '@/lib/panel/panelEarthingSync'
@@ -237,7 +238,7 @@ export function buildPanelDiagramHeaderLines(
     })
   }
 
-  const netBase = formatNetVoltagePart(installation)
+  const netBase = formatNetVoltagePart(installationForPanel(installation, rootPanels, panel.id))
   if (isSubPanel && earthing) {
     lines.push({
       text: t('panels.diagramNetSecondary', {
@@ -320,7 +321,9 @@ export function buildSupplyDiagramHeaderLines(
     options.backupFeedActive !== false ? panel.backupEarthingSystem : undefined
   if (!primaryEarthing && !backupEarthing) return lines
 
-  const netBase = formatNetVoltagePart(installation)
+  const netBase = formatNetVoltagePart(
+    installationForPanel(installation, getProjectElectricalPanels(project), panel.id)
+  )
   lines.push({
     text: t('panels.diagramNetMain', {
       net: netBase,

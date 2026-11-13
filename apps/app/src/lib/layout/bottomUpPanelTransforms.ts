@@ -517,7 +517,7 @@ export function applyPanelFrameBottomAlignmentByRow(
     const extents = extentsByRow.get(rowKey)
     if (!extents) return
 
-    const rowBottom = Math.max(extents.min, extents.max - INFO_BLOCK_HEIGHT * 1.75)
+    const rowBottom = Math.max(extents.min, extents.max - (panelLayout.layoutBlocks?.find((block) => block.kind === 'info-block')?.height ?? INFO_BLOCK_HEIGHT) * 1.75)
     const targetHeight = rowBottom - panelLayout.frame.y
     // A panel's collision solver may have added a right-hand or lower row for
     // its info block. Row alignment may grow a shorter frame, but must never

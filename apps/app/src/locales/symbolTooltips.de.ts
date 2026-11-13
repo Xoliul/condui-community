@@ -27,6 +27,7 @@ export const symbolTooltipsDE = {
   "switch_1p_changeover": "Umschalter, der zwischen zwei Stromkreisen wählt.",
   switch_shutter: "Auf-/Absteuerung für Rollläden oder Jalousien.",
   "switch_1p_pull": "Zugschalter, oft an der Decke.",
+  light_sensor: "Schaltet die Beleuchtung bei Dunkelheit ein.",
   "contact": "Loser Kontakt, z. B. Eingangskontakt für die Hausautomation.",
   "switch_impulse": "Drucktaster oder Impulsschalter für Stromstoßschalter oder Hausautomation.",
   "motion_detector": "Bewegungsmelder, der schaltet.",

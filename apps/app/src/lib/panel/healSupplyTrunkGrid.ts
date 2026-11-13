@@ -2,6 +2,7 @@
  * Repair legacy shared-supply slots using the historical default grid placement.
  * An explicit physical panel mounting takes precedence over that old convention.
  */
+import { getPanelGridFieldLayout, getPanelGridTotalColumns } from '@/lib/panel/panelGridFields'
 import type { Panel, PanelGridModuleRef } from '@/types/schema'
 import {
   getSupplyPanelColumns,
@@ -101,7 +102,7 @@ export function healPanelMountedSupplyTrunkSlotsForPanel(
     ),
   }))
   const rows = Math.max(1, grid.rows ?? DEFAULT_PANEL_GRID_ROWS)
-  const cols = Math.max(1, grid.columns ?? DEFAULT_PANEL_GRID_COLUMNS)
+  const cols = Math.max(1, getPanelGridTotalColumns(grid))
   let changed = nextSupplySlots.length !== supplySlots.length
 
   for (const staleSlot of staleSlots) {
@@ -117,7 +118,8 @@ export function healPanelMountedSupplyTrunkSlotsForPanel(
       width,
       rows,
       cols,
-      grid.feedFromTop ?? false
+      grid.feedFromTop ?? false,
+      getPanelGridFieldLayout(grid)
     )
     mainSlots.push({
       row: spot.row,

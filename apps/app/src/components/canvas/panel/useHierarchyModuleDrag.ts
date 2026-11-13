@@ -1,3 +1,4 @@
+import { snapPanelGridColToFields } from '@/lib/panel/panelGridFields'
 import type { BuiltPanelScene } from '@/lib/panel/panelScene'
 import type { useHierarchyLibraryDrop } from './useHierarchyLibraryDrop'
 
@@ -140,7 +141,7 @@ export function useHierarchyModuleDrag({
                 getTerminalStripTopOffset(getPanelSceneSurfaceGrid(target.surface))
           const snapped = snapToGrid(localX, localY + CELL_H / 2)
           const row = clamp(snapped.row, 0, targetRows - 1)
-          const col = clamp(snapped.col, 0, targetMaxCol)
+          const col = snapPanelGridColToFields(target.area === 'supply' ? undefined : target.surface.panel?.gridView, clamp(snapped.col, 0, targetMaxCol), moduleCols)
           const targetY =
             target.area === 'supply'
               ? target.surface.y +
@@ -310,7 +311,7 @@ export function useHierarchyModuleDrag({
             getTerminalStripTopOffset(targetPanel)
           const snapped = snapToGrid(localX, localY + CELL_H / 2)
           const row = clamp(snapped.row, 0, target.surface.rows - 1)
-          const col = clamp(snapped.col, 0, targetMaxCol)
+          const col = snapPanelGridColToFields(target.surface.panel?.gridView, clamp(snapped.col, 0, targetMaxCol), moduleCols)
           const invalid = target.surface.placements.some((other) => {
             if (other.terminalStripRail) return false
             if (other.inSupplyPanel && target.area !== 'auxiliary') return false
@@ -917,7 +918,7 @@ export function useHierarchyModuleDrag({
                 getTerminalStripTopOffset(getPanelSceneSurfaceGrid(target.surface))
           const snapped = snapToGrid(localX, localY + CELL_H / 2)
           const row = clamp(snapped.row, 0, targetRows - 1)
-          const col = clamp(snapped.col, 0, targetMaxCol)
+          const col = snapPanelGridColToFields(target.area === 'supply' ? undefined : target.surface.panel?.gridView, clamp(snapped.col, 0, targetMaxCol), moduleCols)
           if (target.area === 'auxiliary') {
             moveSupplyDeviceToAuxiliaryEnclosure(supplyRef.id, target.surface.id, row, col)
             return
@@ -985,7 +986,7 @@ export function useHierarchyModuleDrag({
             getTerminalStripTopOffset(targetPanel)
           const snapped = snapToGrid(localX, localY + CELL_H / 2)
           const row = clamp(snapped.row, 0, target.surface.rows - 1)
-          const col = clamp(snapped.col, 0, Math.max(0, target.surface.cols - moduleCols))
+          const col = snapPanelGridColToFields(target.surface.panel?.gridView, clamp(snapped.col, 0, Math.max(0, target.surface.cols - moduleCols)), moduleCols)
           moveCircuitModule(
             placement.ref,
             target.area === 'auxiliary' && target.surface.enclosure
@@ -1014,7 +1015,7 @@ export function useHierarchyModuleDrag({
             CELL_H / 2
         )
         const row = clamp(snapped.row, 0, Math.max(0, surface.rows - layout.moduleRowOffset - 1))
-        const col = clamp(snapped.col, 0, maxCol)
+        const col = snapPanelGridColToFields(placement.inSupplyPanel ? undefined : surface.panel?.gridView, clamp(snapped.col, 0, maxCol), moduleCols)
         const selectedKeys = new Set(
           (selectedPlacements.length >= 2 ? selectedPlacements : [placement]).map((item) =>
             panelGridModuleRefKey(item.ref)
@@ -1314,7 +1315,7 @@ export function useHierarchyModuleDrag({
             shiftKey,
             targetTerminalRail
           )
-        : clamp(snapped.col, 0, maxCol)
+        : snapPanelGridColToFields(surface.panel?.gridView, clamp(snapped.col, 0, maxCol), moduleCols)
       if (selectedPlacements.length >= 2) {
         const selectedKeys = new Set(
           selectedPlacements.map((selected) => panelGridModuleRefKey(selected.ref))

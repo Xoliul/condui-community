@@ -1,3 +1,4 @@
+import { INTERACTIVE_OVERLAY_EXPORT_NAME } from '@/lib/export/interactiveOverlayExport'
 import { memo, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ZOOM_100 } from '@/constants/canvasConstants'
@@ -59,7 +60,7 @@ import {
   DOMOTICA_MIN_ENDPOINT_OUTPUTS,
   DOMOTICA_CONTROL_BAR_HEIGHT,
   MULTI_SOCKET_OFFSET,
-  getSocketExtraWidth,
+  getEndpointOutlineGeometry,
   getSymbolColor,
   getEndpointHoverOutlineProps,
   getEndpointPreviewOutlineProps,
@@ -117,7 +118,6 @@ import {
 } from '@/lib/eendraad/resizeDomoticaEndpointCount'
 import { clampConverterDcConnectionCount } from '@/lib/eendraad/resizeConverterDcConnections'
 import { resizeConverterDcConnections } from '@/handlers/eendraad/resizeConverterDcConnections'
-
 const INTERACTIVE_HIT_FILL = 'rgba(0, 0, 0, 0.01)'
 const DOMOTICA_RESIZE_OUTLINE_PADDING = 4
 const DOMOTICA_RESIZE_HANDLE_WIDTH = 6
@@ -452,15 +452,14 @@ export const EndpointSymbol = memo(function EndpointSymbol({
   const showSwitchOverlayLock = isSocket && socketProps?.switchOverlayLock
   const showSocketWaterproof = isSocket && socketProps?.waterproof
   const socketCount = isSocket ? socketProps?.socketCount || 1 : 1
-  const socketExtraWidth = getSocketExtraWidth(socketCount)
+  const { socketExtraWidth, onWallExtraWidth, centerX: multiSocketGroupOffsetX, width: outlineWidth } =
+    getEndpointOutlineGeometry(endpoint, mirrorHorizontally)
   const isLightPoint = endpoint.type === 'light_point' && endpoint.symbol === 'light_point'
   const isLightSpot = endpoint.type === 'light_point' && endpoint.symbol === 'light_spot'
   const isLightFluorescent =
     endpoint.type === 'light_point' && endpoint.symbol === 'light_fluorescent'
   const lightPointProps = endpoint.lightPointProps
   const showLightPointWaterproof = isLightPoint && lightPointProps?.waterproof
-  const onWallExtraWidth = isLightPoint && lightPointProps?.onWall ? 6 : 0
-  const totalExtraWidth = socketExtraWidth + onWallExtraWidth
   const lightSpotProps = endpoint.lightSpotProps
   const lightFluorescentProps = endpoint.lightFluorescentProps
   const tubeCount = isLightFluorescent ? (lightFluorescentProps?.tubeCount ?? 1) : 1
@@ -899,7 +898,6 @@ export const EndpointSymbol = memo(function EndpointSymbol({
   const isHoveredAny = isHovered || isHoveredFromBreadcrumb
   const multiplier = endpointSupportsMultiplier(endpoint) ? getEndpointMultiplier(endpoint) : 1
   // Copies fan out from the endpoint anchor; center hit and selection bounds on their group.
-  const multiSocketGroupOffsetX = (mirrorHorizontally ? -1 : 1) * (socketExtraWidth / 2)
   const multiSocketLabelOffsetX = multiSocketGroupOffsetX
   const bottomLabelMinimumLeftXForGroup =
     bottomLabelMinimumLeftX == null ? undefined : bottomLabelMinimumLeftX - multiSocketLabelOffsetX
@@ -917,7 +915,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
     const base = {
       x: multiSocketGroupOffsetX - (ENDPOINT_OUTLINE_SIZE + socketExtraWidth) / 2,
       y: -ENDPOINT_OUTLINE_SIZE / 2,
-      width: ENDPOINT_OUTLINE_SIZE + totalExtraWidth,
+      width: outlineWidth,
       height: ENDPOINT_OUTLINE_SIZE,
     }
     return applyTouchHitPadding(base, canvasZoom, isSelected, touchPrimary)
@@ -927,7 +925,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
     multiSocketGroupOffsetX,
     socketExtraWidth,
     touchPrimary,
-    totalExtraWidth,
+    outlineWidth,
   ])
   const isDcBusConverterResizeEnabled =
     circuitConverterAnchor != null &&
@@ -1071,7 +1069,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <Rect {...domoticaHitRect} fill={INTERACTIVE_HIT_FILL} listening={true} />
+        <Rect {...domoticaHitRect} name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill={INTERACTIVE_HIT_FILL} listening={true} />
         <Rect
           x={outlineX}
           y={outlineY}
@@ -1319,7 +1317,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
     // click still reaches this endpoint instead of clearing the selection on the stage.
     return (
       <Group x={position.x} y={position.y} onClick={handleClick} onTap={handleClick}>
-        <Rect {...standardHitRect} fill={INTERACTIVE_HIT_FILL} />
+        <Rect {...standardHitRect} name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill={INTERACTIVE_HIT_FILL} />
       </Group>
     )
   }
@@ -1379,7 +1377,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Invisible hit area - matches outline size for hover detection, grows for multi-socket */}
-      <Rect {...standardHitRect} fill={INTERACTIVE_HIT_FILL} listening={true} />
+      <Rect {...standardHitRect} name={INTERACTIVE_OVERLAY_EXPORT_NAME} fill={INTERACTIVE_HIT_FILL} listening={true} />
 
       {isModularSocket && (
         <Line
@@ -1884,7 +1882,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
           <Rect
             {...getEndpointPreviewOutlineProps(
               canvasZoom,
-              ENDPOINT_OUTLINE_SIZE + totalExtraWidth,
+              outlineWidth,
               ENDPOINT_OUTLINE_SIZE
             )}
           />
@@ -1896,7 +1894,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
           <Rect
             {...getEndpointHoverOutlineProps(
               canvasZoom,
-              ENDPOINT_OUTLINE_SIZE + totalExtraWidth,
+              outlineWidth,
               ENDPOINT_OUTLINE_SIZE
             )}
           />
@@ -1908,7 +1906,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
           <Rect
             {...getEndpointSelectionOutlineProps(
               canvasZoom,
-              ENDPOINT_OUTLINE_SIZE + totalExtraWidth,
+              outlineWidth,
               ENDPOINT_OUTLINE_SIZE
             )}
           />

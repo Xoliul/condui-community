@@ -1,4 +1,5 @@
-import type { Installation } from '@/types/schema'
+import type { Installation, Panel } from '@/types/schema'
+import { getSupplyTransformerOutputs } from './feedNominalVoltage'
 import { getVoltageSummaryLabel } from '@/utils/voltageLabel'
 import { getInstallationSupplyTransformer } from './supplyTransformer'
 
@@ -55,8 +56,12 @@ export function getSupplySourceSummaryLabel(installation: Installation): string 
 }
 
 /** Document summary includes the source-to-installation voltage conversion. */
-export function getConnectionSummaryLabel(installation: Installation): string {
-  const lowVoltage = getLowVoltageConnectionLabel(installation)
+export function getConnectionSummaryLabel(installation: Installation, panels: Panel[] = []): string {
+  const outputs = getSupplyTransformerOutputs(installation, panels)
+  // Several transformer outputs: the single LV connection setting no longer describes the site.
+  const lowVoltage = outputs.length > 1
+    ? outputs.map(getVoltageSummaryLabel).join(' + ')
+    : getLowVoltageConnectionLabel(installation)
   return getInstallationSupplyTransformer(installation)
     ? `${getSupplySourceSummaryLabel(installation)} → ${lowVoltage}` : lowVoltage
 }

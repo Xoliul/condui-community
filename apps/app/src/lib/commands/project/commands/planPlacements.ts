@@ -8,12 +8,21 @@ import {
 } from '@/lib/plan/placementMutations'
 import { selectProjectBuildingFloors } from '@/lib/projectV2/buildingFloors'
 import { isAwaitingPlanPlacement } from '@/lib/plan/customPlacement'
+import { collectPlanPlacementIdentityConflicts } from '@/lib/plan/planPlacementIdentity'
 import type { ProjectV2 } from '@/types/projectV2'
 import { defineProjectCommand, type CommandCheck, type EntityRef } from '../types'
 
 const point = z.object({ x: z.number().finite(), y: z.number().finite() })
 
 function checkPlacementsExist(project: ProjectV2, placementIds: readonly string[]): CommandCheck {
+  const ambiguous = collectPlanPlacementIdentityConflicts(project)
+    .find((conflict) => placementIds.includes(conflict.placementId))
+  if (ambiguous) return {
+    ok: false,
+    code: 'ambiguous_placement',
+    message: 'Repair the shared situation-plan placement before moving it',
+    details: { placementId: ambiguous.placementId },
+  }
   for (const placementId of placementIds) {
     const target = resolvePlanPlacement(project, placementId)
     if (!target) {

@@ -1,11 +1,12 @@
+import { useProjectBrowserQuery } from '@/hooks/useProjectBrowserQuery'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Folder, Grid2X2, List, MoreHorizontal, Plus, Server } from 'lucide-react'
+import { Folder, Grid2X2, List, MoreHorizontal, Plus, Server, Settings } from 'lucide-react'
 import { useLocalizedNavigate } from '@/hooks/useLocalizedNavigate'
 import { createEmptyProjectV2, generateId } from '@/utils/project'
 import {
   deleteProject,
-  getRecentProjects,
+  getProjectBrowserPage,
   loadProject,
   saveProject,
   type ProjectMetadata,
@@ -14,11 +15,14 @@ import { loadHomeProjectLayout, type HomeProjectLayout } from '@/lib/homeProject
 import NewProjectDialog from '@/components/home/NewProjectDialog'
 import DeleteConfirmDialog from '@/components/home/DeleteConfirmDialog'
 import { LocalProjectBrowser } from '@/components/home/LocalProjectBrowser'
+import { ProjectBrowserSearch, ProjectBrowserLoadMore } from '@/components/home/ProjectBrowserControls'
 import { HomeMenuPortal } from '@/components/home/HomeMenuPortal'
 import { useHomeFolderActions } from '@/hooks/useHomeFolderActions'
 import { eendraChromeHeaderBackgroundClass } from '@/lib/ui/chromeLayoutStyles'
 import { ConduiLogo } from '@/components/branding/ConduiLogo'
 import { EditorPreferencesToolbar } from '@/components/settings/EditorPreferencesToolbar'
+import { SettingsBuildInfo, SettingsPanel } from '@/components/settings/SettingsPanel'
+import { useDialog } from '@/hooks/useDialog'
 import { logger } from '@/lib/logger'
 import { importProjectFromTrikLocal } from '@/lib/import/trik/assembleProject'
 import type { Installation } from '@/types/schema'
@@ -116,12 +120,15 @@ function CommunityViewModeDropdown({
 export default function CommunityHome() {
   const { t } = useTranslation()
   const navigate = useLocalizedNavigate()
+  const dialog = useDialog()
   const importRef = useRef<HTMLInputElement>(null)
   const trikImportRef = useRef<HTMLInputElement>(null)
   const actionsAnchorRef = useRef<HTMLDivElement>(null)
   const [layout, setLayout] = useState<HomeProjectLayout>(() => loadHomeProjectLayout(null))
   const layoutRef = useRef<HomeProjectLayout>(layout)
-  const [projects, setProjects] = useState<ProjectMetadata[]>([])
+  const browser = useProjectBrowserQuery()
+  const [{ projects, query: projectsQuery }, setProjects] = useState<{ projects: ProjectMetadata[]; query?: typeof browser.query }>({ projects: [] })
+  const refreshSequence = useRef(0)
   const [loading, setLoading] = useState(true)
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false)
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false)
@@ -148,14 +155,16 @@ export default function CommunityHome() {
     () => layoutRef.current,
   )
 
-  const refresh = useCallback(() => getRecentProjects(100)
-    .then((nextProjects) => {
-      setProjects(nextProjects)
-      return listBrowserOnlyProjects()
-    }).then((browserOnlyProjects) => {
-      setBrowserOnlyCount(browserOnlyProjects.length)
-      setLoading(false)
-    }), [])
+  const refresh = useCallback(async () => {
+    const sequence = ++refreshSequence.current
+    const [nextProjects, browserOnlyProjects] = await Promise.all([
+      getProjectBrowserPage(browser.query), listBrowserOnlyProjects(),
+    ])
+    if (sequence !== refreshSequence.current) return
+    setProjects({ projects: nextProjects, query: browser.query })
+    setBrowserOnlyCount(browserOnlyProjects.length)
+    setLoading(false)
+  }, [browser.query])
 
   useEffect(() => {
     void refresh().catch((error) => {
@@ -285,6 +294,17 @@ export default function CommunityHome() {
 
   const footerYear = new Date().getFullYear()
 
+  const openSettings = () => {
+    setIsActionsMenuOpen(false)
+    dialog.custom({
+      title: t('settings.title'),
+      titleAside: <SettingsBuildInfo />,
+      content: <SettingsPanel showDebug={false} />,
+      size: 'md',
+      showCloseButton: true,
+    })
+  }
+
   return (
     <div className="h-dvh overflow-y-auto overscroll-contain bg-gradient-to-br from-sky-50 via-slate-50 to-sky-100 dark:from-gray-900 dark:via-gray-800 dark:to-slate-900">
       <header
@@ -408,6 +428,16 @@ export default function CommunityHome() {
                   <button
                     type="button"
                     role="menuitem"
+                    onClick={openSettings}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-800 transition-colors hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
+                  >
+                    <Settings className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+                    {t('settings.title')}
+                  </button>
+                  <div className="border-t border-slate-200 dark:border-slate-700" role="separator" />
+                  <button
+                    type="button"
+                    role="menuitem"
                     onClick={() => {
                       setIsActionsMenuOpen(false)
                       void createFolder()
@@ -464,11 +494,12 @@ export default function CommunityHome() {
             </div>
           )}
 
+          <ProjectBrowserSearch browser={browser} count={projects.length} query={projectsQuery} />
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-sky-600" />
             </div>
-          ) : projects.length === 0 ? (
+          ) : projects.length === 0 && browser.search ? <p>{t('project.noSearchResults')}</p> : projects.length === 0 ? (
             <div className="py-20 text-center">
               <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
                 <svg
@@ -513,7 +544,7 @@ export default function CommunityHome() {
             </div>
           ) : (
             <LocalProjectBrowser
-              projects={projects}
+              projects={projects.slice(0, browser.visibleLimit)}
               layout={layout}
               onLayoutChange={setHomeLayout}
               onOpen={(project) => navigate(`/project/${project.id}`)}
@@ -524,6 +555,7 @@ export default function CommunityHome() {
               onDeleteFolder={deleteFolder}
             />
           )}
+          <ProjectBrowserLoadMore browser={browser} count={projects.length} loading={loading} />
         </section>
 
         <footer className="mt-16 border-t border-slate-200 pt-8 dark:border-slate-800">

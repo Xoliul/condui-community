@@ -6,3 +6,7 @@ export function EendraadRemoteSelections(_props: Record<string, unknown>): null 
 export function PlanRemoteSelections(_props: Record<string, unknown>): null {
   return null
 }
+
+export function PanelRemoteSelections(_props: Record<string, unknown>): null {
+  return null
+}

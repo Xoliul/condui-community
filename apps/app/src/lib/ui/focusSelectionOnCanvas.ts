@@ -21,6 +21,7 @@ const ONE_WIRE_SELECTIONS = new Set<Selection['type']>([
   'wire',
   'ground',
   'supply',
+  'busSection',
   'trunkDevice',
   'frame',
   'note',

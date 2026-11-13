@@ -775,12 +775,21 @@ function walkAutomaticNamingTargets(
   visitor: NamingVisitor,
   project: ProjectWithOptionalV2Electrical,
 ): void {
-  const { primarySequence, deferredFeeders } = collectNamingTargets(panel, opts)
-  const reserved = collectReservedCircuitLabelsOnPanel(panel, project)
-  for (const lockedLabel of collectManualLockedLabelsOnPanel(panel)) {
-    reserved.add(lockedLabel)
-  }
   const scheme = resolveNamingScheme(opts, project)
+  const panels: Panel[] = []
+  const collect = (list: Panel[]) => {
+    for (const item of list) {
+      panels.push(item)
+      collect(item.subPanels ?? [])
+    }
+  }
+  if (scheme.circuit.panelPart === 'continuous') collect(getProjectElectricalPanels(project))
+  else panels.push(panel)
+  const reserved = new Set<string>()
+  for (const item of panels) {
+    for (const label of collectReservedCircuitLabelsOnPanel(item, project)) reserved.add(label)
+    for (const label of collectManualLockedLabelsOnPanel(item)) reserved.add(label)
+  }
   const panelPart = circuitLabelPanelPart(
     panel,
     project,
@@ -797,8 +806,20 @@ function walkAutomaticNamingTargets(
     }
     return formatCircuitCode(scheme, slot++, panelPart)
   }
-  applyTargetsWithVisitor(panel, primarySequence, visitor, nextCode, opts)
-  applyTargetsWithVisitor(panel, deferredFeeders, visitor, nextCode, opts)
+  const skip = () => {}
+  const countingVisitor: NamingVisitor = {
+    onProtection: skip,
+    onDirectCircuit: skip,
+    onFeederParentOmitted: skip,
+    onDirectFeederParentOmitted: skip,
+  }
+  for (const item of panels) {
+    const { primarySequence, deferredFeeders } = collectNamingTargets(item, opts)
+    const activeVisitor = item.id === panel.id ? visitor : countingVisitor
+    applyTargetsWithVisitor(item, primarySequence, activeVisitor, nextCode, opts)
+    applyTargetsWithVisitor(item, deferredFeeders, activeVisitor, nextCode, opts)
+    if (item.id === panel.id) break
+  }
 }
 
 /** Whether applying automatic naming would change codes or letter visibility on the main bus and nested buses. */
@@ -921,7 +942,21 @@ export function applyAutomaticMainBusNamingToPanel(
   project: ProjectWithOptionalV2Electrical,
 ): void {
   // Branch and domotica output labels follow the same scheme as the circuit labels.
-  return withLabelScheme(resolveNamingScheme(opts, project), () => applyAutomaticMainBusNamingToPanelUnpinned(panel, opts, project))
+  const scheme = resolveNamingScheme(opts, project)
+  return withLabelScheme(scheme, () => {
+    if (scheme.circuit.panelPart !== 'continuous') {
+      applyAutomaticMainBusNamingToPanelUnpinned(panel, opts, project)
+      return
+    }
+    // A local insertion/removal shifts the sequence on subsequent boards as well.
+    const visit = (panels: Panel[]) => {
+      for (const item of panels) {
+        applyAutomaticMainBusNamingToPanelUnpinned(item, opts, project)
+        visit(item.subPanels ?? [])
+      }
+    }
+    visit(getProjectElectricalPanels(project))
+  })
 }
 
 function applyAutomaticMainBusNamingToPanelUnpinned(
@@ -953,6 +988,23 @@ function applyAutomaticMainBusNamingToPanelUnpinned(
   reconcileSupplyProtectionLabelsOnPanel(panel, project)
   applyAutomaticEndpointBranchLabelsToPanel(panel)
   relabelDomoticaOutputsOnPanel(panel)
+}
+
+/** Applies one naming pass to the installation, retaining per-board classic sequences. */
+export function applyAutomaticMainBusNamingToPanels(
+  project: ProjectWithOptionalV2Electrical,
+  opts: AutomaticMainBusNamingOpts,
+): void {
+  const continuous = resolveNamingScheme(opts, project).circuit.panelPart === 'continuous'
+  const visit = (panels: Panel[]) => {
+    for (const panel of panels) {
+      applyAutomaticMainBusNamingToPanel(panel, opts, project)
+      // The continuous pass already updates all boards together.
+      if (continuous) return
+      visit(panel.subPanels ?? [])
+    }
+  }
+  visit(getProjectElectricalPanels(project))
 }
 
 /** Domotica output rows follow their module's (possibly renamed) branch label. */

@@ -1,7 +1,7 @@
 ---
 title: Symbols for one-line diagrams and situation plans
 description: Electrical symbols for your Belgian one-line diagram and situation plan with a short explanation of each, from socket and two-way switch to RCD and earthing separator.
-updated: 2026-10-12
+updated: 2026-11-04
 ---
 
 Below are the electrical symbols you find on a one-line diagram (eendraadschema) and situation plan, with a short explanation of each. Most match table 2.23 of AREI Book 1 (chapter 2.13), a non-exhaustive list. For components it does not cover, such as a home battery or a surge protection device, {{brand}} uses its own symbol.
@@ -116,6 +116,9 @@ A separate contact, for example a door contact or an input of a home automation 
 
 ### [switch_impulse]
 A push button sends a short pulse to an impulse relay or home automation input instead of switching the circuit directly.
+
+### [light_sensor]
+A twilight switch turns lighting on automatically when ambient light falls below the set threshold. The two arrows towards the contact indicate that it responds to light. This is a light-operated switch, not a motion detector.
 
 ### [motion_detector]
 A motion detector switches lights automatically when it detects movement. You may state the technology: IR, radar or a combination.

@@ -1,4 +1,36 @@
 {
+  "oneWireFork": {
+    "invalidConnection": "Conexiunea ramurii este neclară."
+  },
+  "forkLab": {
+    "title": "Testarea ramificațiilor",
+    "scope": "Desene CA experimentale · salvate separat de proiecte",
+    "undo": "Anulează",
+    "redo": "Refă",
+    "plain": "Circuit simplu",
+    "save": "Salvează desenul",
+    "download": "Descarcă desenul",
+    "open": "Deschide un desen",
+    "empty": "Ramură goală",
+    "move": "Mută ramura",
+    "delete": "Șterge",
+    "cancel": "Renunță",
+    "zoom": "Zoom",
+    "note": "Observație",
+    "feed": "Traseu de alimentare",
+    "depth": "Adâncime",
+    "moveHandle": "Mâner de mutare",
+    "forkAfter": "Ramifică după",
+    "insert": "Inserează în",
+    "root": "Ramură principală nouă",
+    "targetHint": "Alege un simbol, apoi o destinație albastră.",
+    "selectHint": "Selectează un simbol pentru a-l verifica sau muta.",
+    "moveHint": "Alege o destinație sau trage mânerul albastru.",
+    "saved": "Desen salvat. Reîncarcă pentru a-l deschide.",
+    "storageError": "Desenul nu a putut fi salvat.",
+    "invalidFile": "Acest fișier nu este un desen valid de ramificații.",
+    "rejected": "Această modificare nu poate păstra structura ramurilor."
+  },
   "findPanel": {
     "title": "Găsește tabloul",
     "placeholder": "Caută tablouri…",
@@ -151,7 +183,9 @@
     "offlineReloadNotReady": "Evitați reîncărcarea până când ați deschis cel puțin o dată aplicația online în această filă de browser.",
     "offlineReloadDevHint": "Reîncărcarea offline funcționează numai cu o versiune de producție (npm run build && vite previzualizare), nu cu serverul de dezvoltare.",
     "dismissOfflineBanner": "Închideți notificarea offline",
-    "offlineIndicatorTitle": "Sunteți offline"
+    "offlineIndicatorTitle": "Sunteți offline",
+    "cloudSyncPendingTitle": "Nesincronizat cu cloudul",
+    "cloudSyncPendingMessage": "Modificările sunt salvate pe acest dispozitiv. Sincronizarea cu cloudul se reîncearcă."
   },
   "diagnostics": {
     "anonymousProjectName": "({{idShort}})",
@@ -283,6 +317,8 @@
     "zoom": "Zoom"
   },
   "commandPalette": {
+    "createFork": "Adaugă o ramură",
+    "deleteEmptyFork": "Șterge ramura goală",
     "addPanelAtDomoticaOutput": "Adaugă tablou la ieșire",
     "addSupplyTransformer": "Adaugă transformator de alimentare",
     "placeholder": "Caută comenzi",
@@ -303,6 +339,7 @@
     "apply": "Aplică",
     "unavailable": "Această modificare nu poate fi aplicată. Verifică valorile sau redeschide acțiunea.",
     "fields": {
+      "branch": "Ramură",
       "output": "Ieșire",
       "circuit": "Circuit",
       "position": "Poziție",
@@ -623,6 +660,41 @@
     }
   },
   "settings": {
+    "mcp": {
+      "manageConnections": "Gestionează conexiunile",
+      "copyUrl": "Copiază adresa serverului",
+      "copyPrompt": "Copiază mesajul de pornire",
+      "starterPrompt": "Folosește Condui MCP ca să lucrezi în proiectul existent din cloud pe care îl numesc. Dacă nu numesc niciunul, întreabă-mă despre ce proiect este vorba. Creează un proiect nou doar dacă îți cer. Rezumă ce găsești și așteaptă instrucțiunile mele înainte de a face modificări.",
+      "urlCopied": "Adresa serverului a fost copiată",
+      "promptCopied": "Mesajul de pornire a fost copiat",
+      "copyFailed": "Copierea a eșuat. Selectează textul și copiază-l manual.",
+      "needsServerStorage": "Disponibil când proiectele sunt salvate pe server.",
+      "turnOn": "Activează",
+      "turnOff": "Dezactivează",
+      "newToken": "Token nou",
+      "tokenShownOnce": "Copiază acest token acum. Este afișat o singură dată.",
+      "copyToken": "Copiază tokenul",
+      "tokenCopied": "Token copiat",
+      "copyCommand": "Copiază comanda Claude Code",
+      "commandCopied": "Comandă copiată",
+      "changeFailed": "Setările MCP nu au putut fi modificate.",
+      "communityStarterPrompt": "Folosește Condui MCP ca să lucrezi în proiectul Condui existent pe care îl numesc. Dacă nu numesc niciunul, întreabă-mă despre ce proiect este vorba. Creează un proiect nou doar dacă îți cer. Rezumă ce găsești și așteaptă instrucțiunile mele înainte de a face modificări.",
+      "client": {
+        "label": "Client AI",
+        "claude": "Claude",
+        "chatgpt": "ChatGPT / Codex",
+        "other": "Altul"
+      },
+      "hostedPasteAndSignIn": "Lipește acolo URL-ul serverului și autentifică-te cu contul tău Condui. Modificările se salvează direct în proiectul din cloud.",
+      "hostedOther": "Acest server folosește autentificarea OAuth cu contul tău Condui. Modificările se salvează direct în proiectul din cloud.",
+      "codexConfig": "Configurație Codex (config.toml)",
+      "copyCodexConfig": "Copiază configurația Codex",
+      "configCopied": "Configurație copiată",
+      "headerLabel": "Trimite acest antet la fiecare cerere",
+      "copyHeader": "Copiază antetul",
+      "headerCopied": "Antet copiat",
+      "tokenHidden": "Înlocuiește <token> cu tokenul tău. L-ai pierdut? Creează un token nou."
+    },
     "title": "Instituţiile",
     "language": "Limba",
     "interface": {
@@ -830,6 +902,9 @@
     "templateUseFailed": "Proiectul nu a putut fi creat din acest șablon.",
     "templateDeleteFailed": "Șablonul nu a putut fi șters.",
     "recent": "Recent",
+    "searchProjects": "Caută proiecte",
+    "loadMore": "Încarcă mai multe",
+    "noSearchResults": "Nu s-au găsit proiecte",
     "recentProjects": "Proiecte recente",
     "notificationBadgeTooltip": "Notificări de proiecte noi",
     "notifications": {
@@ -914,7 +989,8 @@
       "message": "Acest proiect a fost salvat în altă parte după ce l-ați deschis. Ultimele modificări de aici nu sunt salvate.",
       "reload": "Încarcă ultima versiune",
       "overwrite": "Păstrează versiunea mea"
-    }
+    },
+    "serverReloaded": "Actualizat cu modificări salvate în altă parte"
   },
   "infoBlock": {
     "drawingSettings": "Desenul proiectului",
@@ -1048,6 +1124,7 @@
     "residualType_B": "B (anumite stații EV / sisteme FV)",
     "residualTypeHelp_B": "Și curent continuu neted. Nu orice stație EV sau invertor FV necesită tipul B; verificați cerințele producătorului și protecția internă la scurgeri de curent continuu.",
     "description": "Descriere",
+    "labelText": "Text etichetă",
     "type_MCB": "întreruptor automat",
     "type_RCD": "întreruptor diferențial",
     "type_RCBO": "întreruptor automat diferențial",
@@ -1057,7 +1134,8 @@
     "deleteLinkedPanelTitle": "Eliminați dispozitivul de protecție?",
     "deleteLinkedPanelMessage": "Tablou de distribuție asociat: {{panelNames}}",
     "deleteLinkedPanelAction": "Eliminați și tabloul de distribuție",
-    "deleteProtectionAction": "Eliminați numai dispozitivul de protecție"
+    "deleteProtectionAction": "Eliminați numai dispozitivul de protecție",
+    "labelTextHint": "Text scurt pentru eticheta tabloului; înlocuiește notele pe etichetă."
   },
   "circuits": {
     "title": "Căi curente",
@@ -1090,7 +1168,13 @@
     "addNewLabel": "Etichetă",
     "addNewLabelPlaceholder": "de ex. A, B, Bucătărie",
     "addNewLabelHint": "Lăsați necompletat pentru etichetarea automată.",
-    "addNewPanel": "tablou de distribuție"
+    "addNewPanel": "tablou de distribuție",
+    "notes": "Note",
+    "notesHide": "Ascunde pe schemă",
+    "notesShow": "Afișează pe schemă",
+    "notesVertical": "Desenează notele vertical",
+    "notesHorizontal": "Desenează notele orizontal",
+    "notesHint": "Ce alimentează acest circuit, vizibil pe schema monofilară."
   },
   "planDrop": {
     "dialogTitle": "Adaugă la circuit",
@@ -1136,6 +1220,8 @@
     "socketSwitchNone": "Niciuna",
     "socketSwitchOverlay": "Priză cu întrerupător bipolar",
     "socketSwitchOverlayLock": "Priză cu întrerupător de blocare cu doi poli",
+    "socketSwitchOverlay_short": "Întrerupător",
+    "socketSwitchOverlayLock_short": "Blocabil",
     "socketWaterproof": "Impermeabil",
     "socketCount": "Număr de prize",
     "setSocketCount": "Setați numărul de prize",
@@ -1149,6 +1235,7 @@
     "switchPoles3": "3 poli",
     "twoWayPoles": "Stalpi (comutator)",
     "verklikkerlamp": "Lampă de avertizare",
+    "protectedPushbutton": "Protejat",
     "lightPointOptions": "Opțiuni punct de lumină",
     "lightPointSafety": "Circuit de siguranță",
     "lightPointAutonomous": "autonom",
@@ -1460,6 +1547,8 @@
     "feedFromBottom": "Alimentare de jos",
     "rows": "Rânduri",
     "columns": "Coloane",
+    "fields": "Secțiuni",
+    "fieldNumber": "Secțiunea {{number}}",
     "topTerminalStripRail": "Sină terminală în partea de sus",
     "bottomTerminalStripRail": "Sină terminală în partea de jos",
     "showDomotica": "Arată automatizarea locuinței",
@@ -1490,7 +1579,7 @@
     "overflowWarningMessage": "Unele module sunt situate în zona de preaplin. Așezați-le în grila plăcii sau măriți tabloul de distribuție; omit exporturile de etichete.",
     "labelSourceLabel": "Etichetă",
     "labelSourceNotes": "Note",
-    "labelSourceExtra": "Suplimentar",
+    "labelSourceExtra": "Text etichetă",
     "labelSourceTechnical": "Tehnic",
     "labelSourceFeeds": "Alimentează",
     "labelSourceMain": "General",
@@ -1588,6 +1677,7 @@
         "circuits": "Circuite",
         "sequence": "Secvență",
         "panelInLabel": "Tabloul în etichetă",
+        "continueAcrossBoards": "Continuă între tablouri",
         "panelPartNone": "Niciuna",
         "panelPartNumber": "Număr",
         "panelPartFull": "Complet",
@@ -1607,7 +1697,7 @@
         "betweenCircuitAndBranch": "Între circuit și ramură",
         "separatorHelp": "Se pune între părțile unei etichete acolo unde sunt separate, ca în A1.1.",
         "subPanelsHelp": "Numărul propriu continuă secvența; sub tabloul părinte numerotează un tablou secundar după tabloul care îl alimentează.",
-        "panelInLabelHelp": "Ce parte din numărul tabloului începe fiecare etichetă de circuit: nimic, doar numărul sau numărul complet cu prefix.",
+        "panelInLabelHelp": "Reia secvența în fiecare tablou, include numărul său sau continuă secvența între tablouri.",
         "numberingHelp": "Numerotează tablourile din instalațiile rezidențiale și nerezidențiale.",
         "prefixHelp": "Litere înaintea fiecărui număr de tablou, precum B în B1.",
         "panelSequenceHelp": "Folosește numere, numere cu zero inițial sau litere pentru tablouri.",
@@ -1619,6 +1709,7 @@
     }
   },
   "planImport": {
+    "collabTooLarge": "Acest plan este prea mare pentru editarea în colaborare. Încearcă o imagine mai mică sau importă mai puține pagini deodată.",
     "importFailed": "Planul nu a putut fi importat.",
     "recognizeWalls": "Recunoașteți pereții editabili",
     "recognitionFailed": "Recunoașterea peretelui a eșuat.",
@@ -1899,6 +1990,38 @@
     }
   },
   "symbols": {
+    "searchPresets": {
+      "relay_impulse": "Releu de impuls",
+      "relay_timer": "Releu temporizat",
+      "relay_clock": "Ceas programator",
+      "relay_thermostat": "Releu termostat",
+      "relay_dimmer": "Releu variator",
+      "switch_1p": "Întrerupător monopolar",
+      "switch_2p": "Întrerupător bipolar",
+      "switch_3p": "Întrerupător tripolar",
+      "switch_4p": "Întrerupător tetrapolar",
+      "switch_twoway_2p": "Comutator cap scară bipolar",
+      "pushbutton_protected": "Buton protejat",
+      "switch_indicator": "Întrerupător cu indicator",
+      "spd_lightning": "Protecție la trăsnet",
+      "spd_spark": "Protecție cu eclator",
+      "light_wall": "Aplică de perete",
+      "light_emergency": "Iluminat de urgență",
+      "light_decentral": "Iluminat de urgență autonom",
+      "spot_straight": "Spot cu fascicul drept",
+      "spot_diverging": "Spot cu fascicul divergent",
+      "fluorescent_1": "Corp fluorescent · 1 tub",
+      "fluorescent_2": "Corp fluorescent · 2 tuburi",
+      "fluorescent_3": "Corp fluorescent · 3 tuburi",
+      "heating_accumulation": "Încălzire cu acumulare",
+      "heating_fan": "Încălzire cu acumulare cu ventilator",
+      "boiler_accumulation": "Boiler cu acumulare",
+      "socket_ungrounded": "Priză fără împământare",
+      "socket_waterproof": "Priză etanșă",
+      "detector_gas": "Detector de gaz",
+      "detector_heat": "Detector de căldură",
+      "detector_flame": "Detector de flacără"
+    },
     "library": "Biblioteca de simboluri",
     "recent": "Recent",
     "favorites": "Favorite",
@@ -1924,6 +2047,7 @@
     "switch_1p_changeover": "Comutator",
     "switch_shutter": "Întrerupător pentru rulouri",
     "switch_1p_pull": "Trageți întrerupător",
+    "light_sensor": "Întrerupător crepuscular",
     "contact": "Contact",
     "switch_impulse": "Buton",
     "switch_cross": "Comutator transversal",
@@ -2052,6 +2176,7 @@
       "battery": "Baterie",
       "dc_bus": "Bară DC",
       "note": "Notă / Etichetă",
+      "light_sensor": "Întrerupător crepuscular",
       "contact": "Contact"
     }
   },
@@ -2925,6 +3050,7 @@
     "code": "Calea curentă"
   },
   "export": {
+    "notForInspection": "Nu pentru recepție",
     "dialog": {
       "title": "Export în PDF",
       "selectCanvases": "Selectați pânza de exportat",
@@ -3040,7 +3166,8 @@
     "multiSelectSame": "Mai multe articole selectate. Editarea de grup va veni în curând.",
     "selectedCount": "{{count}} articol(ele) selectat(e).",
     "mixedValue": "Mixt",
-    "multiSelectUnsupported": "Aceste articole nu pot fi editate împreună."
+    "multiSelectUnsupported": "Aceste articole nu pot fi editate împreună.",
+    "notes": "Note"
   },
   "stairs": {
     "width": "Lățimea scării",
@@ -3489,6 +3616,8 @@
     "editAction": "asistent diagramă cablare...",
     "createTitle": "Generați schema circuitului",
     "editTitle": "asistent schema electrică",
+    "mcpAction": "Conectează AI…",
+    "mcpTitle": "Conectează AI",
     "newProjectName": "Schemă de circuit nouă",
     "scope": "Numai schema de circuit unipolar. Verificați fiecare modificare înainte de a o aplica.",
     "context": "Context",
@@ -3933,7 +4062,8 @@
     },
     "conflict": "Modificat de altcineva — încearcă din nou",
     "peerOtherTab": "{{name}} (altă filă)",
-    "peersMore": "încă {{count}}"
+    "peersMore": "încă {{count}}",
+    "agentActive": "Un agent AI face modificări"
   },
   "shortCircuit": {
     "defaultName": "Calcul de scurtcircuit",
@@ -4075,7 +4205,10 @@
         "tsdS": "Temporizarea Isd. Gol sau 0 fără temporizare.",
         "iiA": "Declanșare instantanee. Contează întotdeauna ca Ia."
       },
-      "selectCable": "Faceți clic pentru a selecta circuitul, de exemplu pentru a-i schimba cablul."
+      "selectCable": "Faceți clic pentru a selecta circuitul, de exemplu pentru a-i schimba cablul.",
+      "writeIk": "Trece Ik max calculat, rotunjit în sus, pe fiecare tablou care indică altă valoare: pe schema monofilară și pe etichetele tabloului.",
+      "statedIk": "Tabloul indică {{ka}}.",
+      "boardSheets": "PDF cu o fișă pe tablou, pentru dulap."
     },
     "noMatches": "Nimic de afișat",
     "showAll": "Afișează tot",
@@ -4087,6 +4220,11 @@
       "tsdS": "tsd",
       "iiA": "Ii",
       "adjustable": "Reglabil"
+    },
+    "writeIk": "Scrie Ik pe tablouri",
+    "sheets": {
+      "download": "Fișe de tablou",
+      "page": "Pagina {{page}} din {{pages}}"
     }
   }
 }

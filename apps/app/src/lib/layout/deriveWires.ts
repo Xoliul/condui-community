@@ -82,7 +82,7 @@ import {
   cableForSupplyWireRole,
   shouldMergeSupplyCrossingWithBusDrop,
   computeSupplySeparatorX,
-  resolveSupplyFeedScopeForDeviceId,
+  resolveSupplySeparatorScope,
   splitHorizontalSpanAtSeparator,
   type SupplySpanEndpoint,
   type SupplyWireRole,
@@ -1847,7 +1847,7 @@ function derivePanelWires(
       const devicePositions = horizontalSupplyNodes.map((node) => ({
         x: node.bounds.x,
         feedScope: installation
-          ? resolveSupplyFeedScopeForDeviceId(installation, panels, panel, node.domainId ?? '')
+          ? resolveSupplySeparatorScope(installation, panels, panel, node.domainId ?? '', node.domainRef as TrunkDevice | undefined)
           : ('shared' as const),
       }))
       const separatorX = computeSupplySeparatorX(devicePositions, supplyInset.x, bendX)
@@ -2239,7 +2239,7 @@ function derivePanelWires(
       const devicePositions = supplyTrunkDeviceNodes.map((node) => ({
         x: node.bounds.x,
         feedScope: installation
-          ? resolveSupplyFeedScopeForDeviceId(installation, panels, panel, node.domainId ?? '')
+          ? resolveSupplySeparatorScope(installation, panels, panel, node.domainId ?? '', node.domainRef as TrunkDevice | undefined)
           : ('shared' as const),
       }))
       const separatorX = computeSupplySeparatorX(devicePositions, supplyInset.x, bendX)

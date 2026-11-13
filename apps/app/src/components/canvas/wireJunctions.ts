@@ -5,7 +5,10 @@ export const SUPPLY_JUNCTION_DOT_RADIUS = 3
 
 export interface WireJunction {
   point: Point2
+  /** Half the drawn size: dot radius, or half the side of a square seam filler. */
   radius: number
+  /** Explicit supply T junctions are marked with a dot; corner seams are filled square. */
+  shape: 'dot' | 'square'
 }
 
 interface JunctionOccurrence {
@@ -30,8 +33,8 @@ function isNonCollinear(a: Point2, b: Point2): boolean {
 
 /**
  * Find circuit branch corners where separately rendered wire segments meet.
- * A small filled dot hides butt-cap seams without adding markers to ordinary
- * device endpoints or the main bus.
+ * A square exactly as wide as the widest wire fills the butt-cap notch without
+ * bulging past the wires, and adds no markers to device endpoints or the main bus.
  */
 export function getCircuitWireJunctions(wireSegments: WireSegment[]): WireJunction[] {
   const occurrencesByPoint = new Map<
@@ -66,7 +69,7 @@ export function getCircuitWireJunctions(wireSegments: WireSegment[]): WireJuncti
     const key = pointKey(segment.junctionPoint)
     if (explicitKeys.has(key)) continue
     explicitKeys.add(key)
-    junctions.push({ point: segment.junctionPoint, radius: SUPPLY_JUNCTION_DOT_RADIUS })
+    junctions.push({ point: segment.junctionPoint, radius: SUPPLY_JUNCTION_DOT_RADIUS, shape: 'dot' })
   }
   for (const { point, occurrences } of occurrencesByPoint.values()) {
     if (explicitKeys.has(pointKey(point))) continue
@@ -83,10 +86,9 @@ export function getCircuitWireJunctions(wireSegments: WireSegment[]): WireJuncti
 
     junctions.push({
       point,
-      radius: Math.max(
-        1.5,
-        ...uniqueOccurrences.map(({ segment }) => (segment.type === 'trunk' ? 3 : 1))
-      ),
+      // Half of WireSegment's line width: 6 for trunk runs, 2 for other circuit wires.
+      radius: Math.max(...uniqueOccurrences.map(({ segment }) => (segment.type === 'trunk' ? 3 : 1))),
+      shape: 'square',
     })
   }
 
