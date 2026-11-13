@@ -465,6 +465,7 @@
       "trackpadTouch": "Trackpad und Touch",
       "floors": "Böden",
       "editing": "Bearbeiten",
+      "libraryCategories": "Symbolbibliothek",
       "fastPlacement": "Schnellmodus",
       "navigation": "Navigation"
     },
@@ -477,6 +478,10 @@
       "ctrlCmdD": "Strg/Befehl + D",
       "ctrlCmdK": "Strg/Befehl + K",
       "ctrlCmdF": "Strg/Befehl + F",
+      "libraryLettersAzerty": "A Z E R T Y U I O P",
+      "libraryLettersQwerty": "Q W E R T Y U I O P",
+      "shiftLibraryLettersAzerty": "Shift + A Z E R T Y U I O P",
+      "shiftLibraryLettersQwerty": "Shift + Q W E R T Y U I O P",
       "tab": "Tab",
       "esc": "Esc",
       "space": "Raum",
@@ -528,6 +533,13 @@
       },
       "redo": {
         "description": "Wiederholen"
+      },
+      "libraryJumpCategory": {
+        "description": "Eine Kategorie anzeigen (Zeiger über der Bibliothek)",
+        "note": "Die Tasten folgen der Kategorieleiste von links nach rechts. AZERTY oder QWERTY wählst du unter Einstellungen > Canvas-Navigation > Tastatur."
+      },
+      "libraryAddCategory": {
+        "description": "Kategorie zu den angezeigten hinzufügen"
       },
       "toggleLibrary": {
         "description": "Switch-Bibliothek"
@@ -716,7 +728,10 @@
       "leftDragPansCanvasHint": "Auf Laptop und Desktop: Ziehen Sie mit der linken Maustaste, um die Leinwand zu verschieben (wie bei Berührung). Halten Sie die Umschalttaste gedrückt und ziehen Sie, um ein Rechteck auszuwählen. Das Verschieben mit der mittleren und rechten Maustaste funktioniert weiterhin.",
       "wheelBehavior": "Mausrad",
       "wheelBehaviorZoom": "Zoomen (Maus)",
-      "wheelBehaviorPan": "Verschieben (Touchpad)"
+      "wheelBehaviorPan": "Verschieben (Touchpad)",
+      "keyboardLayout": "Tastatur",
+      "keyboardLayoutAzerty": "AZERTY",
+      "keyboardLayoutQwerty": "QWERTY"
     },
     "debug": {
       "title": "Debug",
@@ -2025,10 +2040,24 @@
     "library": "Symbolbibliothek",
     "recent": "Neu",
     "favorites": "Favoriten",
-    "jump": {
-      "filterOnly": "Strg/Cmd+Klick: nur diese anzeigen",
-      "filterAdd": "Strg/Cmd+Umschalt+Klick: zum Filter hinzufügen",
-      "clearFilter": "Alle Kategorien anzeigen"
+    "rail": {
+      "all": "Alle",
+      "recent": "Zuletzt",
+      "favorites": "Favoriten",
+      "multiHint": "Strg/Umschalt+Klick: mehrere anzeigen",
+      "other": "Sonstige (Gebäudeautomation, Messgeräte, Notizen)",
+      "short": {
+        "grid": "Netz",
+        "protection": "Schutz",
+        "outlets": "Steckd.",
+        "switches": "Schalter",
+        "lighting": "Licht",
+        "appliances": "Geräte",
+        "hvac": "HLK",
+        "sound": "Signal",
+        "energyConversion": "Energie",
+        "other": "Sonstige"
+      }
     },
     "armed": {
       "placing": "Orte: {{name}}",

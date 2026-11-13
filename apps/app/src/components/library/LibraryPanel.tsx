@@ -8,11 +8,10 @@ import {
   useMemo,
   type FocusEvent,
   type KeyboardEvent,
-  type MouseEvent,
   type ReactNode,
 } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, ChevronDown, ChevronRight, Star, Clock, X } from 'lucide-react'
+import { Search, Star, Clock, X } from 'lucide-react'
 import { useLibraryStore } from '@/stores/libraryStore'
 import { useViewportWindowStore } from '@/components/viewport/ViewportWindowStore'
 import { symbolCategories } from '@/lib/symbols'
@@ -21,11 +20,22 @@ import type { SymbolMetadata } from '@/lib/symbols'
 import { canSymbolAppearOnSituationPlan } from '@/lib/plan/situationPlanSymbolEligibility'
 import { getSymbolLibraryTooltip } from '@/lib/symbolTooltips'
 import { MODULAR_SOCKET_LIBRARY_ID } from '@/lib/socket/modularSocket'
+import LibraryCategoryRail from './LibraryCategoryRail'
+import { useLibraryRailHotkeys } from './useLibraryRailHotkeys'
 import {
-  LIBRARY_JUMP_CATEGORIES,
-  nextLibraryCategoryFilter,
-  resolveJumpCategory,
-} from '@/lib/library/libraryCategoryJump'
+  LIBRARY_RAIL_ALL,
+  LIBRARY_RAIL_GROUPS,
+  effectiveRailSelection,
+  getVisibleRailGroupKeys,
+  resolveCurrentRailGroup,
+  selectRailEntry,
+  selectRailGroup,
+  type LibraryRailEntry,
+  type LibraryRailGroupKey,
+  type LibraryRailSelection,
+} from '@/lib/library/libraryRailGroups'
+import { getSymbolShortName } from '@/locales/symbolShortNames'
+import { normalizeSupportedLanguage } from '@/utils/languageRouting'
 
 /** Categories shown in the library when panel canvas is maximized */
 const PANEL_VIEW_CATEGORIES = [
@@ -37,7 +47,6 @@ const PANEL_VIEW_CATEGORIES = [
   'grid',
 ] as const
 const SEARCH_COMMIT_DELAY_MS = 120
-const JUMP_TOOLTIP_DELAY_MS = 350
 
 interface LibrarySearchFieldProps {
   query: string
@@ -48,9 +57,6 @@ interface LibrarySearchFieldProps {
   iconClassName: string
   clearButtonClassName: string
   clearIconClassName: string
-  /** Content inside the field after the search icon, such as the category filter chip. */
-  leading?: ReactNode
-  onBackspaceEmpty?: () => void
 }
 
 function LibrarySearchField({
@@ -62,16 +68,8 @@ function LibrarySearchField({
   iconClassName,
   clearButtonClassName,
   clearIconClassName,
-  leading,
-  onBackspaceEmpty,
 }: LibrarySearchFieldProps) {
   const [draft, setDraft] = useState(query)
-  const leadingRef = useRef<HTMLDivElement>(null)
-  const [leadingWidth, setLeadingWidth] = useState(0)
-
-  useLayoutEffect(() => {
-    setLeadingWidth(leading ? leadingRef.current?.offsetWidth ?? 0 : 0)
-  }, [leading])
 
   const [previousQuery, setPreviousQuery] = useState(query)
   if (previousQuery !== query) {
@@ -86,7 +84,6 @@ function LibrarySearchField({
   }, [draft, onCommit, query])
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Backspace' && !draft) onBackspaceEmpty?.()
     if (event.key !== 'Enter') return
     onCommit(draft)
     event.currentTarget.blur()
@@ -107,11 +104,6 @@ function LibrarySearchField({
   return (
     <div className={wrapperClassName}>
       <Search className={iconClassName} />
-      {leading && (
-        <div ref={leadingRef} className="absolute left-8 top-1/2 -translate-y-1/2">
-          {leading}
-        </div>
-      )}
       <input
         type="search"
         value={draft}
@@ -120,7 +112,6 @@ function LibrarySearchField({
         onFocus={handleFocus}
         enterKeyHint="search"
         placeholder={placeholder}
-        style={leading ? { paddingLeft: leadingWidth + 38 } : undefined}
         // Hide the native WebKit clear button; the X button below already clears the query.
         className={`${inputClassName} [&::-webkit-search-cancel-button]:appearance-none`}
       />
@@ -128,93 +119,6 @@ function LibrarySearchField({
         <button type="button" onClick={clear} className={clearButtonClassName}>
           <X className={clearIconClassName} />
         </button>
-      )}
-    </div>
-  )
-}
-
-interface LibraryJumpButtonProps {
-  label: string
-  iconPath: string
-  filtered: boolean
-  dimmed: boolean
-  current: boolean
-  onClick: (event: MouseEvent<HTMLButtonElement>) => void
-}
-
-function LibraryJumpButton({ label, iconPath, filtered, dimmed, current, onClick }: LibraryJumpButtonProps) {
-  const { t } = useTranslation()
-  const [showTooltip, setShowTooltip] = useState(false)
-  const [tooltipLeft, setTooltipLeft] = useState(0)
-  const timeoutRef = useRef<number | null>(null)
-  const wrapperRef = useRef<HTMLDivElement>(null)
-  const tooltipRef = useRef<HTMLDivElement>(null)
-
-  const clearTooltip = () => {
-    if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current)
-    timeoutRef.current = null
-    setShowTooltip(false)
-  }
-
-  useEffect(() => clearTooltip, [])
-
-  // Centre the tooltip under the button, but keep it inside the shortcut row.
-  useLayoutEffect(() => {
-    const wrapper = wrapperRef.current
-    const tooltip = tooltipRef.current
-    const row = wrapper?.closest('[data-library-jump-row]')
-    if (!showTooltip || !wrapper || !tooltip || !row) return
-    const wrapperRect = wrapper.getBoundingClientRect()
-    const rowRect = row.getBoundingClientRect()
-    tooltip.style.maxWidth = `${rowRect.width}px`
-    const centered = wrapperRect.left + (wrapperRect.width - tooltip.offsetWidth) / 2
-    const clamped = Math.max(rowRect.left, Math.min(centered, rowRect.right - tooltip.offsetWidth))
-    setTooltipLeft(clamped - wrapperRect.left)
-  }, [showTooltip])
-
-  return (
-    <div ref={wrapperRef} className="relative">
-      <button
-        type="button"
-        aria-label={label}
-        aria-pressed={filtered}
-        aria-current={current ? 'location' : undefined}
-        onClick={(event) => {
-          clearTooltip()
-          onClick(event)
-        }}
-        onMouseEnter={() => {
-          clearTooltip()
-          timeoutRef.current = window.setTimeout(() => setShowTooltip(true), JUMP_TOOLTIP_DELAY_MS)
-        }}
-        onMouseLeave={clearTooltip}
-        className={`relative flex h-7 w-full items-center justify-center rounded transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
-          filtered ? 'bg-gray-900 dark:bg-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-        } ${dimmed ? 'opacity-40 hover:opacity-100' : ''}`}
-      >
-        <img
-          src={iconPath}
-          alt=""
-          draggable={false}
-          className={`pointer-events-none h-5 w-5 ${filtered ? 'invert dark:invert-0' : 'dark:invert'}`}
-        />
-        <span
-          className={`absolute inset-x-1.5 -bottom-1.5 h-0.5 rounded-full ${
-            current ? 'bg-gray-900 dark:bg-white' : 'bg-transparent'
-          }`}
-        />
-      </button>
-      {showTooltip && (
-        <div
-          ref={tooltipRef}
-          role="tooltip"
-          style={{ left: tooltipLeft }}
-          className="pointer-events-none absolute top-full z-20 mt-1.5 w-max rounded-md bg-gray-900 px-2 py-1 text-xs text-white shadow-lg dark:bg-gray-100 dark:text-gray-900"
-        >
-          <div className="font-medium">{label}</div>
-          <div className="text-[11px] text-gray-300 dark:text-gray-600">{t('symbols.jump.filterOnly')}</div>
-          <div className="text-[11px] text-gray-300 dark:text-gray-600">{t('symbols.jump.filterAdd')}</div>
-        </div>
       )}
     </div>
   )
@@ -232,15 +136,12 @@ function LibraryPanel({
   compactOrientation = 'portrait',
 }: LibraryPanelProps) {
   const { t, i18n } = useTranslation()
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(Object.keys(symbolCategories))
-  )
+  // The compact layout keeps its tabs; the full panel uses the rail selection.
   const [activeTab, setActiveTab] = useState<'all' | 'recent' | 'favorites'>('all')
-  const [categoryFilter, setCategoryFilter] = useState<Set<string>>(() => new Set())
-  const [currentCategory, setCurrentCategory] = useState<string | null>(null)
-  const [pendingJump, setPendingJump] = useState<string | null>(null)
-  const clickedCategoryRef = useRef<string | null>(null)
+  const [railSelection, setRailSelection] = useState<LibraryRailSelection>(LIBRARY_RAIL_ALL)
+  const [currentGroup, setCurrentGroup] = useState<LibraryRailGroupKey | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   const searchQuery = useLibraryStore((state) => state.searchQuery)
   const setSearchQuery = useLibraryStore((state) => state.setSearchQuery)
@@ -251,18 +152,6 @@ function LibraryPanel({
   const getSymbolById = useLibraryStore((state) => state.getSymbolById)
   const toggleFavorite = useLibraryStore((state) => state.toggleFavorite)
   const viewMode = useViewportWindowStore((state) => state.viewMode)
-
-  const toggleCategory = (category: string) => {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev)
-      if (next.has(category)) {
-        next.delete(category)
-      } else {
-        next.add(category)
-      }
-      return next
-    })
-  }
 
   const getLocalizedName = (symbol: SymbolMetadata) => {
     const locale = i18n.language
@@ -306,6 +195,8 @@ function LibraryPanel({
     return symbolCategories
   }, [viewMode])
 
+  const language = normalizeSupportedLanguage(i18n.language) ?? 'nl-BE'
+
   const renderSymbol = (symbol: SymbolMetadata) => (
     <SymbolItem
       key={symbol.id}
@@ -316,90 +207,57 @@ function LibraryPanel({
       isFavorite={favoriteSymbols.includes(symbol.id)}
       onToggleFavorite={toggleFavorite}
       compact={compact}
+      dense={!compact}
+      listName={compact || symbol.searchPreset ? undefined : getSymbolShortName(symbol.id, language)}
     />
   )
 
   const visibleSymbols = filterByScope(getFilteredSymbols(i18n.language))
-  const inCategoryFilter = (category: string) => categoryFilter.size === 0 || categoryFilter.has(category)
-  const categoryVisibleSymbols = visibleSymbols.filter((symbol) => inCategoryFilter(symbol.category))
-  const categoryOrder = Object.keys(categoriesToShow)
-  const jumpCategories = LIBRARY_JUMP_CATEGORIES.filter(
-    ({ category }) => category in categoriesToShow && filterByScope(getSymbolsByCategory(category)).length > 0
-  )
 
-  const updateCurrentCategory = () => {
-    if (clickedCategoryRef.current) {
-      setCurrentCategory(clickedCategoryRef.current)
-      return
-    }
+  // Rail groups that have symbols in this view; one-item categories are merged for display only.
+  const railGroups = LIBRARY_RAIL_GROUPS.map((group) => ({
+    group,
+    symbols: group.categories
+      .filter((category) => category in categoriesToShow)
+      .flatMap((category) => filterByScope(getSymbolsByCategory(category))),
+  })).filter(({ symbols }) => symbols.length > 0)
+  const railGroupKeys = railGroups.map(({ group }) => group.key)
+  const selection = effectiveRailSelection(railSelection, railGroupKeys)
+  const visibleGroupKeys = getVisibleRailGroupKeys(selection, railGroupKeys)
+  const visibleGroups = railGroups.filter(({ group }) => visibleGroupKeys.includes(group.key))
+
+  const updateCurrentGroup = () => {
     const list = listRef.current
     if (!list) return
-    let section: string | null = null
-    for (const element of list.querySelectorAll<HTMLElement>('[data-library-section]')) {
-      if (section === null || element.offsetTop - list.scrollTop <= 12) section = element.dataset.librarySection ?? null
-    }
-    setCurrentCategory(resolveJumpCategory(categoryOrder, section))
+    const sections = Array.from(list.querySelectorAll<HTMLElement>('[data-library-rail-section]'), (element) => ({
+      key: element.dataset.libraryRailSection as LibraryRailGroupKey,
+      top: element.getBoundingClientRect().top,
+    }))
+    setCurrentGroup(resolveCurrentRailGroup(sections, list.getBoundingClientRect().top + 8))
   }
 
   useLayoutEffect(() => {
-    if (compact) return
-    const list = listRef.current
-    if (pendingJump && list) {
-      const section = list.querySelector<HTMLElement>(`[data-library-section="${pendingJump}"]`)
-      if (section) list.scrollTo({ top: section.offsetTop - 8, behavior: 'smooth' })
-      setPendingJump(null)
-    }
-    updateCurrentCategory()
-    // updateCurrentCategory only reads the rendered list.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compact, pendingJump, activeTab, searchQuery, categoryFilter, expandedCategories, viewMode])
+    if (!compact) updateCurrentGroup()
+    // updateCurrentGroup only reads the rendered list; run after every render of the full panel.
+  })
 
-  const handleJumpClick = (category: string, event: MouseEvent<HTMLButtonElement>) => {
-    clickedCategoryRef.current = null
-    setActiveTab('all')
-    const primary = event.ctrlKey || event.metaKey
-    if (primary && event.shiftKey) {
-      setCategoryFilter((prev) => nextLibraryCategoryFilter(prev, category, 'add'))
-      listRef.current?.scrollTo({ top: 0 })
-      return
-    }
-    if (primary || event.shiftKey || event.altKey) {
-      setCategoryFilter((prev) => nextLibraryCategoryFilter(prev, category, 'only'))
-      listRef.current?.scrollTo({ top: 0 })
-      return
-    }
-    setCategoryFilter(new Set())
-    clickedCategoryRef.current = category
-    setCurrentCategory(category)
+  const resetList = () => {
     setSearchQuery('')
-    setExpandedCategories((prev) => (prev.has(category) ? prev : new Set(prev).add(category)))
-    setPendingJump(category)
+    listRef.current?.scrollTo({ top: 0 })
   }
-
-  const clearCategoryFilter = () => setCategoryFilter(new Set())
-
-  const filterChip =
-    categoryFilter.size > 0 ? (
-      <div className="flex items-center gap-1 rounded bg-gray-900 py-0.5 pl-1 pr-0.5 text-xs font-medium text-white dark:bg-white dark:text-gray-900">
-        <span className="flex items-center gap-0.5">
-          {LIBRARY_JUMP_CATEGORIES.filter(({ category }) => categoryFilter.has(category)).map(({ category, iconPath }) => (
-            <img key={category} src={iconPath} alt="" className="h-4 w-4 invert dark:invert-0" />
-          ))}
-        </span>
-        {categoryFilter.size === 1 && (
-          <span className="max-w-[7rem] truncate">{t(`symbols.categories.${[...categoryFilter][0]}`)}</span>
-        )}
-        <button
-          type="button"
-          onClick={clearCategoryFilter}
-          title={t('symbols.jump.clearFilter')}
-          aria-label={t('symbols.jump.clearFilter')}
-          className="rounded p-0.5 hover:bg-white/20 dark:hover:bg-gray-900/10"
-        >
-          <X className="h-3 w-3" />
-        </button>
-      </div>
-    ) : null
+  const handleSelectEntry = (entry: LibraryRailEntry) => {
+    setRailSelection(selectRailEntry(entry))
+    resetList()
+  }
+  const handleSelectGroup = (key: LibraryRailGroupKey, additive: boolean) => {
+    setRailSelection(selectRailGroup(selection, key, additive))
+    resetList()
+  }
+  useLibraryRailHotkeys(panelRef, !compact, (key, additive) => {
+    if (!railGroupKeys.includes(key)) return false
+    handleSelectGroup(key, additive)
+    return true
+  })
 
   if (compact) {
     const compactSymbols = searchQuery
@@ -555,174 +413,99 @@ function LibraryPanel({
     )
   }
 
+  const emptyMessage = (text: string) => (
+    <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">{text}</div>
+  )
+  const recentSymbolsList = getRecentSymbolsList()
+  const favoriteSymbolsList = getFavoriteSymbolsList()
+  const showSections = !searchQuery && visibleGroups.length > 1
+  const listedCount = searchQuery
+    ? visibleSymbols.length
+    : visibleGroups.reduce((total, { symbols }) => total + symbols.length, 0)
+
+  let listContent: ReactNode
+  if (searchQuery) {
+    listContent = (
+      <div className="space-y-0.5 px-1 py-2">
+        {visibleSymbols.length === 0 ? emptyMessage('No symbols found') : visibleSymbols.map(renderSymbol)}
+      </div>
+    )
+  } else if (selection.kind === 'recent' || selection.kind === 'favorites') {
+    const entries = selection.kind === 'recent' ? recentSymbolsList : favoriteSymbolsList
+    listContent = (
+      <div className="space-y-0.5 px-1 py-2">
+        {entries.length === 0
+          ? emptyMessage(selection.kind === 'recent' ? 'No recent symbols' : 'No favorite symbols')
+          : filterByScope(entries).map(renderSymbol)}
+      </div>
+    )
+  } else if (showSections) {
+    listContent = (
+      <div className="px-1 pb-2">
+        {visibleGroups.map(({ group, symbols }) => (
+          <section key={group.key} data-library-rail-section={group.key} className="pb-2">
+            <div className="sticky top-0 z-10 bg-white/95 pb-1 pl-0.5 pr-2 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-gray-800/95 dark:text-gray-400">
+              {group.key === 'other' ? t('symbols.rail.other') : t(`symbols.categories.${group.key}`)}
+            </div>
+            <div className="ml-1 space-y-0.5">{symbols.map(renderSymbol)}</div>
+          </section>
+        ))}
+      </div>
+    )
+  } else {
+    listContent = (
+      <div className="space-y-0.5 px-1 py-2">{(visibleGroups[0]?.symbols ?? []).map(renderSymbol)}</div>
+    )
+  }
+
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white dark:bg-gray-800">
-      {/* Search, tabs and category shortcuts */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-2 px-3 pt-3 pb-2">
-          <LibrarySearchField
-            query={searchQuery}
-            onCommit={setSearchQuery}
-            placeholder={t('common.search')}
-            wrapperClassName="relative min-w-0 flex-1"
-            inputClassName="w-full rounded-md border border-gray-300 bg-white py-1.5 pl-8 pr-7 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:ring-gray-400"
-            iconClassName="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-            clearButtonClassName="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 transition-colors hover:bg-gray-100 dark:hover:bg-gray-600"
-            clearIconClassName="h-4 w-4 text-gray-400"
-            leading={filterChip}
-            onBackspaceEmpty={clearCategoryFilter}
-          />
-          <div className="flex flex-shrink-0 rounded-md border border-gray-200 dark:border-gray-700">
-            {(['all', 'recent', 'favorites'] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`flex h-8 min-w-8 items-center justify-center px-2 text-xs font-medium ${
-                  activeTab === tab
-                    ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
-                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
-                }`}
-                title={tab === 'all' ? 'All' : tab === 'recent' ? t('symbols.recent') : t('symbols.favorites')}
-              >
-                {tab === 'all' ? 'All' : tab === 'recent' ? <Clock className="h-4 w-4" /> : <Star className="h-4 w-4" />}
-              </button>
-            ))}
-          </div>
-        </div>
-        {jumpCategories.length > 1 && (
-          <div
-            data-library-jump-row="true"
-            className="grid gap-0.5 px-2 pb-1.5"
-            style={{ gridTemplateColumns: `repeat(${jumpCategories.length}, minmax(0, 1fr))` }}
-          >
-            {jumpCategories.map(({ category, iconPath }) => (
-              <LibraryJumpButton
-                key={category}
-                label={t(`symbols.categories.${category}`)}
-                iconPath={iconPath}
-                filtered={categoryFilter.has(category)}
-                dimmed={categoryFilter.size > 0 && !categoryFilter.has(category)}
-                current={
-                  categoryFilter.size === 0 && activeTab === 'all' && !searchQuery && currentCategory === category
-                }
-                onClick={(event) => handleJumpClick(category, event)}
-              />
-            ))}
-          </div>
-        )}
+    <div ref={panelRef} className="flex h-full min-h-0 flex-col overflow-hidden bg-white dark:bg-gray-800">
+      <div className="border-b border-gray-200 px-3 pb-2 pt-3 dark:border-gray-700">
+        <LibrarySearchField
+          query={searchQuery}
+          onCommit={setSearchQuery}
+          placeholder={t('common.search')}
+          inputClassName="w-full rounded-md border border-gray-300 bg-white py-1.5 pl-8 pr-7 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:ring-gray-400"
+          iconClassName="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+          clearButtonClassName="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 transition-colors hover:bg-gray-100 dark:hover:bg-gray-600"
+          clearIconClassName="h-4 w-4 text-gray-400"
+        />
       </div>
 
-      {/* Symbol List */}
-      <div
-        ref={listRef}
-        onScroll={updateCurrentCategory}
-        onWheelCapture={() => { clickedCategoryRef.current = null; updateCurrentCategory() }}
-        onTouchStartCapture={() => { clickedCategoryRef.current = null }}
-        onPointerDownCapture={() => { clickedCategoryRef.current = null }}
-        onKeyDownCapture={(event) => {
-          if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key))
-            clickedCategoryRef.current = null
-        }}
-        className="relative flex-1 overflow-y-auto"
-        data-library-scroll="true"
-        style={{
-          WebkitOverflowScrolling: 'touch',
-          overscrollBehaviorY: 'contain',
-          touchAction: 'pan-y',
-        }}
-      >
-        {activeTab === 'all' && (
-          <div className="p-2">
-            {searchQuery ? (
-              // Filtered view (flat list)
-              <div className="space-y-0.25">
-                {categoryVisibleSymbols.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
-                    No symbols found
-                  </div>
-                ) : (
-                  categoryVisibleSymbols.map(renderSymbol)
-                )}
-              </div>
-            ) : (
-              // Category view
-              <div className="space-y-2">
-                {Object.entries(categoriesToShow).map(([key, _label]) => {
-                  if (!inCategoryFilter(key)) return null
-                  const categorySymbols = filterByScope(getSymbolsByCategory(key))
-                  if (categorySymbols.length === 0) return null
-
-                  const isExpanded = expandedCategories.has(key)
-
-                  return (
-                    <div key={key} data-library-section={key} className="border-b border-gray-100 dark:border-gray-700">
-                      <button
-                        onClick={() => toggleCategory(key)}
-                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded transition-colors"
-                      >
-                        <span className="font-medium text-sm text-gray-700 dark:text-gray-300">
-                          {t(`symbols.categories.${key}`)}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {categorySymbols.length}
-                          </span>
-                          {isExpanded ? (
-                            <ChevronDown className="w-4 h-4 text-gray-500" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-gray-500" />
-                          )}
-                        </div>
-                      </button>
-                      {isExpanded && (
-                        <div className="pb-2 space-y-0.5">
-                          {categorySymbols.map(renderSymbol)}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'recent' && (
-          <div className="p-2 space-y-0.5">
-            {getRecentSymbolsList().length === 0 ? (
-              <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
-                No recent symbols
-              </div>
-            ) : (
-              filterByScope(getRecentSymbolsList()).map(renderSymbol)
-            )}
-          </div>
-        )}
-
-        {activeTab === 'favorites' && (
-          <div className="p-2 space-y-0.5">
-            {getFavoriteSymbolsList().length === 0 ? (
-              <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
-                No favorite symbols
-              </div>
-            ) : (
-              filterByScope(getFavoriteSymbolsList()).map(renderSymbol)
-            )}
-          </div>
-        )}
+      <div className="flex min-h-0 flex-1">
+        <LibraryCategoryRail
+          groupKeys={railGroupKeys}
+          selection={selection}
+          searching={Boolean(searchQuery)}
+          currentGroup={currentGroup}
+          onSelectEntry={handleSelectEntry}
+          onSelectGroup={handleSelectGroup}
+        />
+        <div
+          ref={listRef}
+          onScroll={updateCurrentGroup}
+          className="relative mr-[3px] min-w-0 flex-1 overflow-y-auto"
+          data-library-scroll="true"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehaviorY: 'contain',
+            touchAction: 'pan-y',
+          }}
+        >
+          {listContent}
+        </div>
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+      <div className="border-t border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/50">
         <div className="text-xs text-gray-500 dark:text-gray-400">
-          {activeTab === 'all' && searchQuery
-            ? `${categoryVisibleSymbols.length} symbols found`
-            : activeTab === 'recent'
-            ? `${getRecentSymbolsList().length} recent`
-            : activeTab === 'favorites'
-            ? `${getFavoriteSymbolsList().length} favorites`
-            : `${categoryVisibleSymbols.length} symbols`}
+          {searchQuery
+            ? `${listedCount} symbols found`
+            : selection.kind === 'recent'
+              ? `${recentSymbolsList.length} recent`
+              : selection.kind === 'favorites'
+                ? `${favoriteSymbolsList.length} favorites`
+                : `${listedCount} symbols`}
         </div>
       </div>
     </div>

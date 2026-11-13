@@ -281,7 +281,7 @@ export function DockablePanelShell({
               className="inline-flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               {selectedSwitchOption?.icon && (
-                <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-gray-600 dark:text-gray-300 [&>svg]:h-4 [&>svg]:w-4 [&>span]:h-4 [&>span]:w-4">
+                <span className="-ml-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center text-gray-600 dark:text-gray-300 [&>svg]:h-5 [&>svg]:w-5 [&>span]:h-5 [&>span]:w-5">
                   {selectedSwitchOption.icon}
                 </span>
               )}

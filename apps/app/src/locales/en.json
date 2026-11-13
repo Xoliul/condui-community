@@ -465,6 +465,7 @@
       "trackpadTouch": "Trackpad & touch",
       "floors": "Floors",
       "editing": "Editing",
+      "libraryCategories": "Symbol library",
       "fastPlacement": "Fast mode",
       "navigation": "Navigation"
     },
@@ -477,6 +478,10 @@
       "ctrlCmdD": "Ctrl / Cmd + D",
       "ctrlCmdK": "Ctrl / Cmd + K",
       "ctrlCmdF": "Ctrl / Cmd + F",
+      "libraryLettersAzerty": "A Z E R T Y U I O P",
+      "libraryLettersQwerty": "Q W E R T Y U I O P",
+      "shiftLibraryLettersAzerty": "Shift + A Z E R T Y U I O P",
+      "shiftLibraryLettersQwerty": "Shift + Q W E R T Y U I O P",
       "tab": "Tab",
       "esc": "Esc",
       "space": "Space",
@@ -528,6 +533,13 @@
       },
       "redo": {
         "description": "Redo"
+      },
+      "libraryJumpCategory": {
+        "description": "Show one category (pointer over the library)",
+        "note": "Keys follow the category rail from left to right. Change AZERTY or QWERTY under Settings > Canvas navigation > Keyboard."
+      },
+      "libraryAddCategory": {
+        "description": "Add a category to those shown"
       },
       "toggleLibrary": {
         "description": "Toggle library"
@@ -716,7 +728,10 @@
       "leftDragPansCanvasHint": "On laptop and desktop, drag with the left mouse button to pan the canvas (like touch). Hold Shift and drag to select with a rectangle. Middle- and right-button pan still work.",
       "wheelBehavior": "Scroll wheel",
       "wheelBehaviorZoom": "Zoom (mouse)",
-      "wheelBehaviorPan": "Pan (trackpad)"
+      "wheelBehaviorPan": "Pan (trackpad)",
+      "keyboardLayout": "Keyboard",
+      "keyboardLayoutAzerty": "AZERTY",
+      "keyboardLayoutQwerty": "QWERTY"
     },
     "debug": {
       "title": "Debug",
@@ -2025,10 +2040,24 @@
     "library": "Symbol library",
     "recent": "Recent",
     "favorites": "Favorites",
-    "jump": {
-      "filterOnly": "Ctrl/Cmd+click: show only this",
-      "filterAdd": "Ctrl/Cmd+Shift+click: add to filter",
-      "clearFilter": "Show all categories"
+    "rail": {
+      "all": "All",
+      "recent": "Recent",
+      "favorites": "Starred",
+      "multiHint": "Ctrl/Shift+click: show several",
+      "other": "Other (smart home, metering, notes)",
+      "short": {
+        "grid": "Grid",
+        "protection": "Protect.",
+        "outlets": "Outlets",
+        "switches": "Switches",
+        "lighting": "Lights",
+        "appliances": "Appl.",
+        "hvac": "HVAC",
+        "sound": "Sound",
+        "energyConversion": "Energy",
+        "other": "Other"
+      }
     },
     "armed": {
       "placing": "Placing: {{name}}",

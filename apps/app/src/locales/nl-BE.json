@@ -465,6 +465,7 @@
       "trackpadTouch": "Trackpad & touch",
       "floors": "Verdiepingen",
       "editing": "Bewerken",
+      "libraryCategories": "Symbolenbibliotheek",
       "fastPlacement": "Snelle modus",
       "navigation": "Navigatie"
     },
@@ -477,6 +478,10 @@
       "ctrlCmdD": "Ctrl / Cmd + D",
       "ctrlCmdK": "Ctrl / Cmd + K",
       "ctrlCmdF": "Ctrl / Cmd + F",
+      "libraryLettersAzerty": "A Z E R T Y U I O P",
+      "libraryLettersQwerty": "Q W E R T Y U I O P",
+      "shiftLibraryLettersAzerty": "Shift + A Z E R T Y U I O P",
+      "shiftLibraryLettersQwerty": "Shift + Q W E R T Y U I O P",
       "tab": "Tab",
       "esc": "Esc",
       "space": "Spatie",
@@ -528,6 +533,13 @@
       },
       "redo": {
         "description": "Opnieuw uitvoeren"
+      },
+      "libraryJumpCategory": {
+        "description": "Eén categorie tonen (aanwijzer boven de bibliotheek)",
+        "note": "De toetsen volgen de categoriebalk van links naar rechts. Kies AZERTY of QWERTY onder Instellingen > Canvasnavigatie > Toetsenbord."
+      },
+      "libraryAddCategory": {
+        "description": "Categorie toevoegen aan de getoonde"
       },
       "toggleLibrary": {
         "description": "Bibliotheek schakelen"
@@ -716,7 +728,10 @@
       "leftDragPansCanvasHint": "Op laptop en desktop: slepen met de linkermuisknop om het canvas te verschuiven (zoals op touch). Houd Shift ingedrukt en sleep voor rechthoekselectie. Verschuiven met midden- en rechtermuisknop blijft werken.",
       "wheelBehavior": "Scrollwiel",
       "wheelBehaviorZoom": "Zoomen (muis)",
-      "wheelBehaviorPan": "Verschuiven (touchpad)"
+      "wheelBehaviorPan": "Verschuiven (touchpad)",
+      "keyboardLayout": "Toetsenbord",
+      "keyboardLayoutAzerty": "AZERTY",
+      "keyboardLayoutQwerty": "QWERTY"
     },
     "debug": {
       "title": "Debug",
@@ -2025,10 +2040,24 @@
     "library": "Symbolenbibliotheek",
     "recent": "Recent",
     "favorites": "Favorieten",
-    "jump": {
-      "filterOnly": "Ctrl/Cmd+klik: alleen deze tonen",
-      "filterAdd": "Ctrl/Cmd+Shift+klik: aan filter toevoegen",
-      "clearFilter": "Alle categorieën tonen"
+    "rail": {
+      "all": "Alles",
+      "recent": "Recent",
+      "favorites": "Favoriet",
+      "multiHint": "Ctrl/Shift+klik: meerdere tonen",
+      "other": "Overige (domotica, meting, notities)",
+      "short": {
+        "grid": "Net",
+        "protection": "Beveil.",
+        "outlets": "Stopc.",
+        "switches": "Schak.",
+        "lighting": "Licht",
+        "appliances": "Toest.",
+        "hvac": "HVAC",
+        "sound": "Geluid",
+        "energyConversion": "Energie",
+        "other": "Overige"
+      }
     },
     "armed": {
       "placing": "Plaatsen: {{name}}",

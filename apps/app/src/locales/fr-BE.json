@@ -465,6 +465,7 @@
       "trackpadTouch": "Trackpad & tactile",
       "floors": "Étages",
       "editing": "Édition",
+      "libraryCategories": "Bibliothèque de symboles",
       "fastPlacement": "Mode rapide",
       "navigation": "Navigation"
     },
@@ -477,6 +478,10 @@
       "ctrlCmdD": "Ctrl / Cmd + D",
       "ctrlCmdK": "Ctrl / Cmd + K",
       "ctrlCmdF": "Ctrl / Cmd + F",
+      "libraryLettersAzerty": "A Z E R T Y U I O P",
+      "libraryLettersQwerty": "Q W E R T Y U I O P",
+      "shiftLibraryLettersAzerty": "Shift + A Z E R T Y U I O P",
+      "shiftLibraryLettersQwerty": "Shift + Q W E R T Y U I O P",
       "tab": "Tab",
       "esc": "Échap",
       "space": "Espace",
@@ -528,6 +533,13 @@
       },
       "redo": {
         "description": "Rétablir"
+      },
+      "libraryJumpCategory": {
+        "description": "Afficher une catégorie (pointeur sur la bibliothèque)",
+        "note": "Les touches suivent la barre des catégories de gauche à droite. Choisissez AZERTY ou QWERTY dans Paramètres > Navigation du canevas > Clavier."
+      },
+      "libraryAddCategory": {
+        "description": "Ajouter une catégorie à celles affichées"
       },
       "toggleLibrary": {
         "description": "Bibliothèque"
@@ -716,7 +728,10 @@
       "leftDragPansCanvasHint": "Sur ordinateur portable ou de bureau : glissez avec le bouton gauche pour déplacer le canevas (comme au toucher). Maintenez Maj enfoncée et glissez pour sélectionner avec un rectangle. Le déplacement avec le bouton du milieu ou droit reste disponible.",
       "wheelBehavior": "Molette",
       "wheelBehaviorZoom": "Zoomer (souris)",
-      "wheelBehaviorPan": "Déplacer (pavé tactile)"
+      "wheelBehaviorPan": "Déplacer (pavé tactile)",
+      "keyboardLayout": "Clavier",
+      "keyboardLayoutAzerty": "AZERTY",
+      "keyboardLayoutQwerty": "QWERTY"
     },
     "debug": {
       "title": "Debug",
@@ -2026,10 +2041,24 @@
     "library": "Bibliothèque de symboles",
     "recent": "Récent",
     "favorites": "Favoris",
-    "jump": {
-      "filterOnly": "Ctrl/Cmd+clic : afficher uniquement celle-ci",
-      "filterAdd": "Ctrl/Cmd+Maj+clic : ajouter au filtre",
-      "clearFilter": "Afficher toutes les catégories"
+    "rail": {
+      "all": "Tout",
+      "recent": "Récent",
+      "favorites": "Favoris",
+      "multiHint": "Ctrl/Maj+clic : en afficher plusieurs",
+      "other": "Autres (domotique, comptage, notes)",
+      "short": {
+        "grid": "Réseau",
+        "protection": "Protec.",
+        "outlets": "Prises",
+        "switches": "Interr.",
+        "lighting": "Éclair.",
+        "appliances": "Appar.",
+        "hvac": "CVC",
+        "sound": "Son",
+        "energyConversion": "Énergie",
+        "other": "Autres"
+      }
     },
     "armed": {
       "placing": "Placement : {{name}}",

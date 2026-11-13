@@ -59,6 +59,7 @@ import { DockablePanelShell } from '@/components/panels/DockablePanelShell'
 import { ResizableDivider } from '@/components/layout/ResizableDivider'
 import { COLLAPSED_PANEL_SIGNIFIER_WIDTH_PX } from '@/constants/layoutConstants'
 import { clamp } from '@/lib/geometry'
+import { clampLeftDockWidth } from '@/components/layout/dockWidths'
 import { EditorPreferencesToolbar } from '@/components/settings/EditorPreferencesToolbar'
 import { SettingsBuildInfo, SettingsPanel } from '@/components/settings/SettingsPanel'
 import { ShortcutsDialog } from '@/components/shortcuts/ShortcutsDialog'
@@ -338,7 +339,7 @@ export default function CommunityLayout({ demoMode = false }: { demoMode?: boole
     leftDockOptions.find((option) => option.id === leftDockPanel)?.title ?? t('symbols.library')
   const effectiveLeftDockWidth = leftDockCollapsed
     ? COLLAPSED_PANEL_SIGNIFIER_WIDTH_PX
-    : (leftDockResizePreviewWidth ?? leftDockWidth)
+    : clampLeftDockWidth(leftDockResizePreviewWidth ?? leftDockWidth)
   const effectiveRightPanelWidth = propertiesVisible
     ? propertiesWidth
     : COLLAPSED_PANEL_SIGNIFIER_WIDTH_PX
@@ -575,14 +576,14 @@ export default function CommunityLayout({ demoMode = false }: { demoMode?: boole
           <ResizableDivider
             direction="vertical"
             perpSlopNegativePx={0}
-            startRatio={clamp(0.1, leftDockWidth / windowWidth, 0.9)}
+            startRatio={clamp(clampLeftDockWidth(leftDockWidth) / windowWidth, 0.1, 0.9)}
             ratio={clamp(effectiveLeftDockWidth / windowWidth, 0.1, 0.9)}
             onDragStart={() => setLeftDockResizePreviewWidth(leftDockWidth)}
             onRatioChange={(nextRatio, containerWidth) => {
-              setLeftDockResizePreviewWidth(clamp(Math.round(containerWidth * nextRatio), 220, 640))
+              setLeftDockResizePreviewWidth(clampLeftDockWidth(Math.round(containerWidth * nextRatio)))
             }}
             onDragEnd={(endRatio, containerWidth) => {
-              setPanelWidth('library', clamp(Math.round(containerWidth * endRatio), 220, 640))
+              setPanelWidth('library', clampLeftDockWidth(Math.round(containerWidth * endRatio)))
               setLeftDockResizePreviewWidth(null)
             }}
           />

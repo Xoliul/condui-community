@@ -77,6 +77,10 @@ interface SymbolItemProps {
   onToggleFavorite: (symbolId: string) => void
   onDragStart?: (symbol: SymbolMetadata) => void
   compact?: boolean
+  /** Tighter list row: smaller name, favourite star only takes space on hover or when set. */
+  dense?: boolean
+  /** Shorter name shown in the row; the full localized name stays in the tooltip and hover card. */
+  listName?: string
 }
 
 function SymbolItem({
@@ -87,6 +91,8 @@ function SymbolItem({
   onToggleFavorite,
   onDragStart,
   compact = false,
+  dense = false,
+  listName,
 }: SymbolItemProps) {
   const setLibraryDragSymbol = useUIStore((state) => state.setLibraryDragSymbol)
   const isArmed = useUIStore((state) => state.armedLibrarySymbol?.id === symbol.id && state.armedLibrarySymbol?.searchPreset === symbol.searchPreset)
@@ -477,7 +483,7 @@ function SymbolItem({
         className={
           compact
             ? `flex h-full w-24 flex-shrink-0 cursor-pointer select-none flex-col items-center justify-start gap-1 rounded px-2 py-1.5 transition-colors group relative outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${armedClass}`
-            : `flex items-center gap-3 px-3 py-1 rounded cursor-pointer transition-colors group relative select-none outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${armedClass}`
+            : `flex items-center ${dense ? 'gap-1.5 px-1.5' : 'gap-3 px-3'} py-1 rounded cursor-pointer transition-colors group relative select-none outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${armedClass}`
         }
       >
       {/* Symbol Icon */}
@@ -494,18 +500,27 @@ function SymbolItem({
 
       {/* Symbol Name */}
       <div className={`${compact ? 'h-auto w-full justify-center' : 'h-9 flex-1'} flex min-w-0 items-center`}>
-        <div className={`${compact ? 'line-clamp-2 text-center text-[11px] leading-tight' : 'truncate text-[0.95rem]'} font-medium text-gray-900 dark:text-white`}>
-          {localizedName}
+        <div
+          title={listName && listName !== localizedName ? localizedName : undefined}
+          className={`${compact ? 'line-clamp-2 text-center text-[11px] leading-tight' : dense ? 'truncate text-sm' : 'truncate text-[0.95rem]'} font-medium text-gray-900 dark:text-white`}
+        >
+          {listName ?? localizedName}
         </div>
       </div>
 
       {/* Favorite Button */}
       <button
         onClick={handleFavoriteClick}
-        className={`flex-shrink-0 rounded p-1 transition-colors ${compact ? 'absolute right-1 top-1 bg-white/80 dark:bg-gray-800/80' : ''} ${
+        className={`flex-shrink-0 rounded transition-colors ${compact ? 'absolute right-1 top-1 bg-white/80 dark:bg-gray-800/80' : ''} ${
+          dense && !isFavorite
+            ? 'w-0 overflow-hidden p-0 focus:w-auto focus:p-0.5 group-hover:w-auto group-hover:p-0.5'
+            : dense
+              ? 'p-0.5'
+              : 'p-1'
+        } ${
           isFavorite
             ? 'text-yellow-500 hover:text-yellow-600'
-            : 'text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 opacity-0 group-hover:opacity-100'
+            : 'text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 opacity-0 focus:opacity-100 group-hover:opacity-100'
         }`}
         title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
       >

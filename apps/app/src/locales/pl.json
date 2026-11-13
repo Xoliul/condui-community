@@ -465,6 +465,7 @@
       "trackpadTouch": "Gładzik i dotyk",
       "floors": "Podłogi",
       "editing": "Edytuj",
+      "libraryCategories": "Biblioteka symboli",
       "fastPlacement": "Tryb szybki",
       "navigation": "Nawigacja"
     },
@@ -477,6 +478,10 @@
       "ctrlCmdD": "Ctrl/Cmd + D",
       "ctrlCmdK": "Ctrl/Cmd + K",
       "ctrlCmdF": "Ctrl/Cmd + F",
+      "libraryLettersAzerty": "A Z E R T Y U I O P",
+      "libraryLettersQwerty": "Q W E R T Y U I O P",
+      "shiftLibraryLettersAzerty": "Shift + A Z E R T Y U I O P",
+      "shiftLibraryLettersQwerty": "Shift + Q W E R T Y U I O P",
       "tab": "Tab",
       "esc": "Wyjście",
       "space": "Przestrzeń",
@@ -528,6 +533,13 @@
       },
       "redo": {
         "description": "Wykonaj ponownie"
+      },
+      "libraryJumpCategory": {
+        "description": "Pokaż jedną kategorię (wskaźnik nad biblioteką)",
+        "note": "Klawisze odpowiadają paskowi kategorii od lewej do prawej. AZERTY lub QWERTY wybierzesz w Ustawienia > Nawigacja na płótnie > Klawiatura."
+      },
+      "libraryAddCategory": {
+        "description": "Dodaj kategorię do wyświetlanych"
       },
       "toggleLibrary": {
         "description": "Biblioteka przełączników"
@@ -716,7 +728,10 @@
       "leftDragPansCanvasHint": "Na laptopie i komputerze stacjonarnym: przeciągnij lewym przyciskiem myszy, aby przesunąć obszar roboczy (jak przy dotyku). Przytrzymaj klawisz Shift i przeciągnij, aby wybrać prostokąt. Przesuwanie środkowym i prawym przyciskiem myszy nadal działa.",
       "wheelBehavior": "Kółko myszy",
       "wheelBehaviorZoom": "Powiększanie (mysz)",
-      "wheelBehaviorPan": "Przesuwanie (touchpad)"
+      "wheelBehaviorPan": "Przesuwanie (touchpad)",
+      "keyboardLayout": "Klawiatura",
+      "keyboardLayoutAzerty": "AZERTY",
+      "keyboardLayoutQwerty": "QWERTY"
     },
     "debug": {
       "title": "Odpluskwić",
@@ -2025,10 +2040,24 @@
     "library": "Biblioteka symboli",
     "recent": "Najnowsze",
     "favorites": "Ulubione",
-    "jump": {
-      "filterOnly": "Ctrl/Cmd+klik: pokaż tylko tę",
-      "filterAdd": "Ctrl/Cmd+Shift+klik: dodaj do filtra",
-      "clearFilter": "Pokaż wszystkie kategorie"
+    "rail": {
+      "all": "Wszystko",
+      "recent": "Ostatnie",
+      "favorites": "Ulubione",
+      "multiHint": "Ctrl/Shift+klik: pokaż kilka",
+      "other": "Inne (automatyka, pomiary, notatki)",
+      "short": {
+        "grid": "Sieć",
+        "protection": "Zabezp.",
+        "outlets": "Gniazda",
+        "switches": "Łączn.",
+        "lighting": "Światło",
+        "appliances": "Urządz.",
+        "hvac": "HVAC",
+        "sound": "Dźwięk",
+        "energyConversion": "Energia",
+        "other": "Inne"
+      }
     },
     "armed": {
       "placing": "Miejsca: {{name}}",

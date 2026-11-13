@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Theme, FontFamily, LayoutPreset, WheelBehavior } from '@/types/ui'
+import type { Theme, FontFamily, KeyboardLayout, LayoutPreset, WheelBehavior } from '@/types/ui'
 import { isLayoutPreset } from '@/lib/viewport/layoutPresets'
 import { getThemeColor } from '@/lib/theme/colors'
 import { clearSymbolCache, warmSymbolSvgCache } from '@/lib/symbolImage'
@@ -44,6 +44,8 @@ interface Settings {
   wheelBehavior: WheelBehavior
   /** The one-time "using a trackpad?" hint was answered or dismissed, or the user chose a mode. */
   wheelBehaviorHintDone: boolean
+  /** Letters shown for physical-key shortcuts such as the library rail hotkeys. */
+  keyboardLayout: KeyboardLayout
 }
 
 const getDefaultLanguage = (): string => {
@@ -81,6 +83,7 @@ interface SettingsState extends Settings {
   setLabelStyles: (styles: SavedLabelStyle[]) => void
   setWheelBehavior: (behavior: WheelBehavior) => void
   dismissWheelBehaviorHint: () => void
+  setKeyboardLayout: (layout: KeyboardLayout) => void
   reset: () => void
 }
 
@@ -115,6 +118,7 @@ const defaultSettings: Settings = {
   labelStyles: [],
   wheelBehavior: 'zoom',
   wheelBehaviorHintDone: false,
+  keyboardLayout: 'azerty',
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -152,6 +156,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
       setWheelBehavior: (behavior) => set({ wheelBehavior: behavior, wheelBehaviorHintDone: true }),
       dismissWheelBehaviorHint: () => set({ wheelBehaviorHintDone: true }),
+      setKeyboardLayout: (layout) => set({ keyboardLayout: layout }),
       reset: () => set(defaultSettings),
     }),
     {
@@ -170,6 +175,7 @@ export const useSettingsStore = create<SettingsState>()(
             ? persisted.defaultLayoutPreset
             : currentState.defaultLayoutPreset,
           labelStyles: parseSavedLabelStyles(persisted.labelStyles),
+          keyboardLayout: persisted.keyboardLayout === 'qwerty' ? 'qwerty' : 'azerty',
         }
       },
     }

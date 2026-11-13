@@ -465,6 +465,7 @@
       "trackpadTouch": "Trackpad și atingere",
       "floors": "Podele",
       "editing": "Editare",
+      "libraryCategories": "Bibliotecă de simboluri",
       "fastPlacement": "Mod rapid",
       "navigation": "Navigare"
     },
@@ -477,6 +478,10 @@
       "ctrlCmdD": "Ctrl/Cmd + D",
       "ctrlCmdK": "Ctrl/Cmd + K",
       "ctrlCmdF": "Ctrl/Cmd + F",
+      "libraryLettersAzerty": "A Z E R T Y U I O P",
+      "libraryLettersQwerty": "Q W E R T Y U I O P",
+      "shiftLibraryLettersAzerty": "Shift + A Z E R T Y U I O P",
+      "shiftLibraryLettersQwerty": "Shift + Q W E R T Y U I O P",
       "tab": "Tab",
       "esc": "Esc",
       "space": "Spațiu",
@@ -528,6 +533,13 @@
       },
       "redo": {
         "description": "Reface"
+      },
+      "libraryJumpCategory": {
+        "description": "Afișează o categorie (cursor deasupra bibliotecii)",
+        "note": "Tastele urmează bara de categorii de la stânga la dreapta. Alegi AZERTY sau QWERTY în Setări > Navigare canvas > Tastatură."
+      },
+      "libraryAddCategory": {
+        "description": "Adaugă o categorie la cele afișate"
       },
       "toggleLibrary": {
         "description": "Comutare bibliotecă"
@@ -716,7 +728,10 @@
       "leftDragPansCanvasHint": "Pe laptop și desktop: trageți cu butonul stâng al mouse-ului pentru a muta pânza (ca la atingere). Țineți apăsată Shift și trageți pentru selectarea dreptunghiului. Schimbarea cu butoanele din mijloc și din dreapta mouse-ului continuă să funcționeze.",
       "wheelBehavior": "Rotița de derulare",
       "wheelBehaviorZoom": "Zoom (mouse)",
-      "wheelBehaviorPan": "Deplasare (touchpad)"
+      "wheelBehaviorPan": "Deplasare (touchpad)",
+      "keyboardLayout": "Tastatură",
+      "keyboardLayoutAzerty": "AZERTY",
+      "keyboardLayoutQwerty": "QWERTY"
     },
     "debug": {
       "title": "Depanare",
@@ -2025,10 +2040,24 @@
     "library": "Biblioteca de simboluri",
     "recent": "Recent",
     "favorites": "Favorite",
-    "jump": {
-      "filterOnly": "Ctrl/Cmd+clic: afișează doar aceasta",
-      "filterAdd": "Ctrl/Cmd+Shift+clic: adaugă la filtru",
-      "clearFilter": "Afișează toate categoriile"
+    "rail": {
+      "all": "Toate",
+      "recent": "Recente",
+      "favorites": "Favorite",
+      "multiHint": "Ctrl/Shift+clic: afișează mai multe",
+      "other": "Altele (domotică, măsurare, note)",
+      "short": {
+        "grid": "Rețea",
+        "protection": "Protecț.",
+        "outlets": "Prize",
+        "switches": "Comenzi",
+        "lighting": "Lumină",
+        "appliances": "Aparate",
+        "hvac": "HVAC",
+        "sound": "Sonor",
+        "energyConversion": "Energie",
+        "other": "Altele"
+      }
     },
     "armed": {
       "placing": "Locuri: {{name}}",

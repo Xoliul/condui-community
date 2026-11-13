@@ -283,7 +283,7 @@ const initialState = {
     gridIntensity: 50,
   },
   panels: {
-    library: { visible: true, width: 300 },
+    library: { visible: true, width: 320 },
     properties: { visible: true, width: 300 },
     validation: { visible: false, height: 200 },
   },

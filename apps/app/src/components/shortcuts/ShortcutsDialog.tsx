@@ -19,6 +19,10 @@ type ShortcutKeyId =
   | 'ctrlCmdD'
   | 'ctrlCmdK'
   | 'ctrlCmdF'
+  | 'libraryLettersAzerty'
+  | 'libraryLettersQwerty'
+  | 'shiftLibraryLettersAzerty'
+  | 'shiftLibraryLettersQwerty'
   | 'tab'
   | 'esc'
   | 'space'
@@ -87,6 +91,13 @@ const BASE_SHORTCUT_GROUPS: ShortcutGroup[] = [
           { id: 'toggleDockPanels', keys: ['tab'] },
           { id: 'closeFloatingWindows', keys: ['esc'] },
           { id: 'duplicate', keys: ['ctrlCmdD'] },
+        ],
+      },
+      {
+        id: 'libraryCategories',
+        entries: [
+          { id: 'libraryJumpCategory', keys: ['libraryLettersAzerty'], note: true },
+          { id: 'libraryAddCategory', keys: ['shiftLibraryLettersAzerty'] },
         ],
       },
       {
@@ -221,6 +232,7 @@ export function ShortcutsDialog() {
   const { t } = useTranslation()
   const leftDragPansCanvas = useSettingsStore((state) => state.leftDragPansCanvas)
   const wheelBehavior = useSettingsStore((state) => state.wheelBehavior)
+  const keyboardLayout = useSettingsStore((state) => state.keyboardLayout)
 
   const shortcutGroups = useMemo(() => {
     const adjustEntry = (entry: ShortcutEntry): ShortcutEntry | null => {
@@ -235,11 +247,17 @@ export function ShortcutsDialog() {
       }
       // In zoom mode two-finger scroll zooms like a wheel, so it is not a pan gesture.
       if (wheelBehavior === 'zoom' && entry.id === 'trackpadPan') return null
+      if (keyboardLayout === 'qwerty' && entry.id === 'libraryJumpCategory') {
+        return { ...entry, keys: ['libraryLettersQwerty'] }
+      }
+      if (keyboardLayout === 'qwerty' && entry.id === 'libraryAddCategory') {
+        return { ...entry, keys: ['shiftLibraryLettersQwerty'] }
+      }
       return entry
     }
 
     return BASE_SHORTCUT_GROUPS.map((group) => {
-      if (group.id !== 'viewport') return group
+      if (group.id !== 'viewport' && group.id !== 'general') return group
       return {
         ...group,
         sections: group.sections.map((section) => ({
@@ -250,7 +268,7 @@ export function ShortcutsDialog() {
         })),
       }
     })
-  }, [leftDragPansCanvas, wheelBehavior])
+  }, [keyboardLayout, leftDragPansCanvas, wheelBehavior])
 
   return (
     <div className="space-y-4 text-sm text-gray-700 dark:text-gray-200 sm:space-y-5">

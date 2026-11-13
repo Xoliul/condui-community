@@ -54,6 +54,8 @@ export function SettingsPanel({
   const setLeftDragPansCanvas = useSettingsStore((state) => state.setLeftDragPansCanvas)
   const wheelBehavior = useSettingsStore((state) => state.wheelBehavior)
   const setWheelBehavior = useSettingsStore((state) => state.setWheelBehavior)
+  const keyboardLayout = useSettingsStore((state) => state.keyboardLayout)
+  const setKeyboardLayout = useSettingsStore((state) => state.setKeyboardLayout)
   const placePlanSymbolsManually = useSettingsStore((state) => state.placePlanSymbolsManually)
   const setPlacePlanSymbolsManually = useSettingsStore((state) => state.setPlacePlanSymbolsManually)
   const defaultLayoutPreset = useSettingsStore((state) => state.defaultLayoutPreset)
@@ -159,6 +161,24 @@ export function SettingsPanel({
               options={[
                 { value: 'zoom', label: t('settings.navigation.wheelBehaviorZoom') },
                 { value: 'pan', label: t('settings.navigation.wheelBehaviorPan') },
+              ]}
+              className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="settings-keyboard-layout"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
+              {t('settings.navigation.keyboardLayout')}
+            </label>
+            <CustomDropdown
+              id="settings-keyboard-layout"
+              value={keyboardLayout}
+              onChange={(value) => setKeyboardLayout(value === 'qwerty' ? 'qwerty' : 'azerty')}
+              options={[
+                { value: 'azerty', label: t('settings.navigation.keyboardLayoutAzerty') },
+                { value: 'qwerty', label: t('settings.navigation.keyboardLayoutQwerty') },
               ]}
               className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
