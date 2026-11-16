@@ -37,6 +37,7 @@ import type { SupplyMetadataCalloutRect } from '@/lib/supplyMetadataCallout'
 import {
   CIRCUIT_CONVERTER_BLOCK_SIZE,
   CIRCUIT_CONVERTER_OUTPUT_BRANCH_LEAD,
+  CIRCUIT_CONVERTER_OUTPUT_ROW_SPACING,
   getCircuitConverterDcConnectionCount,
   getCircuitConverterOutputRowY,
   supportsCircuitConverterDcConnections,
@@ -44,6 +45,7 @@ import {
 import { getSupplyConverterDcConnectionIndex } from '@/lib/supplyAssembly/converterDcConnections'
 
 import {
+  getHorizontalDcLaneDeviceIds,
   isVerticalSupplyDevice,
   type SupplyDeviceOrientationContext,
 } from './supplyDeviceOrientation'
@@ -98,6 +100,53 @@ type CalculatePanelSupplyLayoutInput =
     | 'mainBusY'
     | 'branches'
   >
+
+const TOP_LANE_MIN_EXTRA_ROW_GAP = 20
+const TOP_LANE_BELOW_LABEL_LINE_HEIGHT = 12
+const TOP_LANE_ROW_CLEARANCE = 8
+
+/**
+ * Extra vertical room per row boundary for converter DC lanes drawn as horizontal chains. A
+ * row's captions hang below its symbols while the next row's name labels sit above theirs, so
+ * the standard row spacing is widened by whatever those need, never by less than the minimum.
+ */
+function getTopDcLaneRowExtraGap(
+  devices: readonly TrunkDevice[],
+  horizontalDeviceIds: ReadonlySet<string>,
+  notesOrientation: 'horizontal' | 'vertical',
+  orientationContext: SupplyDeviceOrientationContext | undefined
+): number {
+  if (horizontalDeviceIds.size === 0) return 0
+  const laneDevices = devices.filter((device) => horizontalDeviceIds.has(device.id))
+  const belowLabelHeight = Math.max(
+    0,
+    ...laneDevices.map(
+      (device) => getSupplyInlineLabelLines(device).length * TOP_LANE_BELOW_LABEL_LINE_HEIGHT
+    )
+  )
+  const aboveLabelHeight = Math.max(
+    0,
+    ...getSupplyTopLabelPlacements(
+      laneDevices.map((device, index) => ({
+        device,
+        x: index * LAYOUT_CONSTANTS.SUPPLY_CONVERTER_DC_DEVICE_SPACING,
+        y: 0,
+      })),
+      'Figtree',
+      notesOrientation,
+      orientationContext
+    ).map((placement) => placement.height + SUPPLY_TOP_LABEL_OFFSET_FROM_SYMBOL)
+  )
+  const requiredGap =
+    LAYOUT_CONSTANTS.SYMBOL_SIZE +
+    belowLabelHeight +
+    aboveLabelHeight +
+    TOP_LANE_ROW_CLEARANCE
+  return Math.max(
+    TOP_LANE_MIN_EXTRA_ROW_GAP,
+    Math.ceil(requiredGap - CIRCUIT_CONVERTER_OUTPUT_ROW_SPACING)
+  )
+}
 
 export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInput) {
   const {
@@ -266,8 +315,14 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
     hasSupplyChangeover &&
     resolveSupplyLayoutChangeoverGridSource(supplyTrunkDevices, panel) === 'converter-input'
   // Port-1 devices then sit inline on the horizontal tap wire.
+  const horizontalDcLaneDeviceIds = getHorizontalDcLaneDeviceIds(supplyTrunkDevices)
   const supplyOrientationContext: SupplyDeviceOrientationContext | undefined =
-    usesConverterInputTap ? { changeoverGridSource: 'converter-input' } : undefined
+    usesConverterInputTap || horizontalDcLaneDeviceIds.size > 0
+      ? {
+          ...(usesConverterInputTap ? { changeoverGridSource: 'converter-input' as const } : {}),
+          ...(horizontalDcLaneDeviceIds.size > 0 ? { horizontalDcLaneDeviceIds } : {}),
+        }
+      : undefined
   const isVerticalPositionedSupplyDevice = (
     device: Parameters<typeof isVerticalSupplyDevice>[0]
   ): boolean => isVerticalSupplyDevice(device, supplyOrientationContext)
@@ -327,6 +382,14 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
   const hasTopConverterDcDevice = supplyTrunkDevices.some(
     (device) => device.supplyPath === 'converter-dc-top'
   )
+  // Horizontal DC lanes caption their symbols below (ratings) and above (names), so their rows
+  // are pushed apart by what those captions need beyond the standard row spacing.
+  const topLaneRowExtraGap = getTopDcLaneRowExtraGap(
+    supplyTrunkDevices,
+    horizontalDcLaneDeviceIds,
+    supplyTrunkNotesOrientation,
+    supplyOrientationContext
+  )
   const inlineSupplyConverter = supplyTrunkDevices.find(
     (device) =>
       supportsCircuitConverterDcConnections(device) &&
@@ -360,7 +423,12 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
         )
       )
       const inlineTopDcBusClearance =
-        provisionalTopDeviceY - provisionalTopExtent + SUPPLY_FRAME_TOP_CONTENT_GAP
+        provisionalTopDeviceY -
+        provisionalTopExtent +
+        SUPPLY_FRAME_TOP_CONTENT_GAP +
+        (inlineSupplyConverter
+          ? topLaneRowExtraGap * getCircuitConverterDcConnectionCount(inlineSupplyConverter)
+          : 0)
       supplyY = Math.max(
         supplyY,
         mainBusY +
@@ -669,7 +737,8 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
             position.y = getCircuitConverterOutputRowY(
               converterPosition.device,
               converterPosition.y,
-              connectionIndex - 1
+              connectionIndex - 1,
+              topLaneRowExtraGap
             )
           })
       }
@@ -939,7 +1008,8 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
             position.y = getCircuitConverterOutputRowY(
               converterPosition.device,
               converterPosition.y,
-              connectionIndex - 1
+              connectionIndex - 1,
+              topLaneRowExtraGap
             )
           })
 

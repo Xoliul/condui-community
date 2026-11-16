@@ -62,7 +62,7 @@ import type { ProjectV2 } from '@/types/projectV2'
 
 
 export type TrikImportOptions = {
-  /** Keep a cable split below a device as a one-wire fork. Defaults to `oneWireForksEnabled()`. */
+  /** Keep a cable split below a device as a one-wire fork. Defaults to true. */
   oneWireForks?: boolean
 }
 

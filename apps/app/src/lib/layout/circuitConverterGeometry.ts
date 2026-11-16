@@ -86,19 +86,27 @@ export function getSupplyConverterHorizontalGrowth(device: TrunkDevice | undefin
   return (getCircuitConverterDcConnectionCount(device) - 1) * CIRCUIT_CONVERTER_BLOCK_SIZE
 }
 
+/**
+ * `extraRowGap` widens every row boundary, the converter body included: the row nearest the
+ * converter rises by one gap, the next by two, and so on. Horizontal lanes use it to leave room
+ * for the captions hanging below their symbols.
+ */
 export function getCircuitConverterOutputRowY(
   device: TrunkDevice,
   anchorY: number,
-  connectionIndex: number
+  connectionIndex: number,
+  extraRowGap = 0
 ): number {
   const count = getCircuitConverterDcConnectionCount(device)
   const safeIndex = Math.max(0, Math.min(count - 1, Math.trunc(connectionIndex)))
   const bodyTop = anchorY - CIRCUIT_CONVERTER_BLOCK_SIZE / 2
+  const rowsAbove = count - 1 - safeIndex
   // Left rows sit highest. This keeps a row from crossing the vertical stubs to its right.
   return (
     bodyTop -
     CIRCUIT_CONVERTER_OUTPUT_STUB_LENGTH -
-    (count - 1 - safeIndex) * CIRCUIT_CONVERTER_OUTPUT_ROW_SPACING
+    rowsAbove * CIRCUIT_CONVERTER_OUTPUT_ROW_SPACING -
+    (rowsAbove + 1) * extraRowGap
   )
 }
 

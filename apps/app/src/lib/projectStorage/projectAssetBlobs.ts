@@ -410,110 +410,156 @@ export async function externalizeProjectAssetBlobs<T extends AssetManagedProject
   }
 }
 
-async function hydrateDataUrlField(
-  value: string | undefined | null,
-  setValue: (value: string) => void,
-  reader: ProjectAssetBlobReader
-): Promise<void> {
-  if (!isProjectAssetRef(value)) return
-  const asset = await reader.get(assetIdFromRef(value))
-  if (!asset) return
-  setValue(bytesToDataUrl(asset.mimeType, asset.bytes))
+/** Looks up an already available asset blob; undefined leaves the ref in place. */
+export type ProjectAssetBlobLookup = (assetId: string) => ProjectAssetBlob | undefined
+
+function refAssetId(value: string | undefined | null): string | null {
+  return isProjectAssetRef(value) ? assetIdFromRef(value) : null
 }
 
-async function hydrateTextField(
+function resolveDataUrl(
   value: string | undefined | null,
-  setValue: (value: string) => void,
-  reader: ProjectAssetBlobReader
-): Promise<void> {
-  if (!isProjectAssetRef(value)) return
-  const asset = await reader.get(assetIdFromRef(value))
-  if (!asset) return
-  setValue(new TextDecoder().decode(asset.bytes))
+  lookup: ProjectAssetBlobLookup
+): string | undefined {
+  const assetId = refAssetId(value)
+  const asset = assetId ? lookup(assetId) : undefined
+  return asset ? bytesToDataUrl(asset.mimeType, asset.bytes) : undefined
 }
 
+function resolveText(
+  value: string | undefined | null,
+  lookup: ProjectAssetBlobLookup
+): string | undefined {
+  const assetId = refAssetId(value)
+  const asset = assetId ? lookup(assetId) : undefined
+  return asset ? new TextDecoder().decode(asset.bytes) : undefined
+}
+
+/**
+ * Every stored-asset ref the editor replaces with content, in load order: plan images and SVGs,
+ * documents, installer logo and signature, import sources. Duplicates are listed once.
+ */
+export function listHydratableProjectAssetIds(project: AssetManagedProject): string[] {
+  const ids = new Set<string>()
+  const add = (value: string | undefined | null) => {
+    const assetId = refAssetId(value)
+    if (assetId) ids.add(assetId)
+  }
+  for (const asset of project.assets ?? []) {
+    if (isProjectDocumentAsset(asset)) {
+      add(asset.dataUrl)
+      continue
+    }
+    if (!isNativeFloorPlanAssetKind(asset.kind)) continue
+    add(asset.dataUrl)
+    add(asset.svgContent)
+  }
+  add(project.project.installerOverride?.logoDataUrl)
+  add(project.project.installerOverride?.signatureDataUrl)
+  add(project.project.importSources?.trik?.dataUrl)
+  add(project.project.importSources?.schematicals?.dataUrl)
+  return [...ids]
+}
+
+function hydrateAsset(asset: AssetModelV2, lookup: ProjectAssetBlobLookup): AssetModelV2 {
+  if (isProjectDocumentAsset(asset)) {
+    const dataUrl = resolveDataUrl(asset.dataUrl, lookup)
+    return dataUrl === undefined ? asset : { ...asset, dataUrl }
+  }
+  if (!isNativeFloorPlanAssetKind(asset.kind)) return asset
+
+  const dataUrl = resolveDataUrl(asset.dataUrl, lookup)
+  const svgContent = resolveText(asset.svgContent, lookup)
+  if (dataUrl === undefined && svgContent === undefined) return asset
+
+  const next: AssetModelV2 = { ...asset }
+  const legacy = asset.legacy ? { ...asset.legacy } : undefined
+  if (dataUrl !== undefined) {
+    next.dataUrl = dataUrl
+    if (legacy) {
+      if (asset.kind === 'floorplan-processed') legacy.processedDataUrl = dataUrl
+      else legacy.dataUrl = dataUrl
+    }
+  }
+  if (svgContent !== undefined) {
+    next.svgContent = svgContent
+    if (legacy) legacy.svgContent = svgContent
+  }
+  if (legacy) next.legacy = legacy
+  return next
+}
+
+/**
+ * Replaces the stored-asset refs whose blob `lookup` already has with their content, without
+ * waiting on any download. Untouched parts keep their identity, so a frozen project stays shared
+ * where nothing changed; refs without a blob stay as they are. Returns `project` itself when
+ * nothing was replaced.
+ */
+export function hydrateProjectAssetBlobsFrom<T extends AssetManagedProject>(
+  project: T,
+  lookup: ProjectAssetBlobLookup
+): T {
+  let assetsChanged = false
+  const assets = project.assets?.map((asset) => {
+    const next = hydrateAsset(asset, lookup)
+    if (next !== asset) assetsChanged = true
+    return next
+  })
+
+  const meta = project.project
+  const override = meta.installerOverride
+  const logoDataUrl = resolveDataUrl(override?.logoDataUrl, lookup)
+  const signatureDataUrl = resolveDataUrl(override?.signatureDataUrl, lookup)
+  const trikDataUrl = resolveDataUrl(meta.importSources?.trik?.dataUrl, lookup)
+  const schematicalsDataUrl = resolveDataUrl(meta.importSources?.schematicals?.dataUrl, lookup)
+  const overrideChanged = logoDataUrl !== undefined || signatureDataUrl !== undefined
+  const sourcesChanged = trikDataUrl !== undefined || schematicalsDataUrl !== undefined
+  if (!assetsChanged && !overrideChanged && !sourcesChanged) return project
+
+  let nextMeta = meta
+  if (overrideChanged && override) {
+    nextMeta = {
+      ...nextMeta,
+      installerOverride: {
+        ...override,
+        ...(logoDataUrl !== undefined ? { logoDataUrl } : {}),
+        ...(signatureDataUrl !== undefined ? { signatureDataUrl } : {}),
+      },
+    }
+  }
+  const sources = meta.importSources
+  if (sourcesChanged && sources) {
+    nextMeta = {
+      ...nextMeta,
+      importSources: {
+        ...sources,
+        ...(trikDataUrl !== undefined && sources.trik
+          ? { trik: { ...sources.trik, dataUrl: trikDataUrl } }
+          : {}),
+        ...(schematicalsDataUrl !== undefined && sources.schematicals
+          ? { schematicals: { ...sources.schematicals, dataUrl: schematicalsDataUrl } }
+          : {}),
+      },
+    }
+  }
+
+  return {
+    ...project,
+    ...(assetsChanged ? { assets } : {}),
+    ...(nextMeta !== meta ? { project: nextMeta } : {}),
+  }
+}
+
+/** Returns a copy of `project` with every stored-asset ref `reader` can supply replaced by its content. */
 export async function hydrateProjectAssetBlobs<T extends AssetManagedProject>(
   project: T,
   reader: ProjectAssetBlobReader
 ): Promise<T> {
   const nextProject = JSON.parse(JSON.stringify(project)) as T
-
-  for (const asset of nextProject.assets ?? []) {
-    if (isProjectDocumentAsset(asset)) {
-      await hydrateDataUrlField(
-        asset.dataUrl,
-        (value) => {
-          asset.dataUrl = value
-        },
-        reader
-      )
-      continue
-    }
-    if (!isNativeFloorPlanAssetKind(asset.kind)) continue
-
-    await hydrateDataUrlField(
-      asset.dataUrl,
-      (value) => {
-        asset.dataUrl = value
-        if (asset.legacy) {
-          if (asset.kind === 'floorplan-processed') {
-            asset.legacy.processedDataUrl = value
-          } else {
-            asset.legacy.dataUrl = value
-          }
-        }
-      },
-      reader
-    )
-    await hydrateTextField(
-      asset.svgContent,
-      (value) => {
-        asset.svgContent = value
-        if (asset.legacy) asset.legacy.svgContent = value
-      },
-      reader
-    )
+  const blobs = new Map<string, ProjectAssetBlob>()
+  for (const assetId of listHydratableProjectAssetIds(nextProject)) {
+    const asset = await reader.get(assetId)
+    if (asset) blobs.set(assetId, asset)
   }
-
-  const installerOverride = nextProject.project.installerOverride
-  if (installerOverride) {
-    await hydrateDataUrlField(
-      installerOverride.logoDataUrl,
-      (value) => {
-        installerOverride.logoDataUrl = value
-      },
-      reader
-    )
-    await hydrateDataUrlField(
-      installerOverride.signatureDataUrl,
-      (value) => {
-        installerOverride.signatureDataUrl = value
-      },
-      reader
-    )
-  }
-
-  const trik = nextProject.project.importSources?.trik
-  if (trik) {
-    await hydrateDataUrlField(
-      trik.dataUrl,
-      (value) => {
-        trik.dataUrl = value
-      },
-      reader
-    )
-  }
-
-  const schematicals = nextProject.project.importSources?.schematicals
-  if (schematicals) {
-    await hydrateDataUrlField(
-      schematicals.dataUrl,
-      (value) => {
-        schematicals.dataUrl = value
-      },
-      reader
-    )
-  }
-
-  return nextProject
+  return hydrateProjectAssetBlobsFrom(nextProject, (assetId) => blobs.get(assetId))
 }

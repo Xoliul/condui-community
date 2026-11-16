@@ -5,7 +5,9 @@ import {
   getProjectElectricalInstallation,
   getProjectElectricalPanels,
   selectProjectAuxiliaryElectricalEnclosures,
+  selectProjectSupplyAssemblies,
 } from '@/lib/projectV2/electrical'
+import { collectTerminalStripOccurrences } from '@/lib/terminalStrip/labels'
 import {
   selectProjectBuildingFloors,
   selectProjectFloorPlan,
@@ -167,7 +169,10 @@ export function inspectProjectEntities(project: ProjectV2): ProjectEntity[] {
         ownerId
       )
   }
+  // Pin assignment targets these ids; they exist only once a strip has a pin, so agents cannot guess them.
+  const stripOccurrences = collectTerminalStripOccurrences(project)
   const device = (item: TrunkDevice, ownerId: string, scope: string) => {
+    const occurrences = stripOccurrences.filter(({ entityId }) => entityId === item.id)
     add(
       'trunkDevice',
       item.id,
@@ -176,6 +181,16 @@ export function inspectProjectEntities(project: ProjectV2): ProjectEntity[] {
         ...pick(item, deviceFields),
         scope,
         placementIds: (item.placements ?? []).map(({ id: placementId }) => placementId),
+        ...(occurrences.length
+          ? {
+              terminalStripOccurrences: occurrences.map(({ id: occurrenceId, stripId, side, pin }) => ({
+                id: occurrenceId,
+                stripId,
+                side,
+                pin,
+              })),
+            }
+          : {}),
       },
       ownerId
     )
@@ -193,7 +208,15 @@ export function inspectProjectEntities(project: ProjectV2): ProjectEntity[] {
       'installation',
       project.project.id,
       'Installation',
-      pick(installation, ['nominalVoltage', 'connectionCurrentA', 'earthingSystem', 'installYear']),
+      {
+        ...pick(installation, ['nominalVoltage', 'connectionCurrentA', 'earthingSystem', 'installYear']),
+        // Ids for properties_edit_supply (rootFeed) and supply_disconnect_inverter_grid_input (assembly).
+        rootFeedIds: (installation.feedTopology?.rootFeeds ?? []).map(({ id: feedId }) => feedId),
+        supplyAssemblies: selectProjectSupplyAssemblies(project).map((assembly) => ({
+          id: assembly.id,
+          connectionIds: assembly.connections.map(({ id: connectionId }) => connectionId),
+        })),
+      },
       project.project.id
     )
     placements(installation.earthingPlacements, project.project.id)

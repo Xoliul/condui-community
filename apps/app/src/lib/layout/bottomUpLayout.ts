@@ -307,6 +307,8 @@ export interface BottomUpPanelLayout {
   }
   /** Effective changeover grid source when it differs from the historical main-grid tap. */
   supplyChangeoverGridSource?: 'converter-input'
+  /** Supply devices on a multi-device converter DC top lane, drawn as a horizontal chain. */
+  supplyHorizontalDcLaneDeviceIds?: ReadonlySet<string>
   /** Grid-connected converter branch without a source changeover. */
   supplyConverterBranch?: {
     deviceId: string
@@ -795,6 +797,7 @@ function calculateBottomUpPanelLayout(
     supplyTrunkDevices: supplyLayout.supplyTrunkDevices,
     hasSupplyChangeover: supplyLayout.hasSupplyChangeover,
     usesConverterInputTap: supplyLayout.usesConverterInputTap,
+    supplyOrientationContext: supplyLayout.supplyOrientationContext,
     isVerticalPositionedSupplyDevice: supplyLayout.isVerticalPositionedSupplyDevice,
     changeoverElbowLead: supplyLayout.changeoverElbowLead,
     directConverterIndex: supplyLayout.directConverterIndex,

@@ -185,7 +185,8 @@
     "dismissOfflineBanner": "Offline melding sluiten",
     "offlineIndicatorTitle": "Je bent offline",
     "cloudSyncPendingTitle": "Niet gesynchroniseerd met de cloud",
-    "cloudSyncPendingMessage": "Je wijzigingen zijn op dit apparaat opgeslagen. De cloudsynchronisatie blijft het opnieuw proberen."
+    "cloudSyncPendingMessage": "Je wijzigingen zijn op dit apparaat opgeslagen. De cloudsynchronisatie blijft het opnieuw proberen.",
+    "cloudSyncConflictTitle": "Niet gesynchroniseerd: kies een versie"
   },
   "diagnostics": {
     "anonymousProjectName": "Diagnosticsproject ({{idShort}})",
@@ -999,6 +1000,8 @@
     "notFoundTitle": "Project niet gevonden",
     "notFoundBody": "Ongeldige of verwijderde link.",
     "notFoundBack": "Start",
+    "keptOnDeviceTitle": "Bewaard op dit apparaat",
+    "keptOnDeviceMessage": "Er is geen cloudslot vrij, dus dit project blijft op dit apparaat.",
     "serverConflict": {
       "title": "Gewijzigd op een ander toestel",
       "message": "Dit project werd elders opgeslagen nadat je het opende. Je laatste wijzigingen hier zijn niet bewaard.",
@@ -1112,6 +1115,7 @@
     "add": "Beveiligingstoestel toevoegen",
     "type": "Type",
     "rating": "Nominale stroom",
+    "otherRating": "Anders…",
     "curve": "Uitschakelkarakteristiek",
     "specialistCurveWarning": "Ongebruikelijk in huishoudelijke installaties. Controleer de kortsluitbeveiliging.",
     "sensitivity": "Differentieelstroom IΔn",
@@ -3120,6 +3124,9 @@
       "details": "Export voltooid maar sommige pagina's zijn mislukt:\n{{errors}}",
       "validationFailureTitle": "Export kon niet worden voltooid",
       "validationFailureMessage": "Er ging iets mis bij het voorbereiden van je export. Je project is veilig en het probleem is gemeld aan ons team. Probeer het later opnieuw."
+    },
+    "limited": {
+      "notice": "Deze pdf krijgt een watermerk en een lage resolutie."
     }
   },
   "labelStripExport": {
@@ -4255,5 +4262,13 @@
       "download": "Bordbladen",
       "page": "Pagina {{page}} van {{pages}}"
     }
+  },
+  "partnerOffer": {
+    "use": "Gebruik deze kast",
+    "unavailable": "Deze kast is niet beschikbaar.",
+    "createFailed": "Het project kon niet worden gemaakt.",
+    "previewTitle": "Voorbeeld van de kast",
+    "intro": "Je kocht deze kast bij <partner>{{partner}}</partner>.",
+    "introBody": "Maak er gratis het eendraadschema van je woning bij met <condui>Condui</condui>: de bedrade kast staat al getekend, dus je begint niet met een leeg blad."
   }
 }

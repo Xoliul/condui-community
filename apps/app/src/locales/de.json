@@ -185,7 +185,8 @@
     "dismissOfflineBanner": "Offline-Benachrichtigung schließen",
     "offlineIndicatorTitle": "Sie sind offline",
     "cloudSyncPendingTitle": "Nicht mit der Cloud synchronisiert",
-    "cloudSyncPendingMessage": "Ihre Änderungen sind auf diesem Gerät gespeichert. Die Cloud-Synchronisierung wird weiter versucht."
+    "cloudSyncPendingMessage": "Ihre Änderungen sind auf diesem Gerät gespeichert. Die Cloud-Synchronisierung wird weiter versucht.",
+    "cloudSyncConflictTitle": "Nicht synchronisiert: Version wählen"
   },
   "diagnostics": {
     "anonymousProjectName": "Diagnoseprojekt ({{idShort}})",
@@ -999,6 +1000,8 @@
     "notFoundTitle": "Projekt nicht gefunden",
     "notFoundBody": "Ungültiger oder gelöschter Link.",
     "notFoundBack": "Start",
+    "keptOnDeviceTitle": "Auf diesem Gerät gespeichert",
+    "keptOnDeviceMessage": "Kein Cloud-Slot frei, daher bleibt dieses Projekt auf diesem Gerät.",
     "serverConflict": {
       "title": "Auf einem anderen Gerät geändert",
       "message": "Dieses Projekt wurde nach dem Öffnen anderswo gespeichert. Ihre letzten Änderungen hier sind nicht gespeichert.",
@@ -1112,6 +1115,7 @@
     "add": "Sicherheitsgerät hinzufügen",
     "type": "Typ",
     "rating": "Nennstrom",
+    "otherRating": "Andere…",
     "curve": "Auslösekennlinie",
     "specialistCurveWarning": "In Haushaltsanlagen unüblich. Kurzschlussschutz prüfen.",
     "sensitivity": "Differenzstrom IΔn",
@@ -3120,6 +3124,9 @@
       "details": "Export abgeschlossen, aber einige Seiten sind fehlgeschlagen:\n{{errors}}",
       "validationFailureTitle": "Der Export konnte nicht abgeschlossen werden",
       "validationFailureMessage": "Beim Vorbereiten Ihres Exports ist ein Fehler aufgetreten. Ihr Projekt ist sicher und das Problem wurde unserem Team gemeldet. Bitte versuchen Sie es später noch einmal."
+    },
+    "limited": {
+      "notice": "Dieses PDF erhält ein Wasserzeichen und eine niedrige Auflösung."
     }
   },
   "labelStripExport": {
@@ -4255,5 +4262,13 @@
       "download": "Verteilerblätter",
       "page": "Seite {{page}} von {{pages}}"
     }
+  },
+  "partnerOffer": {
+    "use": "Diesen Schaltschrank verwenden",
+    "unavailable": "Dieser Schaltschrank ist nicht verfügbar.",
+    "createFailed": "Das Projekt konnte nicht erstellt werden.",
+    "previewTitle": "Vorschau des Schaltschranks",
+    "intro": "Sie haben diesen Schaltschrank bei <partner>{{partner}}</partner> gekauft.",
+    "introBody": "Erstellen Sie mit <condui>Condui</condui> kostenlos das Einlinienschema Ihres Hauses: Der verdrahtete Schaltschrank ist schon eingezeichnet, Sie starten also nicht bei null."
   }
 }

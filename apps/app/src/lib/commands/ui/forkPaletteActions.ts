@@ -4,10 +4,10 @@ import type { ProjectPaletteAction } from './projectPaletteActions'
 import { electricalCreateFork } from '../project/commands/electricalFork'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { collectCircuits, walkPanels } from '@/lib/panel/panelTree'
-import { canForkAfterEndpoint, oneWireForksEnabled } from '@/lib/eendraad/oneWireForkProject'
+import { canForkAfterEndpoint } from '@/lib/eendraad/oneWireForkProject'
 
 export function getForkPaletteActions(project: ProjectV2, selection: Selection): ProjectPaletteAction[] {
-  if (!oneWireForksEnabled() || selection.type !== 'endpoint' || selection.ids.length !== 1) return []
+  if (selection.type !== 'endpoint' || selection.ids.length !== 1) return []
   const afterEndpointId = selection.ids[0]!
   if (!electricalCreateFork.check(project, { afterEndpointId }).ok) return []
   const circuit = [...walkPanels(getProjectElectricalPanels(project))].flatMap(collectCircuits)

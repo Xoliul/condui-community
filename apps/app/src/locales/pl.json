@@ -185,7 +185,8 @@
     "dismissOfflineBanner": "Zamknij powiadomienie offline",
     "offlineIndicatorTitle": "Jesteś offline",
     "cloudSyncPendingTitle": "Brak synchronizacji z chmurą",
-    "cloudSyncPendingMessage": "Twoje zmiany są zapisane na tym urządzeniu. Synchronizacja z chmurą jest ponawiana."
+    "cloudSyncPendingMessage": "Twoje zmiany są zapisane na tym urządzeniu. Synchronizacja z chmurą jest ponawiana.",
+    "cloudSyncConflictTitle": "Brak synchronizacji: wybierz wersję"
   },
   "diagnostics": {
     "anonymousProjectName": "({{idShort}})",
@@ -999,6 +1000,8 @@
     "notFoundTitle": "Nie znaleziono projektu",
     "notFoundBody": "Nieprawidłowy lub usunięty link.",
     "notFoundBack": "Uruchom",
+    "keptOnDeviceTitle": "Zapisano na tym urządzeniu",
+    "keptOnDeviceMessage": "Brak wolnego miejsca w chmurze, więc ten projekt zostaje na tym urządzeniu.",
     "serverConflict": {
       "title": "Zmieniono na innym urządzeniu",
       "message": "Ten projekt został zapisany gdzie indziej po jego otwarciu. Ostatnie zmiany tutaj nie zostały zapisane.",
@@ -1112,6 +1115,7 @@
     "add": "Dodaj urządzenie zabezpieczające",
     "type": "Typ",
     "rating": "Prąd znamionowy",
+    "otherRating": "Inna wartość…",
     "curve": "Charakterystyka wyzwalania",
     "specialistCurveWarning": "Nietypowa w instalacjach domowych. Sprawdź ochronę przed zwarciem.",
     "sensitivity": "Prąd różnicowy IΔn",
@@ -3120,6 +3124,9 @@
       "details": "Eksport zakończony, ale niektóre strony nie powiodły się:\n{{errors}}",
       "validationFailureTitle": "Nie można ukończyć eksportu",
       "validationFailureMessage": "Coś poszło nie tak podczas przygotowywania eksportu. Twój projekt jest bezpieczny, a problem został zgłoszony naszemu zespołowi. Spróbuj ponownie później."
+    },
+    "limited": {
+      "notice": "Ten plik PDF będzie miał znak wodny i niską rozdzielczość."
     }
   },
   "labelStripExport": {
@@ -4255,5 +4262,13 @@
       "download": "Karty rozdzielnic",
       "page": "Strona {{page}} z {{pages}}"
     }
+  },
+  "partnerOffer": {
+    "use": "Użyj tej rozdzielnicy",
+    "unavailable": "Ta rozdzielnica jest niedostępna.",
+    "createFailed": "Nie udało się utworzyć projektu.",
+    "previewTitle": "Podgląd rozdzielnicy",
+    "intro": "Ta rozdzielnica pochodzi z <partner>{{partner}}</partner>.",
+    "introBody": "Stwórz z <condui>Condui</condui> darmowy schemat jednokreskowy swojego domu: okablowana rozdzielnica jest już narysowana, więc nie zaczynasz od pustej kartki."
   }
 }

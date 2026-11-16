@@ -185,7 +185,8 @@
     "dismissOfflineBanner": "Închideți notificarea offline",
     "offlineIndicatorTitle": "Sunteți offline",
     "cloudSyncPendingTitle": "Nesincronizat cu cloudul",
-    "cloudSyncPendingMessage": "Modificările sunt salvate pe acest dispozitiv. Sincronizarea cu cloudul se reîncearcă."
+    "cloudSyncPendingMessage": "Modificările sunt salvate pe acest dispozitiv. Sincronizarea cu cloudul se reîncearcă.",
+    "cloudSyncConflictTitle": "Nesincronizat: alege o versiune"
   },
   "diagnostics": {
     "anonymousProjectName": "({{idShort}})",
@@ -999,6 +1000,8 @@
     "notFoundTitle": "Proiectul nu a fost găsit",
     "notFoundBody": "Link nevalid sau șters.",
     "notFoundBack": "Pornire",
+    "keptOnDeviceTitle": "Salvat pe acest dispozitiv",
+    "keptOnDeviceMessage": "Nu există niciun slot cloud liber, așa că proiectul rămâne pe acest dispozitiv.",
     "serverConflict": {
       "title": "Modificat pe alt dispozitiv",
       "message": "Acest proiect a fost salvat în altă parte după ce l-ați deschis. Ultimele modificări de aici nu sunt salvate.",
@@ -1112,6 +1115,7 @@
     "add": "Adăugați un dispozitiv de protecție",
     "type": "Tip",
     "rating": "Curent nominal",
+    "otherRating": "Altă valoare…",
     "curve": "Caracteristica de declanșare",
     "specialistCurveWarning": "Neobișnuită în instalațiile casnice. Verificați protecția la scurtcircuit.",
     "sensitivity": "Curent diferențial IΔn",
@@ -3120,6 +3124,9 @@
       "details": "Export finalizat, dar unele pagini au eșuat:\n{{errors}}",
       "validationFailureTitle": "Exportul nu a putut fi finalizat",
       "validationFailureMessage": "A apărut o eroare la pregătirea exportului. Proiectul dvs. este în siguranță și problema a fost raportată echipei noastre. Vă rugăm să încercați din nou mai târziu."
+    },
+    "limited": {
+      "notice": "Acest PDF va avea filigran și rezoluție redusă."
     }
   },
   "labelStripExport": {
@@ -4255,5 +4262,13 @@
       "download": "Fișe de tablou",
       "page": "Pagina {{page}} din {{pages}}"
     }
+  },
+  "partnerOffer": {
+    "use": "Folosește acest tablou",
+    "unavailable": "Acest tablou nu este disponibil.",
+    "createFailed": "Proiectul nu a putut fi creat.",
+    "previewTitle": "Previzualizare tablou",
+    "intro": "Tabloul acesta este de la <partner>{{partner}}</partner>.",
+    "introBody": "Creează gratuit cu <condui>Condui</condui> schema monofilară a locuinței tale: tabloul cablat este deja desenat, deci nu pornești de la o pagină goală."
   }
 }

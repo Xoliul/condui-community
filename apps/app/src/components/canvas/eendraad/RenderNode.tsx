@@ -40,7 +40,10 @@ import { getSupplyProtectionLabelCollisionInfo } from '@/lib/eendraad/supplyProt
 import { findPanelDistributionEndpointInCircuit } from '@/lib/eendraad/panelSupplyLink'
 import { isNumberedCircuitTrunkSwitch } from '@/lib/eendraad/circuitPointNumbering'
 import { countPanelCircuits } from '@/utils/plan/placementHelpers'
-import { isVerticalSupplyDevice } from '@/lib/layout/supplyDeviceOrientation'
+import {
+  getPanelSupplyOrientationContext,
+  isVerticalSupplyDevice,
+} from '@/lib/layout/supplyDeviceOrientation'
 import { reconcileLayoutNode } from '@/lib/layout/eendraadDerivedLayout'
 
 function isPanelOnlySubPanelFeeder(
@@ -645,9 +648,7 @@ const RenderNode = memo(function RenderNodeImpl({
       const isSupplyTrunkDevice = node.id?.startsWith('supplyTrunkDevice-')
       const isVerticalSupplyBranchDevice =
         isSupplyTrunkDevice &&
-        (isVerticalSupplyDevice(trunkDevice, {
-          changeoverGridSource: panelLayout?.supplyChangeoverGridSource,
-        }) ||
+        (isVerticalSupplyDevice(trunkDevice, getPanelSupplyOrientationContext(panelLayout ?? {})) ||
           node.id.includes('--feed-stub-'))
       const isSubPanelSupplyTrunkDevice = node.id?.startsWith('subpanelSupplyTrunkDevice-')
       const isGroundTrunkDevice = node.id?.startsWith('groundTrunkDevice-')

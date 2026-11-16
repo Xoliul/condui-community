@@ -4,13 +4,16 @@
  * "no match", after which svg2pdf either drops the image or fails the page with an
  * XMLHttpRequest error. Chrome copes until about 8 MB.
  *
- * Raster images are therefore handed to svg2pdf as same-origin blob URLs: svg2pdf loads
- * them with XMLHttpRequest, which works for blob URLs in every browser, and takes the
- * image format from the URL's extension, supplied through the `#.png` fragment.
+ * Large raster images are therefore handed to svg2pdf as same-origin blob URLs: svg2pdf
+ * loads them with XMLHttpRequest and takes the format from the URL extension in `#.png`.
+ * Smaller images stay inline and avoid that extra request.
  */
 
 const RASTER_DATA_URL_RE = /^\s*data:image\/(png|jpe?g|gif|webp)[;,]/i
 const XLINK_NS = 'http://www.w3.org/1999/xlink'
+// Safari's svg2pdf data-URL matcher fails on larger strings. Small inline images
+// avoid an unnecessary XHR (and its CSP/browser-specific failure modes).
+const MAX_INLINE_RASTER_DATA_URL_LENGTH = 128 * 1024
 
 function imageHref(imageEl: Element): string | null {
   return imageEl.getAttribute('href') ?? imageEl.getAttributeNS(XLINK_NS, 'href')
@@ -46,7 +49,9 @@ export function swapSvg2PdfImagesToBlobUrls(root: Element): () => void {
     const href = imageHref(imageEl)
     const match = href ? RASTER_DATA_URL_RE.exec(href) : null
     if (!href || !match) continue
-    const extension = match[1]!.toLowerCase().replace('jpg', 'jpeg')
+    const sourceFormat = match[1]!.toLowerCase()
+    if (href.length <= MAX_INLINE_RASTER_DATA_URL_LENGTH && sourceFormat !== 'jpg') continue
+    const extension = sourceFormat.replace('jpg', 'jpeg')
     const blob = dataUrlToBlob(href, `image/${extension}`)
     if (!blob) continue
 

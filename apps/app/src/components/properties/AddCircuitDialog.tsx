@@ -14,6 +14,8 @@ import {
   getProtectionCreationProps,
   DEFAULT_RCBO_SENSITIVITY_MA,
   getProtectionRatingOptions,
+  OTHER_PROTECTION_RATING_OPTION,
+  parsePositiveProtectionRating,
 } from '@/lib/protectionDefaults'
 import CustomDropdown from '@/components/common/CustomDropdown'
 import {
@@ -214,22 +216,54 @@ export default function AddCircuitDialog({
       <div>
         <label className={labelClass}>{t('protections.rating', 'Rated current')} (A)</label>
         {ratingOptions ? (
-          isMCB || isRCBO ? (
-            <CustomDropdown
-              value={ratingA === '' ? '' : String(ratingA)}
-              onChange={(nextValue) => setRatingA(nextValue ? Number(nextValue) : '')}
-              options={ratingOptions.map((r) => ({ value: String(r), label: `${r} A` }))}
-              placeholder={t('common.select', 'Select')}
-              className={selectClass}
-            />
-          ) : (
-            <CustomDropdown
-              value={ratingA === '' ? '' : String(ratingA)}
-              onChange={(nextValue) => setRatingA(nextValue ? Number(nextValue) : '')}
-              options={ratingOptions.map((r) => ({ value: String(r), label: `${r} A` }))}
-              className={selectClass}
-            />
-          )
+          <>
+            {isMCB || isRCBO ? (
+              <>
+                <CustomDropdown
+                  value={
+                    typeof ratingA === 'number' && ratingOptions.includes(ratingA)
+                      ? String(ratingA)
+                      : OTHER_PROTECTION_RATING_OPTION
+                  }
+                  onChange={(nextValue) =>
+                    setRatingA(
+                      nextValue === OTHER_PROTECTION_RATING_OPTION
+                        ? ''
+                        : nextValue
+                          ? Number(nextValue)
+                          : ''
+                    )
+                  }
+                  options={[
+                    ...ratingOptions.map((r) => ({ value: String(r), label: `${r} A` })),
+                    { value: OTHER_PROTECTION_RATING_OPTION, label: t('protections.otherRating', 'Other…') },
+                  ]}
+                  placeholder={t('common.select', 'Select')}
+                  className={selectClass}
+                />
+                {typeof ratingA !== 'number' || !ratingOptions.includes(ratingA) ? (
+                  <input
+                    type="number"
+                    value={ratingA === '' ? '' : ratingA}
+                    onChange={(e) =>
+                      setRatingA(parsePositiveProtectionRating(e.target.value) ?? '')
+                    }
+                    min="0.01"
+                    step="any"
+                    aria-label={t('protections.rating', 'Rated current')}
+                    className={`${selectClass} mt-2`}
+                  />
+                ) : null}
+              </>
+            ) : (
+              <CustomDropdown
+                value={ratingA === '' ? '' : String(ratingA)}
+                onChange={(nextValue) => setRatingA(nextValue ? Number(nextValue) : '')}
+                options={ratingOptions.map((r) => ({ value: String(r), label: `${r} A` }))}
+                className={selectClass}
+              />
+            )}
+          </>
         ) : (
           <input
             type="number"

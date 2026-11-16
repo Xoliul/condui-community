@@ -2,11 +2,6 @@ import type { Branch, Circuit } from '@/types/schema'
 import { resolveOneWireBranchTopology } from './oneWireBranchTopology'
 import { isEndpointInOneWireConverterTree } from './oneWireConverterBranches'
 
-/** Forks are unreleased: on in dev builds, or in a build with VITE_ENABLE_ONEWIRE_FORKS=1. */
-export function oneWireForksEnabled(): boolean {
-  return !!import.meta.env?.DEV || import.meta.env?.VITE_ENABLE_ONEWIRE_FORKS === '1'
-}
-
 export function hasOneWireForks(circuit: Pick<Circuit, 'branches'>): boolean {
   return !!circuit.branches?.some((branch) => branch.forkFrom || branch.keepEmpty)
 }

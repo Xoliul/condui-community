@@ -25,6 +25,16 @@ export const DEFAULT_RCBO_SENSITIVITY_MA = 300
 /** Default residual-current type for new RCD/RCBO devices. */
 export const DEFAULT_RESIDUAL_CURRENT_TYPE = 'A' as const
 
+/** Sentinel shown in breaker rating selectors for entering a non-standard value. */
+export const OTHER_PROTECTION_RATING_OPTION = '__other_rating__'
+
+/** Accept only positive finite custom protection ratings from number fields. */
+export function parsePositiveProtectionRating(value: string): number | undefined {
+  if (!value) return undefined
+  const rating = Number(value)
+  return Number.isFinite(rating) && rating > 0 ? rating : undefined
+}
+
 /** Standard Belgian breaker rated currents for MCB/RCBO selection (A). */
 export const BE_STANDARD_BREAKER_RATINGS_A = [
   2, 4, 6, 10, 12, 16, 20, 25, 32, 40, 50, 63, 80, 100,

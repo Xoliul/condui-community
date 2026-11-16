@@ -185,7 +185,8 @@
     "dismissOfflineBanner": "Dismiss offline notice",
     "offlineIndicatorTitle": "You are offline",
     "cloudSyncPendingTitle": "Not synced to the cloud",
-    "cloudSyncPendingMessage": "Your changes are saved on this device. Cloud sync keeps retrying."
+    "cloudSyncPendingMessage": "Your changes are saved on this device. Cloud sync keeps retrying.",
+    "cloudSyncConflictTitle": "Not synced: choose a version"
   },
   "diagnostics": {
     "anonymousProjectName": "Diagnostics project ({{idShort}})",
@@ -999,6 +1000,8 @@
     "notFoundTitle": "Project not found",
     "notFoundBody": "Invalid or removed link.",
     "notFoundBack": "Home",
+    "keptOnDeviceTitle": "Saved on this device",
+    "keptOnDeviceMessage": "There's no free cloud slot, so this project stays on this device.",
     "serverConflict": {
       "title": "Changed on another device",
       "message": "This project was saved elsewhere after you opened it. Your latest changes here are not saved.",
@@ -1112,6 +1115,7 @@
     "add": "Add protection",
     "type": "Type",
     "rating": "Rated current",
+    "otherRating": "Other…",
     "curve": "Tripping curve",
     "specialistCurveWarning": "Unusual in household installations. Verify short-circuit protection.",
     "sensitivity": "Residual trip current IΔn",
@@ -3120,6 +3124,9 @@
       "details": "Export completed but some pages failed:\n{{errors}}",
       "validationFailureTitle": "Export couldn't be completed",
       "validationFailureMessage": "Something went wrong while preparing your export. Your project is safe, and the issue has been reported to our team. Please try again later."
+    },
+    "limited": {
+      "notice": "This PDF will be watermarked and low-resolution."
     }
   },
   "labelStripExport": {
@@ -4255,5 +4262,13 @@
       "download": "Board sheets",
       "page": "Page {{page}} of {{pages}}"
     }
+  },
+  "partnerOffer": {
+    "use": "Use this cabinet",
+    "unavailable": "This cabinet is not available.",
+    "createFailed": "The project could not be created.",
+    "previewTitle": "Cabinet preview",
+    "intro": "You bought this cabinet from <partner>{{partner}}</partner>.",
+    "introBody": "Draw your home's one-wire schematic for free with <condui>Condui</condui>: the wired cabinet is already drawn, so you don't start from a blank page."
   }
 }

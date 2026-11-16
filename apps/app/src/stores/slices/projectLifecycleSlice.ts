@@ -15,7 +15,8 @@ import {
 } from './projectStoreHistory'
 import type { Project, ProjectSliceCreator, ProjectState } from './projectStoreTypes'
 import { trackSupplyAssembliesPersisted } from '@/lib/analytics/supplyAssemblyAnalytics'
-import { saveProject } from '@/lib/db'
+import { getProjectMetadataById, saveProject } from '@/lib/db'
+import { isCloudProjectCreationRefusedError } from '@/lib/projectStorage/projectCreationErrors'
 import { getActiveCollabProject, isCollaborativeProject } from '@/lib/collab/client/activeProject'
 import { clearSessionActionLog, recordSessionAction } from '@/lib/diagnostics/sessionActionLog'
 import { projectToStoredProjectV2 } from '@/lib/projectV2/migration'
@@ -156,10 +157,27 @@ export const createProjectLifecycleSlice: ProjectSliceCreator = (set, get) => ({
         if (dcPersistenceSummary) {
           logger.debug('[SUPPLY-PERSIST] saving converter DC topology', dcPersistenceSummary)
         }
-        await saveProject(storedProject, {
-          storageMode: currentProjectStorageMode,
-          storageMetadata: options?.storageMetadata,
-        })
+        try {
+          await saveProject(storedProject, {
+            storageMode: currentProjectStorageMode,
+            storageMetadata: options?.storageMetadata,
+          })
+        } catch (error) {
+          // No free cloud slot for a project not yet in the cloud: it is now a local
+          // project on this device. Keep editing and saving it there.
+          if (
+            currentProjectStorageMode !== 'cloud' ||
+            !isCloudProjectCreationRefusedError(error) ||
+            (await getProjectMetadataById(projectId, { storageMode: 'local' }))?.storageMode !== 'local'
+          ) {
+            throw error
+          }
+          set((state) => {
+            state.currentProjectStorageMode = 'local'
+          })
+          projectSnapshot = get().currentProject
+          continue
+        }
         if (dcPersistenceSummary) {
           logger.debug('[SUPPLY-PERSIST] converter DC topology saved', dcPersistenceSummary)
         }

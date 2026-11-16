@@ -32,6 +32,8 @@ import {
 import type { ProtectionLabelKey } from '@/lib/protectionLabels'
 import {
   getProtectionRatingOptions,
+  OTHER_PROTECTION_RATING_OPTION,
+  parsePositiveProtectionRating,
   breakingCapacityPatchFromSelectValue,
   getBreakerBreakingCapacityOptions,
   protectionBreakingCapacityKaOptions,
@@ -298,16 +300,53 @@ export function ProtectionDeviceElectricalFields({
           </button>
         </div>
         {ratingOptions ? (
-          <CustomDropdown
-            value={ratingA == null ? '' : String(ratingA)}
-            onChange={(nextValue) => onPatch({ ratingA: nextValue ? Number(nextValue) : undefined })}
-            options={[
-              ...(isMCB || isRCBO ? [] : [{ value: '', label: '-' }]),
-              ...ratingOptions.map((r) => ({ value: String(r), label: `${r} A` })),
-            ]}
-            placeholder={t('common.select', 'Select')}
-            className={selectClass}
-          />
+          <>
+            <CustomDropdown
+              value={
+                ratingA != null && ratingOptions.includes(ratingA)
+                  ? String(ratingA)
+                  : isMCB || isRCBO
+                    ? OTHER_PROTECTION_RATING_OPTION
+                    : ''
+              }
+              onChange={(nextValue) =>
+                onPatch({
+                  ratingA:
+                    nextValue === OTHER_PROTECTION_RATING_OPTION
+                      ? undefined
+                      : nextValue
+                        ? Number(nextValue)
+                        : undefined,
+                })
+              }
+              options={[
+                ...(isMCB || isRCBO ? [] : [{ value: '', label: '-' }]),
+                ...ratingOptions.map((r) => ({ value: String(r), label: `${r} A` })),
+                ...(isMCB || isRCBO
+                  ? [
+                      {
+                        value: OTHER_PROTECTION_RATING_OPTION,
+                        label: t('protections.otherRating', 'Other…'),
+                      },
+                    ]
+                  : []),
+              ]}
+              placeholder={t('common.select', 'Select')}
+              className={selectClass}
+            />
+            {(isMCB || isRCBO) &&
+              (ratingA == null || !ratingOptions.includes(ratingA)) && (
+                <input
+                  type="number"
+                  value={ratingA ?? ''}
+                  onChange={(e) => onPatch({ ratingA: parsePositiveProtectionRating(e.target.value) })}
+                  min="0.01"
+                  step="any"
+                  aria-label={t('protections.rating', 'Rated current')}
+                  className={`${selectClass} mt-2`}
+                />
+              )}
+          </>
         ) : (
           <input
             type="number"

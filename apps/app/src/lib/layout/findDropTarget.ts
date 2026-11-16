@@ -1825,10 +1825,10 @@ function buildDropTarget(node: LayoutNode, ctx: WalkContext, position?: Point): 
     target.changeoverGridPlacement = node.hitZone?.changeoverGridPlacement
     target.supplyConverterChangeoverSlot = node.hitZone?.supplyConverterChangeoverSlot
     if (node.type === 'trunkDevice' && typeof node.hitZone?.supplyInsertIndex === 'number') {
-      const isVerticalStub = node.id.includes('--feed-stub-') || isVerticalSupplyDevice(
+      const isVerticalStub = node.id.includes('--feed-stub-') || (!node.hitZone?.horizontalDcLane && isVerticalSupplyDevice(
         node.domainRef as import('@/types/schema').TrunkDevice,
         { changeoverGridSource: node.hitZone?.changeoverGridSource }
-      )
+      ))
       const hoveredDevice = node.domainRef as import('@/types/schema').TrunkDevice | undefined
       // The converter grid-input leg is drawn in stored order from the converter downwards,
       // unlike risers that grow upwards from their source.

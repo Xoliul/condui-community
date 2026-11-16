@@ -27,7 +27,6 @@ import {
 import { ensureInstallationFeedTopology } from '@/lib/feedTopology'
 import { normalizeStoredProjectToV2 } from '@/lib/projectV2/migration'
 import { endpointSupportsMultiplier } from '@/utils/endpointMultipliers'
-import { oneWireForksEnabled } from '@/lib/eendraad/oneWireForkProject'
 import { numberBranchesForForks, selectTrikForkVariant } from '@/lib/import/trik/forkImport'
 import { generateId } from '@/utils/project'
 import { normalizeNominalVoltageSystem } from '@/constants/nominalVoltage'
@@ -500,7 +499,7 @@ export function addTrikCircuits(
   pendingTrikEendraadNotesOut: PendingTrikEendraadNote[],
   pendingTrikFrameMarkCornersOut: PendingTrikFrameMarkCorner[],
   hiddenSitplanPlacementIdsByFloorOut?: Map<string, string[]>,
-  forksEnabled = oneWireForksEnabled(),
+  forksEnabled = true,
 ): Map<string, TrikCircuitImportResult> {
   const usedCodes = new Set<string>()
   const importsBySourceId = new Map<string, TrikCircuitImportResult>()

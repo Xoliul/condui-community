@@ -20,7 +20,10 @@ import {
   getProtectionOneWireLabelLines,
 } from '@/lib/protectionLabels'
 import { getSymbolLabelPosition } from '@/lib/symbolLabels'
-import { isVerticalSupplyDevice } from '@/lib/layout/supplyDeviceOrientation'
+import {
+  getPanelSupplyOrientationContext,
+  isVerticalSupplyDevice,
+} from '@/lib/layout/supplyDeviceOrientation'
 import { getEndpointLabelExtents } from '@/lib/eendraad/endpointLabelFrameExtents'
 import { SYMBOL_SIZE as ENDPOINT_SYMBOL_SIZE } from '@/lib/canvas/symbolGeometry'
 
@@ -54,11 +57,11 @@ function findProtectionInPanel(panelLayout: BottomUpPanelLayout, protectionId: s
 /** Supply devices on a horizontal run caption below the wire unless placed explicitly. */
 function supplyDeviceLabelPosition(
   device: TrunkDevice | undefined,
-  panelLayout: Pick<BottomUpPanelLayout, 'supplyChangeoverGridSource'>
+  panelLayout: Pick<BottomUpPanelLayout, 'supplyChangeoverGridSource' | 'supplyHorizontalDcLaneDeviceIds'>
 ): ReturnType<typeof getSymbolLabelPosition> | undefined {
   if (
     !device ||
-    isVerticalSupplyDevice(device, { changeoverGridSource: panelLayout.supplyChangeoverGridSource })
+    isVerticalSupplyDevice(device, getPanelSupplyOrientationContext(panelLayout))
   )
     return undefined
   return device.symbolLabelDisplay?.position ?? 'bottom'

@@ -905,6 +905,17 @@ export const propertiesEdit = defineProjectCommand({
       return { ok: false, code: 'invalid_control_link', message: 'Control links require an eligible device and cannot form a cycle' }
     }
     for (const edit of input.edits) {
+      if (
+        (edit.kind === 'protection' || edit.kind === 'trunkDevice') &&
+        edit.set.ratingA != null &&
+        edit.set.ratingA <= 0
+      ) {
+        return {
+          ok: false,
+          code: 'invalid_protection_rating',
+          message: 'A protection rating must be greater than zero',
+        }
+      }
       if (isGeneralPropertyEdit(edit)) {
         const result = checkGeneralPropertyEdit(project, edit)
         if (!result.ok) return result

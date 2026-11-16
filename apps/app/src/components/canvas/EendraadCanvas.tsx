@@ -131,7 +131,6 @@ import { createFindElementsInRectangleHandler } from '@/handlers/eendraad'
 import { canDropSymbolOnEmptyCanvas } from '@/lib/eendraad/dropBehaviors'
 import { isSupplyDropTarget } from '@/lib/eendraad/supplyDropTargets'
 import { PROTECTION_SYMBOL_IDS } from '@/lib/protectionKind'
-import { oneWireForksEnabled } from '@/lib/eendraad/oneWireForkProject'
 import { describeEnclosureKey } from '@/lib/panel/enclosureNames'
 import { getSymbolById, type SymbolMetadata } from '@/lib/symbols'
 import AddElementPicker from '@/components/eendraad/AddElementPicker'
@@ -596,7 +595,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
     if (!branchTargetCache.current || branchTargetCache.current.layout !== layout || branchTargetCache.current.key !== key) {
       branchTargetCache.current = {
         layout, key, previousId: null,
-        targets: layout && layoutTree ? collectBranchDropTargets(layout, layoutTree, symbol, zoom, movingIds, oneWireForksEnabled())
+        targets: layout && layoutTree ? collectBranchDropTargets(layout, layoutTree, symbol, zoom, movingIds, true)
           : { intents: [], regions: [], endpointNodeIds: new Set(), circuitIds: new Set() },
       }
     }

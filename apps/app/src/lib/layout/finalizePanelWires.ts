@@ -7,6 +7,8 @@ import {
 } from './circuitWireDerivationSupport'
 
 import type { LayoutNode } from './layoutTree'
+import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
+import { hasSupplyInlineLabels } from './supplyInlineDeviceLabels'
 import type {
   WireSegment,
   Circuit,
@@ -21,6 +23,7 @@ import {
   getSectionRefFromWireSegment,
 } from '@/lib/wires/sectionWireOverrides'
 import {
+  formatPhaseAssignment,
   getEffectiveCircuitPhaseState,
   getFullInstallationPhaseAssignment,
   getDownstreamProtectionPhaseAssignment,
@@ -412,6 +415,17 @@ export function finalizePanelWires(input: FinalizePanelWiresInput): WireSegment[
         Math.hypot(segment.startPoint.x - point.x, segment.startPoint.y - point.y),
         Math.hypot(segment.endPoint.x - point.x, segment.endPoint.y - point.y)
       )
+    // Text is drawn rightwards from the anchor, which is mirrored with the wires afterwards:
+    // in a mirrored frame the anchor must be the label's far edge for it to stay beside the device.
+    const phaseLabelLeftX = (nearX: number, labelBeforeDevice: boolean, segment: WireSegment) => {
+      if (panelNode.horizontalMirrorAxisX == null) return labelBeforeDevice ? nearX - 53 : nearX + 5
+      const width = measureSymbolLabelTextWidth(
+        formatPhaseAssignment(segment.phaseAssignment!),
+        'Figtree',
+        8
+      )
+      return labelBeforeDevice ? nearX - 5 : nearX + 5 + width
+    }
     const markPhaseTransition = (
       candidates: WireSegment[],
       devicePoint: { x: number; y: number }
@@ -434,12 +448,20 @@ export function finalizePanelWires(input: FinalizePanelWiresInput): WireSegment[
       const far = startDistance <= endDistance ? labelSegment.endPoint : labelSegment.startPoint
       const horizontal = Math.abs(far.y - near.y) < 0.01
       labelSegment.forcePhaseLabel = true
+      // Devices without a caption under them (meters, inverters) carry their name and
+      // notes above the wire, so the transition label goes below it. Protections caption
+      // their ratings below, which keeps their transition label above.
+      const transitionDevice = renderedSupplyDeviceNodes.find(
+        (layoutNode) =>
+          layoutNode.bounds.x === devicePoint.x && layoutNode.bounds.y === devicePoint.y
+      )?.domainRef as TrunkDevice | undefined
+      const labelBelowWire = transitionDevice != null && !hasSupplyInlineLabels(transitionDevice)
       // Keep the mandatory transition label beside the device, never in the middle of
       // the run where cable and routing properties are drawn.
       labelSegment.phaseLabelAnchor = horizontal
         ? {
-            x: far.x < near.x ? near.x - 53 : near.x + 5,
-            y: near.y - 20,
+            x: phaseLabelLeftX(near.x, far.x < near.x, labelSegment),
+            y: labelBelowWire ? near.y + 6 : near.y - 20,
           }
         : {
             x: near.x - 53,

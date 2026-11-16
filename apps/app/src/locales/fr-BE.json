@@ -185,7 +185,8 @@
     "dismissOfflineBanner": "Fermer l'avertissement hors ligne",
     "offlineIndicatorTitle": "Vous êtes hors ligne",
     "cloudSyncPendingTitle": "Non synchronisé avec le cloud",
-    "cloudSyncPendingMessage": "Vos modifications sont enregistrées sur cet appareil. La synchronisation cloud réessaie automatiquement."
+    "cloudSyncPendingMessage": "Vos modifications sont enregistrées sur cet appareil. La synchronisation cloud réessaie automatiquement.",
+    "cloudSyncConflictTitle": "Non synchronisé : choisissez une version"
   },
   "diagnostics": {
     "anonymousProjectName": "Projet diagnostics ({{idShort}})",
@@ -999,6 +1000,8 @@
     "notFoundTitle": "Projet introuvable",
     "notFoundBody": "Lien invalide ou projet supprimé.",
     "notFoundBack": "Accueil",
+    "keptOnDeviceTitle": "Enregistré sur cet appareil",
+    "keptOnDeviceMessage": "Aucun emplacement cloud n'est libre : ce projet reste sur cet appareil.",
     "serverConflict": {
       "title": "Modifié sur un autre appareil",
       "message": "Ce projet a été enregistré ailleurs après son ouverture. Vos dernières modifications ici ne sont pas enregistrées.",
@@ -1112,6 +1115,7 @@
     "add": "Ajouter un dispositif de protection",
     "type": "Type",
     "rating": "Courant nominal",
+    "otherRating": "Autre…",
     "curve": "Courbe de déclenchement",
     "specialistCurveWarning": "Inhabituelle dans les installations domestiques. Vérifiez la protection contre les courts-circuits.",
     "sensitivity": "Courant diff. résiduel IΔn",
@@ -3121,6 +3125,9 @@
       "details": "Exportation terminée mais certaines pages ont échoué :\n{{errors}}",
       "validationFailureTitle": "L’exportation n’a pas pu être terminée",
       "validationFailureMessage": "Un problème est survenu lors de la préparation de votre exportation. Votre projet est en sécurité et le problème a été signalé à notre équipe. Réessayez plus tard."
+    },
+    "limited": {
+      "notice": "Ce PDF aura un filigrane et une résolution réduite."
     }
   },
   "labelStripExport": {
@@ -4255,5 +4262,13 @@
       "download": "Fiches de tableau",
       "page": "Page {{page}} sur {{pages}}"
     }
+  },
+  "partnerOffer": {
+    "use": "Utiliser cette armoire",
+    "unavailable": "Cette armoire n'est pas disponible.",
+    "createFailed": "Le projet n'a pas pu être créé.",
+    "previewTitle": "Aperçu de l'armoire",
+    "intro": "Vous avez acheté cette armoire chez <partner>{{partner}}</partner>.",
+    "introBody": "Créez gratuitement le schéma unifilaire de votre habitation avec <condui>Condui</condui> : l'armoire câblée est déjà dessinée, vous ne partez pas d'une page blanche."
   }
 }

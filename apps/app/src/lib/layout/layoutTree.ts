@@ -55,7 +55,7 @@ import {
   getBranchConverterMetadataCallouts,
   type CircuitConverterMetadataCallout,
 } from './circuitConverterMetadataCallouts'
-import { isVerticalSupplyDevice } from './supplyDeviceOrientation'
+import { getPanelSupplyOrientationContext, isVerticalSupplyDevice } from './supplyDeviceOrientation'
 
 import {
   mirrorInlineSplitBusLayoutNodesHorizontally,
@@ -220,6 +220,7 @@ export interface HitZone {
   changeoverGridPlacement?: 'inline' | 'input-leg'
   /** Set when port-1 devices sit inline on the horizontal inverter-leg tap wire. */
   changeoverGridSource?: 'converter-input'
+  horizontalDcLane?: boolean
   /** The single direct-converter junction where a source changeover may be inserted. */
   supplyConverterChangeoverSlot?: boolean
   /** Explicit bus rail represented by this hit zone (needed when a split bus has no items yet). */
@@ -653,9 +654,7 @@ function buildPanelNode(panelLayout: BottomUpPanelLayout): LayoutNode {
       const nodeBoundsY = isDomoticaSupplyDevice
         ? stdElement.position.y - domoticaHeight / 2 + DOMOTICA_BASE_HEIGHT / 2
         : nodeCenter.y
-      const isHorizontalSupplyDevice = !isVerticalSupplyDevice(supplyDevice, {
-        changeoverGridSource: panelLayout.supplyChangeoverGridSource,
-      })
+      const isHorizontalSupplyDevice = !isVerticalSupplyDevice(supplyDevice, getPanelSupplyOrientationContext(panelLayout))
       const rotatesProtectionArtwork =
         isHorizontalSupplyDevice &&
         supplyDevice.type === 'protection' &&
@@ -760,6 +759,7 @@ function buildPanelNode(panelLayout: BottomUpPanelLayout): LayoutNode {
                 supplyDcBusBranchId: supplyDevice.supplyDcBusBranchId,
               }
             : {}),
+          ...(panelLayout.supplyHorizontalDcLaneDeviceIds?.has(supplyDevice.id) ? { horizontalDcLane: true } : {}),
           ...(supplyDeviceData.device.supplyPath === 'converter-grid'
             ? {
                 converterGridPlacement: supplyDeviceData.device.converterGridPlacement ?? 'inline',

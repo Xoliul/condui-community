@@ -164,6 +164,7 @@ type BuildPanelLayoutFrameInput =
     | 'supplyTrunkDevices'
     | 'hasSupplyChangeover'
     | 'usesConverterInputTap'
+    | 'supplyOrientationContext'
     | 'isVerticalPositionedSupplyDevice'
     | 'changeoverElbowLead'
     | 'directConverterIndex'
@@ -206,6 +207,7 @@ export function buildPanelLayoutFrame(input: BuildPanelLayoutFrameInput): Bottom
     supplyTrunkDevices,
     hasSupplyChangeover,
     usesConverterInputTap,
+    supplyOrientationContext,
     isVerticalPositionedSupplyDevice,
     changeoverElbowLead,
     directConverterIndex,
@@ -1325,6 +1327,9 @@ export function buildPanelLayoutFrame(input: BuildPanelLayoutFrameInput): Bottom
         }
       : undefined,
     ...(usesConverterInputTap ? { supplyChangeoverGridSource: 'converter-input' as const } : {}),
+    ...(supplyOrientationContext?.horizontalDcLaneDeviceIds
+      ? { supplyHorizontalDcLaneDeviceIds: supplyOrientationContext.horizontalDcLaneDeviceIds }
+      : {}),
     supplyConverterBranch:
       (hasDirectConverter || hasSupplyChangeover) &&
       (directConverterIndex >= 0 ||
