@@ -33,6 +33,7 @@ import { isCableRoutesEnabled } from '@/lib/cableRouting/availability'
 import { deriveCablePlanWireRoutes } from '@/lib/cableRouting/cableRoutePlanWires'
 import { isProjectV2 } from '@/lib/projectV2/migration'
 import { planWireVisualMetrics } from './planWireVisualMetrics'
+import { jsonEqual } from '@/utils/jsonEqual'
 
 type PlanWiringProject = ProjectWithOptionalV2Electrical &
   ProjectWithOptionalV2Building &
@@ -1433,7 +1434,7 @@ export function healPlanWiring(project: PlanWiringProject): boolean {
   )
   if (
     healedRoutes.length !== routesInput.length ||
-    JSON.stringify(healedRoutes) !== JSON.stringify(routesInput)
+    !jsonEqual(healedRoutes, routesInput)
   ) {
     replacePlanWireRoutesForProject(project, healedRoutes)
     changed = true
@@ -1442,7 +1443,7 @@ export function healPlanWiring(project: PlanWiringProject): boolean {
   const hadStoredVisibility = raw.visibility != null
   const resolvedVisibility = resolvePlanWiringVisibility(raw)
   const nextVisibility: PlanWiringVisibility = { ...resolvedVisibility }
-  if (JSON.stringify(raw.visibility ?? null) !== JSON.stringify(nextVisibility)) {
+  if (!jsonEqual(raw.visibility ?? null, nextVisibility)) {
     replacePlanWiringVisibilityForProject(project, nextVisibility)
     changed = true
   }

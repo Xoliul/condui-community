@@ -10,6 +10,7 @@ import type { ProjectV2 } from '@/types/projectV2'
 import type { SupplyAttachmentRef, SupplyNode } from '@/types/supplyAssembly'
 import { validateOffGridSupplyAssembly } from '@/lib/supplyAssembly/validation'
 import { stampTransitionWires } from './transitionWireRuns'
+import { collectSupplyTapFeeds } from './supplyTapFeeds'
 import { getJunctionPanelTerminal } from '@/lib/junctionPanel/grid'
 import {
   assemblyOwnsPanelInput,
@@ -429,7 +430,7 @@ export function buildElectricalStructureSnapshot(project: ProjectV2): Electrical
       },
       inferred(RULES.panelCircuitContainment)
     )
-    if (!protectionNodeId && (circuit.busSectionId || !nestedCircuitIds.has(circuit.id))) {
+    if (!protectionNodeId && !circuit.supplyTap && (circuit.busSectionId || !nestedCircuitIds.has(circuit.id))) {
       const src = source('circuit', circuit.id, container,
         circuit.busSectionId ? 'busSectionId' : undefined)
       const busSectionNodeId =
@@ -830,8 +831,8 @@ export function buildElectricalStructureSnapshot(project: ProjectV2): Electrical
       { label: protection.label, panelId }
     )
     edge('contains', panelNodeId, protectionNodeId, source('protection', protection.id, container))
-    if (protection.busSectionId ||
-        !protection.circuits?.some((circuit) => nestedCircuitIds.has(circuit.id))) {
+    if (!protection.supplyTap && (protection.busSectionId || // a tap is fed from its origin instead
+        !protection.circuits?.some((circuit) => nestedCircuitIds.has(circuit.id)))) {
       const src = source('protection', protection.id, container,
         protection.busSectionId ? 'busSectionId' : undefined)
       const busSectionNodeId =
@@ -1781,15 +1782,12 @@ export function buildElectricalStructureSnapshot(project: ProjectV2): Electrical
       })
   }
 
+  for (const tap of collectSupplyTapFeeds(project)) { // supply taps: a star from their origin
+    const from = resolve('trunk-device', tap.originDeviceId), to = resolve(tap.target.kind, tap.target.id)
+    if (from && to) edge('feeds', from, to, { ...source(`supply-tap-${tap.target.kind}`, tap.target.id, 'disciplines.electrical.panels'), inferenceRuleId: RULES.supplyTapOrigin.id }, inferred(RULES.supplyTapOrigin), tap.terminal ? { terminal: tap.terminal } : undefined)
+  }
   const acyclicKinds = new Set<ElectricalStructureRelationshipKind>([
-    'contains',
-    'feeds',
-    'protects',
-    'ordered-before',
-    'branches-to',
-    'panel-feed',
-    'supply-handoff',
-  ])
+    'contains', 'feeds', 'protects', 'ordered-before', 'branches-to', 'panel-feed', 'supply-handoff'])
   const acyclicOutgoing = new Map<string, ElectricalStructureRelationship[]>()
   for (const relationship of relationships) {
     if (!acyclicKinds.has(relationship.kind)) continue

@@ -43,12 +43,8 @@ import { useIsPreviewSelected } from '@/contexts/SelectionPreviewContext'
 import { useCanvasFontFamily, useEffectiveCanvasZoom, useTouchPrimaryDevice } from '@/editions/community/communityHooks'
 import { applyTouchHitPadding } from '@/lib/canvas/touchHitZones'
 import { SymbolTextLabels } from './SymbolTextLabels'
-import {
-  getJunctionIdentity,
-  getJunctionIdentityDisplay,
-  isJunctionIdentityVisibleByDefault,
-  isSharedJunctionSymbol,
-} from '@/lib/junctionIdentity'
+import { getJunctionIdentity, getJunctionIdentityDisplay, isJunctionIdentityVisibleByDefault, isSharedJunctionSymbol } from '@/lib/junctionIdentity'
+import { useOneWireTerminalNumberFormat } from './oneWireRenderProject'
 import { isSymbolLabelVisible } from '@/lib/symbolLabels'
 import {
   SYMBOL_SIZE,
@@ -118,6 +114,10 @@ import {
 } from '@/lib/eendraad/resizeDomoticaEndpointCount'
 import { clampConverterDcConnectionCount } from '@/lib/eendraad/resizeConverterDcConnections'
 import { resizeConverterDcConnections } from '@/handlers/eendraad/resizeConverterDcConnections'
+import { HorizontalDomoticaSymbol } from './HorizontalDomoticaSymbol'
+import { getHorizontalDomoticaBodyText } from '@/lib/layout/horizontalDomoticaBodyText'
+import { DomoticaControlIcons } from './DomoticaControlIcons'
+import { isHorizontalDomotica } from '@/lib/layout/domoticaHorizontalGeometry'
 const INTERACTIVE_HIT_FILL = 'rgba(0, 0, 0, 0.01)'
 const DOMOTICA_RESIZE_OUTLINE_PADDING = 4
 const DOMOTICA_RESIZE_HANDLE_WIDTH = 6
@@ -312,6 +312,8 @@ interface EndpointSymbolProps {
   isEndpointAtBranchEnd?: boolean
   /** Mirror symbol artwork for the exceptional branches that run to the left. */
   mirrorHorizontally?: boolean
+  /** Quarter-turn rotation of the symbol artwork only; labels stay upright. */
+  symbolRotationDeg?: number
   /** Clamp bottom label text away from the branch wire when needed. */
   bottomLabelMinimumLeftX?: number
   /** Limit bottom label text to its crowded branch slot. */
@@ -338,6 +340,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
   getCanvasPositionFromEvent,
   isEndpointAtBranchEnd = true,
   mirrorHorizontally = false,
+  symbolRotationDeg,
   bottomLabelMinimumLeftX,
   bottomLabelMaximumRightX,
   metadataCallout,
@@ -348,6 +351,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
   converterGrowthDirection = 'right',
 }: EndpointSymbolProps) {
   const dragImage = useCanvasDragImage()
+  const terminalNumberFormat = useOneWireTerminalNumberFormat()
   const endpoint = useProjectStore((state) => {
     const liveEndpoint = state.getEndpointById(layoutEndpoint.id)
     const projectId = state.currentProject?.project.id
@@ -1007,6 +1011,24 @@ export const EndpointSymbol = memo(function EndpointSymbol({
   if (!symbol) return null
   if (!processedImage && !isDomoticaParent) return null
 
+  if (isDomoticaParent && isHorizontalDomotica(endpoint)) {
+    return (
+      <HorizontalDomoticaSymbol
+        endpointId={endpoint.id}
+        position={position}
+        count={domoticaEndpointCount}
+        label={getHorizontalDomoticaBodyText(endpoint, t('endpoints.domotica.bodyDefault', 'Domotica'))}
+        noteText={metadataLabelSuppressed ? '' : endpointNoteText}
+        isDark={theme?.mode === 'dark'} fontFamily={fontFamily} draggable={draggable}
+        isSelected={isSelected} isPreviewSelected={isPreviewSelected} isHoveredAny={isHoveredAny}
+        canResize={isDomoticaResizeEnabled} canvasZoom={canvasZoom} touchPrimary={touchPrimary}
+        onClick={handleClick} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}
+        onGestureStart={onDragStart} onGestureEnd={onDragEnd}
+        shouldSuppressDragEnd={shouldSuppressKonvaDragEnd} getCanvasPositionFromEvent={getCanvasPositionFromEvent}
+      />
+    )
+  }
+
   if (isDomoticaParent) {
     const strokeColor = getSymbolColor(theme?.mode === 'dark')
     // Keep the bottom edge fixed at the same place as a normal endpoint (height = DOMOTICA_BASE_HEIGHT)
@@ -1236,38 +1258,12 @@ export const EndpointSymbol = memo(function EndpointSymbol({
         />
 
         {/* Control icons (top band) */}
-        {(() => {
-          const activeKeys = (Array.from(domoticaControlKeys) as DomoticaControlKey[]).filter(
-            (key) =>
-              [
-                'programmed_control',
-                'wireless_control',
-                'detection_control',
-                'button_control',
-              ].includes(key)
-          ) as Array<keyof typeof DOMOTICA_CONTROL_OVERLAY_PATHS>
-          const count = activeKeys.length
-          if (count === 0) return null
-          return activeKeys.map((key, index) => {
-            const cx = outlineX + (DOMOTICA_BOX_WIDTH * (index + 1)) / (count + 1)
-            const cy = outlineY + controlBandHeight / 2
-            const image = domoticaControlImages[key]
-            if (!image) return null
-            return (
-              <Image
-                key={key}
-                image={image}
-                width={SYMBOL_SIZE * 0.3}
-                height={SYMBOL_SIZE * 0.3}
-                offsetX={(SYMBOL_SIZE * 0.3) / 2}
-                offsetY={(SYMBOL_SIZE * 0.3) / 2}
-                x={cx}
-                y={cy}
-                listening={false}
-              />
-            )
-          })
-        })()}
+        <DomoticaControlIcons
+          activeKeys={domoticaControlKeys}
+          images={domoticaControlImages}
+          outlineX={outlineX}
+          centerY={outlineY + controlBandHeight / 2}
+        />
 
         {/* Main device symbol (lower section, centered, same scale as regular symbols) */}
 
@@ -1419,7 +1415,7 @@ export const EndpointSymbol = memo(function EndpointSymbol({
       {/* Render socket symbols (1-4 copies offset to the right) */}
       {processedImage &&
         Array.from({ length: socketCount }, (_, i) => (
-          <Group key={i} x={(mirrorHorizontally ? -1 : 1) * i * MULTI_SOCKET_OFFSET}>
+          <Group key={i} x={(mirrorHorizontally ? -1 : 1) * i * MULTI_SOCKET_OFFSET} rotation={symbolRotationDeg}>
             {isDirectionalConverter ? (
               <>
                 <Image
@@ -1805,7 +1801,8 @@ export const EndpointSymbol = memo(function EndpointSymbol({
                 text: getJunctionIdentityDisplay(
                   endpoint.symbol,
                   getJunctionIdentity(endpoint),
-                  endpoint.terminalStripPin
+                  endpoint.terminalStripPin,
+                  terminalNumberFormat
                 ),
               },
             ]}

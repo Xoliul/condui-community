@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next'
 import { installationForPanel } from '@/lib/electrical/feedNominalVoltage'
+import { isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 import { normalizeNominalVoltageSystem } from '@/constants/nominalVoltage'
 import type { EarthingSystemType, Installation, Panel } from '@/types/schema'
 import { resolveEffectiveEarthingSystem } from '@/lib/panel/panelEarthingSync'
@@ -42,6 +43,7 @@ export function orderPanelsForNumbering(panels: Panel[]): Panel[] {
   const result: Panel[] = []
   const visit = (list: Panel[]) => {
     for (const panel of list) {
+      if (isVirtualPanel(panel)) continue
       result.push(panel)
       visit(panel.subPanels ?? [])
     }

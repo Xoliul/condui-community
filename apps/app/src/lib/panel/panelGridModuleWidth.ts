@@ -4,6 +4,10 @@ import {
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import { getModularSocketModuleWidth, isModularSocket } from '@/lib/socket/modularSocket'
+import {
+  getTerminalStripId,
+  getTerminalStripOccurrencesForEntity,
+} from '@/lib/terminalStrip/labels'
 import type { Endpoint, Panel, PanelGridModuleRef, ProtectionDevice } from '@/types/schema'
 import { getPanelReadContext } from './panelReadContext'
 
@@ -61,7 +65,9 @@ export function getModuleWidthInCols(
   if (ref.kind === 'trunkDevice') {
     const device = findTrunkDeviceInProject(project, ref.id)
     if (device) {
-      if (device.symbol === 'terminal_strip' || device.type === 'terminal_strip') return 1 / 3
+      if (device.symbol === 'terminal_strip' || device.type === 'terminal_strip') {
+        return getTerminalStripModuleWidth(project, device)
+      }
       if (device.poles != null) return Math.max(1, device.poles)
       if (device.polesConfig) return Math.max(1, polesFromPolesConfig(device.polesConfig))
       if (device.energyMeterProps?.poles != null) return Math.max(1, device.energyMeterProps.poles)
@@ -76,10 +82,28 @@ export function getModuleWidthInCols(
       ? read.entities.endpointsById.get(ref.endpointId)?.endpoint
       : findEndpointRecursive(getProjectElectricalPanels(project), ref.endpointId)
     if (endpoint && isModularSocket(endpoint)) return getModularSocketModuleWidth(endpoint)
-    if (endpoint?.symbol === 'terminal_strip') return 1 / 3
+    if (endpoint?.symbol === 'terminal_strip') return getTerminalStripModuleWidth(project, endpoint)
     return 2
   }
   return 1
+}
+
+function getTerminalStripModuleWidth(
+  project: ProjectWithOptionalV2Electrical,
+  entity: {
+    id?: unknown
+    junctionIdentity?: unknown
+    label?: unknown
+    terminalStripPanelId?: unknown
+  }
+): number {
+  const identity = getTerminalStripId(entity).toUpperCase()
+  if (!identity) return 1 / 3
+  const connectedPinCount = new Set(
+    getTerminalStripOccurrencesForEntity(project, entity).map((occurrence) => occurrence.pin)
+  ).size
+  // Give each clamp enough horizontal room to sit beside its neighbours on the panel.
+  return Math.max(0.75, connectedPinCount * 0.75)
 }
 
 /** Modular sockets keep a derived 2/4-module width; slot resize cannot override it. */

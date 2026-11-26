@@ -1,5 +1,6 @@
 import { LANGUAGE_OPTIONS } from '@/utils/languageRouting'
 import { useTranslation } from 'react-i18next'
+import { Hand, MousePointerClick, Move, ZoomIn } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { switchEditorLanguage } from '@/lib/preferences/switchEditorLanguage'
 import CustomDropdown from '@/components/common/CustomDropdown'
@@ -9,9 +10,14 @@ import { LAYOUT_PRESET_DEFS } from '@/components/viewport/LayoutSelector'
 import { isLayoutPresetAvailable } from '@/stores/uiStore'
 import { APP_BUILD_COMMIT, formatAppBuildDate, getAppBuildCommitShortLabel } from '@/lib/appBuildInfo'
 import { EditionMcpSettings } from './EditionMcpSettings'
+import { MaskedSymbol, SettingsChoiceCards, SettingsToggleCard } from './SettingsChoiceCards'
 
 
 const LANGUAGES = LANGUAGE_OPTIONS
+
+function KeyGlyph({ children }: { children: string }) {
+  return <span className="text-base font-bold leading-none">{children}</span>
+}
 
 /** Build commit and date for the Settings dialog header. */
 export function SettingsBuildInfo() {
@@ -60,13 +66,15 @@ export function SettingsPanel({
   const setPlacePlanSymbolsManually = useSettingsStore((state) => state.setPlacePlanSymbolsManually)
   const defaultLayoutPreset = useSettingsStore((state) => state.defaultLayoutPreset)
   const setDefaultLayoutPreset = useSettingsStore((state) => state.setDefaultLayoutPreset)
+  const detailedProtectionSymbols = useSettingsStore((state) => state.detailedProtectionSymbols)
+  const setDetailedProtectionSymbols = useSettingsStore((state) => state.setDetailedProtectionSymbols)
 
   const handleLanguageChange = switchEditorLanguage
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <section>
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
           {t('settings.interface.title')}
         </h3>
         <div className="space-y-4">
@@ -89,25 +97,17 @@ export function SettingsPanel({
       </section>
 
       <section>
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
           {t('settings.workflow.title')}
         </h3>
-        <div className="space-y-1">
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <input
-              type="checkbox"
-              className="rounded"
-              data-testid="settings-place-plan-symbols-manually"
-              checked={placePlanSymbolsManually}
-              onChange={(e) => setPlacePlanSymbolsManually(e.target.checked)}
-            />
-            {t('settings.workflow.placePlanSymbolsManually')}
-          </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {t('settings.workflow.placePlanSymbolsManuallyHint')}
-          </p>
-        </div>
-        <fieldset className="mt-4">
+        <SettingsToggleCard
+          testId="settings-place-plan-symbols-manually"
+          label={t('settings.workflow.placePlanSymbolsManually')}
+          icon={<MousePointerClick className="h-5 w-5" />}
+          checked={placePlanSymbolsManually}
+          onChange={setPlacePlanSymbolsManually}
+        />
+        <fieldset className="mt-3">
           <legend className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             {t('settings.workflow.defaultLayout')}
           </legend>
@@ -143,69 +143,108 @@ export function SettingsPanel({
       </section>
 
       <section>
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
           {t('settings.navigation.title', 'Canvas navigation')}
         </h3>
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div>
-            <label
-              htmlFor="settings-wheel-behavior"
+            <div
+              id="settings-wheel-behavior-label"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
             >
               {t('settings.navigation.wheelBehavior')}
-            </label>
-            <CustomDropdown
-              id="settings-wheel-behavior"
+            </div>
+            <SettingsChoiceCards
+              labelId="settings-wheel-behavior-label"
+              testId="settings-wheel-behavior"
               value={wheelBehavior}
-              onChange={(value) => setWheelBehavior(value === 'pan' ? 'pan' : 'zoom')}
+              onChange={setWheelBehavior}
               options={[
-                { value: 'zoom', label: t('settings.navigation.wheelBehaviorZoom') },
-                { value: 'pan', label: t('settings.navigation.wheelBehaviorPan') },
+                {
+                  value: 'zoom',
+                  label: t('settings.navigation.wheelBehaviorZoom'),
+                  icon: <ZoomIn className="h-5 w-5" />,
+                  testId: 'settings-wheel-behavior-zoom',
+                },
+                {
+                  value: 'pan',
+                  label: t('settings.navigation.wheelBehaviorPan'),
+                  icon: <Hand className="h-5 w-5" />,
+                  testId: 'settings-wheel-behavior-pan',
+                },
               ]}
-              className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           </div>
           <div>
-            <label
-              htmlFor="settings-keyboard-layout"
+            <div
+              id="settings-keyboard-layout-label"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
             >
               {t('settings.navigation.keyboardLayout')}
-            </label>
-            <CustomDropdown
-              id="settings-keyboard-layout"
+            </div>
+            <SettingsChoiceCards
+              labelId="settings-keyboard-layout-label"
+              testId="settings-keyboard-layout"
               value={keyboardLayout}
-              onChange={(value) => setKeyboardLayout(value === 'qwerty' ? 'qwerty' : 'azerty')}
+              onChange={setKeyboardLayout}
               options={[
-                { value: 'azerty', label: t('settings.navigation.keyboardLayoutAzerty') },
-                { value: 'qwerty', label: t('settings.navigation.keyboardLayoutQwerty') },
+                {
+                  value: 'azerty',
+                  label: t('settings.navigation.keyboardLayoutAzerty'),
+                  icon: <KeyGlyph>AZ</KeyGlyph>,
+                  testId: 'settings-keyboard-layout-azerty',
+                },
+                {
+                  value: 'qwerty',
+                  label: t('settings.navigation.keyboardLayoutQwerty'),
+                  icon: <KeyGlyph>QW</KeyGlyph>,
+                  testId: 'settings-keyboard-layout-qwerty',
+                },
               ]}
-              className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           </div>
-          <div className="space-y-1">
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-              <input
-                type="checkbox"
-                className="rounded"
-                checked={leftDragPansCanvas}
-                onChange={(e) => setLeftDragPansCanvas(e.target.checked)}
-              />
-              {t('settings.navigation.leftDragPansCanvas', 'Left-drag to pan (desktop)')}
-            </label>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {t(
-                'settings.navigation.leftDragPansCanvasHint',
-                'On laptop and desktop, drag with the left mouse button to pan the canvas (like touch). Hold Shift and drag to select with a rectangle. Middle- and right-button pan still work.'
-              )}
-            </p>
-          </div>
+          <SettingsToggleCard
+            testId="settings-left-drag-pans-canvas"
+            label={t('settings.navigation.leftDragPansCanvas', 'Left-drag to pan (desktop)')}
+            icon={<Move className="h-5 w-5" />}
+            checked={leftDragPansCanvas}
+            onChange={setLeftDragPansCanvas}
+          />
         </div>
+      </section>
+
+      <section>
+        <h3
+          id="settings-protection-symbols-label"
+          className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2"
+        >
+          {t('settings.symbols.protection')}
+        </h3>
+        <SettingsChoiceCards
+          labelId="settings-protection-symbols-label"
+          testId="settings-protection-symbols"
+          value={detailedProtectionSymbols ? 'detailed' : 'simple'}
+          onChange={(value) => setDetailedProtectionSymbols(value === 'detailed')}
+          options={[
+            {
+              value: 'simple',
+              label: t('settings.symbols.simple'),
+              icon: <MaskedSymbol src="/symbols/protection/rcbo.svg" className="h-8 w-8" />,
+              testId: 'settings-protection-symbols-simple',
+            },
+            {
+              value: 'detailed',
+              label: t('settings.symbols.detailed'),
+              icon: <MaskedSymbol src="/symbols/protection/detailed/rcbo.svg" className="h-8 w-8" />,
+              testId: 'settings-protection-symbols-detailed',
+            },
+          ]}
+        />
       </section>
 
       {import.meta.env.DEV && showDebug && (
         <section>
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
             {t('settings.debug.title', 'Debug')}
           </h3>
           <div className="space-y-3">

@@ -17,8 +17,10 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { applyExportThemeToKonvaNodes } from '../konvaThemeExport'
 import { exportLog } from '../exportLogger'
 import {
+  floorExpectsPlanBackground,
   getPlanBackgroundFloorId,
   isFloorPlanBackgroundDarkModeAware,
+  stageHasPlanBackgroundForFloor,
 } from '../planBackgroundExport'
 import {
   collectAndRemovePlanGraphicElementsForExport,
@@ -35,6 +37,7 @@ import { stripInteractiveOverlaysForExport } from '../interactiveOverlayExport'
 import { acquireCanvasDescendantsMaterialization } from '@/lib/canvas/groupMaterialization'
 
 const SITPLAN_EXPORT_BOUNDS_PADDING = 80
+const PLAN_BACKGROUND_WAIT_MS = 15000
 
 /**
  * Walk up the tree and check if a node is inside an endpoint group.
@@ -112,6 +115,24 @@ export async function prepareSitplanScene(
       'STAGE_UNAVAILABLE',
       `Floor ${floorId} stage not available. Canvas may not be mounted. ${describeMissingExportStage(EXPORT_STAGE_WAIT_MS)}`
     )
+  }
+
+  // The plan image loads asynchronously after a floor switch. Exporting before it arrives
+  // would print a missing or (on slow devices) another floor's plan, so wait for it.
+  if (
+    useUIStore.getState().planVisibility.groundPlansVisible &&
+    floorExpectsPlanBackground(floorId)
+  ) {
+    const background = await waitForExportStage(
+      () => (stageHasPlanBackgroundForFloor(stage, floorId) ? stage : null),
+      PLAN_BACKGROUND_WAIT_MS
+    )
+    if (!background) {
+      throw new ExportError(
+        'STAGE_UNAVAILABLE',
+        `Floor ${floorId} plan image did not finish loading. Try the export again.`
+      )
+    }
   }
 
   exportLog(`[Export] Got sitplan stage for ${floorId}, layers: ${stage.getLayers().length}`)

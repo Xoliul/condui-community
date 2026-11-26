@@ -1,10 +1,19 @@
 import type { Circuit, Panel } from '@/types/schema'
+import { isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 
 export function* walkPanels(panels: readonly Panel[]): Generator<Panel> {
   for (const panel of panels) {
     yield panel
     yield* walkPanels(panel.subPanels ?? [])
   }
+}
+
+/**
+ * Flatten panels depth-first for board pickers. Virtual boards (supply taps) are skipped: their
+ * circuits are still reachable through the owner board's circuit list.
+ */
+export function flattenBoardPanels(panels: readonly Panel[]): Panel[] {
+  return [...walkPanels(panels)].filter((panel) => !isVirtualPanel(panel))
 }
 
 export function findPanelById(
@@ -57,6 +66,6 @@ export function getLastAssignableCircuit(panel: Panel): Circuit | undefined {
 }
 
 export function findMainPanel(panels: readonly Panel[] | undefined): Panel | undefined {
-  const walked = [...walkPanels(panels ?? [])]
+  const walked = [...walkPanels(panels ?? [])].filter((panel) => !isVirtualPanel(panel))
   return walked.find((panel) => panel.isMain) ?? walked[0]
 }

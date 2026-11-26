@@ -11,6 +11,7 @@ import { endpointSupportsMultiplier } from '@/utils/endpointMultipliers'
 import { circuitContainsJunctionPanelIdentity, getJunctionIdentity } from '@/lib/junctionIdentity'
 import { queryAllSupplyTrunkDevices } from '@/lib/feedTopology'
 import { applyElectricalDuplicateElements } from '@/lib/eendraad/duplicateElementsMutations'
+import { checkHorizontalDomoticaNotIntoSupply } from '../horizontalDomoticaIntegrity'
 import { collectTopologyRefs, diffTopologyRefs } from '../topologyRefs'
 
 const pointSchema = z.strictObject({ x: z.number().finite(), y: z.number().finite() })
@@ -210,7 +211,19 @@ export const electricalDuplicateElements = defineProjectCommand({
   check(project, input) {
     const checked = checkItems(project as ProjectV2, input.items)
     if (!checked.ok) return checked
-    return checkDestination(project as ProjectV2, input.items, input.purpose, input.target)
+    const destination = checkDestination(project as ProjectV2, input.items, input.purpose, input.target)
+    if (!destination.ok) return destination
+    // A copy of a horizontal domotica module never lands on the supply side.
+    const target = input.target
+    return checkHorizontalDomoticaNotIntoSupply(
+      project as ProjectV2,
+      input.items.filter((item) => item.kind === 'endpoint').map((item) => item.id),
+      target.type === 'drop'
+        ? { target: target.target, circuitId: target.target.circuitId }
+        : 'circuitId' in target
+          ? { circuitId: target.circuitId }
+          : {}
+    )
   },
   apply(draft, input, env) {
     const before = collectTopologyRefs(draft as ProjectV2)

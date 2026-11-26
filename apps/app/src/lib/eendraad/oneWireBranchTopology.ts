@@ -230,8 +230,9 @@ export function resolveOneWireBranchTopology(
         const ordinaryBranchIndex = ordinaryIndexes.get(branch) ?? null
         branch.feed = specialCircuit ? { kind: 'existing-specialized' } : converterRoots.has(branch.branch.id) ? { kind: 'existing-specialized', converterBranch: true } : {
           kind: 'trunk', stem, ordinaryBranchIndex,
-          deviceIds: stem === 0 ? orderedDevices.filter(({ device }) =>
-            (device.trunkPosition ?? 0) <= (ordinaryBranchIndex ?? 0)).map(({ device }) => device.id) : [],
+          // A riser is fed through the devices on the shared part (position 0), after which it splits off.
+          deviceIds: orderedDevices.filter(({ device }) =>
+            (device.trunkPosition ?? 0) <= (stem === 0 ? ordinaryBranchIndex ?? 0 : 0)).map(({ device }) => device.id),
         }
         branch.stemKey = `root:${stem}`
         branch.rootBranchId = branch.branch.id

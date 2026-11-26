@@ -786,7 +786,7 @@ export function estimateCableRoutes(
 
   const boardLocationForPanel = (panel: Panel | undefined): RouteLocation | undefined => {
     const placement = panel ? model.panelLocationByPanelId.get(panel.id) : undefined
-    if (!panel || !placement || !floors.has(placement.floorId)) return undefined
+    if (!panel || panel.virtual || !placement || !floors.has(placement.floorId)) return undefined
     return {
       floorId: placement.floorId,
       pos: placement.pos,
@@ -1735,7 +1735,7 @@ export function estimateCableRoutes(
       pending.forEach((unit, candidate) => {
         const entry = unit[0]!.locations[0]!
         const group = rootFor(unit[0]!).group
-        const feeders = forkLegFeeders.candidates(unit, pending, live)
+        const feeders = forkLegFeeders.candidates(unit, pending, live, (point) => links[point.link]?.stop.endpoint.id)
         if (!feeders.length) return
         const drawnEntry = drawnEntryOf(unit)
         const drawn = drawnEntry?.drawn

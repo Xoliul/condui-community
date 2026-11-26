@@ -33,9 +33,10 @@ import {
   phaseAssignmentDiffersFromInstallation,
 } from '@/lib/wires/phaseAssignment'
 import {
-  collectTerminalStripOccurrences,
-  getEffectiveTerminalStripOutgoingPin,
+  formatTerminalNumber,
+  getProjectTerminalNumberFormat,
   getTerminalStripId,
+  getTerminalStripOccurrencesForEntity,
   getTerminalStripPin,
 } from '@/lib/terminalStrip/labels'
 
@@ -358,20 +359,16 @@ export function getModuleDisplayInfo(
     if (d.symbol === 'terminal_strip' || d.type === 'terminal_strip') {
       const stripId = getTerminalStripId(d) || '1'
       const pin = getTerminalStripPin(d) ?? 1
-      const outgoingPin = getEffectiveTerminalStripOutgoingPin(project, d)
-      const connectedPins = [
-        ...new Set(
-          collectTerminalStripOccurrences(project)
-            .filter((occurrence) => occurrence.stripId.toUpperCase() === stripId.toUpperCase())
-            .map((occurrence) => occurrence.pin)
-        ),
-      ].sort((left, right) => left - right)
+      const outgoingPin = pin
+      const connectedPins = [...new Set(
+        getTerminalStripOccurrencesForEntity(project, d).map((occurrence) => occurrence.pin)
+      )].sort((left, right) => left - right)
       const maxPin = Math.max(2, ...connectedPins)
       return {
         label: `X${stripId}`,
         specLines: [],
         terminalStrip: { stripId, incomingPin: pin, outgoingPin, maxPin, connectedPins },
-        tooltipText: outgoingPin === pin ? `X${stripId}-${pin}` : `X${stripId}-${pin}/${outgoingPin}`,
+        tooltipText: formatTerminalNumber(stripId, pin, getProjectTerminalNumberFormat(project)),
         kind: 'trunkDevice',
       }
     }
@@ -440,13 +437,9 @@ export function getModuleDisplayInfo(
     if (ep.symbol === 'terminal_strip') {
       const stripId = getTerminalStripId(ep) || '1'
       const pin = getTerminalStripPin(ep) ?? 1
-      const connectedPins = [
-        ...new Set(
-          collectTerminalStripOccurrences(project)
-            .filter((occurrence) => occurrence.stripId.toUpperCase() === stripId.toUpperCase())
-            .map((occurrence) => occurrence.pin)
-        ),
-      ].sort((left, right) => left - right)
+      const connectedPins = [...new Set(
+        getTerminalStripOccurrencesForEntity(project, ep).map((occurrence) => occurrence.pin)
+      )].sort((left, right) => left - right)
       return {
         label: `X${stripId}`,
         specLines: [],

@@ -16,7 +16,18 @@ import {
   getBranchConverterMetadataCallouts,
   type CircuitConverterMetadataCallout,
 } from './circuitConverterMetadataCallouts'
-import { getDomoticaRowLabelPlacement } from './domoticaRowLabelPlacement'
+import { getDomoticaRowLabelPlacement, getHorizontalOutputLabelPlacements } from './domoticaRowLabelPlacement'
+import {
+  DOMOTICA_HORIZONTAL_COLUMN_WIDTH,
+  DOMOTICA_HORIZONTAL_LABEL_GAP,
+  DOMOTICA_HORIZONTAL_LABEL_HEIGHT,
+  DOMOTICA_HORIZONTAL_OUTPUT_LEAD,
+  getHorizontalDomoticaGeometry,
+  getHorizontalDomoticaNodeBounds,
+  isChildOfHorizontalDomotica,
+  isHorizontalDomotica,
+} from './domoticaHorizontalGeometry'
+import { getHorizontalDomoticaChildRotationDeg } from './horizontalDomoticaChildRotation'
 import type { LayoutNode } from './layoutTree'
 import type { BranchLayout } from './wireSegments'
 
@@ -78,6 +89,8 @@ export function buildBranchNode(
 
     if (endpointElement) {
       const isDomoticaParent = endpoint.symbol === 'domotica'
+      const isHorizontalParent = isHorizontalDomotica(endpoint)
+      const isHorizontalChild = isChildOfHorizontalDomotica(endpoint, branch.endpoints)
       const isDomoticaChild = !!endpoint.domoticaChildProps
       const endpointMetadataCallout = branchMetadataCallouts.get(endpoint.id)
       const domoticaEndpointCount = isDomoticaParent
@@ -96,20 +109,23 @@ export function buildBranchNode(
       const endpointNode: LayoutNode = {
         id: endpointElement.id,
         type: 'endpoint',
-        bounds: {
-          x: endpointElement.position.x,
-          y: isDomoticaParent
-            ? endpointElement.position.y - domoticaHeight / 2 + DOMOTICA_BASE_HEIGHT / 2
-            : endpointElement.position.y,
-          width: isDomoticaParent ? DOMOTICA_BOX_WIDTH : LAYOUT_CONSTANTS.SYMBOL_SIZE,
-          height: isDomoticaParent ? domoticaHeight : LAYOUT_CONSTANTS.SYMBOL_SIZE,
-        },
+        bounds: isHorizontalParent
+          ? getHorizontalDomoticaNodeBounds(endpointElement.position, domoticaEndpointCount)
+          : {
+              x: endpointElement.position.x,
+              y: isDomoticaParent
+                ? endpointElement.position.y - domoticaHeight / 2 + DOMOTICA_BASE_HEIGHT / 2
+                : endpointElement.position.y,
+              width: isDomoticaParent ? DOMOTICA_BOX_WIDTH : LAYOUT_CONSTANTS.SYMBOL_SIZE,
+              height: isDomoticaParent ? domoticaHeight : LAYOUT_CONSTANTS.SYMBOL_SIZE,
+            },
         domainId: endpoint.id,
         domainRef: endpoint,
         visual: {
           type: 'symbol',
           symbolId: endpoint.symbol || getDefaultSymbolForEndpointType(endpoint.type),
           label: endpoint.label,
+          rotationDeg: isHorizontalChild ? getHorizontalDomoticaChildRotationDeg(endpoint) : undefined,
           isEndpointAtBranchEnd: endpointIndex === branch.endpoints.length - 1,
           mirrorHorizontally: endpointElement.mirrorEndpointHorizontally,
           bottomLabelMinimumLeftX: constrainSingleEndpointLabel || isDomoticaParent
@@ -165,12 +181,26 @@ export function buildBranchNode(
         ): LayoutNode => ({
           id,
           type: 'wire',
-          bounds: {
-            x,
-            y: endpointElement.position.y - sideZoneHeight / 2,
-            width: sideZoneWidth,
-            height: sideZoneHeight,
-          },
+          // A chain on a horizontal module runs upward: "before" is the wire below the symbol
+          // and "after" the wire above it, each 20 units wide like the column.
+          bounds: isHorizontalChild
+            ? {
+                x: endpointElement.position.x - DOMOTICA_HORIZONTAL_COLUMN_WIDTH / 2,
+                y:
+                  intent === 'insertBefore'
+                    ? endpointElement.position.y + DOMOTICA_CHILD_ON_DROP_ZONE_SIZE / 2
+                    : endpointElement.position.y -
+                      DOMOTICA_CHILD_ON_DROP_ZONE_SIZE / 2 -
+                      sideZoneWidth,
+                width: DOMOTICA_HORIZONTAL_COLUMN_WIDTH,
+                height: sideZoneWidth,
+              }
+            : {
+                x,
+                y: endpointElement.position.y - sideZoneHeight / 2,
+                width: sideZoneWidth,
+                height: sideZoneHeight,
+              },
           domainId: endpoint.id,
           domainRef: endpoint,
           hitZone: {
@@ -224,7 +254,69 @@ export function buildBranchNode(
         })
       }
 
-      if (isDomoticaParent) {
+      if (isHorizontalParent) {
+        // One upright number label per output, beside the wire above the body (also exported).
+        for (const label of getHorizontalOutputLabelPlacements(panelLayout, branch.endpoints, endpoint)) {
+          children.push({
+            id: `${endpointElement.id}-output-label-${label.endpointId.split(':').at(-1)}`,
+            type: 'label',
+            bounds: { x: label.x, y: label.y, width: DOMOTICA_HORIZONTAL_COLUMN_WIDTH - 2 * DOMOTICA_HORIZONTAL_LABEL_GAP, height: DOMOTICA_HORIZONTAL_LABEL_HEIGHT },
+            visual: { type: 'label', text: label.text, align: 'left' },
+            children: [],
+          })
+        }
+        const body = getHorizontalDomoticaGeometry(endpointElement.position, domoticaEndpointCount)
+        const zoneHeight = DOMOTICA_HORIZONTAL_OUTPUT_LEAD + 5
+        for (const port of body.outputs) {
+          // Covers the stub above the port; padding 0 keeps neighbouring columns apart.
+          children.push({
+            id: `${endpointElement.id}-domotica-endpoint-output-${port.index}`,
+            type: 'wire',
+            bounds: {
+              x: port.x - DOMOTICA_HORIZONTAL_COLUMN_WIDTH / 2,
+              y: port.y - DOMOTICA_HORIZONTAL_OUTPUT_LEAD,
+              width: DOMOTICA_HORIZONTAL_COLUMN_WIDTH,
+              height: zoneHeight,
+            },
+            domainId: endpoint.id,
+            domainRef: endpoint,
+            hitZone: {
+              type: 'endpoint',
+              padding: 0,
+              outputGroup: 'endpoint',
+              outputIndex: port.index,
+            },
+            children: [],
+          })
+        }
+        const endpointSlots = endpoint.domoticaProps?.endpointChildEndpointIds ?? []
+        const slotsFull = Array.from({ length: domoticaEndpointCount }).every((_, index) => {
+          const childId = endpointSlots[index]
+          return typeof childId === 'string' && childId.trim().length > 0
+        })
+        if (slotsFull && domoticaEndpointCount < DOMOTICA_MAX_ENDPOINT_OUTPUTS) {
+          children.push({
+            id: `${endpointElement.id}-domotica-endpoint-output-expand`,
+            type: 'wire',
+            bounds: {
+              x: body.anchor.x + domoticaEndpointCount * DOMOTICA_HORIZONTAL_COLUMN_WIDTH - DOMOTICA_HORIZONTAL_COLUMN_WIDTH / 2,
+              y: body.top - DOMOTICA_HORIZONTAL_OUTPUT_LEAD,
+              width: DOMOTICA_HORIZONTAL_COLUMN_WIDTH,
+              height: zoneHeight,
+            },
+            domainId: endpoint.id,
+            domainRef: endpoint,
+            hitZone: {
+              type: 'endpoint',
+              padding: 0,
+              outputGroup: 'endpoint',
+              outputIndex: domoticaEndpointCount,
+              outputExpands: true,
+            },
+            children: [],
+          })
+        }
+      } else if (isDomoticaParent) {
         // Match deriveWires: variable part only (no BASE_HEIGHT) for output Y positioning
         const domoticaVariableHeight =
           Math.max(0, domoticaEndpointCount - 1) * DOMOTICA_OUTPUT_SPACING

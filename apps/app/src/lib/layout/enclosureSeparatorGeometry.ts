@@ -5,11 +5,11 @@ import {
   isWireLabelVisibleForSegment,
 } from '@/lib/wireLabelVisibility'
 import {
-  WIRE_LABEL_DEFAULT_OFFSET_ALONG_WIRE,
   WIRE_LABEL_DISTANCE_FROM_WIRE,
   WIRE_LABEL_FONT_SIZE,
   formatWireLabel,
   getWireFireClassLabel,
+  getWireLabelOffsetAlongWire,
   measureTextWidth,
   truncateTextToWidth,
 } from '@/lib/wireTextLabel'
@@ -63,7 +63,7 @@ function verticalLabelInterval(segment: WireSegment, fontFamily: string): Interv
     )
   )
   if (width <= 0) return undefined
-  const center = (segment.startPoint.y + labelEnd.y) / 2 + WIRE_LABEL_DEFAULT_OFFSET_ALONG_WIRE
+  const center = (segment.startPoint.y + labelEnd.y) / 2 + getWireLabelOffsetAlongWire(segment)
   const distance = WIRE_LABEL_DISTANCE_FROM_WIRE + (segment.wireRoute === 'air' ? 2 : 0)
   return {
     low: center - width / 2,
@@ -166,7 +166,12 @@ export function getEnclosureSeparatorGeometry(
   segment: WireSegment,
   fontFamily = 'Arial'
 ): EnclosureSeparatorGeometry {
-  if (segment.supplyEnclosureBoundary) {
+  const verticalWire =
+    Math.abs(segment.endPoint.y - segment.startPoint.y) >
+    Math.abs(segment.endPoint.x - segment.startPoint.x)
+  // A vertical supply wire (a DC-bus string) carries its cable caption and route icons beside
+  // and on the wire, like a circuit wire: take the free spot instead of the bare midpoint.
+  if (segment.supplyEnclosureBoundary && !verticalWire) {
     const center = getSupplyEnclosureBoundaryCenter(segment, fontFamily)
     const horizontal =
       Math.abs(segment.endPoint.x - segment.startPoint.x) >=

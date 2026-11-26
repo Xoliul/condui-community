@@ -1,6 +1,7 @@
 {
   "oneWireFork": {
-    "invalidConnection": "Fork connection is unresolved."
+    "invalidConnection": "Fork connection is unresolved.",
+    "invalidRiser": "Risers are not possible on this circuit."
   },
   "forkLab": {
     "title": "Branching workspace",
@@ -162,11 +163,9 @@
     "toggleVisibility": "Show or hide label on diagram"
   },
   "terminalStrip": {
-    "pin": "Circuit number",
-    "incomingPin": "In",
-    "outgoingPin": "Out",
+    "pin": "Terminal number",
     "circuitConflict": "{{label}} is assigned to different circuits.",
-    "circuitConflictRemediation": "Use a separate terminal group number for each circuit."
+    "circuitConflictRemediation": "Use a separate terminal number for each circuit."
   },
   "appUpdate": {
     "banner": "A new version of the app is available.",
@@ -186,7 +185,9 @@
     "offlineIndicatorTitle": "You are offline",
     "cloudSyncPendingTitle": "Not synced to the cloud",
     "cloudSyncPendingMessage": "Your changes are saved on this device. Cloud sync keeps retrying.",
-    "cloudSyncConflictTitle": "Not synced: choose a version"
+    "cloudSyncConflictTitle": "Not synced: choose a version",
+    "browserStorageFullTitle": "Disk full",
+    "browserStorageFullMessage": "This computer's disk is full. Your changes are saved to the cloud only."
   },
   "diagnostics": {
     "anonymousProjectName": "Diagnostics project ({{idShort}})",
@@ -257,6 +258,13 @@
       "browserOnly": "Projects only in this browser: {{total}}",
       "moveToServer": "Move to server",
       "moveFailed": "Moving projects failed: {{error}}"
+    },
+    "cloudUsage": {
+      "used_one": "{{used}} of {{count}} free cloud project used",
+      "used_other": "{{used}} of {{count}} free cloud projects used",
+      "used_few": "{{used}} of {{count}} free cloud projects used",
+      "used_many": "{{used}} of {{count}} free cloud projects used",
+      "blocked": "Free cloud project available again on {{date}}"
     }
   },
   "dialog": {
@@ -320,6 +328,10 @@
   "commandPalette": {
     "createFork": "Add fork",
     "deleteEmptyFork": "Remove empty fork",
+    "addRiser": "Add riser",
+    "moveToOwnRiser": "Move to own riser",
+    "joinRisers": "Join on one trunk",
+    "deleteEmptyRiser": "Remove empty riser",
     "addPanelAtDomoticaOutput": "Add panel at output",
     "addSupplyTransformer": "Add supply transformer",
     "placeholder": "Search commands",
@@ -446,8 +458,12 @@
     "setBackupFeedBoundary": "Move backup feed boundary",
     "movePanelSupply": "Move panel supply",
     "disconnectInverterGridInput": "Disconnect inverter grid input",
+    "convertSupplyDeviceToTap": "Convert to supply tap",
+    "convertSupplyTapToInline": "Move tap back in line",
     "ejectSecondaryBusProtections": "Move secondary bus to new panel",
-    "ensureSecondaryPanelEarthingStem": "Add panel earthing stem"
+    "ensureSecondaryPanelEarthingStem": "Add panel earthing stem",
+    "addDomoticaHorizontal": "Add domotica (horizontal)",
+    "addDomoticaHorizontalSearch": "bus knx domotica home automation smart home module horizontal"
   },
   "shortcuts": {
     "title": "Shortcuts",
@@ -720,19 +736,22 @@
     "workflow": {
       "title": "Workflow",
       "placePlanSymbolsManually": "Place symbols on the plan myself",
-      "placePlanSymbolsManuallyHint": "New symbols stay off the situation plan until you place them, for example with the Quick Placer.",
       "defaultLayout": "Default layout"
     },
     "navigation": {
       "title": "Canvas navigation",
       "leftDragPansCanvas": "Left-drag to pan (desktop)",
-      "leftDragPansCanvasHint": "On laptop and desktop, drag with the left mouse button to pan the canvas (like touch). Hold Shift and drag to select with a rectangle. Middle- and right-button pan still work.",
       "wheelBehavior": "Scroll wheel",
       "wheelBehaviorZoom": "Zoom (mouse)",
       "wheelBehaviorPan": "Pan (trackpad)",
       "keyboardLayout": "Keyboard",
       "keyboardLayoutAzerty": "AZERTY",
       "keyboardLayoutQwerty": "QWERTY"
+    },
+    "symbols": {
+      "protection": "Protection symbols",
+      "simple": "Simple",
+      "detailed": "Detailed"
     },
     "debug": {
       "title": "Debug",
@@ -938,10 +957,10 @@
     "noProjects": "No projects yet",
     "noProjectsDescription": "Get started by creating your first electrical installation project",
     "createFirst": "Create Your First Project",
-    "deleteConfirmTitle": "Delete Project?",
-    "deleteConfirmMessage": "Are you sure you want to delete {name}? This action cannot be undone.",
-    "deleteConfirmShort": "Are you sure you want to delete",
-    "deleteConfirmAction": "? This action cannot be undone.",
+    "deleteConfirmTitle": "Delete {{name}}?",
+    "deleteConfirmMessage": "Are you sure you want to delete {{name}}? This action cannot be undone.",
+    "deleteConfirmCooldown": "You can create a new cloud project from {{date}}.",
+    "deleteConfirmIrreversible": "Deletion cannot be undone.",
     "importDownloaded": "Import downloaded project",
     "importDownloadedInvalidFile": "Please select a .zip or .pdf project export file.",
     "importFailedTitle": "Import failed",
@@ -951,14 +970,9 @@
     "importProjectLoadingBody": "Processing floor plan images and project data. Large files may take a moment.",
     "importTrikInvalidFileTitle": "Invalid file",
     "importTrikInvalidFileMessage": "Please select a valid .trik file.",
-    "importTrikSuccessTitle": "Import successful",
-    "importTrikSuccessMessage": "TRiK project \"{{name}}\" imported successfully.",
     "importRepairedSupplyHandoffs": "Removed {{count}} obsolete supply link(s) so the project could be imported. Other project data was kept.",
-    "importTrikImportedLocallyTitle": "Imported locally",
-    "importTrikImportedLocallyMessage": "TRiK project \"{{name}}\" was imported locally. Cloud sync failed, so it remains in local storage.",
     "importTrikFailedTitle": "TRiK import failed",
     "importTrikFailedMessage": "Failed to import TRiK project: {{error}}",
-    "importTrikImportedNameSuffix": "(Imported)",
     "importSchematicalsArchive": "Import Schematicals archive (dev)…",
     "importSchematicalsFolder": "Import Schematicals folder (dev)…",
     "devElectricalImportButton": "Import JSON (dev)…",
@@ -985,7 +999,7 @@
     "newProjectLocalWarningShort": "Cloud limit reached. This will be a local project.",
     "newProjectLocalChosenWarning": "This will be a local project. You can upgrade it to cloud later.",
     "newProjectOfflineLocalWarning": "You are offline. This project will be saved on this device. When you are back online, we will sync it to the cloud if your plan allows.",
-    "newProjectCooldownLocalWarning": "Your free cloud slot is cooling down until {{date}}. This project will be created locally.",
+    "newProjectCooldownLocalWarning": "Your free cloud project is available again on {{date}}. This project will be created locally.",
     "createFailedTitle": "Could not create project",
     "createFailedMessage": "Something went wrong. Please try again.",
     "registrationRequiredCreateTitle": "Register to create a project",
@@ -1001,14 +1015,34 @@
     "notFoundBody": "Invalid or removed link.",
     "notFoundBack": "Home",
     "keptOnDeviceTitle": "Saved on this device",
-    "keptOnDeviceMessage": "There's no free cloud slot, so this project stays on this device.",
+    "keptOnDeviceMessage": "Your free cloud project is in use, so this project stays on this device. Buy a project to keep it in the cloud.",
     "serverConflict": {
       "title": "Changed on another device",
       "message": "This project was saved elsewhere after you opened it. Your latest changes here are not saved.",
       "reload": "Load latest version",
       "overwrite": "Keep my version"
     },
-    "serverReloaded": "Updated with changes saved elsewhere"
+    "serverReloaded": "Updated with changes saved elsewhere",
+    "deleteConfirmFreeProject": "This is your free cloud project. Its versions are deleted too. Want an earlier version back? Open Versions instead.",
+    "versionsHint": "Looking for a safe backup? Your cloud project keeps versions automatically.",
+    "versionsHintDismiss": "Don't show again",
+    "localBadge": "Local · not backed up",
+    "deleteFailedTitle": "Delete failed",
+    "deleteFailedMessage": "The project could not be deleted. Try again.",
+    "importExisting": {
+      "title": "You already have this project",
+      "cloudBody": "Cloud projects keep their versions automatically. Open Versions to go back.",
+      "copy": "Import as copy",
+      "open": "Open project"
+    },
+    "importedNameSuffix": "(Imported)",
+    "importResult": {
+      "title": "Project imported",
+      "message": "“{{name}}” was imported.",
+      "syncedMessage": "“{{name}}” was imported and is in the cloud.",
+      "deviceOnlyTitle": "Kept on this device only",
+      "cloudFailedMessage": "Could not reach the cloud. The project is on this device."
+    }
   },
   "infoBlock": {
     "drawingSettings": "Project drawing",
@@ -1063,6 +1097,10 @@
   },
   "panels": {
     "title": "Distribution boards",
+    "supplyTapsName": "Supply taps",
+    "supplyTapInline": "In line",
+    "supplyTapBranch": "Tap",
+    "supplyTapMode": "Placement",
     "propertiesTitle": "Distribution board",
     "add": "Add distribution board",
     "name": "Name",
@@ -1325,6 +1363,7 @@
       "type_heat": "Heat"
     },
     "motionDetector": {
+      "count": "Number of motion detectors",
       "type": "Detector type",
       "type_spread": "Spread",
       "type_generic": "Generic"
@@ -1407,6 +1446,14 @@
         "other": "Other"
       },
       "controlArea": "Control",
+      "layout": "Layout",
+      "layout_vertical": "Vertical",
+      "layout_horizontal": "Horizontal",
+      "bodyDefault": "Domotica",
+      "labelText": "Label text",
+      "layout_horizontal_blocked_last": "Must be last on its circuit",
+      "layout_horizontal_blocked_nested": "Contains modules",
+      "layout_horizontal_blocked_supply": "Not on the supply side",
       "control_programmed": "Program.",
       "control_wireless": "Wireless",
       "control_detection": "Detection",
@@ -1723,7 +1770,12 @@
         "startHelp": "The first board number. Letter sequences start at A.",
         "circuitSequenceHelp": "Use uppercase letters, lowercase letters or numbers for circuits.",
         "betweenPanelAndCircuitHelp": "Join the board and circuit codes or put the separator between them.",
-        "betweenCircuitAndBranchHelp": "Join the circuit code and branch number or put the separator between them."
+        "betweenCircuitAndBranchHelp": "Join the circuit code and branch number or put the separator between them.",
+        "terminalStrips": "Terminal strips",
+        "terminalNumbering": "Numbering",
+        "terminalNumberingCircuit": "Per circuit",
+        "terminalNumberingCable": "Per cable",
+        "terminalFormat": "Format"
       }
     }
   },
@@ -2039,7 +2091,8 @@
       "socket_waterproof": "Waterproof socket",
       "detector_gas": "Gas detector",
       "detector_heat": "Heat detector",
-      "detector_flame": "Flame detector"
+      "detector_flame": "Flame detector",
+      "domotica_horizontal": "Domotica (horizontal)"
     },
     "library": "Symbol library",
     "recent": "Recent",
@@ -2210,7 +2263,8 @@
       "dc_bus": "DC busbar",
       "note": "Note / Label",
       "light_sensor": "Twilight switch",
-      "contact": "Contact"
+      "contact": "Contact",
+      "domotica_horizontal": "Domotica (horizontal)"
     }
   },
   "earthing": {
@@ -2264,7 +2318,7 @@
       "subCircuitSelfReference": "Circuit lists itself as sub-circuit",
       "subCircuitIdMissingCircuit": "Circuit references missing sub-circuit",
       "endpointOnPanelCircuit": "Endpoint on PANEL pseudo-circuit",
-      "endpointMultipleFloorPlacements": "Endpoint placed on multiple floors",
+      "endpointMultipleFloorPlacements": "Endpoint has extra plan placements",
       "endpointPlacementIntegrity": "Endpoint placement integrity violation",
       "endpointMissingPlanPlacement": "Missing on plan",
       "panelDistributionLabelDrift": "Panel symbol out of sync",
@@ -2663,9 +2717,11 @@
       "subCircuitSelfReference": "Circuit \"{{circuitCode}}\" lists its own id in subCircuitIds (invalid). It may not render on the one-line diagram but still appear in circuit pickers.",
       "subCircuitIdMissingCircuit": "Circuit \"{{parentCircuitCode}}\" references missing sub-circuit (id: {{missingCircuitId}}).",
       "endpointOnPanelCircuit": "Endpoint \"{{endpointLabel}}\" is attached to the PANEL pseudo-circuit and will not appear correctly on the one-line diagram.",
-      "endpointMultipleFloorPlacements": "Endpoint \"{{endpointLabel}}\" is placed on {{floorCount}} floors, but this symbol should have only one placement.",
+      "endpointMultipleFloorPlacements": "Endpoint \"{{endpointLabel}}\" has {{placementCount}} plan placements but supports only one.",
       "endpointPlacementIntegrity": "Endpoint \"{{endpointLabel}}\" has invalid placement data ({{violation}}).",
       "planPlacementIdentityConflict": "Situation-plan placement \"{{placementId}}\" is shared by {{ownerLabels}}. Symbols may overlap, disappear, or select together; recreate the affected duplicates with unique placements.",
+      "duplicatedBoardSymbol": "Board symbol \"{{label}}\" is shared by {{boardCount}} boards. Fix it in the Orphan Inspector.",
+      "duplicateEntityId": "{{count}} items of type {{kind}} share the ID \"{{id}}\". Edits may change the wrong one.",
       "endpointMissingPlanPlacement": "{{endpointLabel}} ({{circuitCode}}) — not on plan.",
       "panelDistributionLabelDrift": "Panel symbol \"{{endpointLabel}}\" does not match board \"{{panelName}}\" (circuit {{circuitCode}}).",
       "panelMissingOneWireSymbol": "Panel \"{{panelName}}\" exists but has no one-wire feeder symbol/link.",
@@ -3934,7 +3990,9 @@
   },
   "wheelBehaviorHint": {
     "question": "Using a trackpad?",
+    "questionMouse": "Using a mouse?",
     "usePan": "Scroll to pan",
+    "useZoom": "Scroll to zoom",
     "dismiss": "Dismiss"
   },
   "junctionDocuments": {

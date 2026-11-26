@@ -71,10 +71,10 @@ import { mirrorLayerCameraTransform } from '@/lib/canvas/layerCameraTransform'
 import { hasCanvasPrimaryAction, resolveCanvasCursor } from '@/lib/canvas/canvasCursor'
 import { longPressTargetIsSelectionBackground, shouldIgnoreCanvasTouchForContextMenu } from '@/lib/canvas/touchGestureIntent'
 import {
-  TRACKPAD_EVIDENCE_EVENTS,
   WHEEL_GESTURE_RESET_MS,
-  isDiagonalPixelScroll,
   resolveWheelAction,
+  updateWheelBehaviorEvidence,
+  type WheelBehaviorEvidenceState,
 } from './wheelGesture'
 import { useWheelBehaviorHintStore } from '@/stores/wheelBehaviorHintStore'
 import { PROJECT_DOCUMENT_DRAG_TYPE } from '@/lib/documents/projectDocuments'
@@ -224,7 +224,6 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
   const themeMode = useSettingsStore((state) => state.theme.mode)
   const leftDragPansCanvas = useSettingsStore((state) => state.leftDragPansCanvas)
   const wheelBehavior = useSettingsStore((state) => state.wheelBehavior)
-  const wheelBehaviorHintDone = useSettingsStore((state) => state.wheelBehaviorHintDone)
   const isDark = themeMode === 'dark'
   const viewportResizePreviewActive = useViewportResizePreviewActive()
   const appDialogOpen = useDialogStore(selectIsAppDialogOpen)
@@ -350,7 +349,7 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
   const wheelZoomPointerRef = useRef<Point | null>(null)
   const wheelGestureResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastWheelEventAtRef = useRef(0)
-  const trackpadEvidenceCountRef = useRef(0)
+  const wheelBehaviorEvidenceRef = useRef<WheelBehaviorEvidenceState>({ behavior: wheelBehavior, evidenceInput: null, eventCount: 0 })
   const suppressTouchContextMenuUntilRef = useRef(0)
   /** True while wheel-zoom updates the Konva layer imperatively; suppresses React prop sync so stale store zoom cannot overwrite the layer. */
   const wheelZoomGestureActiveRef = useRef(false)
@@ -1500,17 +1499,16 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
         pageHeightPx: stage.height(),
       }
 
-      // Offer pan mode once when a trackpad is evidently scrolling in zoom mode.
-      if (wheelBehavior === 'zoom' && !wheelBehaviorHintDone) {
-        if (isDiagonalPixelScroll(wheelInput)) {
-          trackpadEvidenceCountRef.current += 1
-          if (trackpadEvidenceCountRef.current >= TRACKPAD_EVIDENCE_EVENTS) {
-            useWheelBehaviorHintStore.getState().show()
-          }
-        } else if (msSincePreviousWheel > WHEEL_GESTURE_RESET_MS) {
-          trackpadEvidenceCountRef.current = 0
-        }
-      }
+      const hintStore = useWheelBehaviorHintStore.getState()
+      const evidenceUpdate = updateWheelBehaviorEvidence(
+        wheelBehaviorEvidenceRef.current,
+        wheelBehavior,
+        wheelInput,
+        hintStore.dismissedInput
+      )
+      wheelBehaviorEvidenceRef.current = evidenceUpdate.state
+      if (evidenceUpdate.clearDismissal) hintStore.clearDismissal()
+      if (evidenceUpdate.suggestedBehavior) hintStore.show(evidenceUpdate.suggestedBehavior)
 
       const action = resolveWheelAction(wheelInput, wheelBehavior)
       if (action.kind === 'pan') {
@@ -1534,7 +1532,6 @@ const BaseCanvas = forwardRef(function BaseCanvasImpl(
       scheduleWheelPanCoalesced,
       scheduleWheelZoomCoalesced,
       wheelBehavior,
-      wheelBehaviorHintDone,
     ]
   )
 

@@ -1,3 +1,4 @@
+import { cloneValue } from '@/utils/cloneValue'
 import { isVirtualOneWireOnlySymbol } from '@/lib/plan/situationPlanSymbolEligibility'
 import type {
   Branch,
@@ -28,6 +29,7 @@ import { ensureInstallationFeedTopology } from '@/lib/feedTopology'
 import { normalizeStoredProjectToV2 } from '@/lib/projectV2/migration'
 import { endpointSupportsMultiplier } from '@/utils/endpointMultipliers'
 import { numberBranchesForForks, selectTrikForkVariant } from '@/lib/import/trik/forkImport'
+import { applyTrikRiserCables } from '@/lib/import/trik/riserCableOverrides'
 import { generateId } from '@/utils/project'
 import { normalizeNominalVoltageSystem } from '@/constants/nominalVoltage'
 import {
@@ -66,7 +68,7 @@ import {
 export function finalizePendingTrikEendraadNotes(project: Project, pending: PendingTrikEendraadNote[]): void {
   if (pending.length === 0) return
   if (!project.eendraadNotes) project.eendraadNotes = []
-  const normalized = normalizeStoredProjectToV2(structuredClone(project))
+  const normalized = normalizeStoredProjectToV2(cloneValue(project))
   const layout = calculateBottomUpLayout(normalized)
   const panels = getProjectElectricalPanels(normalized)
   const endpointsById = new Map(
@@ -125,7 +127,7 @@ export function finalizePendingTrikEendraadNotes(project: Project, pending: Pend
 export function finalizePendingTrikSatelliteMarkFrames(project: Project, pendingCorners: PendingTrikFrameMarkCorner[]): void {
   if (pendingCorners.length === 0) return
   const layout = calculateBottomUpLayout(
-    normalizeStoredProjectToV2(structuredClone(project)),
+    normalizeStoredProjectToV2(cloneValue(project)),
   )
   const endpointPosByPanel = new Map<string, Map<string, { x: number; y: number }>>()
   for (const pl of layout.panels) {
@@ -507,7 +509,7 @@ export function addTrikCircuits(
 
   for (const trikCircuit of trikCircuits) {
     const rawFixed = trikCircuit.fixedLetter?.trim()
-    // Only keep an explicit TRiK VasteLetter. Do not invent A/B/C for unlabeled circuits.
+    // The fixed VasteLetter, or the letter TRiK gives automatically (`trikCircuitLetters.ts`).
     const circuitCode = rawFixed && !usedCodes.has(rawFixed) ? rawFixed : ''
     const manualCodeLock = !!rawFixed && circuitCode === rawFixed
     if (circuitCode) usedCodes.add(circuitCode)
@@ -834,6 +836,12 @@ export function addTrikCircuits(
       const endpoint = endpoints[index]
       if (endpoint) branchEndpointIds.get(key)?.push(endpoint.id)
     })
+    if (forkVariant) {
+      // Stem by stem, legs after their root, open legs included.
+      const open = new Set(forkVariant.forkLegs.filter((leg) => leg.empty).map((leg) => leg.branchKey))
+      const ordered = forkVariant.branchOrder.filter((key) => branchEndpointIds.has(key) || open.has(key))
+      branchOrder.splice(0, branchOrder.length, ...ordered, ...branchOrder.filter((key) => !ordered.includes(key)))
+    }
     // A fork leg keeps the number of the branch it ultimately hangs from; only root branches count.
     const branchNumberByKey = numberBranchesForForks(branchOrder, circuitNodes, forkVariant)
     endpoints.forEach((endpoint, index) => {
@@ -855,14 +863,17 @@ export function addTrikCircuits(
           notes: device.notes,
           trunkPosition: deviceIndex,
         }))
-      const afterNodeId = forkVariant?.forkLegs.find((leg) => leg.branchKey === key)?.afterNodeId
-      const attachedTo = afterNodeId ? endpointIdByNodeId.get(afterNodeId) : undefined
+      const leg = forkVariant?.forkLegs.find((candidate) => candidate.branchKey === key)
+      const attachedTo = leg ? endpointIdByNodeId.get(leg.afterNodeId) : undefined
+      const stem = forkVariant?.stems[key]
       return {
         id: generateId(),
         label: circuitCode ? `${circuitCode}${branchNumberByKey.get(key) ?? index + 1}` : String(branchNumberByKey.get(key) ?? index + 1),
         endpointIds: branchEndpointIds.get(key) ?? [],
         branchDevices: devicesForBranch.length > 0 ? devicesForBranch : undefined,
         ...(attachedTo ? { forkFrom: { afterEndpointId: remapEndpointId(attachedTo) } } : {}),
+        ...(attachedTo && leg?.empty ? { keepEmpty: true as const } : {}),
+        ...(stem && !attachedTo ? { stem } : {}),
       }
     })
 
@@ -892,6 +903,10 @@ export function addTrikCircuits(
           conversionProps: { ...device.conversionProps, dcConnectionCount: device.dcConnectionCount ?? 1 },
           trunkPosition: index,
         }
+      }
+      if (device.kind === 'terminal_strip') {
+        // The strip's identity and pin follow once the project is assembled (`terminalStrips.ts`).
+        return { id: generateId(), type: 'terminal_strip', symbol: 'terminal_strip', label: '', trunkPosition: index }
       }
       if (device.kind === 'transformer') {
         return {
@@ -972,6 +987,7 @@ export function addTrikCircuits(
             : 'C',
       circuits: [circuit],
     }
+    if (forkVariant && trikCircuit.riserCables) applyTrikRiserCables(circuit, protection.id, trikCircuit.riserCables, normalizeCableKind)
     panel.protections.push(protection)
     importsBySourceId.set(trikCircuit.id, { circuit, protection, source: trikCircuit })
   }

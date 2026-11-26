@@ -18,8 +18,8 @@ import {
   symbolSupportsWireDomain,
   type SymbolMetadata,
 } from '@/lib/symbols'
-import type { DropTarget } from '@/lib/layout/findDropTarget'
-import { getHitZoneBounds } from '@/lib/layout/findDropTarget'
+import { getHitZoneBounds, type DropTarget } from '@/lib/layout/findDropTarget'
+import { CONVERTER_OUTPUT_DEVICE_SYMBOLS } from '@/lib/eendraad/converterOutputDevices'
 import type { LayoutNode, LayoutTree } from '@/lib/layout/layoutTree'
 import type { Circuit, Endpoint, Panel, ProtectionDevice, TrunkDevice } from '@/types/schema'
 import type { Point } from '@/types/ui'
@@ -907,7 +907,7 @@ function shouldIncludeHintNode(
   if (
     node.hitZone.converterDcConnection &&
     !node.hitZone.dcBusId &&
-    !symbolSupportsWireDomain(symbol.id, 'DC')
+    (!symbolSupportsWireDomain(symbol.id, 'DC') || (typeof node.hitZone.branchDeviceInsertIndex === 'number' && !CONVERTER_OUTPUT_DEVICE_SYMBOLS.has(symbol.id)))
   ) {
     return false
   }
@@ -1051,14 +1051,14 @@ function shouldIncludeHintNode(
   }
 
   if (isProtectionDragSymbol(symbol)) {
-    // A protection may be inserted inline on the converter-to-bus lead. Circuit
-    // converter connection targets still require a real bus branch below.
+    // A protection may be inserted inline on the converter-to-bus lead, and among the
+    // devices of a circuit converter output (zones with branchDeviceInsertIndex).
     if (
       (hitType === 'supplyConverterDcWire' &&
         !canDropSymbolOnSupplyConverterDcWire(symbol.id, !!node.hitZone?.supplyDcBusId)) ||
       (hitType !== 'supplyConverterDcWire' &&
         node.hitZone?.converterDcConnection &&
-        !node.hitZone?.dcBusId)
+        !node.hitZone?.dcBusId && typeof node.hitZone.branchDeviceInsertIndex !== 'number')
     ) {
       return false
     }
@@ -1066,7 +1066,7 @@ function shouldIncludeHintNode(
     if (node.type === 'mcb' || node.type === 'rcd') return false
     if (hitType === 'circuit') {
       const circuit = ctx.circuitId ? findCircuitInProject(project, ctx.circuitId) : undefined
-      if (node.hitZone.dcBusId && typeof node.hitZone.branchDeviceInsertIndex === 'number') {
+      if ((node.hitZone.dcBusId || node.hitZone.converterDcConnection) && typeof node.hitZone.branchDeviceInsertIndex === 'number') {
         return true
       }
       if (circuit?.supplySource?.kind === 'converter-backup') return false
@@ -1158,7 +1158,7 @@ function shouldIncludeHintNode(
       }
       return isLastCircuitTrunkSegment(node.id, trunkSegmentCounts)
     }
-    if (hitType === 'circuit' && node.type !== 'branch' && !node.hitZone?.dcBusId) return false
+    if (hitType === 'circuit' && node.type !== 'branch' && !node.hitZone?.dcBusId && !(TRUNK_CAPABLE_ENDPOINT_SYMBOLS.has(symbol.id) && typeof node.hitZone?.branchDeviceInsertIndex === 'number')) return false
     if (hitType === 'circuit' && node.type === 'branch') {
       // Domotica output wires have their own hints; skip the horizontal lead-in branch wire.
       const hasDomoticaParent = node.children.some(

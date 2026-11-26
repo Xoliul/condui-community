@@ -24,6 +24,7 @@ import {
   maximumProtectedLengthM,
 } from '@/lib/shortCircuit/minimumShortCircuit'
 import type { Installation } from '@/types/schema'
+import { isStructuralCarrierProtection } from '@/lib/eendraad/structuralCarrier'
 
 /** AREI 5.3.5.5.e: household overcurrent devices after the connection device. */
 const HOUSEHOLD_MIN_BREAKING_CAPACITY_KA = 3
@@ -35,7 +36,7 @@ function formatAmps(ka: number): string {
 }
 
 function isStructuralCarrier(protection: ProtectionDevice): boolean {
-  return protection.directPanelFeeder === true || protection.directDcBusFeeder === true
+  return isStructuralCarrierProtection(protection)
 }
 
 /**

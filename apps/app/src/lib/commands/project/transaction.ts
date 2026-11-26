@@ -1,8 +1,10 @@
 import { current, produce } from 'immer'
 import { assertForkEditsPreserveTopology, reconcileForkTrunkPositions } from './forkIntegrity'
+import { assertRiserEditsStayEligible, normalizeRiserStems } from './riserIntegrity'
 import { preserveWireRuns } from '@/lib/wires/preserveWireRuns'
 import type { ProjectV2 } from '@/types/projectV2'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
+import { getRequiredSchemaVersion, maxSchemaVersion, raiseSchemaVersion } from '@/lib/projectV2/projectSchemaVersion'
 import {
   followWireAnchorDomains,
   wireAnchorDomainsNeedFollowing,
@@ -13,7 +15,9 @@ import { withProjectMutationTime } from '@/lib/projectMutations/mutationTime'
 import type { ParsedInvocation } from './registry'
 import { CommandError, type CommandEnv, type CommandResult } from './types'
 import { resolveCreatedReferences } from './batchReferences'
-import { assertNoNewPlanPlacementConflicts } from './planPlacementIntegrity'
+import { assertNoNewDuplicateIds, assertNoNewPlanPlacementConflicts } from './planPlacementIntegrity'
+import { assertNoNewHorizontalDomoticaViolations } from './horizontalDomoticaIntegrity'
+import { assertDirectTrunkFeedersCarryNoLoads, assertStripLedSupplyTapsCarryNoLoads } from './directTrunkFeederIntegrity'
 
 /**
  * Domain repairs that must hold after any change, whoever made it. They used to run only as
@@ -21,9 +25,24 @@ import { assertNoNewPlanPlacementConflicts } from './planPlacementIntegrity'
  */
 function finalizeProjectDomain(base: ProjectV2, next: ProjectV2): ProjectV2 {
   if (getProjectElectricalPanels(next) === getProjectElectricalPanels(base)) return next
-  if (!wireAnchorDomainsNeedFollowing(next)) return next
-  return produce(next, (draft) => {
-    followWireAnchorDomains(draft as ProjectV2)
+  const followed = wireAnchorDomainsNeedFollowing(next)
+    ? produce(next, (draft) => {
+        followWireAnchorDomains(draft as ProjectV2)
+      })
+    : next
+  return raiseSchemaVersionFromContent(followed)
+}
+
+/**
+ * Whatever a command created (a fork, a riser, a supply tap, through a drop, paste, duplicate or
+ * import), the document must declare the lowest version whose readers understand it. Raise only:
+ * a version never goes down.
+ */
+function raiseSchemaVersionFromContent(project: ProjectV2): ProjectV2 {
+  const required = getRequiredSchemaVersion(project)
+  if (maxSchemaVersion(project.schemaVersion, required) === project.schemaVersion) return project
+  return produce(project, (draft) => {
+    raiseSchemaVersion(draft as ProjectV2, required)
   })
 }
 
@@ -80,8 +99,10 @@ export function applyCommandBatch(
             try {
               const wireBefore = current(draft) as ProjectV2
               const applied = command.apply(draft, input, env)
+              normalizeRiserStems(draft as ProjectV2)
               reconcileForkTrunkPositions(wireBefore, draft as ProjectV2)
               assertForkEditsPreserveTopology(wireBefore, current(draft) as ProjectV2)
+              assertRiserEditsStayEligible(wireBefore, current(draft) as ProjectV2)
               const wires = preserveWireRuns(
                 wireBefore,
                 current(draft) as ProjectV2,
@@ -113,5 +134,9 @@ export function applyCommandBatch(
   if (next === base) return { project: base, results, events: [] }
   const project = finalizeProjectDomain(base, next)
   assertNoNewPlanPlacementConflicts(base, project)
+  assertNoNewDuplicateIds(base, project)
+  assertNoNewHorizontalDomoticaViolations(base, project)
+  assertDirectTrunkFeedersCarryNoLoads(base, project)
+  assertStripLedSupplyTapsCarryNoLoads(base, project)
   return { project, results, events }
 }

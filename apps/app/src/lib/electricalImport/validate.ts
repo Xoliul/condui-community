@@ -285,7 +285,9 @@ function validateEndpointModifiers(
   const supportsQuantity =
     endpoint.type === 'light_point' ||
     (endpoint.type === 'switch' &&
-      (endpoint.symbol === 'switch_impulse' || endpoint.symbol === 'smoke_detector')) ||
+      (endpoint.symbol === 'switch_impulse' ||
+        endpoint.symbol === 'smoke_detector' ||
+        endpoint.symbol === 'motion_detector')) ||
     ['buzzer', 'bell', 'horn', 'siren'].includes(endpoint.symbol ?? '')
   if (endpoint.quantity != null && !supportsQuantity) {
     diagnostics.push({

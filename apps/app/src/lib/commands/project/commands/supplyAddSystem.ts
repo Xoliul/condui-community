@@ -4,7 +4,7 @@ import {
   ADD_SUPPLY_SYSTEM_UNSUPPORTED_MESSAGE,
   AddSupplySystemError,
   addSupplySystemInProject,
-  canAddSupplySystem,
+  getAddSupplySystemBlocker,
 } from '@/lib/electricalImport/addSupplySystem'
 import { getProjectElectricalInstallation } from '@/lib/projectV2/electrical'
 import { CommandError, defineProjectCommand } from '../types'
@@ -28,8 +28,8 @@ export const supplyAddSystem = defineProjectCommand({
   check(project, input) {
     if (!getProjectElectricalInstallation(project))
       return { ok: false, code: 'unsupported_topology', message: ADD_SUPPLY_SYSTEM_UNSUPPORTED_MESSAGE }
-    if (!canAddSupplySystem(project, input.panelId))
-      return { ok: false, code: 'unsupported_topology', message: ADD_SUPPLY_SYSTEM_UNSUPPORTED_MESSAGE }
+    const blocker = getAddSupplySystemBlocker(project, input.panelId)
+    if (blocker) return { ok: false, code: 'unsupported_topology', message: blocker }
     return { ok: true }
   },
   apply(draft, input) {

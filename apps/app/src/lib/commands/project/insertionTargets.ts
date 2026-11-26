@@ -9,7 +9,16 @@ import { getPanelBusSections } from '@/lib/panel/panelBusSections'
 import { getMainBusItemsWithIndices } from '@/lib/eendraad/mainBusOrder'
 import { symbols, type SymbolMetadata } from '@/lib/symbols'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
+import type { TrunkDevice } from '@/types/schema'
+import { getCircuitConverterDcConnectionCount, supportsCircuitConverterDcConnections } from '@/lib/layout/circuitConverterGeometry'
+import { getSupplyConverterDcConnectionIndex } from '@/lib/supplyAssembly/converterDcConnections'
+import { getConverterOutputDevices } from '@/lib/eendraad/converterOutputDevices'
 import type { ProjectCommandRegistry } from './registry'
+import { riserInsertionTargets } from './riserInsertionTargets'
+import { forkInsertionTargets } from './forkInsertionTargets'
+import { resolveElectricalSemanticTarget } from './electricalSemanticTarget'
+import { canEditOneWireRisers } from '@/lib/eendraad/oneWireRisers'
+import { hasOneWireForks } from '@/lib/eendraad/oneWireForkProject'
 import { applyCommandBatch } from './transaction'
 import { CommandError } from './types'
 
@@ -54,6 +63,103 @@ function appendTarget(targets: Candidate[], candidate: Candidate): boolean {
   if (targets.length >= MAX_TARGETS) return false
   targets.push(candidate)
   return true
+}
+
+/**
+ * The DC-bus positions of one root supply feed: a new branch per bus, the gaps inside each branch,
+ * and, for a widened converter on a branch, every output and the gaps of its string. The values
+ * are the ones the editor's own drop zones carry.
+ */
+function dcSupplyTargets(devices: readonly TrunkDevice[], feed: { panelId: string; busSectionId?: string }): DropTarget[] {
+  const targets: DropTarget[] = []
+  const base = {
+    type: 'supplyConverterDcWire' as const,
+    panelId: feed.panelId,
+    supplyFeedScope: 'root' as const,
+    ...(feed.busSectionId ? { busSectionId: feed.busSectionId } : {}),
+  }
+  const lane = (device: TrunkDevice) => ({
+    supplyConverterDcBranch: device.supplyPath === 'converter-dc-top' ? ('top' as const) : ('right' as const),
+    supplyConverterDcConnectionIndex: getSupplyConverterDcConnectionIndex(device) ?? 0,
+  })
+  const indexOf = (device: TrunkDevice) => devices.findIndex((candidate) => candidate.id === device.id)
+  for (const bus of devices.filter((device) => device.type === 'dc_bus' || device.symbol === 'dc_bus')) {
+    const hanging = devices.filter((device) => device.supplyDcBusId === bus.id)
+    const last = hanging.reduce((max, device) => Math.max(max, indexOf(device)), indexOf(bus))
+    targets.push({ ...base, ...lane(bus), supplyDcBusId: bus.id, supplyDeviceInsertIndex: last + 1 })
+    const branches = new Map<string, TrunkDevice[]>()
+    for (const device of hanging) {
+      if (device.converterDcConnection || !device.supplyDcBusBranchId) continue
+      branches.set(device.supplyDcBusBranchId, [...(branches.get(device.supplyDcBusBranchId) ?? []), device])
+    }
+    for (const [branchId, members] of branches) {
+      const branch = { ...base, ...lane(bus), supplyDcBusId: bus.id, supplyDcBusBranchId: branchId }
+      targets.push({ ...branch, supplyDeviceInsertIndex: indexOf(members[0]!) })
+      for (const member of members) {
+        targets.push({ ...branch, supplyDeviceInsertIndex: indexOf(member) + 1 })
+        const count = getCircuitConverterDcConnectionCount(member)
+        if (!supportsCircuitConverterDcConnections(member) || count < 2) continue
+        for (let connectionIndex = 0; connectionIndex < count; connectionIndex++) {
+          const output = { ...branch, converterDcConnection: { converterId: member.id, connectionIndex } }
+          const string = hanging.filter(
+            (device) =>
+              device.converterDcConnection?.converterId === member.id &&
+              device.converterDcConnection.connectionIndex === connectionIndex
+          )
+          targets.push({ ...output, supplyDeviceInsertIndex: (string.length ? indexOf(string[0]!) : indexOf(member) + 1) })
+          for (const device of string) targets.push({ ...output, supplyDeviceInsertIndex: indexOf(device) + 1 })
+        }
+      }
+    }
+  }
+  return targets
+}
+
+/**
+ * The positions on each DC output of a widened converter in a circuit: every device position
+ * (`branchDeviceInsertIndex` 0..n) for protections and strips, and an append position after the
+ * output's last endpoint. The values match what `electrical_place_symbol` resolves for a
+ * `converterOutput` destination and what the editor's drop zones carry.
+ */
+function circuitConverterOutputTargets(
+  panelId: string,
+  circuit: {
+    id: string
+    endpoints: readonly { id: string; converterDcConnection?: TrunkDevice['converterDcConnection'] }[]
+    trunkDevices?: readonly TrunkDevice[]
+  }
+): DropTarget[] {
+  const targets: DropTarget[] = []
+  for (const converter of circuit.trunkDevices ?? []) {
+    if (!supportsCircuitConverterDcConnections(converter)) continue
+    const count = getCircuitConverterDcConnectionCount(converter)
+    if (count < 2) continue
+    for (let connectionIndex = 0; connectionIndex < count; connectionIndex++) {
+      const connection = { converterId: converter.id, connectionIndex }
+      const devices = getConverterOutputDevices(circuit.trunkDevices ?? [], connection).filter(
+        (device) => device.type !== 'dc_bus'
+      )
+      const endpoints = circuit.endpoints
+        .filter(
+          (endpoint) =>
+            endpoint.converterDcConnection?.converterId === converter.id &&
+            endpoint.converterDcConnection.connectionIndex === connectionIndex
+        )
+        .map((endpoint) => endpoint.id)
+      const base = {
+        type: 'circuit' as const,
+        panelId,
+        circuitId: circuit.id,
+        converterDcConnection: connection,
+        branchId: `converter-dc-output-${converter.id}-${connectionIndex}`,
+        branchEndpoints: endpoints,
+      }
+      for (let index = 0; index <= devices.length; index++) targets.push({ ...base, branchDeviceInsertIndex: index })
+      if (endpoints.length > 0)
+        targets.push({ ...base, insertAfterEndpointId: endpoints.at(-1)!, branchDeviceInsertIndex: devices.length })
+    }
+  }
+  return targets
 }
 
 /** Construct only identities already present in the source snapshot; never normalize topology. */
@@ -136,6 +242,9 @@ function collectTargets(
             panel.id
           )
         }
+        for (const feed of rootFeeds)
+          for (const target of dcSupplyTargets(feed.trunkDevices ?? [], { panelId: panel.id, busSectionId: feed.busSectionId }))
+            add(target, panel.id)
         if (!rootFeeds.length) {
           add(
             {
@@ -151,20 +260,33 @@ function collectTargets(
     }
   }
 
+  const late: Candidate[] = []
   for (const panel of panels) {
     const circuits = collectCircuits(panel).filter(
       (circuit) => !options.circuitId || circuit.id === options.circuitId
     )
     for (const circuit of circuits) {
-      add({ type: 'circuit', panelId: panel.id, circuitId: circuit.id }, panel.id)
-      for (const endpoint of circuit.endpoints) {
-        add(
-          { type: 'endpoint', panelId: panel.id, circuitId: circuit.id, endpointId: endpoint.id },
-          panel.id
-        )
+      // Rows of a circuit with forks or risers name their cable run and place (the plain circuit and endpoint
+      // slots would append them to the last riser, and the numbered ones carry no cable run).
+      const ownRows = hasOneWireForks(circuit) && canEditOneWireRisers(circuit)
+      if (ownRows) {
+        for (const endpoint of circuit.endpoints) {
+          const row = resolveElectricalSemanticTarget(project, { kind: 'endpoint', endpointId: endpoint.id })
+          if (row.ok) add(row.target, panel.id)
+        }
+      } else {
+        add({ type: 'circuit', panelId: panel.id, circuitId: circuit.id }, panel.id)
+        for (const endpoint of circuit.endpoints) {
+          add(
+            { type: 'endpoint', panelId: panel.id, circuitId: circuit.id, endpointId: endpoint.id },
+            panel.id
+          )
+        }
       }
-      const branches = getStandardCircuitBranches(circuit)
-      if (!branches.length) {
+      for (const target of circuitConverterOutputTargets(panel.id, circuit)) add(target, panel.id)
+      for (const target of riserInsertionTargets(panel.id, circuit)) add(target, panel.id)
+      const branches = ownRows ? [] : getStandardCircuitBranches(circuit)
+      if (!branches.length && !ownRows) {
         add(
           {
             type: 'circuit',
@@ -207,6 +329,10 @@ function collectTargets(
       })
     }
 
+    // Fork slots come last, so they cannot crowd out the ordinary positions of a large board.
+    for (const circuit of circuits)
+      for (const target of forkInsertionTargets(panel.id, circuit)) late.push({ target, panelId: panel.id })
+
     if (!options.circuitId) {
       for (const protection of panel.protections) {
         add({ type: 'protection', panelId: panel.id, protectionId: protection.id }, panel.id)
@@ -214,6 +340,7 @@ function collectTargets(
       }
     }
   }
+  for (const candidate of late) add(candidate.target, candidate.panelId)
   return { targets: candidates, truncated }
 }
 

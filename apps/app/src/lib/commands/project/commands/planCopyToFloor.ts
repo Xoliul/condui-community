@@ -5,7 +5,7 @@ import {
   type FloorPlanPasteResult,
 } from '@/lib/plan/floorPlanClipboard'
 import { ensureElectricalLayerOnFloor } from '@/lib/plan/floorLayers'
-import { addPlacementToProject } from '@/lib/plan/placementMutations'
+import { pastePlanEndpointPlacementInProject } from '@/lib/plan/planDuplicateCore'
 import { resolvePlanPxPerMeter } from '@/lib/plan/planScale'
 import {
   mutateBuildingFloorView,
@@ -36,13 +36,13 @@ const payloadSchema = z.custom<FloorPlanClipboardPayload>(
   { message: 'Expected a floor-plan clipboard payload' }
 )
 
-function selectionOf(result: FloorPlanPasteResult): EntityRef[] {
+function geometrySelectionOf(result: FloorPlanPasteResult): EntityRef[] {
   if (result.wallIds.length > 0) return result.wallIds.map((id) => ({ kind: 'wall', id }))
   if (result.stairIds.length > 0) return result.stairIds.map((id) => ({ kind: 'stair', id }))
   if (result.graphicElementIds.length > 0) {
     return result.graphicElementIds.map((id) => ({ kind: 'element', id }))
   }
-  return result.placementIds.map((id) => ({ kind: 'placement', id }))
+  return []
 }
 
 /**
@@ -69,6 +69,8 @@ export const planCopyToFloor = defineProjectCommand({
   apply(draft, input) {
     const project = draft as ProjectV2
     const created: EntityRef[] = []
+    const changed: EntityRef[] = []
+    const changedCircuits = new Set<string>()
     let select: EntityRef[] = []
     for (const targetFloorId of input.targetFloorIds) {
       const floor = readLegacyCompatibilityFloors(project).find((f) => f.id === targetFloorId)!
@@ -81,19 +83,27 @@ export const planCopyToFloor = defineProjectCommand({
         copyOpenings: input.copyOpenings,
         targetCenter: input.targetCenter,
       })
+      const placements: EntityRef[] = []
+      for (const { endpointId, placement } of result.placements) {
+        const pasted = pastePlanEndpointPlacementInProject(project, endpointId, placement)
+        if (!pasted) continue
+        placements.push({ kind: 'placement', id: placement.id })
+        changedCircuits.add(pasted.circuitId)
+        if (pasted.createdEndpointId) created.push({ kind: 'endpoint', id: pasted.createdEndpointId })
+      }
+      const geometry = geometrySelectionOf(result)
+      if (geometry.length === 0 && placements.length === 0) continue
       mutateBuildingFloorView(project, targetFloorId, (view) => {
-        view.floorPlan = result.floorPlan
+        if (geometry.length > 0) view.floorPlan = result.floorPlan
         ensureElectricalLayerOnFloor(view)
       })
-      result.placements.forEach(({ endpointId, placement }) =>
-        addPlacementToProject(project, endpointId, placement)
-      )
-      created.push(...selectionOf(result))
-      select = selectionOf(result)
+      changed.push({ kind: 'floor', id: targetFloorId })
+      created.push(...geometry, ...placements)
+      select = geometry.length > 0 ? geometry : placements
     }
     return {
       created,
-      changed: input.targetFloorIds.map((id) => ({ kind: 'floor' as const, id })),
+      changed: [...changed, ...[...changedCircuits].map((id) => ({ kind: 'circuit' as const, id }))],
       removed: [],
       select,
     }

@@ -12,6 +12,7 @@ type Defaults = Partial<
     | 'fixedApplianceProps'
     | 'smokeDetectorProps'
     | 'socketProps'
+    | 'domoticaProps'
   >
 > &
   Pick<ProtectionDevice, 'surgeProtectionKind'>
@@ -21,6 +22,11 @@ export interface SearchPreset {
   /** Explicit phrases only; fuzzy/synonym expansion must never choose settings. */
   aliases: readonly string[]
   defaults: Defaults
+  /**
+   * The preset has its own library entry (`libraryPresets.ts`) and is reached from there, never
+   * from a search phrase: it needs no aliases, so `matchSearchPreset` can never choose it.
+   */
+  libraryEntry?: true
 }
 
 export const searchPresets: readonly SearchPreset[] = [
@@ -28,6 +34,11 @@ export const searchPresets: readonly SearchPreset[] = [
     id: 'relay_impulse',
     symbolId: 'relay',
     aliases: [
+      'impuls relais',
+      'stroomstootrelais',
+      'stootrelais',
+      'relais à impulsion',
+      'relais bistable',
       'teleruptor',
       'telerupteur',
       'teleruptoir',
@@ -226,6 +237,16 @@ export const searchPresets: readonly SearchPreset[] = [
     id: 'light_wall',
     symbolId: 'light_point',
     aliases: [
+      'wandlicht',
+      'wandverlichting',
+      'muurlamp',
+      'muurlicht',
+      'wall lamp',
+      'wall-mounted light',
+      'luminaire mural',
+      'Wandlampe',
+      'lampa ścienna',
+      'lampă de perete',
       'wandlamp',
       'licht op muur',
       'wall light',
@@ -241,6 +262,16 @@ export const searchPresets: readonly SearchPreset[] = [
     id: 'light_emergency',
     symbolId: 'light_point',
     aliases: [
+      'noodlicht',
+      'noodlamp',
+      'nood licht',
+      'emergency lamp',
+      'éclairage de sécurité',
+      'bloc de secours',
+      'Notleuchte',
+      'Sicherheitsleuchte',
+      'lampa awaryjna',
+      'lampă de urgență',
       'noodverlichting',
       'emergency light',
       'éclairage de secours',
@@ -254,6 +285,16 @@ export const searchPresets: readonly SearchPreset[] = [
     id: 'light_decentral',
     symbolId: 'light_point',
     aliases: [
+      'decentraal noodlicht',
+      'decentrale noodlamp',
+      'autonoom noodlicht',
+      'decentral emergency light',
+      'decentralised emergency light',
+      'autonomous emergency light',
+      'battery emergency light',
+      'éclairage de secours décentralisé',
+      'bloc autonome',
+      'Einzelbatterieleuchte',
       'decentrale noodverlichting',
       'autonome noodverlichting',
       'decentral emergency',
@@ -425,6 +466,13 @@ export const searchPresets: readonly SearchPreset[] = [
     ],
     defaults: { smokeDetectorProps: { type: 'flame' } },
   },
+  {
+    id: 'domotica_horizontal',
+    symbolId: 'domotica',
+    aliases: [],
+    defaults: { domoticaProps: { oneWireLayout: 'horizontal' } },
+    libraryEntry: true,
+  },
 ]
 
 export function getSearchPreset(symbolId: string, presetId?: string): SearchPreset | undefined {
@@ -439,6 +487,55 @@ export function normalizePresetQuery(value: string): string {
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ')
+}
+
+/** Shortest query that may start an alias or name (shorter queries need the whole phrase). */
+export const MIN_PRESET_PREFIX_QUERY_LENGTH = 3
+
+export interface SearchPresetPhraseMatch {
+  /** `phrase`: the query is, or contains, a whole phrase. `prefix`: it starts a phrase. */
+  tier: 'phrase' | 'prefix'
+  /** Higher is better: longer whole phrases first, then shorter (closer) phrases. */
+  score: number
+}
+
+/** Best way `query` matches any of the phrases (aliases and localized names), or undefined. */
+export function matchSearchPresetPhrases(
+  query: string,
+  phrases: readonly string[]
+): SearchPresetPhraseMatch | undefined {
+  const normalizedQuery = normalizePresetQuery(query)
+  if (!normalizedQuery) return undefined
+  const paddedQuery = ` ${normalizedQuery} `
+  let best: SearchPresetPhraseMatch | undefined
+  for (const raw of phrases) {
+    const phrase = normalizePresetQuery(raw)
+    if (!phrase) continue
+    let match: SearchPresetPhraseMatch | undefined
+    if (paddedQuery.includes(` ${phrase} `)) match = { tier: 'phrase', score: phrase.length }
+    else if (normalizedQuery.length >= MIN_PRESET_PREFIX_QUERY_LENGTH) {
+      // Only the start of a phrase: "switch" must not list "time switch" next to every switch.
+      if (phrase.startsWith(normalizedQuery)) match = { tier: 'prefix', score: 1000 - phrase.length }
+    }
+    if (!match) continue
+    if (
+      !best ||
+      (match.tier === 'phrase' && best.tier === 'prefix') ||
+      (match.tier === best.tier && match.score > best.score)
+    )
+      best = match
+  }
+  return best
+}
+
+/** Library identity of a search result: a variant is its own entry, keyed by symbol and preset. */
+export function getLibraryEntryKey(symbol: Pick<SymbolMetadata, 'id' | 'searchPreset'>): string {
+  return symbol.searchPreset ? `${symbol.id}#${symbol.searchPreset}` : symbol.id
+}
+
+export function parseLibraryEntryKey(key: string): { symbolId: string; presetId?: string } {
+  const at = key.indexOf('#')
+  return at < 0 ? { symbolId: key } : { symbolId: key.slice(0, at), presetId: key.slice(at + 1) }
 }
 
 /** Longest explicit phrase wins; equal competing variants stay generic. */

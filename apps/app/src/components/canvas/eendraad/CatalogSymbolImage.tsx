@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Image, Rect } from 'react-konva'
+import { useDetailedProtectionSymbols } from '@/hooks/useProtectionSymbolSvgPath'
+import { resolveProtectionSvgPath } from '@/lib/detailedProtectionSymbols'
 import { getSymbolById } from '@/lib/symbols'
 import { loadProcessedSymbol } from '@/lib/symbolImage'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -20,6 +22,7 @@ export function CatalogSymbolImage({
   fallbackStroke: string
 }) {
   const theme = useSettingsStore((state) => state.theme)
+  const detailedProtection = useDetailedProtectionSymbols()
   const [image, setImage] = useState<HTMLImageElement | null>(null)
   const symbol = getSymbolById(symbolId)
   const isDark = theme?.mode === 'dark'
@@ -32,7 +35,7 @@ export function CatalogSymbolImage({
   useEffect(() => {
     let cancelled = false
     if (!symbol) return
-    loadProcessedSymbol(symbol.svgPath, isDark)
+    loadProcessedSymbol(resolveProtectionSvgPath(symbol.svgPath, detailedProtection), isDark)
       .then((nextImage) => {
         if (!cancelled) setImage(nextImage)
       })
@@ -42,7 +45,7 @@ export function CatalogSymbolImage({
     return () => {
       cancelled = true
     }
-  }, [isDark, symbol])
+  }, [isDark, symbol, detailedProtection])
 
   if (image) {
     return (

@@ -159,6 +159,16 @@ export function mirrorWireSegmentHorizontally(segment: WireSegment, axisX: numbe
   else if (segment.busFeedMarkerSide === 'below-right') segment.busFeedMarkerSide = 'below-left'
 }
 
+/** Dot where a supply tap leaves the grid lane: the tap's wire that starts on the lane. */
+export function markSupplyTapJunction(tapSegments: WireSegment[], laneY: number): void {
+  const onLane = (point: Point2) => Math.abs(point.y - laneY) < 0.5
+  const first = tapSegments.find(
+    (wire) => wire.type !== 'mainBus' && onLane(wire.startPoint) !== onLane(wire.endPoint)
+  )
+  if (!first) return
+  first.junctionPoint = { ...(onLane(first.startPoint) ? first.startPoint : first.endPoint) }
+}
+
 /**
  * Mark every true T junction among supply wires with a dot: three or more wire ends meeting
  * at a point without all being collinear, or a wire end landing on the inside of another

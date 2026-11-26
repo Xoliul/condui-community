@@ -2,7 +2,7 @@ import type { BottomUpLayoutResult } from './bottomUpLayout'
 import { getPanelDiagramId } from './bottomUpLayout'
 import type { LayoutTree } from './layoutTree'
 import { findDropTarget, type DropTarget } from './findDropTarget'
-import { createCircuitTrunkBranchSlotFinder, findCircuitTrunkBranchSlot, circuitTrunkBranchSlotDropTarget } from './circuitTrunkBranchSlots'
+import { createCircuitTrunkBranchSlotFinder, findCircuitTrunkBranchSlot, circuitTrunkBranchSlotDropTarget, getCircuitTrunkBranchSlotId } from './circuitTrunkBranchSlots'
 import { computeEndpointInsertAfter, isEnergyConversionEndpointSymbol, isDcOnlyEndpointSymbol } from '@/lib/eendraad/endpointInsertAfter'
 import { findSameSymbolAddMoreLayoutTargets, type SameSymbolAddMoreLayoutTarget } from '@/lib/eendraad/sameSymbolAddMore'
 import { getEndpointTypeFromSymbol } from '@/utils/symbolMapping'
@@ -14,6 +14,16 @@ import { isChangeoverSwitchEndpoint } from '@/lib/eendraad/circuitPointNumbering
 import type { Circuit } from '@/types/schema'
 import { circuitAcceptsTrunkSwitch, isCircuitTrunkSwitchSymbol, isCircuitTrunkSwitchDropTarget } from '@/lib/eendraad/circuitTrunkSwitch'
 import { isTerminalPanelFeederCircuit } from '@/lib/eendraad/panelSupplyLink'
+import {
+  isDropAfterHorizontalDomotica,
+  isMovingHorizontalDomotica,
+  isSupplyDropTargetForHorizontalDomotica,
+} from './horizontalDomoticaDropGuard'
+import { getSupplyTapSymbolKind } from '@/lib/supplyTaps/tapSymbols'
+import { getDrawnSupplyTapCircuitIds } from './supplyTapLayout'
+import { collectNewRiserDropTargets } from './newRiserDropTargets'
+import { resolveSupplyTapLane, type SupplyTapLane } from './supplyTapDropTargets'
+import { resolveNewLineDropZone, type DropZoneRect } from './newLineDropZone'
 
 /** Keep marks readable at working zooms without dwarfing or disappearing beside the diagram. */
 export function getBranchDropPreviewUnit(zoom: number): number {
@@ -22,15 +32,19 @@ export function getBranchDropPreviewUnit(zoom: number): number {
 
 export interface BranchDropIntent {
   id: string
-  kind: 'insert' | 'branch' | 'multiply' | 'trunk' | 'fork'
+  kind: 'insert' | 'branch' | 'multiply' | 'trunk' | 'fork' | 'riser'
   target: DropTarget
   /** Acquisition handle, independent of selection and final layout geometry. */
   point: Point
   /** The existing wire connection that this edit affects. */
   wirePoint: Point
   wireOrigin?: Point
+  /** Where a freely previewed drop locks to on release (supply taps). */
+  lockPoint?: Point
   direction: number
   radiusPx: number
+  /** Drawn as a dashed box instead of a ring (fork, new riser): exactly this area triggers the drop. */
+  zone?: DropZoneRect
   sameSymbolTarget?: SameSymbolAddMoreLayoutTarget
 }
 
@@ -39,6 +53,8 @@ export interface BranchDropTargets {
   regions: Array<{ left: number; right: number; top: number; bottom: number }>
   endpointNodeIds: Set<string>
   circuitIds: Set<string>
+  /** Horizontal grid wire above which a drop starts a supply tap at the cursor. */
+  supplyTapLanes?: SupplyTapLane[]
 }
 
 /** Keep the whole current trunk gap on the same local presentation as its handle. */
@@ -47,7 +63,7 @@ export function resolveBranchStemFallback(
 ): BranchDropIntent | null {
   const slot = findCircuitTrunkBranchSlot(tree, position, { includeBranchRows: false })
   if (!slot || !targets.circuitIds.has(slot.circuitId)) return null
-  const id = `${slot.diagramId}/${slot.circuitId}/stem/${slot.insertIndex}`
+  const id = getCircuitTrunkBranchSlotId(slot)
   return targets.intents.find((intent) => intent.id === `${id}/trunk`)
     ?? targets.intents.find((intent) => intent.id === id) ?? null
 }
@@ -86,8 +102,12 @@ export function collectBranchDropTargets(
   zoom: number,
   movingEndpointIds: readonly string[] = [],
   allowForks = false,
+  getSupplyTapLanes?: () => SupplyTapLane[],
 ): BranchDropTargets {
   const result: BranchDropTargets = { intents: [], regions: [], endpointNodeIds: new Set(), circuitIds: new Set() }
+  // Taps above the supply wire: a protection, meter or load dropped in the band starts a tap.
+  if (!movingEndpointIds.length && Number.isFinite(zoom) && zoom > 0 && getSupplyTapSymbolKind(symbol))
+    result.supplyTapLanes = getSupplyTapLanes?.() ?? []
   const type = getEndpointTypeFromSymbol(symbol)
   if (!type || !['socket', 'switch', 'light_point', 'fixed_appliance'].includes(type) ||
       isEnergyConversionEndpointSymbol(symbol.id) || isDcOnlyEndpointSymbol(symbol) || !Number.isFinite(zoom) || zoom <= 0) return result
@@ -96,13 +116,16 @@ export function collectBranchDropTargets(
   const findBranchSlot = createCircuitTrunkBranchSlotFinder(tree)
   const trunkHitOptions = { trunkBranchSlotAt: (point: Point) => findBranchSlot(point, { includeBranchRows: false }) }
   for (const panel of layout.panels) {
-    if (panel.frameRole === 'supply') continue
+    // A supply frame draws taps like ordinary board circuits; its other content keeps its own targets.
+    const tapCircuitIds = panel.frameRole === 'supply' ? getDrawnSupplyTapCircuitIds(panel) : null
+    if (tapCircuitIds?.size === 0) continue
     const diagramId = getPanelDiagramId(panel)
     const positions = new Map(panel.elements.flatMap((element) =>
       element.type === 'endpoint' && element.endpointId ? [[element.endpointId, element.position] as const] : []))
     for (const branch of panel.branches) {
       const column = panel.circuits.find((candidate) => candidate.circuit.id === branch.circuitId)
       const circuit = column?.circuit
+      if (tapCircuitIds && (!circuit || !tapCircuitIds.has(circuit.id))) continue
       if (branch.forkFrom || branch.storedBranchId && circuit?.branches?.find((entry) => entry.id === branch.storedBranchId)?.keepEmpty) continue
       // An empty circuit has no branch for a trunk switch to control, so its stem offers
       // only the first branch; the explicit target keeps the drop from becoming a trunk device.
@@ -224,7 +247,7 @@ export function collectBranchDropTargets(
         if (start != null && moving.size === allSelected.length &&
             selectedBranches.every((index, offset) => index === start + offset) &&
             slot.insertIndex >= start && slot.insertIndex <= start + selectedBranches.length) continue
-        const id = `${diagramId}/${circuit.id}/stem/${slot.insertIndex}`
+        const id = getCircuitTrunkBranchSlotId(slot, diagramId)
         if (result.intents.some((intent) => intent.id === id)) continue
         // A trunk switch controls the branches after it; past the last branch it controls nothing.
         const trunkTarget = !moving.size && isCircuitTrunkSwitchSymbol(symbol.id) && slot.insertIndex < slot.branchCount
@@ -244,7 +267,15 @@ export function collectBranchDropTargets(
       }
     }
   }
-  if (allowForks) collectSavedForkDropTargets(layout, symbol, zoom, movingEndpointIds, result)
+  if (allowForks) {
+    collectSavedForkDropTargets(layout, symbol, zoom, movingEndpointIds, result)
+    collectNewRiserDropTargets(layout, zoom, movingEndpointIds, result)
+  }
+  // A horizontal domotica module is terminal: no insert, branch or fork zone exists after it.
+  result.intents = result.intents.filter((intent) => intent.kind === 'multiply' || !isDropAfterHorizontalDomotica(tree, intent.target))
+  // A horizontal domotica module never goes to the supply side: no intent there while one is moved.
+  if (isMovingHorizontalDomotica(tree, movingEndpointIds))
+    result.intents = result.intents.filter((intent) => !isSupplyDropTargetForHorizontalDomotica(tree, intent.target))
   return result
 }
 
@@ -252,11 +283,14 @@ export function collectBranchDropTargets(
 export function resolveBranchDropIntent(
   targets: BranchDropTargets, position: Point, zoom: number, previousId?: string | null,
 ): { handled: boolean; intent: BranchDropIntent | null } {
+  const boxed = resolveNewLineDropZone(targets.intents, position, zoom, previousId)
+  if (boxed) return { handled: true, intent: boxed }
   let nearest: BranchDropIntent | null = null
   let nearestDistance = Infinity
   let previous: BranchDropIntent | null = null
   let previousDistance = Infinity
   for (const intent of targets.intents) {
+    if (intent.zone) continue
     const distance = Math.hypot(intent.point.x - position.x, intent.point.y - position.y) * zoom
     if (intent.id === previousId && distance <= intent.radiusPx + 3) {
       previous = intent; previousDistance = distance
@@ -266,8 +300,9 @@ export function resolveBranchDropIntent(
       nearest = intent; nearestDistance = distance
     }
   }
-  const intent = previous && (!nearest || nearest.id === previous.id || nearestDistance + 2 > previousDistance)
-    ? previous : nearest
+  const intent = (previous && (!nearest || nearest.id === previous.id || nearestDistance + 2 > previousDistance)
+    ? previous : nearest) ?? (targets.supplyTapLanes?.length
+    ? resolveSupplyTapLane(targets.supplyTapLanes, position) : null)
   return { intent, handled: !!intent || targets.regions.some((region) =>
     position.x >= region.left && position.x <= region.right && position.y >= region.top && position.y <= region.bottom) }
 }

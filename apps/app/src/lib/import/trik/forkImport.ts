@@ -10,6 +10,7 @@ const TRUNK_DEVICE_TYPE = {
   converter: 'conversion',
   energy_meter: 'energy_meter',
   protection: 'protection',
+  terminal_strip: 'terminal_strip',
 } as const
 
 /** Branch keys in order of first appearance, with the nodes that run along each. */
@@ -40,23 +41,30 @@ export function selectTrikForkVariant(
   if (trikCircuit.branchDevices?.length) return undefined
   if (variant.nodes.some((node) => node.domoticaParentNodeId || node.converterDcConnection)) return undefined
   const groups = groupNodesByBranchKey(variant.nodes)
-  const legs = variant.forkLegs.filter((leg) => groups.has(leg.branchKey))
-  if (legs.length === 0) return undefined
+  // A leg keeps its place when it has symbols or is an open Leiding; a leg that lost its symbols is dropped.
+  const legs = variant.forkLegs.filter((leg) => groups.has(leg.branchKey) || leg.empty)
+  const hasStems = Object.keys(variant.stems).length > 0
+  if (legs.length === 0 && !hasStems) return undefined
   const legByKey = new Map(legs.map((leg) => [leg.branchKey, leg]))
+  const knownKeys = new Set([...groups.keys(), ...legs.filter((leg) => leg.empty).map((leg) => leg.branchKey)])
+  const branchOrder = [...variant.branchOrder.filter((key) => knownKeys.has(key)), ...[...knownKeys].filter((key) => !variant.branchOrder.includes(key))]
   const endpoints: Endpoint[] = variant.nodes.map((node) => ({
     id: node.id, type: node.type, label: '', symbol: node.symbol, placements: [],
   }))
-  const branches: Branch[] = [...groups].map(([key, members]) => {
+  const branches: Branch[] = branchOrder.map((key) => {
     const leg = legByKey.get(key)
+    const stem = variant.stems[key]
     return {
       id: key,
       label: '',
-      endpointIds: members.map((node) => node.id),
+      endpointIds: (groups.get(key) ?? []).map((node) => node.id),
       ...(leg ? { forkFrom: { afterEndpointId: leg.afterNodeId } } : {}),
+      ...(leg?.empty ? { keepEmpty: true as const } : {}),
+      ...(stem && !leg ? { stem } : {}),
     }
   })
   const trunkDevices: TrunkDevice[] = (trikCircuit.trunkDevices ?? []).map((device, index) => ({
-    id: device.id, type: TRUNK_DEVICE_TYPE[device.kind], symbol: 'mcb', label: '', trunkPosition: index,
+    id: device.id, type: TRUNK_DEVICE_TYPE[device.kind], symbol: device.kind === 'terminal_strip' ? 'terminal_strip' : 'mcb', label: '', trunkPosition: index,
   }))
   const probe: Circuit = {
     id: trikCircuit.id,
@@ -68,7 +76,7 @@ export function selectTrikForkVariant(
     ...(trunkDevices.length > 0 ? { trunkDevices } : {}),
     ...(trikCircuit.childCircuitIds.length > 0 ? { subCircuitIds: trikCircuit.childCircuitIds } : {}),
   }
-  return canEditOneWireForks(probe) ? { nodes: variant.nodes, forkLegs: legs } : undefined
+  return canEditOneWireForks(probe) ? { ...variant, forkLegs: legs, branchOrder } : undefined
 }
 
 /**
@@ -89,7 +97,8 @@ export function numberBranchesForForks(
   }
   const branches: Branch[] = branchOrder.map((key) => {
     const leg = legByKey.get(key)
-    return { id: key, label: '', endpointIds: members.get(key) ?? [], ...(leg ? { forkFrom: { afterEndpointId: leg.afterNodeId } } : {}) }
+    const stem = variant?.stems[key]
+    return { id: key, label: '', endpointIds: members.get(key) ?? [], ...(leg ? { forkFrom: { afterEndpointId: leg.afterNodeId } } : {}), ...(leg?.empty ? { keepEmpty: true as const } : {}), ...(stem && !leg ? { stem } : {}) }
   })
   const probe = { branches, endpoints: nodes.map((node) => ({ id: node.id, type: node.type, symbol: node.symbol })) as Endpoint[] }
   const numbers = new Map<string, number>()

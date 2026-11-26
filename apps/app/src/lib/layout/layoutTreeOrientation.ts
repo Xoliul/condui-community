@@ -4,7 +4,7 @@ import { getSupplyConverterDcConnectionIndex } from '@/lib/supplyAssembly/conver
 import { LAYOUT_CONSTANTS } from './bottomUpLayout'
 import {
   CIRCUIT_CONVERTER_BLOCK_SIZE,
-  CIRCUIT_CONVERTER_OUTPUT_BRANCH_LEAD,
+  CIRCUIT_CONVERTER_EMPTY_OUTPUT_STUB,
   CIRCUIT_CONVERTER_TOP_WIRE_INSET,
   getCircuitConverterBodyGeometry,
   getCircuitConverterDcConnectionCount,
@@ -13,6 +13,7 @@ import {
   supportsCircuitConverterDcConnections,
 } from './circuitConverterGeometry'
 import type { LayoutNode } from './layoutTree'
+import { getNestedConverterOutputs, NESTED_LANE_JOG_STEP } from './supplyNestedConverterLanes'
 
 function layoutNodeUsesAnchorX(node: LayoutNode): boolean {
   return (
@@ -87,6 +88,7 @@ function isSupplyAssemblyLayoutNode(node: LayoutNode): boolean {
     node.type === 'ground' ||
     node.id.startsWith('supplyTrunkDevice-') ||
     node.id.startsWith('groundTrunkDevice-') ||
+    node.id.startsWith('ground-wire-') ||
     node.id.startsWith('supply-wire-') ||
     node.id.startsWith('supply-changeover-') ||
     node.id.startsWith('supply-direct-converter-') ||
@@ -334,7 +336,12 @@ export function normalizeSupplyDcBusGrowth(node: LayoutNode): void {
     }
 
     for (const group of visualGroups) {
-      const ordered = [...group.nodes].sort((a, b) => b.bounds.y - a.bounds.y)
+      // Strings on a multi-port converter's outputs take their drops from the converter's own
+      // output zones (normalizeNestedSupplyDcConverterGrowth); these slots cover the devices
+      // directly on the branch, so neither covers the other's wires.
+      const ordered = group.nodes
+        .filter((node) => !(node.domainRef as TrunkDevice | undefined)?.converterDcConnection)
+        .sort((a, b) => b.bounds.y - a.bounds.y)
       const first = ordered[0]
       if (!first) continue
       pushBranchSlot(
@@ -356,6 +363,13 @@ export function normalizeSupplyDcBusGrowth(node: LayoutNode): void {
         )
       }
       const last = ordered.at(-1)!
+      const lastDevice = last.domainRef as TrunkDevice | undefined
+      if (
+        lastDevice &&
+        supportsCircuitConverterDcConnections(lastDevice) &&
+        getCircuitConverterDcConnectionCount(lastDevice) > 1
+      )
+        continue
       const appendIndex =
         (last.hitZone?.supplyInsertIndex ?? group.firstSupplyIndex + ordered.length - 1) + 1
       pushBranchSlot(
@@ -404,7 +418,6 @@ export function normalizeNestedSupplyDcConverterGrowth(node: LayoutNode): void {
       growthDirection === 'left'
         ? getSupplyConverterBodyGeometry(converter, anchor)
         : getCircuitConverterBodyGeometry(converter, anchor)
-    const directionSign = growthDirection === 'left' ? -1 : 1
     const dcPorts =
       growthDirection === 'left'
         ? Array.from({ length: geometry.count }, (_, index) => ({
@@ -425,33 +438,29 @@ export function normalizeNestedSupplyDcConverterGrowth(node: LayoutNode): void {
       return device?.converterDcConnection?.converterId === converter.id
     })
     const outputHitNodes: LayoutNode[] = []
+    // Each populated output feeds a string like any other branch. The supply layout already
+    // placed it (rows level with its neighbours, strings spaced outwards for their captions,
+    // getNestedLaneOffsets) and sized the frame around it; nested jogs lead each port to its
+    // string, exactly as deriveWires draws them.
+    const outputs = getNestedConverterOutputs({
+      nodes: outputNodes,
+      converterId: converter.id,
+      ports: dcPorts,
+      halfSymbol: LAYOUT_CONSTANTS.SYMBOL_SIZE / 2,
+      emptyStubHeight: CIRCUIT_CONVERTER_EMPTY_OUTPUT_STUB,
+    })
+    const routed = outputs.some((output) => output.route)
     for (let connectionIndex = 0; connectionIndex < geometry.count; connectionIndex += 1) {
       const connection = { converterId: converter.id, connectionIndex }
       const port = dcPorts[connectionIndex]!
-      const rowY = getOrdinaryCircuitConverterOutputRowY(converter, anchor.y, connectionIndex)
-      const laneNodes = outputNodes
-        .filter(
-          (candidate) =>
-            (candidate.domainRef as TrunkDevice).converterDcConnection?.connectionIndex ===
-            connectionIndex
-        )
-        .sort(
-          (left, right) =>
-            ((left.domainRef as TrunkDevice).trunkPosition ?? 0) -
-            ((right.domainRef as TrunkDevice).trunkPosition ?? 0)
-        )
-      laneNodes.forEach((candidate, index) => {
-        candidate.bounds.x =
-          laneNodes.length === 1
-            ? port.x
-            : port.x +
-              directionSign *
-                (CIRCUIT_CONVERTER_OUTPUT_BRANCH_LEAD +
-                  index * LAYOUT_CONSTANTS.ENDPOINT_HORIZONTAL_SPACING)
-        candidate.bounds.y = rowY
-      })
-      const wireEndX = laneNodes.at(-1)?.bounds.x ?? port.x
+      const { laneNodes, route } = outputs[connectionIndex]!
+      const rowY =
+        route?.stubTopY ?? getOrdinaryCircuitConverterOutputRowY(converter, anchor.y, connectionIndex)
+      const laneX = laneNodes[0]?.bounds.x ?? port.x
+      const jogY = route?.jogY ?? rowY
       const hitPadding = 9
+      // Neighbouring jogs are only NESTED_LANE_JOG_STEP apart; their zones must not overlap.
+      const jogHitPadding = NESTED_LANE_JOG_STEP / 2 - 1
       const sharedHitZone: LayoutNode['hitZone'] = {
         type: 'supplyConverterDcWire',
         padding: 0,
@@ -466,30 +475,59 @@ export function normalizeNestedSupplyDcConverterGrowth(node: LayoutNode): void {
         supplyDcBusBranchId: converter.supplyDcBusBranchId,
         converterDcConnection: connection,
       }
-      outputHitNodes.push({
-        id: `supply-nested-converter-output-${converter.id}-${connectionIndex}-vertical`,
-        type: 'wire',
-        bounds: {
-          x: port.x - hitPadding,
-          y: Math.min(port.y, rowY) - hitPadding,
-          width: hitPadding * 2,
-          height: Math.abs(port.y - rowY) + hitPadding * 2,
-        },
-        hitZone: { ...sharedHitZone, suppressDropHint: true },
-        children: [],
+      const hitNode = (
+        suffix: string,
+        x1: number,
+        y1: number,
+        x2: number,
+        y2: number,
+        hitZone: LayoutNode['hitZone'],
+        padding = hitPadding
+      ) =>
+        outputHitNodes.push({
+          id: `supply-nested-converter-output-${converter.id}-${connectionIndex}-${suffix}`,
+          type: 'wire',
+          bounds: {
+            x: Math.min(x1, x2) - padding,
+            y: Math.min(y1, y2) - padding,
+            width: Math.abs(x2 - x1) + padding * 2,
+            height: Math.abs(y2 - y1) + padding * 2,
+          },
+          hitZone,
+          children: [],
+        })
+      const quietZone = { ...sharedHitZone, suppressDropHint: true }
+      if (laneNodes.length === 0) {
+        const stubPadding = routed ? jogHitPadding : hitPadding
+        hitNode('vertical', laneX, port.y, laneX, rowY, quietZone, stubPadding)
+        hitNode('horizontal', port.x, rowY, laneX, rowY, sharedHitZone, stubPadding)
+        continue
+      }
+      // Like a single string, every gap of the string takes a drop at its own place: after the
+      // converter, between two devices, and above the last one.
+      const half = LAYOUT_CONSTANTS.SYMBOL_SIZE / 2
+      const slotAfter = (index: number) => ({
+        ...sharedHitZone,
+        supplyInsertIndex:
+          (index < 0
+            ? converter.trunkPosition
+            : ((laneNodes[index]!.domainRef as TrunkDevice).trunkPosition ?? 0)) + 1,
       })
-      outputHitNodes.push({
-        id: `supply-nested-converter-output-${converter.id}-${connectionIndex}-horizontal`,
-        type: 'wire',
-        bounds: {
-          x: Math.min(port.x, wireEndX) - hitPadding,
-          y: rowY - hitPadding,
-          width: Math.max(hitPadding * 2, Math.abs(wireEndX - port.x) + hitPadding * 2),
-          height: hitPadding * 2,
-        },
-        hitZone: sharedHitZone,
-        children: [],
+      if (laneX !== port.x) hitNode('port', port.x, port.y, port.x, jogY, quietZone, jogHitPadding)
+      if (laneX !== port.x)
+        hitNode('horizontal', port.x, jogY, laneX, jogY, { ...slotAfter(-1), suppressDropHint: true }, jogHitPadding)
+      laneNodes.forEach((node, index) => {
+        const from =
+          index === 0
+            ? laneX === port.x
+              ? port.y
+              : jogY
+            : laneNodes[index - 1]!.bounds.y - half
+        hitNode(`slot-${index}`, laneX, from, laneX, node.bounds.y + half, slotAfter(index - 1))
       })
+      const topDevice = laneNodes.at(-1)!.bounds
+      const topSlotEnd = topDevice.y - half - LAYOUT_CONSTANTS.SUPPLY_DC_BUS_BRANCH_DEVICE_SPACING / 2
+      hitNode('top', laneX, topDevice.y - half, laneX, topSlotEnd, slotAfter(laneNodes.length - 1))
     }
     converterNode.children = [
       ...converterNode.children.filter(

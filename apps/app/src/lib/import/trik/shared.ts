@@ -112,7 +112,25 @@ export type TrikCircuit = {
    * branch keys and `forkLegs` attach those legs to the node before the Leiding. Only present when
    * the file has such a split; used by the importer when one-wire forks are enabled.
    */
-  forkVariant?: { nodes: TrikNode[]; forkLegs: TrikForkLeg[] }
+  forkVariant?: {
+    nodes: TrikNode[]
+    forkLegs: TrikForkLeg[]
+    /** Every branch key in drawing order (stem by stem, legs after their root), empty legs included. */
+    branchOrder: string[]
+    /** Stem of each root branch key that sits on a riser (1..k); roots on the trunk are absent. */
+    stems: Record<string, number>
+  }
+  /** Cable attributes of a riser's own Leiding by stem; a riser without an entry shares the trunk cable. */
+  riserCables?: Record<number, TrikRiserCable>
+}
+
+/** Cable attributes TRiK stores on a Leiding (each absent when the Leiding does not set it). */
+export type TrikRiserCable = {
+  kind?: string
+  sectionMm2?: number
+  conductors?: number
+  hasPe?: boolean
+  inTube?: boolean
 }
 
 /** Serial fuse (or similar) sitting on a branch between endpoints. */
@@ -128,7 +146,7 @@ export type TrikBranchDevice = {
 /** Device on the circuit vertical trunk ahead of endpoint branches. */
 export type TrikCircuitTrunkDevice = {
   id: string
-  kind: 'transformer' | 'energy_meter' | 'protection' | 'converter'
+  kind: 'transformer' | 'energy_meter' | 'protection' | 'converter' | 'terminal_strip'
   label?: string
   /** Converter only: symbol and number of DC outputs (TRiK output leidingen, max 4). */
   converterSymbol?: 'inverter' | 'rectifier' | 'dc_dc_converter'
@@ -575,4 +593,4 @@ export function parseJaNeeBoolean(value: string | null | undefined): boolean | u
 }
 
 /** A branch key whose run attaches downstream of `afterNodeId` (a one-wire fork). */
-export type TrikForkLeg = { branchKey: string; afterNodeId: string }
+export type TrikForkLeg = { branchKey: string; afterNodeId: string; /** An open Leiding: a leg without symbols that keeps its place. */ empty?: boolean }

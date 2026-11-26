@@ -1,4 +1,5 @@
 import { circuitWireNodeKind } from '@/lib/wires/circuitWireIdentity'
+import { getBranchStem } from '@/lib/wires/riserStems'
 import { withConductorIds } from '@/lib/wires/conductorIdentity'
 import type { CableSpec, Circuit, Panel } from '@/types/schema'
 import type { WireConductor, WireConductorFunction, WireRun } from '@/types/projectV2'
@@ -241,6 +242,14 @@ function anchorForSectionOverride(
   panelId: string,
   override: NonNullable<Circuit['sectionWireOverrides']>[number]
 ): WireAnchor | undefined {
+  // A manual riser's own section leaves the protection: it is the wire into the riser's first symbol, or an open end while empty.
+  const riserStem = (override as { riserStem?: number }).riserStem ?? 0
+  if (riserStem > 0 && override.fromElementId && !override.toElementId) { // from the protection, or from the topmost device of the shared part
+    const first = circuit.branches?.find((branch) => !branch.forkFrom && getBranchStem(branch) === riserStem)?.endpointIds[0]
+    return first
+      ? { kind: 'circuit-section', circuitId: circuit.id, nodeRef: `${circuitWireNodeKind(circuit, first)}:${first}`, domain: override.domain ?? 'AC' }
+      : { kind: 'circuit-section', circuitId: circuit.id, nodeRef: `open-end:protection:${encodeURIComponent(override.fromElementId)}:riser-${riserStem}`, domain: override.domain ?? 'AC' }
+  }
   // Anchor on the downstream ("to") node only: the wire flowing into it. The upstream end is
   // intentionally ignored so a wire keeps one identity regardless of what precedes it.
   if (!override.toElementId || !override.toElementType) return undefined

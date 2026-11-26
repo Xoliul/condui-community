@@ -5,6 +5,7 @@ import {
   resolveCircuitModuleEnclosure,
   type CircuitModuleMounting,
 } from '@/lib/panel/circuitModuleMountingRules'
+import { isSupplyTapsPanel } from '@/lib/supplyTaps/virtualPanel'
 import { trunkDeviceCanAppearInPanelGrid } from '@/lib/eendraad/projectElectricalDomain'
 import { getJunctionPanelIdentity } from '@/lib/junctionPanel/grid'
 import type { Circuit, Endpoint, Panel, TrunkDevice, WireSegment } from '@/types/schema'
@@ -35,20 +36,22 @@ interface CircuitElements {
   behindJunction: Map<string, string>
 }
 
-function visitPanels(panels: readonly Panel[], visit: (panel: Panel) => void): void {
+/** Visits every panel with the board it physically hangs in: a supply-taps board is its owner's. */
+function visitPanels(panels: readonly Panel[], visit: (panel: Panel, physicalPanelId: string) => void, ownerId?: string): void {
   for (const panel of panels) {
-    visit(panel)
-    visitPanels(panel.subPanels ?? [], visit)
+    const physicalPanelId = isSupplyTapsPanel(panel) && ownerId ? ownerId : panel.id
+    visit(panel, physicalPanelId)
+    visitPanels(panel.subPanels ?? [], visit, physicalPanelId)
   }
 }
 
 function indexCircuits(panels: readonly Panel[]): Map<string, CircuitElements> {
   const index = new Map<string, CircuitElements>()
-  visitPanels(panels, (panel) => {
+  visitPanels(panels, (panel, physicalPanelId) => {
     const register = (circuit: Circuit, protectionId?: string) => {
       const entry = index.get(circuit.id) ?? {
         circuit,
-        ownerPanelId: panel.id,
+        ownerPanelId: physicalPanelId,
         protectionIds: new Set<string>(),
         devices: new Map(),
         endpoints: new Map(),

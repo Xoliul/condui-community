@@ -11,6 +11,7 @@ import { isMainPanelDistributionEndpoint } from '@/lib/plan/panelDistributionEnd
 import { isDomoticaPanelFeedEndpoint } from '@/lib/eendraad/panelSupplyLink'
 import { circuitContainsJunctionPanelIdentity, getJunctionIdentity } from '@/lib/junctionIdentity'
 import { getEditableProjectElectricalPanels } from '@/lib/projectV2/electrical'
+import { checkHorizontalDomoticaNotIntoSupply } from '../horizontalDomoticaIntegrity'
 
 function findCircuit(project: ProjectV2, circuitId: string) {
   for (const panel of getEditableProjectElectricalPanels(project)) {
@@ -55,6 +56,8 @@ export const electricalAssignEndpoints = defineProjectCommand({
       owner.circuit.id !== input.targetCircuitId)) {
       return { ok: false, code: 'output_feed', message: 'A domotica output feeding a panel cannot be moved to another circuit.' }
     }
+    const supplyCheck = checkHorizontalDomoticaNotIntoSupply(project, endpointIds, { circuitId: input.targetCircuitId })
+    if (!supplyCheck.ok) return supplyCheck
     const sourceCircuitIds = new Set(endpoints.map((entry) => entry!.circuit.id))
     if (sourceCircuitIds.size > 1) {
       const selectedJunctionPanels = new Set<string>()

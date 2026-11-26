@@ -1,12 +1,14 @@
 import type { BottomUpLayoutResult } from './bottomUpLayout'
 import { getPanelDiagramId } from './bottomUpLayout'
 import type { BranchDropTargets } from './branchDropInteraction'
+import { getDrawnSupplyTapCircuitIds } from './supplyTapLayout'
 import { isChangeoverSwitchEndpoint } from '@/lib/eendraad/circuitPointNumbering'
 import type { SymbolMetadata } from '@/lib/symbols'
 import { canEditOneWireForks, canForkAfterEndpoint } from '@/lib/eendraad/oneWireForkProject'
 import { checkForkSymbolPlacement } from '@/lib/eendraad/forkSymbolPlacement'
 import { checkForkRunMove } from '@/lib/eendraad/forkRunMove'
 import type { DropTarget } from './findDropTarget'
+import { getDropZoneCentre, getForkDropZone } from './newLineDropZone'
 
 const SYMBOL_HALF = 15
 
@@ -16,11 +18,12 @@ export function collectSavedForkDropTargets(layout: BottomUpLayoutResult, symbol
   const source = layout.panels.flatMap((panel) => panel.circuits).map((column) => column.circuit)
     .find((circuit) => circuit.endpoints.some((endpoint) => movingIds.includes(endpoint.id)))
   for (const panel of layout.panels) {
-    if (panel.frameRole === 'supply') continue
+    const tapCircuitIds = panel.frameRole === 'supply' ? getDrawnSupplyTapCircuitIds(panel) : null
+    if (tapCircuitIds?.size === 0) continue
     const positions = new Map(panel.elements.filter((element) => element.type === 'endpoint').map((element) => [element.endpointId!, element.position]))
     for (const branch of panel.branches) {
       const circuit = panel.circuits.find((column) => column.circuit.id === branch.circuitId)?.circuit
-      if (!circuit || !canEditOneWireForks(circuit)) continue
+      if (!circuit || !canEditOneWireForks(circuit) || (tapCircuitIds && !tapCircuitIds.has(circuit.id))) continue
       const stored = circuit.branches?.find((item) => branch.storedBranchId ? item.id === branch.storedBranchId :
         item.endpointIds.length === branch.endpoints.length && item.endpointIds.every((id, index) => id === branch.endpoints[index]?.id))
       // A circuit without a stored branch list is one implicit run: it can fork, but has no taps or legs yet.
@@ -30,9 +33,10 @@ export function collectSavedForkDropTargets(layout: BottomUpLayoutResult, symbol
       const add = (id: string, target: DropTarget, x: number, y: number, fork: boolean) => {
         const move = source && movingIds[0] ? checkForkRunMove(source, circuit, movingIds[0], movingIds, target) : null
         if (move ? !move.ok || move.noOp : !checkForkSymbolPlacement(circuit, target, symbol.id)) return
-        const point = { x, y: y - (fork ? 22 / zoom : 0) }
-        result.intents.push({ id, kind: fork ? 'fork' : 'insert', target, point, wirePoint: { x, y }, direction: 1, radiusPx: 10 })
-        result.regions.push({ left: point.x - 14 / zoom, right: point.x + 14 / zoom, top: point.y - 14 / zoom, bottom: point.y + 14 / zoom })
+        const zone = fork ? getForkDropZone({ x, y }, zoom) : undefined
+        const point = zone ? getDropZoneCentre(zone) : { x, y }
+        result.intents.push({ id, kind: fork ? 'fork' : 'insert', target, point, wirePoint: { x, y }, direction: 1, radiusPx: 10, ...(zone ? { zone } : {}) })
+        result.regions.push(zone ?? { left: point.x - 14 / zoom, right: point.x + 14 / zoom, top: point.y - 14 / zoom, bottom: point.y + 14 / zoom })
         result.circuitIds.add(circuit.id)
       }
       for (let index = 0; index < branch.endpoints.length; index++) {
@@ -63,7 +67,9 @@ export function collectSavedForkDropTargets(layout: BottomUpLayoutResult, symbol
           if (taps.has(ids[index - 1] ?? '')) continue
           const previous = positions.get(ids[index - 1] ?? ''), next = positions.get(ids[index] ?? '')
           const x = next ? ((previous?.x ?? branch.trunkX) + next.x) / 2 : previous ? previous.x + 15 : branch.branchX + branch.branchWidth
-          const target = { ...base, endpointId: previous ? ids[index - 1] : ids[0] ?? stored.forkFrom?.afterEndpointId,
+          const endpointId = previous ? ids[index - 1] : ids[0] ?? stored.forkFrom?.afterEndpointId
+          // An empty riser has no endpoint to anchor on: it is addressed as a circuit target by its branch id.
+          const target = { ...base, ...(endpointId ? { endpointId } : { type: 'circuit' as const }),
             forkBranchId: stored.id, branchEndpoints: [...ids], insertAfterEndpointId: ids[index - 1] ?? null }
           add(`${diagramId}/${circuit.id}/fork-series/${stored.id}/${index}`, target, x, branch.branchY, false)
         }

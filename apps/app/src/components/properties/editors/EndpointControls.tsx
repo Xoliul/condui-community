@@ -3,16 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { ChevronDown } from 'lucide-react'
 import CustomDropdown from '@/components/common/CustomDropdown'
 import type {
-  DomoticaControlKey,
-  DomoticaOutputWireProps,
-  Endpoint,
-  LightPointDeviceProps,
-  MotionDetectorType,
-  PolesConfig,
-  RelayControlMode,
-  RelayDeviceProps,
-  SmokeDetectorType,
-  SymbolKey,
+  DomoticaControlKey, DomoticaOutputWireProps, Endpoint, LightPointDeviceProps, MotionDetectorType,
+  PolesConfig, RelayControlMode, RelayDeviceProps, SmokeDetectorType, SymbolKey,
 } from '@/types/schema'
 import { DebouncedTextarea } from '@/components/forms'
 import { applyLightPointOptionToggle } from '@/lib/lightPointProps'
@@ -37,6 +29,8 @@ import {
 } from '@/constants/poleConfig'
 import { useProjectStore } from '@/stores/projectStore'
 import { editProperties } from '@/handlers/properties/editProperties'
+import { DomoticaLayoutField } from './DomoticaLayoutField'
+import { isHorizontalDomotica } from '@/lib/layout/domoticaHorizontalGeometry'
 import { labelClass, selectClass, visibilityToggleClass } from '../shared/propertiesSharedUtils'
 import type { TFunction } from 'i18next'
 import { CERTIFICATION_LISTING_VISIBILITY_KEY } from '@/lib/certificationLabels'
@@ -351,6 +345,7 @@ export function DomoticaEndpointFields({
   const dom = endpoint.domoticaProps || {}
   const endpointCount = Math.max(1, Math.min(20, Math.trunc(dom.endpointCount ?? 1)))
   const mainDeviceType = dom.mainDeviceType ?? 'none'
+  const horizontal = isHorizontalDomotica(endpoint)
   const mainSwitchSymbol = (dom.mainSwitchSymbol as SymbolKey | undefined) ?? 'switch'
   const mainSocketSymbol = (dom.mainSocketSymbol as SymbolKey | undefined) ?? 'socket_gnd_child'
   const mainSwitchProps = dom.mainSwitchProps ?? {}
@@ -484,6 +479,9 @@ export function DomoticaEndpointFields({
   }
   return (
     <>
+      <DomoticaLayoutField endpointId={endpointId} endpoint={endpoint} t={t} />
+      {!horizontal && (
+      <>
       {/* Control capabilities (top band of domotica frame) */}
       <div>
         <label className={labelClass}>{t('endpoints.domotica.controlArea', 'Control')}</label>
@@ -643,6 +641,8 @@ export function DomoticaEndpointFields({
             onChange={(socketProps) => updateMainSocket({ socketProps })}
           />
         </>
+      )}
+      </>
       )}
 
       <div>

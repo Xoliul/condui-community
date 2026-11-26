@@ -7,6 +7,7 @@ import {
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import { panelNumberRankById } from '@/lib/panel/panelNumberOrder'
+import { getSupplyTapsPanel, isBoardPanel } from '@/lib/supplyTaps/virtualPanel'
 import type { ExportTheme } from './types'
 import { getThemeColors } from '@/lib/theme/colors'
 import { displayedProtectionCurve, formatProtectionCurveRating } from '@/lib/protectionLabels'
@@ -17,6 +18,8 @@ interface CircuitLegendRow {
   kind: CircuitKind
   protection: ProtectionDevice | null
   notes: string | undefined
+  /** The row belongs to a main board's supply taps: its heading is the supply name, not a board. */
+  supplyGroup?: boolean
 }
 
 const LEGEND_LINE_HEIGHT = 4
@@ -24,17 +27,27 @@ const LEGEND_LINE_HEIGHT = 4
 const LEGEND_ROW_EXTRA_HEIGHT = 3
 const LEGEND_NOTES_ESTIMATED_CHAR_WIDTH = 1.5
 
-function collectAllPanelsWithPath(
-  panels: Panel[],
-  prefix: string[] = []
-): Array<{ panel: Panel; pathLabel: string }> {
-  const result: Array<{ panel: Panel; pathLabel: string }> = []
+interface LegendGroup {
+  panel: Panel
+  pathLabel: string
+  supplyGroup: boolean
+}
+
+/**
+ * Boards in tree order, each followed by its supply taps when it has any. The taps' breakers hang
+ * in the owner's cabinet, so they are listed under the supply heading rather than as a board.
+ */
+function collectLegendGroups(panels: Panel[], supplyLabel: string, prefix: string[] = []): LegendGroup[] {
+  const groups: LegendGroup[] = []
   for (const panel of panels) {
+    if (!isBoardPanel(panel)) continue
     const path = [...prefix, panel.name]
-    result.push({ panel, pathLabel: path.join(' / ') })
-    result.push(...collectAllPanelsWithPath(panel.subPanels, path))
+    groups.push({ panel, pathLabel: path.join(' / '), supplyGroup: false })
+    const taps = getSupplyTapsPanel(panel)
+    if (taps) groups.push({ panel: taps, pathLabel: `${supplyLabel} / ${panel.name}`, supplyGroup: true })
+    groups.push(...collectLegendGroups(panel.subPanels ?? [], supplyLabel, path))
   }
-  return result
+  return groups
 }
 
 function getProtectionForCircuit(panel: Panel, circuitId: string): ProtectionDevice | null {
@@ -47,16 +60,23 @@ function getProtectionForCircuit(panel: Panel, circuitId: string): ProtectionDev
 }
 
 export function buildPanelCircuitLegendRows(
-  project: ProjectWithOptionalV2Electrical
+  project: ProjectWithOptionalV2Electrical,
+  supplyLabel = 'Supply'
 ): CircuitLegendRow[] {
   const rows: CircuitLegendRow[] = []
   const rootPanels = getProjectElectricalPanels(project)
   const rankById = panelNumberRankById(rootPanels, getProjectElectricalInstallation(project))
-  const panelsWithPath = collectAllPanelsWithPath(rootPanels).sort(
-    (left, right) => (rankById.get(left.panel.id) ?? 0) - (rankById.get(right.panel.id) ?? 0)
-  )
+  const groups = collectLegendGroups(rootPanels, supplyLabel)
+  // A single supply group is just "Supply"; the owner board only tells several apart.
+  if (groups.filter((group) => group.supplyGroup).length === 1) {
+    const only = groups.find((group) => group.supplyGroup)!
+    only.pathLabel = supplyLabel
+  }
+  // A supply group has no rank of its own: it follows its owner.
+  const rankOf = (group: LegendGroup) => rankById.get(group.panel.id) ?? 0
+  const panelsWithPath = groups.sort((left, right) => rankOf(left) - rankOf(right))
 
-  for (const { panel, pathLabel } of panelsWithPath) {
+  for (const { panel, pathLabel, supplyGroup } of panelsWithPath) {
     const candidates = new Map<
       string,
       { circuit: Circuit; protection: ProtectionDevice | null; circuitCode: string }
@@ -65,14 +85,17 @@ export function buildPanelCircuitLegendRows(
     const addCircuit = (circuit: Circuit, owningProtection?: ProtectionDevice) => {
       const protection = owningProtection ?? getProtectionForCircuit(panel, circuit.id)
       const circuitCode = circuit.code?.trim() || protection?.label?.trim() || ''
-      if (!circuitCode) return
+      // Supply taps are left out of automatic codes but are real circuits: list them with the code
+      // the user gave, or none. A bare meter or terminal strip says nothing in a legend.
+      const isCodelessTap = supplyGroup && (protection || (circuit.endpoints ?? []).length > 0)
+      if (!circuitCode && !isCodelessTap) return
 
       const codeLower = circuitCode.toLowerCase()
       const nameLower = panel.name.toLowerCase()
       // Keep named empty circuits in the legend: installers use these rows for
       // spare/reserve ways, including circuits attached to a secondary busbar.
       // Only structural panel-feeder placeholders remain hidden.
-      if (codeLower === 'panel' || codeLower === nameLower) return
+      if (codeLower === 'panel' || (!supplyGroup && codeLower === nameLower)) return
 
       const existing = candidates.get(circuit.id)
       const candidate = { circuit, protection, circuitCode }
@@ -99,6 +122,7 @@ export function buildPanelCircuitLegendRows(
         kind: getDerivedCircuitKind(circuit, protection ?? undefined),
         protection,
         notes: circuit.notes,
+        ...(supplyGroup ? { supplyGroup: true } : {}),
       })
     }
   }
@@ -107,6 +131,7 @@ export function buildPanelCircuitLegendRows(
     if (a.panelName === b.panelName) {
       return a.circuitCode.localeCompare(b.circuitCode, undefined, { numeric: true })
     }
+    if (Boolean(a.supplyGroup) !== Boolean(b.supplyGroup)) return a.supplyGroup ? -1 : 1
     return a.panelName.localeCompare(b.panelName)
   })
 
@@ -257,7 +282,7 @@ export function buildPanelLegendSvg(
       y += lineHeight * 0.5
       lines.push(
         `<text x="${startX}" y="${y}" font-size="3.4" font-family="${fontFamily}" font-weight="bold">${escapeXml(
-          `${labels.panel}: ${currentPanel}`
+          row.supplyGroup ? currentPanel : `${labels.panel}: ${currentPanel}`
         )}</text>`
       )
       y += lineHeight

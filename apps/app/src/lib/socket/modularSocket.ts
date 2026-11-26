@@ -1,4 +1,5 @@
 import type { Circuit, Endpoint, Panel, ProtectionDevice, SocketDeviceProps } from '@/types/schema'
+import { isStructuralCarrierProtection } from '@/lib/eendraad/structuralCarrier'
 
 /** Library-only preset id; drops resolve to a grounded child-protected socket. */
 export const MODULAR_SOCKET_LIBRARY_ID = 'modular_socket'
@@ -84,7 +85,7 @@ export function withModularSocketProps(
 }
 
 function isFeederProtection(protection: ProtectionDevice): boolean {
-  return protection.directPanelFeeder === true || protection.directDcBusFeeder === true
+  return isStructuralCarrierProtection(protection)
 }
 
 function lastCircuitOnProtection(protection: ProtectionDevice): Circuit | undefined {

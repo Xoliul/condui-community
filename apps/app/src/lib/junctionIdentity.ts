@@ -1,4 +1,11 @@
-import type { Circuit, Endpoint, SymbolKey, SymbolLabelPosition, TrunkDevice } from '@/types/schema'
+import type {
+  Circuit,
+  Endpoint,
+  SymbolKey,
+  SymbolLabelPosition,
+  TrunkDevice,
+} from '@/types/schema'
+import type { TerminalNumberFormat } from '@/types/junction'
 import {
   getTerminalStripDisplayLabel,
   getTerminalStripId,
@@ -61,12 +68,11 @@ export function getJunctionIdentityDisplay(
   symbol: string | undefined,
   identity: string,
   terminalStripPin?: number,
-  terminalStripOutgoingPin?: number
+  format?: TerminalNumberFormat
 ): string {
   const value = identity.trim()
   if (symbol !== 'terminal_strip') return value
-  const incoming = getTerminalStripDisplayLabel(value, terminalStripPin)
-  return terminalStripOutgoingPin == null || terminalStripOutgoingPin === terminalStripPin ? incoming : `${incoming}/${terminalStripOutgoingPin}`
+  return getTerminalStripDisplayLabel(value, terminalStripPin, format)
 }
 
 export function collectJunctionIdentities(project: unknown, symbol: string): string[] {

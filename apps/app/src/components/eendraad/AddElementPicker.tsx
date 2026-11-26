@@ -13,7 +13,9 @@ import { getSymbolIconPath, type SymbolMetadata } from '@/lib/symbols'
 import type { Point } from '@/types/ui'
 import { canSymbolAppearOnSituationPlan } from '@/lib/plan/situationPlanSymbolEligibility'
 import { isSymbolAvailableInLibrary } from '@/lib/supplyTopologyFeature'
-import { filterBySearchRelevance } from '@/utils/search'
+import { searchLibrarySymbols } from '@/lib/library/librarySearch'
+import { getLibraryEntryKey } from '@/lib/library/searchPresets'
+import { SearchPresetPreview } from '@/components/library/SearchPresetPreview'
 
 const ADD_ELEMENT_DROP_MARGIN = 12
 
@@ -76,19 +78,17 @@ export default function AddElementPicker({
   const filteredList = useMemo(() => {
     const available = filterByScope(symbols.filter(isSymbolAvailableInLibrary), scope)
     const placeable = canPlaceSymbol ? available.filter(canPlaceSymbol) : available
-    return filterBySearchRelevance(placeable, searchQuery.trim(), (s) => [
-      s.name,
-      getLocalizedSymbolName(s, locale),
-      s.nameNL,
-      s.nameFR,
-      ...s.tags,
-    ])
+    return searchQuery.trim()
+      ? searchLibrarySymbols(placeable, searchQuery.trim(), locale).filter(
+          (symbol) => !canPlaceSymbol || canPlaceSymbol(symbol)
+        )
+      : placeable
   }, [symbols, scope, canPlaceSymbol, searchQuery, locale])
 
   const displayList = useMemo(() => {
     if (searchQuery) return filteredList
     if (favoritesList.length > 0) {
-      const rest = filteredList.filter((s) => !favoriteSymbols.includes(s.id))
+      const rest = filteredList.filter((s) => !favoriteSymbols.includes(getLibraryEntryKey(s)))
       return [...favoritesList, ...rest]
     }
     return filteredList
@@ -183,7 +183,7 @@ export default function AddElementPicker({
             <div className="space-y-1">
               {displayList.map((symbol, index) => (
                 <button
-                  key={symbol.id}
+                  key={getLibraryEntryKey(symbol)}
                   type="button"
                   data-picker-index={index}
                   onClick={() => handlePick(symbol)}
@@ -195,11 +195,15 @@ export default function AddElementPicker({
                   }`}
                 >
                   <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded">
-                    <img
-                      src={getSymbolIconPath(symbol)}
-                      alt=""
-                      className="w-6 h-6 object-contain dark:invert"
-                    />
+                    {symbol.searchPreset ? (
+                      <SearchPresetPreview symbolId={symbol.id} presetId={symbol.searchPreset} />
+                    ) : (
+                      <img
+                        src={getSymbolIconPath(symbol)}
+                        alt=""
+                        className="w-6 h-6 object-contain dark:invert"
+                      />
+                    )}
                   </div>
                   <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
                     {getLocalizedName(symbol)}

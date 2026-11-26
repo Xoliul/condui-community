@@ -4,7 +4,7 @@ import { buildAutoSitplanPlacement } from '@/lib/plan/autoSitplanPlacement'
 import { resolveSitplanTargetFloorId } from '@/lib/plan/sitplanTargetFloor'
 import { collectAllGroundTrunkDevices } from '@/lib/eendraad/panelGround'
 import { generateId } from '@/utils'
-import { getVoltagePolesConfig, getDefaultTrunkDeviceProtectionProps, getProtectionCreationProps } from '@/lib/protectionDefaults'
+import { getVoltagePolesConfig, getDefaultTrunkDeviceProtectionProps, getProtectionCreationProps, withDcSideProtectionDefaults } from '@/lib/protectionDefaults'
 import { PROTECTION_SYMBOL_ID_TO_TYPE, PROTECTION_SYMBOL_IDS } from '@/lib/protectionKind'
 import { createDefaultAcCircuitCable, DEFAULT_AC_CIRCUIT_WIRE_LABEL_FLAGS } from '@/lib/wires/circuitWireDefaults'
 import type { SymbolMetadata } from '@/lib/symbols'
@@ -186,7 +186,12 @@ export function addGroundTrunkDevice(
       type: isTerminalStrip ? 'terminal_strip' : 'junction_box',
       symbol: isTerminalStrip ? 'terminal_strip' : 'junction_box',
       ...(isTerminalStrip
-        ? getTerminalStripTrunkCreationProps(project)
+        ? getTerminalStripTrunkCreationProps(
+            project,
+            undefined,
+            undefined,
+            findPanelForTarget(project, target)?.id
+          )
         : { label: '', junctionIdentity: getNextJunctionIdentity(project, symbol.id) }),
       trunkPosition: insertIndex,
     }
@@ -302,7 +307,7 @@ export function addSupplyTrunkDevice(
     label = ''
   } else if (symbol.id === 'terminal_strip') {
     deviceType = 'terminal_strip'
-    label = getNextTerminalStripLabel(project, undefined, terminalCircuitId)
+    label = getNextTerminalStripLabel(project, undefined, terminalCircuitId, supplyPanel?.id)
   } else if (symbol.id === 'junction_panel') {
     deviceType = 'junction_panel'
     label = getFirstJunctionPanelLabel(project) ?? 'JP1'
@@ -342,13 +347,18 @@ export function addSupplyTrunkDevice(
           project.disciplines?.electrical?.installation?.nominalVoltage.system ?? '1N~'
         )
       : undefined
-  const trunkDevice: TrunkDevice = {
+  const trunkDevice: TrunkDevice = withDcSideProtectionDefaults({
     id: deviceId,
     type: deviceType,
     symbol: symbol.id as TrunkDevice['symbol'],
     label,
     ...(symbol.id === 'terminal_strip'
-      ? getTerminalStripTrunkConnectionProps(project, undefined, terminalCircuitId)
+      ? getTerminalStripTrunkConnectionProps(
+          project,
+          undefined,
+          terminalCircuitId,
+          supplyPanel?.id
+        )
       : isSharedJunctionSymbol(symbol.id)
         ? { junctionIdentity: getNextJunctionIdentity(project, symbol.id) }
         : {}),
@@ -404,7 +414,7 @@ export function addSupplyTrunkDevice(
     ...(!protectionType && isSupplyDcSwitchSymbol(symbol.id)
       ? getDefaultTrunkDeviceProtectionProps('OTHER', voltagePoles)
       : {}),
-  }
+  })
   const targetPanel = target.panelId ? findPanelById(projectPanels(project), target.panelId) : null
   const panelSupplyCircuit = targetPanel?.circuits?.find((c) => c.code === 'PANEL')
 

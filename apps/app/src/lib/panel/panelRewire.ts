@@ -8,6 +8,15 @@ import {
 import { panelGridModuleRefKey } from '@/lib/panel/panelGridLayout'
 import { getCircuitIdFromModuleRef } from '@/lib/panel/panelModuleCircuit'
 import {
+  findTerminalStripEntity,
+  resolveTerminalStripModule,
+} from '@/lib/eendraad/projectElectricalDomain'
+import {
+  collectTerminalStripOccurrences,
+  getTerminalStripId,
+  getTerminalStripTrunkCreationProps,
+} from '@/lib/terminalStrip/labels'
+import {
   buildSupplyElectricalTopology,
   getSupplyNodePhysicalDeviceId,
   resolveAssemblyPanelInput,
@@ -45,6 +54,19 @@ export type PanelRewireOperation =
       circuit: Circuit
       insertIndex: number
       trunkDevice: Omit<TrunkDevice, 'id'>
+    }
+  | {
+      kind: 'connectProtectionToTerminalStrip'
+      circuitId: string
+      terminalStrip: Pick<
+        TrunkDevice,
+        | 'label'
+        | 'junctionIdentity'
+        | 'junctionAssetId'
+        | 'terminalStripPin'
+        | 'terminalStripOutgoingPin'
+        | 'terminalStripPanelId'
+      >
     }
   | { kind: 'detachCircuitFromSupplyParent'; parentCircuitId: string; subCircuitIds?: string[] }
   | { kind: 'rewireCircuit'; originCircuitId: string; targetCircuitId: string }
@@ -331,6 +353,50 @@ export function getPanelRewireOperation(
   if (panelPromotion) return panelPromotion
   if (!target) return null
   if (panelGridModuleRefKey(origin) === panelGridModuleRefKey(target)) return null
+  const panels = getProjectElectricalPanels(currentProject)
+  const terminalStrip = resolveTerminalStripModule(currentProject, target)
+  if (terminalStrip) {
+    if (origin.kind !== 'protection') return null
+    const protection = findProtectionById([panel], origin.id)
+    const circuit = protection?.circuits?.length === 1 ? protection.circuits[0] : undefined
+    const stripEntityId =
+      target.kind === 'domotica'
+        ? target.endpointId
+        : target.kind === 'trunkDevice'
+          ? target.id
+          : undefined
+    const stripEntity = stripEntityId
+      ? findTerminalStripEntity(currentProject, stripEntityId)
+      : undefined
+    if (!circuit || !stripEntity) return null
+    const stripId = getTerminalStripId(stripEntity) || '1'
+    if (
+      collectTerminalStripOccurrences(currentProject).some(
+        (occurrence) =>
+          occurrence.circuitId === circuit.id &&
+          occurrence.stripId.toUpperCase() === stripId.toUpperCase()
+      )
+    )
+      return null
+    const terminalStripProps = getTerminalStripTrunkCreationProps(
+      currentProject,
+      stripId,
+      circuit.id
+    )
+    return {
+      kind: 'connectProtectionToTerminalStrip',
+      circuitId: circuit.id,
+      terminalStrip: {
+        ...terminalStripProps,
+        ...(typeof stripEntity.junctionAssetId === 'string'
+          ? { junctionAssetId: stripEntity.junctionAssetId }
+          : {}),
+        ...(typeof stripEntity.terminalStripPanelId === 'string'
+          ? { terminalStripPanelId: stripEntity.terminalStripPanelId }
+          : {}),
+      },
+    }
+  }
 
   const originStrip = isModuleRefOnSupplyStrip(panel, origin)
   const targetStrip = isModuleRefOnSupplyStrip(panel, target)
@@ -346,7 +412,6 @@ export function getPanelRewireOperation(
     !connectsMainInput
   ) return null
 
-  const panels = getProjectElectricalPanels(currentProject)
   const originIsSupply = isSupplyTrunkRef(origin)
   const targetIsSupply = isSupplyTrunkRef(target)
 

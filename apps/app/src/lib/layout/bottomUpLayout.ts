@@ -6,6 +6,7 @@
  * Phases pass existing arrays, maps and closures through unchanged; scalar extents flow
  * explicitly between them.
  */
+import { getSupplyDiagramId } from '@/lib/layout/supplyFrameRole'
 import {
   getTopmostCircuitBranch,
   getCircuitLineTopY,
@@ -70,6 +71,19 @@ import type {
 } from '@/types/schema'
 import type { Point } from '@/types/ui'
 import type { TrunkLayout, BranchLayout } from './wireSegments'
+import { isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
+import {
+  addSupplyTapsToDiagramPanel,
+  getSupplyTapCircuitIds,
+  getSupplyTapGroups,
+  getSupplyTapPaintBlocks,
+  measureSupplyTapGroups,
+  splitSupplyTapCircuitLayouts,
+  splitSupplyTapTrunks,
+  splitSupplyTapLayouts,
+  translateSupplyTapGeometry,
+  type SupplyTapPlacement,
+} from './supplyTapLayout'
 
 import { getInfoBlockColumns } from '@/lib/infoBlockLayout'
 import { getProjectInfoBlockHeight } from '@/lib/infoBlockContent'
@@ -113,6 +127,7 @@ import {
 } from './supplyFrameDetachment'
 import { collectConductorMarkGaps } from './conductorMarkSpacing'
 import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
+import { clonePanelForDiagramRole } from './clonePanelForDiagramRole'
 export { estimateCircuitNotesWidth } from './circuitNoteMetrics'
 
 /**
@@ -201,6 +216,8 @@ export interface BottomUpCircuitLayout {
   width: number
   /** Space reserved to the left of the protection/wire anchor for left-side labels. */
   leftReserve: number
+  /** Riser x of each column from the circuit anchor, for a circuit drawn in columns (circuitColumns.ts). */
+  columnAnchorOffsets?: number[]
   protectionY: number
   trunkY?: number
   branch: BranchLayout | null
@@ -288,6 +305,11 @@ export interface BottomUpPanelLayout {
     /** Wrapped and collision-solved labels anchored above this supply device. */
     topLabelPlacements?: SupplyTopLabelPlacement[]
   }>
+  /**
+   * Taps of the owner's supply-taps board, drawn on the grid lane of a detached supply frame.
+   * Canonical geometry: where each tap leaves the lane and how high it reaches.
+   */
+  supplyTaps?: SupplyTapPlacement[]
   /** Orthogonal upper backup and lower grid lanes exposed by a modular source changeover. */
   supplyChangeoverBranches?: {
     deviceId: string
@@ -408,6 +430,11 @@ function flattenPanelsForRendering(panels: Panel[]): FlatPanelInfo[] {
   const result: FlatPanelInfo[] = []
   const flatten = (panelList: Panel[], parent?: Panel, depth = 0) => {
     for (const panel of panelList) {
+      // A virtual board has no frame of its own; boards it feeds hang from its owner.
+      if (isVirtualPanel(panel)) {
+        flatten(panel.subPanels, parent, depth)
+        continue
+      }
       result.push({ panel, parentPanel: parent, depth })
       flatten(panel.subPanels, panel, depth + 1)
     }
@@ -445,7 +472,7 @@ function createOrderedPanelChildrenResolver(
   panelLayoutById: Map<string, BottomUpPanelLayout>
 ): (panel: Panel) => Panel[] {
   return (panel: Panel): Panel[] => {
-    const children = panel.subPanels ?? []
+    const children = (panel.subPanels ?? []).filter((child) => !isVirtualPanel(child))
     if (children.length <= 1) return children
 
     const fallbackIndexById = new Map(children.map((child, index) => [child.id, index]))
@@ -496,14 +523,21 @@ function flattenPanelsForPlacement(
 function findParentMcbForSubPanel(
   project: ProjectWithOptionalV2Electrical,
   subPanel: Panel
-): { protection: ProtectionDevice; circuit: Circuit; parentPanel: Panel; sourceEndpoint?: Endpoint } | null {
+): {
+  protection: ProtectionDevice
+  circuit: Circuit
+  parentPanel: Panel
+  sourceEndpoint?: Endpoint
+} | null {
   const link = resolvePanelSupplyLinkForPanel(project, subPanel.id)
   if (link?.feederCircuit) {
     return {
       protection: link.protection,
       circuit: link.feederCircuit,
       parentPanel: link.sourcePanel,
-      sourceEndpoint: isDomoticaPanelFeedEndpoint(link.sourcePanelEndpoint) ? link.sourcePanelEndpoint : undefined,
+      sourceEndpoint: isDomoticaPanelFeedEndpoint(link.sourcePanelEndpoint)
+        ? link.sourcePanelEndpoint
+        : undefined,
     }
   }
 
@@ -528,7 +562,12 @@ function calculateBottomUpPanelLayout(
   panel: Panel,
   manualOverrides?: Map<string, Point>,
   frameOffset: Point = { x: 0, y: 0 },
-  parentMcbInfo?: { protection: ProtectionDevice; circuit: Circuit; parentPanel: Panel; sourceEndpoint?: Endpoint } | null,
+  parentMcbInfo?: {
+    protection: ProtectionDevice
+    circuit: Circuit
+    parentPanel: Panel
+    sourceEndpoint?: Endpoint
+  } | null,
   installation?: Installation,
   rootPanels?: Panel[],
   options: BottomUpPanelLayoutOptions = {}
@@ -542,7 +581,18 @@ function calculateBottomUpPanelLayout(
     rootPanels,
     options,
   })
+  // Taps of the owner's supply-taps board (detached supply frame only) are measured on the
+  // provisional bus, positioned by the supply pass and then moved onto the grid lane.
+  const tapGroups = getSupplyTapGroups(panel)
+  const tapMeasures = measureSupplyTapGroups(
+    tapGroups,
+    circuitLayout.circuitLayouts,
+    circuitLayout.trunks,
+    circuitLayout.branches,
+    circuitLayout.mainBusY
+  )
   const supplyLayout = calculatePanelSupplyLayout({
+    supplyTaps: tapMeasures,
     project,
     panel,
     parentMcbInfo,
@@ -557,6 +607,9 @@ function calculateBottomUpPanelLayout(
     branches: circuitLayout.branches,
   })
   const supplyMetadata = measurePanelSupplyMetadata({
+    project,
+    installation,
+    rootPanels,
     panel,
     parentMcbInfo,
     options,
@@ -590,11 +643,7 @@ function calculateBottomUpPanelLayout(
     supplyDevicePositions: supplyLayout.supplyDevicePositions,
     supplyConverterInputTap: supplyLayout.supplyConverterInputTap,
   })
-  const {
-    mainBusX,
-    mainBusWidth,
-    mainBusY,
-  } = circuitLayout
+  const { mainBusX, mainBusWidth, mainBusY } = circuitLayout
   const {
     isSubPanel,
     hasGround,
@@ -717,12 +766,9 @@ function calculateBottomUpPanelLayout(
     mainBusWidth,
     supplyRightExtent - mainBusX + LAYOUT_CONSTANTS.SUPPLY_RIGHT_FRAME_PADDING
   )
-  const renderedMainBusWidth =
-    usesInlineEmptySplitRails
-      ? inlineSplitBusWidth
-      : options.feedOutput ||
-        usesCompactPanelMainBus ||
-        usesInlineSupplyOnlyCompactRail
+  const renderedMainBusWidth = usesInlineEmptySplitRails
+    ? inlineSplitBusWidth
+    : options.feedOutput || usesCompactPanelMainBus || usesInlineSupplyOnlyCompactRail
       ? compactSupplyRailWidth
       : mainBusWidthWithSupply
   elements.push({
@@ -746,29 +792,98 @@ function calculateBottomUpPanelLayout(
     })
   }
 
+  // Tap items leave the ordinary board pass: they are translated onto the grid lane and laid
+  // out against that lane instead of the bus. Taps the supply cannot host are not drawn.
+  const tapPlacements = supplyLayout.supplyTapPlacements
+  const tapCircuitIds = getSupplyTapCircuitIds(panel)
+  const placedTapMeasures = tapMeasures.filter((measure) =>
+    tapPlacements.some((placement) => placement.id === measure.id)
+  )
+  const drawnTapCircuitIds = new Set(placedTapMeasures.flatMap((measure) => [...measure.circuitIds]))
+  const drawnTapProtectionIds = new Set(
+    placedTapMeasures.flatMap((measure) => (measure.protectionId ? [measure.protectionId] : []))
+  )
+  const allTapProtectionIds = new Set(
+    tapGroups.flatMap((group) => (group.protectionId ? [group.protectionId] : []))
+  )
+  const layoutSplit = splitSupplyTapCircuitLayouts(tapCircuitIds, circuitLayout.circuitLayouts)
+  const trunkSplit = splitSupplyTapTrunks(tapCircuitIds, circuitLayout.trunks, allTapProtectionIds)
+  const branchSplit = splitSupplyTapLayouts(tapCircuitIds, circuitLayout.branches)
+  const tapParts = {
+    circuitLayouts: layoutSplit.tap.filter((layout) => drawnTapCircuitIds.has(layout.circuit.id)),
+    trunks: trunkSplit.tap.filter(
+      (trunk) =>
+        drawnTapProtectionIds.has(trunk.protectionId) ||
+        trunk.circuits.some((circuit) => drawnTapCircuitIds.has(circuit.id))
+    ),
+    branches: branchSplit.tap.filter((branch) => drawnTapCircuitIds.has(branch.circuitId)),
+  }
+  for (const placement of tapPlacements) {
+    const measure = placedTapMeasures.find((candidate) => candidate.id === placement.id)
+    if (!measure) continue
+    translateSupplyTapGeometry(
+      measure,
+      tapParts,
+      placement.x - measure.anchorX,
+      placement.laneY - circuitLayout.mainBusY
+    )
+  }
+  const frameCircuitLayouts = [...layoutSplit.main, ...tapParts.circuitLayouts]
+  const frameTrunks = [...trunkSplit.main, ...tapParts.trunks]
+  const frameBranches = [...branchSplit.main, ...tapParts.branches]
+
   const circuitNotes = placePanelCircuitNotes({
     installation,
-    circuitLayouts: circuitLayout.circuitLayouts,
+    circuitLayouts: layoutSplit.main,
     mainBusY: circuitLayout.mainBusY,
-    trunks: circuitLayout.trunks,
-    branches: circuitLayout.branches,
+    trunks: trunkSplit.main,
+    branches: branchSplit.main,
     minY: supplyMetadata.minY,
     elements,
   })
   const circuitElements = buildPanelCircuitElements({
     panel,
     circuitMap: circuitLayout.circuitMap,
-    circuitLayouts: circuitLayout.circuitLayouts,
+    circuitLayouts: layoutSplit.main,
     mainBusY: circuitLayout.mainBusY,
-    trunks: circuitLayout.trunks,
-    branches: circuitLayout.branches,
+    trunks: trunkSplit.main,
+    branches: branchSplit.main,
     minY: circuitNotes.minY,
     elements,
     renderedProtectionLabelIds,
     notesPositionMap: circuitNotes.notesPositionMap,
     circuitNotesLocal: circuitNotes.circuitNotesLocal,
   })
-  return buildPanelLayoutFrame({
+  let tapMinY = Number.POSITIVE_INFINITY
+  if (tapPlacements.length > 0) {
+    // The pass types its bus y as the layout constant; the lane stands in for the bus here.
+    const laneY = tapPlacements[0]!.laneY as typeof circuitLayout.mainBusY
+    const tapNotes = placePanelCircuitNotes({
+      installation,
+      circuitLayouts: tapParts.circuitLayouts,
+      mainBusY: laneY,
+      trunks: tapParts.trunks,
+      branches: tapParts.branches,
+      minY: Number.POSITIVE_INFINITY,
+      elements,
+    })
+    const tapElements = buildPanelCircuitElements({
+      panel,
+      circuitMap: circuitLayout.circuitMap,
+      circuitLayouts: tapParts.circuitLayouts,
+      mainBusY: laneY,
+      trunks: tapParts.trunks,
+      branches: tapParts.branches,
+      minY: tapNotes.minY,
+      elements,
+      renderedProtectionLabelIds,
+      notesPositionMap: tapNotes.notesPositionMap,
+      circuitNotesLocal: tapNotes.circuitNotesLocal,
+    })
+    circuitNotes.circuitNotesLocal.push(...tapNotes.circuitNotesLocal)
+    tapMinY = tapElements.minY
+  }
+  const layoutWithFrame = buildPanelLayoutFrame({
     panel,
     frameOffset,
     parentMcbInfo,
@@ -776,13 +891,13 @@ function calculateBottomUpPanelLayout(
     rootPanels,
     options,
     supplyTrunkNotesOrientation: circuitLayout.supplyTrunkNotesOrientation,
-    circuitLayouts: circuitLayout.circuitLayouts,
+    circuitLayouts: frameCircuitLayouts,
     totalWidth: circuitLayout.totalWidth,
     mainBusX: circuitLayout.mainBusX,
     mainBusY: circuitLayout.mainBusY,
-    trunks: circuitLayout.trunks,
-    branches: circuitLayout.branches,
-    minY: circuitElements.minY,
+    trunks: frameTrunks,
+    branches: frameBranches,
+    minY: Math.min(circuitElements.minY, tapMinY),
     maxY: supplyMetadata.maxY,
     isSubPanel: supplyLayout.isSubPanel,
     hasGround: supplyLayout.hasGround,
@@ -829,27 +944,10 @@ function calculateBottomUpPanelLayout(
     elements,
     renderedMainBusWidth,
     circuitNotesLocal: circuitNotes.circuitNotesLocal,
+    supplyTapBlocks: getSupplyTapPaintBlocks(tapPlacements, placedTapMeasures),
   })
-}
-
-function isConverterBackupCircuit(circuit: Circuit): boolean {
-  return circuit.supplySource?.kind === 'converter-backup'
-}
-
-function clonePanelForDiagramRole(panel: Panel, role: 'panel' | 'supply'): Panel {
-  const keepCircuit = (circuit: Circuit) =>
-    role === 'supply' ? isConverterBackupCircuit(circuit) : !isConverterBackupCircuit(circuit)
-
-  return {
-    ...panel,
-    circuits: panel.circuits.filter(keepCircuit),
-    protections: panel.protections.flatMap((protection): ProtectionDevice[] => {
-      const circuits = (protection.circuits ?? []).filter(keepCircuit)
-      if ((protection.circuits?.length ?? 0) > 0 && circuits.length === 0) return []
-      if (role === 'supply' && circuits.length === 0) return []
-      return [{ ...protection, circuits }]
-    }),
-  }
+  if (tapPlacements.length > 0) layoutWithFrame.supplyTaps = tapPlacements
+  return layoutWithFrame
 }
 
 /**
@@ -860,19 +958,100 @@ export function calculateBottomUpLayout(
   manualOverrides?: Map<string, Point>,
   layoutOptions: BottomUpLayoutOptions = {}
 ): BottomUpLayoutResult {
+  return runInLayoutScope(project, () =>
+    calculateBottomUpLayoutScoped(project, manualOverrides, layoutOptions)
+  )
+}
+
+function runInLayoutScope(
+  project: ProjectWithOptionalV2Electrical,
+  calculate: () => BottomUpLayoutResult
+): BottomUpLayoutResult {
   // Linked endpoints replace their notes with the resolved link text; measurement,
   // envelopes and layout elements all read it through this one scope.
   const controlLinkNotes = buildControlLinkNoteMap(getProjectElectricalPanels(project))
   // Wires showing conductor marks widen their branch spacing through the same scope.
   for (const [key, value] of collectConductorMarkGaps(
     getProjectElectricalPanels(project),
-    new Map(selectProjectWireRuns(project).flatMap((run) => run.members.map((anchor) => [anchor, run] as const)))
+    new Map(
+      selectProjectWireRuns(project).flatMap((run) =>
+        run.members.map((anchor) => [anchor, run] as const)
+      )
+    )
   ))
     controlLinkNotes.set(key, value)
-  const result = runWithControlLinkNotes(controlLinkNotes, () =>
-    calculateBottomUpLayoutScoped(project, manualOverrides, layoutOptions)
-  )
+  const result = runWithControlLinkNotes(controlLinkNotes, calculate)
   return controlLinkNotes.size > 0 ? { ...result, controlLinkNotes } : result
+}
+
+/**
+ * Only the detached supply frame of one main board, without the cost of every board. Its contents
+ * match the full layout; its position on the sheet does not.
+ */
+export function calculateSupplyFrameLayout(
+  project: ProjectWithOptionalV2Electrical,
+  ownerPanelId: string
+): BottomUpLayoutResult {
+  return runInLayoutScope(project, () => {
+    const panels = getProjectElectricalPanels(project)
+    const installation = getProjectElectricalInstallation(project)
+    if (!installation) {
+      throw new Error('Cannot calculate bottom-up layout without electrical installation data')
+    }
+    ensureInstallationFeedTopology(installation, panels)
+    const owner = panels.find((panel) => panel.id === ownerPanelId && panel.isMain === true)
+    const frame =
+      owner &&
+      isPanelSupplyFrameDetached(project, ownerPanelId) &&
+      ownsDetachedSupplyFrame(project, ownerPanelId)
+        ? calculateDetachedSupplyLayout(project, owner, undefined, installation, panels, {})
+        : null
+    return { panels: frame ? [frame] : [], totalWidth: 0, totalHeight: 0 }
+  })
+}
+
+function calculateDetachedSupplyLayout(
+  project: ProjectWithOptionalV2Electrical,
+  panel: Panel,
+  manualOverrides: Map<string, Point> | undefined,
+  installation: NonNullable<ReturnType<typeof getProjectElectricalInstallation>>,
+  panels: Panel[],
+  layoutOptions: BottomUpLayoutOptions
+): BottomUpPanelLayout {
+  const supplyDiagramPanel = addSupplyTapsToDiagramPanel(
+    clonePanelForDiagramRole(panel, 'supply'),
+    panel
+  )
+  const layout = calculateBottomUpPanelLayout(
+    project,
+    supplyDiagramPanel,
+    manualOverrides,
+    { x: 0, y: 0 },
+    null,
+    installation,
+    panels,
+    {
+      infoBlockColumns: getInfoBlockColumns(project, { hasLogo: layoutOptions.infoBlockLogo }),
+      infoBlockHeight: layoutOptions.infoBlockHeight ?? getProjectInfoBlockHeight(project),
+      diagramId: getSupplyDiagramId(panel.id),
+      ownerPanelId: panel.id,
+      frameRole: 'supply',
+      supplyEndpointKind: 'mains',
+      feedOutput: true,
+      // One shared feed serves every main board behind the site transformer.
+      ...(isPanelBehindSharedSupplyTransformer(project, panel.id)
+        ? {
+            feedOutputLabel: panels
+              .filter((candidate) => isPanelBehindSharedSupplyTransformer(project, candidate.id))
+              .map((candidate) => candidate.name)
+              .join(', '),
+          }
+        : {}),
+    }
+  )
+  mirrorDetachedSupplyPanelLayoutHorizontally(layout)
+  reflowSupplyInfoBlockAfterMirror(layout, true)
+  return layout
 }
 
 function calculateBottomUpLayoutScoped(
@@ -898,7 +1077,12 @@ function calculateBottomUpLayoutScoped(
   // Map to store parent MCB info for each sub-panel
   const subPanelMcbMap = new Map<
     string,
-    { protection: ProtectionDevice; circuit: Circuit; parentPanel: Panel; sourceEndpoint?: Endpoint }
+    {
+      protection: ProtectionDevice
+      circuit: Circuit
+      parentPanel: Panel
+      sourceEndpoint?: Endpoint
+    }
   >()
 
   const flatPanels = flattenPanelsForRendering(panels)
@@ -949,7 +1133,8 @@ function calculateBottomUpLayoutScoped(
       installation,
       panels,
       {
-        infoBlockColumns, infoBlockHeight: layoutOptions.infoBlockHeight ?? getProjectInfoBlockHeight(project),
+        infoBlockColumns,
+        infoBlockHeight: layoutOptions.infoBlockHeight ?? getProjectInfoBlockHeight(project),
         compactSubPanelFeed: layoutOptions.compactSubPanelFeed,
         ...(suppressInlineSupplyTopology
           ? ({
@@ -981,36 +1166,16 @@ function calculateBottomUpLayoutScoped(
     }
 
     if (detachSupply && ownsDetachedSupplyFrame(project, flatPanel.panel.id)) {
-      const supplyDiagramPanel = clonePanelForDiagramRole(flatPanel.panel, 'supply')
-      const detachedSupplyLayout = calculateBottomUpPanelLayout(
-        project,
-        supplyDiagramPanel,
-        manualOverrides,
-        { x: 0, y: 0 },
-        null,
-        installation,
-        panels,
-        {
-          infoBlockColumns, infoBlockHeight: layoutOptions.infoBlockHeight ?? getProjectInfoBlockHeight(project),
-          diagramId: `${flatPanel.panel.id}--supply`,
-          ownerPanelId: flatPanel.panel.id,
-          frameRole: 'supply',
-          supplyEndpointKind: 'mains',
-          feedOutput: true,
-          // One shared feed serves every main board behind the site transformer.
-          ...(isPanelBehindSharedSupplyTransformer(project, flatPanel.panel.id)
-            ? {
-                feedOutputLabel: panels
-                  .filter((candidate) => isPanelBehindSharedSupplyTransformer(project, candidate.id))
-                  .map((candidate) => candidate.name)
-                  .join(', '),
-              }
-            : {}),
-        }
+      detachedSupplyLayouts.push(
+        calculateDetachedSupplyLayout(
+          project,
+          flatPanel.panel,
+          manualOverrides,
+          installation,
+          panels,
+          layoutOptions
+        )
       )
-      mirrorDetachedSupplyPanelLayoutHorizontally(detachedSupplyLayout)
-      reflowSupplyInfoBlockAfterMirror(detachedSupplyLayout, true)
-      detachedSupplyLayouts.push(detachedSupplyLayout)
     }
 
     const upstreamProtectionLabel = parentMcbInfo?.sourceEndpoint
@@ -1161,8 +1326,10 @@ function calculateBottomUpLayoutScoped(
       DETACHED_SUPPLY_MAIN_BUS_TOP_OFFSET
     let targetFrameY = targetMainBusY - (supplyLayout.mainBus.y - supplyLayout.frame.y)
     if (orderedPanels.length >= COMPACT_PANEL_THRESHOLD) {
-      targetFrameY = Math.max(targetFrameY,
-        ...panelLayouts.map((layout) => layout.frame.y + layout.frame.height + ROW_SPACING))
+      targetFrameY = Math.max(
+        targetFrameY,
+        ...panelLayouts.map((layout) => layout.frame.y + layout.frame.height + ROW_SPACING)
+      )
     }
     let candidateFrame = {
       x: targetFrameX,
@@ -1317,6 +1484,7 @@ function calculateBottomUpLayoutScoped(
     panels: panelLayouts,
     totalWidth,
     totalHeight,
-    ...(infoBlockColumns.logo ? { infoBlockLogo: true } : {}), infoBlockHeight: layoutOptions.infoBlockHeight ?? getProjectInfoBlockHeight(project),
+    ...(infoBlockColumns.logo ? { infoBlockLogo: true } : {}),
+    infoBlockHeight: layoutOptions.infoBlockHeight ?? getProjectInfoBlockHeight(project),
   }
 }

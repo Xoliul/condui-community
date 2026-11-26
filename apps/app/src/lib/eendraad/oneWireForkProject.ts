@@ -1,9 +1,10 @@
 import type { Branch, Circuit } from '@/types/schema'
+import { hasOnlyRiserCompatibleTrunkDevices } from './oneWireRiserDevices'
 import { resolveOneWireBranchTopology } from './oneWireBranchTopology'
 import { isEndpointInOneWireConverterTree } from './oneWireConverterBranches'
 
 export function hasOneWireForks(circuit: Pick<Circuit, 'branches'>): boolean {
-  return !!circuit.branches?.some((branch) => branch.forkFrom || branch.keepEmpty)
+  return !!circuit.branches?.some((branch) => branch.forkFrom || branch.keepEmpty || (branch.stem ?? 0) > 0)
 }
 
 /** One contract for command checks, readers and the ordinary AC layout. */
@@ -15,7 +16,7 @@ export function canEditOneWireForks(circuit: Circuit): boolean {
     return false
   const topology = resolveOneWireBranchTopology({ ...circuit, branches: circuit.branches?.length ? circuit.branches :
     [{ id: 'implicit-root', label: '', endpointIds: circuit.endpoints.map((endpoint) => endpoint.id) }] })
-  return topology.valid && topology.branches.every((branch) => branch.rootStem === 0 && (branch.feed.kind === 'trunk' || branch.feed.kind === 'endpoint' ||
+  return topology.valid && topology.branches.every((branch) => (branch.rootStem === 0 || hasOnlyRiserCompatibleTrunkDevices(circuit)) && (branch.feed.kind === 'trunk' || branch.feed.kind === 'endpoint' ||
     branch.feed.kind === 'existing-specialized' && !!branch.feed.converterBranch))
 }
 

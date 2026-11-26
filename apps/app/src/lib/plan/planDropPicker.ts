@@ -3,7 +3,9 @@ import type { EndpointType } from '@/types/schema'
 import { getDerivedCircuitKind } from '@/lib/circuitKind'
 import type { SymbolMetadata } from '@/lib/symbols'
 import { getEndpointTypeFromSymbol } from '@/utils'
-import { collectCircuits, flattenPanels } from '@/utils/eendraad/panelHelpers'
+import { collectCircuits } from '@/utils/eendraad/panelHelpers'
+import { flattenBoardPanels } from '@/lib/panel/panelTree'
+import { findVirtualPanelOwner } from '@/lib/supplyTaps/virtualPanel'
 import {
   selectProjectElectricalPanels,
   type ProjectWithOptionalV2Electrical,
@@ -284,7 +286,7 @@ export function resolveInitialPlanDropAssignment(
   if (!endpointType) return null
 
   const dropKind = endpointTypeToPlanDropKind(endpointType)
-  const panelsFlat = flattenPanels(selectProjectElectricalPanels(project))
+  const panelsFlat = flattenBoardPanels(selectProjectElectricalPanels(project))
   if (panelsFlat.length === 0) return null
 
   const panelId =
@@ -325,4 +327,12 @@ export function resolveInitialPlanDropAssignment(
     circuitChoice: { mode: 'new', protectionLabel: '' },
     dropKind,
   }
+}
+
+/** The board a picker should preselect: a virtual board (supply taps) maps to the board that owns it. */
+export function resolvePickableBoardPanelId(
+  project: ProjectWithOptionalV2Electrical,
+  panelId: string
+): string {
+  return findVirtualPanelOwner(selectProjectElectricalPanels(project), panelId)?.id ?? panelId
 }

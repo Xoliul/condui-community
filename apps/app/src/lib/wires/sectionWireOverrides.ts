@@ -8,7 +8,11 @@ export interface CircuitSectionRef {
   toElementType?: 'protection' | 'endpoint'
   toElementId?: string
   domain?: ElectricalDomain
+  /** Manual riser k (`Branch.stem`): its own cable section from the protection. Absent or 0 = the trunk. */
+  riserStem?: number
 }
+
+const stemOf = (entry: { riserStem?: number }): number => entry.riserStem ?? 0
 
 export function getSubPanelFeederSectionRef(
   protectionId: string | undefined,
@@ -138,6 +142,7 @@ export function findSectionWireOverride(
 ): CircuitSectionOverride | undefined {
   if (!sectionRef) return undefined
   const exact = (circuit.sectionWireOverrides ?? []).find((entry) =>
+    stemOf(entry as { riserStem?: number }) === stemOf(sectionRef) &&
     entry.fromElementType === sectionRef.fromElementType &&
     entry.fromElementId === sectionRef.fromElementId &&
     entry.toElementType === sectionRef.toElementType &&
@@ -147,6 +152,7 @@ export function findSectionWireOverride(
   if (exact) return exact
   // Backward/forward compatibility for entries created without domain key.
   return (circuit.sectionWireOverrides ?? []).find((entry) =>
+    stemOf(entry as { riserStem?: number }) === stemOf(sectionRef) &&
     entry.fromElementType === sectionRef.fromElementType &&
     entry.fromElementId === sectionRef.fromElementId &&
     entry.toElementType === sectionRef.toElementType &&
@@ -162,6 +168,7 @@ export function upsertSectionWireOverride(
 ): CircuitSectionOverride[] {
   const overrides = [...(circuit.sectionWireOverrides ?? [])]
   const index = overrides.findIndex((entry) =>
+    stemOf(entry as { riserStem?: number }) === stemOf(sectionRef) &&
     entry.fromElementType === sectionRef.fromElementType &&
     entry.fromElementId === sectionRef.fromElementId &&
     entry.toElementType === sectionRef.toElementType &&

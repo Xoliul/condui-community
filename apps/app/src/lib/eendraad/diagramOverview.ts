@@ -1,5 +1,6 @@
 import type { LayoutNode } from '@/lib/layout/layoutTree'
 import type { WireSegment, Endpoint, ProtectionDevice } from '@/types/schema'
+import { isStructuralCarrierProtection } from '@/lib/eendraad/structuralCarrier'
 
 export interface OverviewSymbol {
   targetName: string
@@ -59,8 +60,7 @@ export function buildDiagramOverview(panelNode: LayoutNode, wires: readonly Wire
       // Hidden feed protections have no named symbol to receive a forwarded click.
       if (
         protection?.subPanelId ||
-        protection?.directPanelFeeder ||
-        protection?.directDcBusFeeder
+        isStructuralCarrierProtection(protection)
       ) {
         auxiliaryNodes.push(node)
         return

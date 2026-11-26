@@ -42,10 +42,10 @@ interface Settings {
   labelStyles: SavedLabelStyle[]
   /** Plain wheel / two-finger scroll: zoom (mouse) or pan (trackpad). Pinch and Ctrl/Cmd + wheel always zoom. */
   wheelBehavior: WheelBehavior
-  /** The one-time "using a trackpad?" hint was answered or dismissed, or the user chose a mode. */
-  wheelBehaviorHintDone: boolean
   /** Letters shown for physical-key shortcuts such as the library rail hotkeys. */
   keyboardLayout: KeyboardLayout
+  /** Draw MCB, RCD, RCBO and SPD with their detailed artwork instead of the simple symbols. */
+  detailedProtectionSymbols: boolean
 }
 
 const getDefaultLanguage = (): string => {
@@ -82,8 +82,8 @@ interface SettingsState extends Settings {
   setDefaultLayoutPreset: (preset: LayoutPreset) => void
   setLabelStyles: (styles: SavedLabelStyle[]) => void
   setWheelBehavior: (behavior: WheelBehavior) => void
-  dismissWheelBehaviorHint: () => void
   setKeyboardLayout: (layout: KeyboardLayout) => void
+  setDetailedProtectionSymbols: (enabled: boolean) => void
   reset: () => void
 }
 
@@ -117,18 +117,21 @@ const defaultSettings: Settings = {
   defaultLayoutPreset: 'sideBySide',
   labelStyles: [],
   wheelBehavior: 'zoom',
-  wheelBehaviorHintDone: false,
   keyboardLayout: 'azerty',
+  detailedProtectionSymbols: false,
 }
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...defaultSettings,
 
       setTheme: (theme) => {
         clearSymbolCache()
-        void warmSymbolSvgCache({ isDark: theme.mode === 'dark' })
+        void warmSymbolSvgCache({
+          isDark: theme.mode === 'dark',
+          detailedProtectionSymbols: get().detailedProtectionSymbols,
+        })
         persistThemePreference(theme.mode, ['eendra-theme'])
         set({ theme })
       },
@@ -154,9 +157,15 @@ export const useSettingsStore = create<SettingsState>()(
         const parsed = parseSavedLabelStyles(styles)
         set({ labelStyles: JSON.stringify(parsed) === JSON.stringify(styles) ? styles : parsed })
       },
-      setWheelBehavior: (behavior) => set({ wheelBehavior: behavior, wheelBehaviorHintDone: true }),
-      dismissWheelBehaviorHint: () => set({ wheelBehaviorHintDone: true }),
+      setWheelBehavior: (behavior) => set({ wheelBehavior: behavior }),
       setKeyboardLayout: (layout) => set({ keyboardLayout: layout }),
+      setDetailedProtectionSymbols: (enabled) => {
+        set({ detailedProtectionSymbols: enabled })
+        void warmSymbolSvgCache({
+          isDark: get().theme.mode === 'dark',
+          detailedProtectionSymbols: enabled,
+        })
+      },
       reset: () => set(defaultSettings),
     }),
     {
@@ -167,15 +176,18 @@ export const useSettingsStore = create<SettingsState>()(
           persistedState && typeof persistedState === 'object'
             ? (persistedState as Partial<SettingsState>)
             : {}
+        const persistedWithoutLegacyHint = { ...persisted }
+        Reflect.deleteProperty(persistedWithoutLegacyHint, 'wheelBehaviorHintDone')
         return {
           ...currentState,
-          ...persisted,
+          ...persistedWithoutLegacyHint,
           font: 'Figtree',
           defaultLayoutPreset: isLayoutPreset(persisted.defaultLayoutPreset)
             ? persisted.defaultLayoutPreset
             : currentState.defaultLayoutPreset,
           labelStyles: parseSavedLabelStyles(persisted.labelStyles),
           keyboardLayout: persisted.keyboardLayout === 'qwerty' ? 'qwerty' : 'azerty',
+          detailedProtectionSymbols: persisted.detailedProtectionSymbols === true,
         }
       },
     }

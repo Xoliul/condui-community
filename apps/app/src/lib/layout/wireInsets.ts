@@ -39,10 +39,10 @@ const SWITCH: WireInsets = { top: 0, bottom: 0, left: 2.5, right: 2.5 }
 const SOUND_DEVICE: WireInsets = { top: 6, bottom: 6, left: 4, right: 4 }
 /** Decentral emergency light: wires stop near the outer square (~layout SYMBOL_SIZE 30). */
 export const LIGHT_POINT_DECENTRAL_INSETS: WireInsets = {
-  top: 15,
-  bottom: 15,
-  left: 15,
-  right: 15,
+  top: 7,
+  bottom: 7,
+  left: 7,
+  right: 7,
 }
 
 /** Smoke / fire detector square (smaller than full symbol canvas). */
@@ -114,10 +114,10 @@ export const WIRE_INSETS: Record<string, WireInsets> = {
 
   // Actual image size, not the larger layout slot: relay.svg body in a 48-unit viewBox.
   relay: {
-    top: (24 - 14.2) / 48 * SYMBOL_SIZE,
-    bottom: (33.7 - 24) / 48 * SYMBOL_SIZE,
-    left: (24 - 3.2) / 48 * SYMBOL_SIZE,
-    right: (44.8 - 24) / 48 * SYMBOL_SIZE,
+    top: ((24 - 14.2) / 48) * SYMBOL_SIZE,
+    bottom: ((33.7 - 24) / 48) * SYMBOL_SIZE,
+    left: ((24 - 3.2) / 48) * SYMBOL_SIZE,
+    right: ((44.8 - 24) / 48) * SYMBOL_SIZE,
   },
   // Domotica wires are fully controlled by custom geometry (deriveWires/layoutTree); no automatic insets.
   domotica: { top: 0, bottom: 0, left: 0, right: 0 },

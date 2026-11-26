@@ -57,6 +57,85 @@ export function getAcConnectionPhaseAssignment(
   }
 }
 
+/** Physical-section key of a supply wire; the persisted identity of its cable and label settings. */
+export function buildSupplySectionKey(
+  panelId: string,
+  path: string,
+  first: string,
+  second: string
+): string {
+  const [left, right] = [first, second].sort()
+  return `supply:${panelId}:${path}:${left}<>${right}`
+}
+
+/** The off-grid assembly that feeds a panel, if any. */
+export function findPanelSupplyAssembly(
+  supplyAssemblies: OffGridSupplyAssembly[],
+  panelId: string
+): OffGridSupplyAssembly | undefined {
+  return supplyAssemblies.find(
+    (assembly) =>
+      ((assembly.incomingAttachment.kind === 'panel-input' ||
+        assembly.incomingAttachment.kind === 'panel-bus-input') &&
+        assembly.incomingAttachment.panelId === panelId) ||
+      assembly.loadHandoffs.some(
+        (handoff) =>
+          (handoff.target.kind === 'panel-input' ||
+            handoff.target.kind === 'panel-bus-input' ||
+            handoff.target.kind === 'circuit-input') &&
+          handoff.target.panelId === panelId
+      )
+  )
+}
+
+/** The connection between two assembly nodes (multiplied inverter units merge into one run). */
+export function findSupplyAssemblyConnection(
+  supplyAssembly: OffGridSupplyAssembly | undefined,
+  firstNodeId: string | undefined,
+  secondNodeId: string | undefined,
+  pathRole?: SupplyConnectionPathRole
+): SupplyConnection | undefined {
+  if (!supplyAssembly || !firstNodeId || !secondNodeId || firstNodeId === secondNodeId)
+    return undefined
+  const equivalentNodeIds = (nodeId: string): Set<string> => {
+    const node = supplyAssembly.nodes.find((candidate) => candidate.id === nodeId)
+    if (node?.kind !== 'inverter-unit' || !node.deviceId) return new Set([nodeId])
+    return new Set(
+      supplyAssembly.nodes
+        .filter(
+          (candidate) =>
+            candidate.kind === 'inverter-unit' && candidate.deviceId === node.deviceId
+        )
+        .map((candidate) => candidate.id)
+    )
+  }
+  const firstIds = equivalentNodeIds(firstNodeId)
+  const secondIds = equivalentNodeIds(secondNodeId)
+  const matches = supplyAssembly.connections.filter(
+    (connection) =>
+      (!pathRole || connection.pathRole === pathRole) &&
+      connection.endpoints.some(({ nodeId }) => firstIds.has(nodeId)) &&
+      connection.endpoints.some(({ nodeId }) => secondIds.has(nodeId))
+  )
+  const primary =
+    matches.find(
+      (connection) =>
+        connection.endpoints.some(({ nodeId }) => nodeId === firstNodeId) &&
+        connection.endpoints.some(({ nodeId }) => nodeId === secondNodeId)
+    ) ?? matches[0]
+  if (!primary || matches.length === 1) return primary
+  const conductorOrder = ['L1', 'L2', 'L3', 'N', 'PE', 'DC+', 'DC-'] as const
+  return {
+    ...primary,
+    // Multiplied inverter units are separate graph sources but share one collapsed
+    // symbol and one physical one-wire run. Render that run with the union carried
+    // by all equivalent unit connections, never the arbitrary first unit only.
+    conductors: Array.from(new Set(matches.flatMap((connection) => connection.conductors))).sort(
+      (left, right) => conductorOrder.indexOf(left) - conductorOrder.indexOf(right)
+    ),
+  }
+}
+
 type CreateSupplyWireAssemblyContextInput =
   PanelWireDerivationInput & {
     /** The panel node is bound after setup and read only during final boundary marking. */
@@ -150,69 +229,16 @@ export function createSupplyWireAssemblyContext(input: CreateSupplyWireAssemblyC
       }
     }
   }
-  const supplySectionKey = (path: string, first: string, second: string): string => {
-    const [left, right] = [first, second].sort()
-    return `supply:${panel.id}:${path}:${left}<>${right}`
-  }
+  const supplySectionKey = (path: string, first: string, second: string): string =>
+    buildSupplySectionKey(panel.id, path, first, second)
 
-  const supplyAssembly = supplyAssemblies.find(
-    (assembly) =>
-      ((assembly.incomingAttachment.kind === 'panel-input' ||
-        assembly.incomingAttachment.kind === 'panel-bus-input') &&
-        assembly.incomingAttachment.panelId === panel.id) ||
-      assembly.loadHandoffs.some(
-        (handoff) =>
-          (handoff.target.kind === 'panel-input' ||
-            handoff.target.kind === 'panel-bus-input' ||
-            handoff.target.kind === 'circuit-input') &&
-          handoff.target.panelId === panel.id
-      )
-  )
+  const supplyAssembly = findPanelSupplyAssembly(supplyAssemblies, panel.id)
   const findAssemblyConnection = (
     firstNodeId: string | undefined,
     secondNodeId: string | undefined,
     pathRole?: SupplyConnectionPathRole
-  ): SupplyConnection | undefined => {
-    if (!supplyAssembly || !firstNodeId || !secondNodeId || firstNodeId === secondNodeId)
-      return undefined
-    const equivalentNodeIds = (nodeId: string): Set<string> => {
-      const node = supplyAssembly.nodes.find((candidate) => candidate.id === nodeId)
-      if (node?.kind !== 'inverter-unit' || !node.deviceId) return new Set([nodeId])
-      return new Set(
-        supplyAssembly.nodes
-          .filter(
-            (candidate) =>
-              candidate.kind === 'inverter-unit' && candidate.deviceId === node.deviceId
-          )
-          .map((candidate) => candidate.id)
-      )
-    }
-    const firstIds = equivalentNodeIds(firstNodeId)
-    const secondIds = equivalentNodeIds(secondNodeId)
-    const matches = supplyAssembly.connections.filter(
-      (connection) =>
-        (!pathRole || connection.pathRole === pathRole) &&
-        connection.endpoints.some(({ nodeId }) => firstIds.has(nodeId)) &&
-        connection.endpoints.some(({ nodeId }) => secondIds.has(nodeId))
-    )
-    const primary =
-      matches.find(
-        (connection) =>
-          connection.endpoints.some(({ nodeId }) => nodeId === firstNodeId) &&
-          connection.endpoints.some(({ nodeId }) => nodeId === secondNodeId)
-      ) ?? matches[0]
-    if (!primary || matches.length === 1) return primary
-    const conductorOrder = ['L1', 'L2', 'L3', 'N', 'PE', 'DC+', 'DC-'] as const
-    return {
-      ...primary,
-      // Multiplied inverter units are separate graph sources but share one collapsed
-      // symbol and one physical one-wire run. Render that run with the union carried
-      // by all equivalent unit connections, never the arbitrary first unit only.
-      conductors: Array.from(new Set(matches.flatMap((connection) => connection.conductors))).sort(
-        (left, right) => conductorOrder.indexOf(left) - conductorOrder.indexOf(right)
-      ),
-    }
-  }
+  ): SupplyConnection | undefined =>
+    findSupplyAssemblyConnection(supplyAssembly, firstNodeId, secondNodeId, pathRole)
   const findAssemblyPortConnection = (
     nodeId: string | undefined,
     portId: string

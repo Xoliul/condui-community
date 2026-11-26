@@ -36,6 +36,7 @@ import {
 import { walkPanels } from '@/lib/panel/panelTree'
 import { mutateTrunkDeviceRelocation } from '@/lib/layout/eendraadPreviewSimulation'
 import { circuitContainsJunctionPanelIdentity, getJunctionIdentity } from '@/lib/junctionIdentity'
+import { assignNextTerminalStripPins } from '@/lib/terminalStrip/labels'
 import { endpointSupportsMultiplier } from '@/utils/endpointMultipliers'
 import {
   endpointMergeSettingsMatchEndpoints,
@@ -116,6 +117,7 @@ export function duplicateCircuitTrunkDeviceAtDropTarget(
       ? clonePlacementsForDuplicate(sourceDevice.placements, { symbolType: sourceDevice.symbol })
       : [],
   }
+  assignNextTerminalStripPins(project, [clone])
   // A junction panel's displayed ID identifies the shared physical panel;
   // each symbol occurrence and its terminal still need unique internal IDs.
   if (clone.junctionPanelTerminal) {

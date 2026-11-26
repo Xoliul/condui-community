@@ -62,8 +62,6 @@ import { DOMOTICA_CONTROL_OVERLAY_PATHS, TRANSFORMER_OVERLAY_PATHS } from '@/lib
 import { JunctionIdentityField } from '../shared/JunctionIdentityField'
 import { JunctionEditorOpenButton } from '@/components/junctionEditor/junctionEditorHostedFeatures'
 import {
-  getEffectiveTerminalStripOutgoingPin,
-  getTerminalStripOutgoingPin,
   getTerminalStripPin,
 } from '@/lib/terminalStrip/labels'
 import {
@@ -1208,9 +1206,6 @@ export function TrunkDeviceProperties({
           onCommit={(junctionIdentity) => {
             if (device.symbol === 'terminal_strip') {
               const incomingPin = getTerminalStripPin(device) ?? 1
-              const outgoingPin = currentProject
-                ? getEffectiveTerminalStripOutgoingPin(currentProject, device)
-                : incomingPin
               editProperties({
                 actions: [
                   {
@@ -1218,7 +1213,7 @@ export function TrunkDeviceProperties({
                     entityId: device.id,
                     stripId: junctionIdentity,
                     incomingPin,
-                    outgoingPin,
+                    outgoingPin: incomingPin,
                   },
                 ],
               })
@@ -1247,62 +1242,28 @@ export function TrunkDeviceProperties({
         )}
         {device.symbol === 'terminal_strip' && (
           <div>
-            <label className={labelClass}>{t('terminalStrip.pin', 'Circuit number')}</label>
-            <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-              <div className="min-w-0">
-                <label className={labelClass}>{t('terminalStrip.incomingPin', 'In')}</label>
-                <DebouncedTextInput
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={String(getTerminalStripPin(device) ?? 1)}
-                  onCommit={(value) => {
-                    const nextPin = Math.max(1, Math.round(Number(value) || 1))
-                    editProperties({
-                      actions: [
-                        {
-                          kind: 'terminalStripPin',
-                          occurrenceId: `${device.id}:incoming`,
-                          stripId: identity || '1',
-                          pin: nextPin,
-                          vacatedPin: getTerminalStripPin(device),
-                        },
-                      ],
-                    })
-                  }}
-                  className={`${selectClass} min-w-0`}
-                />
-              </div>
-              <span className="pb-2 text-muted-foreground">/</span>
-              <div className="min-w-0">
-                <label className={labelClass}>{t('terminalStrip.outgoingPin', 'Out')}</label>
-                <DebouncedTextInput
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={String(
-                    currentProject
-                      ? getEffectiveTerminalStripOutgoingPin(currentProject, device)
-                      : (getTerminalStripPin(device) ?? 1)
-                  )}
-                  onCommit={(value) => {
-                    const nextPin = Math.max(1, Math.round(Number(value) || 1))
-                    editProperties({
-                      actions: [
-                        {
-                          kind: 'terminalStripPin',
-                          occurrenceId: `${device.id}:outgoing`,
-                          stripId: identity || '1',
-                          pin: nextPin,
-                          vacatedPin: getTerminalStripOutgoingPin(device),
-                        },
-                      ],
-                    })
-                  }}
-                  className={`${selectClass} min-w-0`}
-                />
-              </div>
-            </div>
+            <label className={labelClass}>{t('terminalStrip.pin', 'Terminal number')}</label>
+            <DebouncedTextInput
+              type="number"
+              min={1}
+              step={1}
+              value={String(getTerminalStripPin(device) ?? 1)}
+              onCommit={(value) => {
+                const nextPin = Math.max(1, Math.round(Number(value) || 1))
+                editProperties({
+                  actions: [
+                    {
+                      kind: 'terminalStripPin',
+                      occurrenceId: `${device.id}:incoming`,
+                      stripId: identity || '1',
+                      pin: nextPin,
+                      vacatedPin: getTerminalStripPin(device),
+                    },
+                  ],
+                })
+              }}
+              className={selectClass}
+            />
           </div>
         )}
         <div>

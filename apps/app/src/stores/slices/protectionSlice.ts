@@ -175,7 +175,9 @@ export const createProtectionSlice: ProjectSliceCreator = (set, get) => ({
   deleteProtections: (ids, options) =>
     set((state) => {
       if (state.currentProject) {
-        const panels = getEditableProjectElectricalPanels(state.currentProject)
+        const currentProject = state.currentProject
+        const panels = getEditableProjectElectricalPanels(currentProject)
+        const electricalDevices = currentProject.disciplines.electrical?.devices
         if (ids.length === 1) {
           const onlyId = ids[0]!
           let protLabel: string | undefined
@@ -204,7 +206,11 @@ export const createProtectionSlice: ProjectSliceCreator = (set, get) => ({
             for (const prot of p.protections) {
               if (idsSet.has(prot.id)) {
                 if (prot.subPanelId && options?.preserveLinkedPanels) {
-                  migrateSubCircuitContentToParent(prot, panels)
+                  migrateSubCircuitContentToParent(
+                    prot,
+                    panels,
+                    electricalDevices
+                  )
                 } else {
                   promoteDeletedProtectionSubcircuits(prot, panels)
                 }

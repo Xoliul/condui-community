@@ -9,6 +9,8 @@ export function useEendraadArtworkPreview(preview: DragPreviewState | null, node
   const key = getEendraadPreviewIntentKey(preview)
   const followsPointer = Boolean(
     preview?.movingPanelAttachment ||
+      // A supply tap preview slides freely along the wire and locks only on drop.
+      preview?.branchIntent?.lockPoint ||
       ((preview?.dropTarget?.type === 'mainBus' || isSecondaryBusPreviewTarget(preview?.dropTarget)) &&
         preview?.symbolData &&
         PROTECTION_SYMBOL_IDS.some((id) => id === preview.symbolData?.id))

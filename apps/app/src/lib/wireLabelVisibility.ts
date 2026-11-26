@@ -27,6 +27,8 @@ export function isBusBarProtectionStubSegment(wireSegment: WireSegment): boolean
 }
 
 export function isRouteIndicatorVisibleForSegment(wireSegment: WireSegment): boolean {
+  // The crossbar and risers of a circuit in columns are the trunk's cable, not another run.
+  if (wireSegment.trunkContinuation) return false
   const isVertical = wireSegment.startPoint.x === wireSegment.endPoint.x
   if (isSupplyWireSegmentForLabel(wireSegment)) {
     return !isBusBarProtectionStubSegment(wireSegment)
@@ -40,7 +42,7 @@ export function isRouteIndicatorVisibleForSegment(wireSegment: WireSegment): boo
 }
 
 export function isWireLabelVisibleForSegment(wireSegment: WireSegment): boolean {
-  if (wireSegment.supplyMergedIntoBusDrop) return false
+  if (wireSegment.supplyMergedIntoBusDrop || wireSegment.trunkContinuation) return false
   if (isSupplyWireSegmentForLabel(wireSegment)) {
     if (wireSegment.hideWireLabel === true) return false
     if (wireSegment.hideWireLabel === false) return true

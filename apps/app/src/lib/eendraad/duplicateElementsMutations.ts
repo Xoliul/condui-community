@@ -18,6 +18,7 @@ import { duplicateEndpointAtDropTargetInProject } from '@/lib/eendraad/duplicate
 import { moveSupplyTrunkDeviceAtDropTarget } from '@/lib/eendraad/supplyTrunkDeviceMove'
 import { reconcileDirectConverterDcDevices, reconcileSupplyAssemblyBranchProtections } from '@/lib/supplyAssembly/editorIntegration'
 import { circuitContainsJunctionPanelIdentity, getJunctionIdentity } from '@/lib/junctionIdentity'
+import { assignNextTerminalStripPins, collectTerminalStripOccurrences, getProjectTerminalStripScheme } from '@/lib/terminalStrip/labels'
 import { queryAllSupplyTrunkDevices as querySupply } from '@/lib/feedTopology'
 import type { ElectricalEnclosureRef } from '@/types/supplyAssembly'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
@@ -117,6 +118,10 @@ export function applyElectricalDuplicateElements(
   const clonedDevices: string[] = []
   const relatedCircuits = new Set<string>()
   const target = input.target
+  // Per cable, copies of a terminal strip take the next free number; collect the originals first.
+  const existingTerminalEntityIds = getProjectTerminalStripScheme(project).numbering === 'cable'
+    ? new Set(collectTerminalStripOccurrences(project).map((occurrence) => occurrence.entityId))
+    : null
 
   if (target.type === 'sourceSelection') {
     if (input.items[0]!.kind === 'endpoint') {
@@ -486,6 +491,14 @@ export function applyElectricalDuplicateElements(
         } else throw new CommandError('check_failed', 'Device cannot be duplicated there', { reason: 'unsupported_source' })
       }
     }
+  }
+
+  if (existingTerminalEntityIds) {
+    const copies = [
+      ...clonedEndpoints.map((id) => endpointFor(project, id)?.endpoint),
+      ...clonedDevices.map((id) => deviceFor(project, id)?.device),
+    ].filter((entity) => entity && !existingTerminalEntityIds.has(entity.id))
+    assignNextTerminalStripPins(project, copies as Array<Endpoint | TrunkDevice>)
   }
 
   return {

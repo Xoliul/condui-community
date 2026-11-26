@@ -1,5 +1,5 @@
 import type { ProjectV2 } from '@/types/projectV2'
-import type { PanelGridModuleRef } from '@/types/schema'
+import type { PanelGridModuleRef, TrunkDevice } from '@/types/schema'
 import {
   getEditableProjectElectricalPanels,
   getEditableProjectElectricalInstallation,
@@ -21,6 +21,7 @@ import {
   reconcileDirectConverterCommonLoadPath,
 } from '@/lib/supplyAssembly/editorIntegration'
 import { addSupplyTrunkDeviceInProject } from '@/lib/projectMutations/storeActions'
+import { updateCircuitInProject } from '@/lib/eendraad/circuitMutations'
 import { placeSupplyModuleAfterInsert } from './panelSupplySlots'
 import {
   updatePanelGridSlotsInProject,
@@ -125,6 +126,32 @@ export function rewirePanelModuleInProject(
   const panel = findPanelById(panels, panelId)
   const operation = getPanelRewireOperation(panel ?? null, project, origin, target)
   if (!panel || !operation) return { changed: false }
+  if (operation.kind === 'connectProtectionToTerminalStrip') {
+    const circuit = panels
+      .map((root) => findCircuitById(root, operation.circuitId)?.circuit)
+      .find(Boolean)
+    if (!circuit) return { changed: false }
+    const id = newId()
+    const trunkDevice: TrunkDevice = {
+      id,
+      type: 'terminal_strip',
+      symbol: 'terminal_strip',
+      ...operation.terminalStrip,
+      trunkPosition: 0,
+    }
+    const trunkDevices = [
+      trunkDevice,
+      ...(circuit.trunkDevices ?? [])
+        .slice()
+        .sort((left, right) => (left.trunkPosition ?? 0) - (right.trunkPosition ?? 0)),
+    ]
+    trunkDevices.forEach((device, index) => {
+      device.trunkPosition = index
+    })
+    if (!updateCircuitInProject(project, operation.circuitId, { trunkDevices }))
+      return { changed: false }
+    return { changed: true, createdDeviceId: id }
+  }
   if (operation.kind === 'promotePanelToRootSupply') {
     const installation = getEditableProjectElectricalInstallation(project)
     const changed =

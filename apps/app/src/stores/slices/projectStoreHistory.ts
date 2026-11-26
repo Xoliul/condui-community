@@ -1,3 +1,4 @@
+import { cloneValue } from '@/utils/cloneValue'
 import type { StoreApi } from 'zustand'
 import type { Floor } from '@/types/schema'
 import { type Project, type ProjectState } from './projectStoreTypes'
@@ -55,7 +56,7 @@ function cloneProjectWithoutCopyingAssetPayloads(project: Project): Project {
 
   const snapshot =
     typeof structuredClone === 'function'
-      ? structuredClone(cloneInput)
+      ? cloneValue(cloneInput)
       : (JSON.parse(JSON.stringify(cloneInput)) as Project)
   if (import.meta.env?.VITE_E2E) {
     performance.measure('eendra:history-clone', { start: cloneStartedAt, end: performance.now() })

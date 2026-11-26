@@ -1,3 +1,5 @@
+import { isCurrentProjectV2SchemaVersion } from './projectSchemaVersion'
+import { cloneValue } from '@/utils/cloneValue'
 import type { AssetModelV2, ProjectV2 } from '@/types/projectV2'
 
 const OBSOLETE_PROJECT_SNAPSHOT_KEY = ['legacy', 'Project'].join('')
@@ -42,7 +44,7 @@ export function hasLegacyV2ProjectBloat(project: unknown): boolean {
     schemaVersion !== '2.0.0' &&
     schemaVersion !== '2.1.0' &&
     schemaVersion !== '2.2.0' &&
-    schemaVersion !== '2.3.0' && schemaVersion !== '2.4.0'
+    !isCurrentProjectV2SchemaVersion(schemaVersion)
   )
     return false
 
@@ -72,7 +74,7 @@ export function hasLegacyV2ProjectBloat(project: unknown): boolean {
 }
 
 function cloneProject(project: ProjectV2): ProjectV2 {
-  if (typeof structuredClone === 'function') return structuredClone(project)
+  if (typeof structuredClone === 'function') return cloneValue(project)
   return JSON.parse(JSON.stringify(project)) as ProjectV2
 }
 

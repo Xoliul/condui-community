@@ -54,36 +54,33 @@ export function getPanelEndpoint(project: PanelPlacementProject, panelId: string
   const panel = findPanel(rootPanels, panelId)
   if (!panel) return null
   
-  // Search all circuits for panel endpoint
-  const searchCircuits = (panels: Panel[]): Endpoint | null => {
+  // Search all circuits for panel endpoint. An explicit panelId wins; the name only identifies
+  // older symbols without one. Never take a symbol that names another board: two boards with
+  // the same name would otherwise share one endpoint and placement ID.
+  const searchCircuits = (panels: Panel[], matches: (e: Endpoint) => boolean): Endpoint | null => {
     for (const p of panels) {
       for (const circuit of p.circuits) {
-        const endpoint = circuit.endpoints.find(
-          e =>
-            e.symbol === 'panel_distribution' &&
-            (e.panelId === panel.id || e.label === panel.name)
-        )
+        const endpoint = circuit.endpoints.find(e => e.symbol === 'panel_distribution' && matches(e))
         if (endpoint) return endpoint
       }
       for (const protection of p.protections) {
         if (protection.circuits) {
           for (const circuit of protection.circuits) {
-            const endpoint = circuit.endpoints.find(
-              e =>
-                e.symbol === 'panel_distribution' &&
-                (e.panelId === panel.id || e.label === panel.name)
-            )
+            const endpoint = circuit.endpoints.find(e => e.symbol === 'panel_distribution' && matches(e))
             if (endpoint) return endpoint
           }
         }
       }
-      const found = searchCircuits(p.subPanels)
+      const found = searchCircuits(p.subPanels, matches)
       if (found) return found
     }
     return null
   }
-  
-  return searchCircuits(rootPanels)
+
+  return (
+    searchCircuits(rootPanels, (e) => e.panelId === panel.id) ??
+    searchCircuits(rootPanels, (e) => !e.panelId && e.label === panel.name)
+  )
 }
 
 /**

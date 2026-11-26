@@ -12,7 +12,10 @@ import {
   getCircuitConverterPrimaryBranch,
   getOrdinaryCircuitConverterOutputRowY,
   supportsCircuitConverterDcConnections,
+  getCircuitConverterOutputChainXs,
 } from './circuitConverterGeometry'
+import { getConverterOutputDeviceSlots } from './circuitConverterOutputSlots'
+import { getConverterOutputDevices } from '@/lib/eendraad/converterOutputDevices'
 import { getEndpointXOffsets } from './bottomUpBranchWidths'
 
 import {
@@ -72,14 +75,13 @@ export function buildCircuitConverterDcConnectionNodes(
           (branchOrder.get(a.id) ?? circuit.endpoints.indexOf(a)) -
           (branchOrder.get(b.id) ?? circuit.endpoints.indexOf(b))
       )
-    const linkedDevices = [
-      ...(circuit.trunkDevices ?? []),
-      ...(circuit.branches ?? []).flatMap((branch) => branch.branchDevices ?? []),
-    ].filter(
-      (candidate) =>
-        candidate.id !== device.id &&
-        candidate.converterDcConnection?.converterId === device.id &&
-        candidate.converterDcConnection.connectionIndex === connectionIndex
+    // The output's circuit devices in their order from the converter (a DC rail last).
+    const linkedDevices = getConverterOutputDevices(
+      [
+        ...(circuit.trunkDevices ?? []),
+        ...(circuit.branches ?? []).flatMap((branch) => branch.branchDevices ?? []),
+      ],
+      connection
     )
     const hasDcBus = linkedDevices.some((candidate) => candidate.type === 'dc_bus')
     // A converter-linked DC rail is the terminal of this output. Legacy data
@@ -93,12 +95,17 @@ export function buildCircuitConverterDcConnectionNodes(
       LAYOUT_CONSTANTS.ENDPOINT_HORIZONTAL_SPACING,
       LAYOUT_CONSTANTS.APPLIANCE_AFTER_SOCKET_GAP
     )
-    const itemX = (index: number) =>
-      chainLength === 1
-        ? port.x
-        : port.x +
-          CIRCUIT_CONVERTER_OUTPUT_BRANCH_LEAD +
-          index * LAYOUT_CONSTANTS.ENDPOINT_HORIZONTAL_SPACING
+    // Devices one step apart behind the lead, endpoints behind them; an output ending in a DC
+    // rail keeps its compact device spacing.
+    const chainXs = getCircuitConverterOutputChainXs({
+      portX: port.x,
+      deviceCount: linkedDevices.length,
+      endpointOffsets: renderedEndpoints.map(
+        (_, endpointIndex) => endpointOffsets[endpointIndex] ?? CIRCUIT_CONVERTER_OUTPUT_BRANCH_LEAD
+      ),
+      deviceStep: hasDcBus ? LAYOUT_CONSTANTS.ENDPOINT_HORIZONTAL_SPACING : undefined,
+    })
+    const itemX = (index: number) => chainXs.deviceXs[index] ?? port.x
     const deviceNodes: LayoutNode[] = linkedDevices.map((linkedDevice, deviceIndex) => {
       const linkedBusCircuitIds =
         linkedDevice.type !== 'dc_bus'
@@ -385,12 +392,7 @@ export function buildCircuitConverterDcConnectionNodes(
       id: `converter-dc-endpoint-${device.id}-${connectionIndex}-${endpoint.id}`,
       type: 'endpoint',
       bounds: {
-        x:
-          linkedDevices.length === 0
-            ? endpoints.length === 1
-              ? port.x
-              : port.x + (endpointOffsets[endpointIndex] ?? CIRCUIT_CONVERTER_OUTPUT_BRANCH_LEAD)
-            : itemX(linkedDevices.length + endpointIndex),
+        x: chainXs.endpointXs[endpointIndex] ?? port.x,
         y: rowY,
         width: LAYOUT_CONSTANTS.SYMBOL_SIZE,
         height: LAYOUT_CONSTANTS.SYMBOL_SIZE,
@@ -483,6 +485,14 @@ export function buildCircuitConverterDcConnectionNodes(
       domainId: `converter-dc-output-${device.id}-${connectionIndex}`,
       hitZone: { type: 'circuit', padding: 0, converterDcConnection: connection },
       children: [
+        ...getConverterOutputDeviceSlots({
+          circuitId: circuit.id,
+          connection,
+          port,
+          rowY,
+          deviceXs: chainXs.deviceXs.filter((_, index) => linkedDevices[index]?.type !== 'dc_bus'),
+          firstEndpointX: chainXs.endpointXs[0],
+        }),
         verticalHitNode,
         ...(chainLength <= 1 ? [] : [horizontalHitNode]),
         ...deviceNodes,

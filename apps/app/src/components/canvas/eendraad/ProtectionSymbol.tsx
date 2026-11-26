@@ -14,6 +14,7 @@ import {
   getSurgeProtectionSymbolAnchor,
   getSurgeProtectionSelectionBounds,
 } from '@/lib/surgeProtectionSymbol'
+import { useProtectionSymbolSvgPath } from '@/hooks/useProtectionSymbolSvgPath'
 import { useIsPreviewSelected } from '@/contexts/SelectionPreviewContext'
 import { logger } from '@/lib/logger'
 import {
@@ -226,6 +227,8 @@ export function ProtectionSymbol({
     if (!circuit) {
       return null
     }
+    // A supply tap is moved along the grid wire's tap zones, not along a bus.
+    if (protection.supplyTap) return { type: 'supplyTap' as const }
 
     // Check secondary bus first
     if (secondaryBusOrder) {
@@ -259,7 +262,7 @@ export function ProtectionSymbol({
     }
 
     return null
-  }, [circuit, protection.id, secondaryBusOrder, mainBusOrder])
+  }, [circuit, protection.id, protection.supplyTap, secondaryBusOrder, mainBusOrder])
 
   // Check if selected - allow selection even if type doesn't match (for multi-type drag rect selection)
   // If ID is in the list, it's selected regardless of selection.type
@@ -267,9 +270,9 @@ export function ProtectionSymbol({
   const symbolKey = protectionTypeToSymbolKey(protection.type)
   const symbol = symbolKey ? getSymbolById(symbolKey) : null
   const isSurgeProtection = protection.type === 'SPD'
-  const renderedSymbolPath = isSurgeProtection
-    ? getSurgeProtectionSymbolPath(protection.surgeProtectionKind)
-    : symbol?.svgPath
+  const renderedSymbolPath = useProtectionSymbolSvgPath(
+    isSurgeProtection ? getSurgeProtectionSymbolPath(protection.surgeProtectionKind) : symbol?.svgPath
+  )
   const surgeBodyBounds = getSurgeProtectionBodyBounds(SYMBOL_SIZE, SYMBOL_SIZE, false)
   const surgeSelectionBounds = getSurgeProtectionSelectionBounds(SYMBOL_SIZE, SYMBOL_SIZE, false)
   const surgeSymbolAnchor = getSurgeProtectionSymbolAnchor(SYMBOL_SIZE, SYMBOL_SIZE)

@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { countRoomScanConsumerEndpoints } from '@/lib/plan/roomScanPlacementImport'
 import { findMainPanel, walkPanels } from '@/lib/panel/panelTree'
+import { isBoardPanel } from '@/lib/supplyTaps/virtualPanel'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { RoomPlan, prepareNativeRoomScanOptions } from '@/lib/native/roomPlan'
 import { CommandError } from '@/lib/commands/project'
@@ -44,7 +45,7 @@ type RoomPlanScanDialogProps = {
 export default function RoomPlanScanDialog({ floorId, projectId, source, onClose }: RoomPlanScanDialogProps) {
   const { t, i18n } = useTranslation()
   const project = useProjectStore((state) => state.currentProject)
-  const panels = project ? [...walkPanels(getProjectElectricalPanels(project))] : []
+  const panels = project ? [...walkPanels(getProjectElectricalPanels(project))].filter(isBoardPanel) : []
   const consumerCount = project ? countRoomScanConsumerEndpoints(project) : 0
   const [includePlacements, setIncludePlacements] = useState(() => consumerCount <= 3)
   const roomName = project?.building.floors.find((floor) => floor.id === floorId)?.name ?? ''

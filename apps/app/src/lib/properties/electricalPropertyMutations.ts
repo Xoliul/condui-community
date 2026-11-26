@@ -1,6 +1,6 @@
 import type { ProjectV2 } from '@/types/projectV2'
 import type { Panel, Circuit, TrunkDevice, PanelGridModuleRef } from '@/types/schema'
-import { findPanelById } from '@/lib/panel/panelTree'
+import { findPanelById, walkPanels } from '@/lib/panel/panelTree'
 import {
   getEditableProjectElectricalPanels,
   getEditableProjectElectricalInstallation,
@@ -21,7 +21,8 @@ export function updatePanelPropertiesInProject(
   id: string,
   updates: Partial<Panel>
 ): boolean {
-  const panel = findPanelById(getEditableProjectElectricalPanels(project), id)
+  const panels = getEditableProjectElectricalPanels(project)
+  const panel = findPanelById(panels, id)
   if (!panel) return false
   const updatesToApply = { ...updates }
   if (typeof updatesToApply.name === 'string' && updatesToApply.name.trim().length === 0) {
@@ -29,6 +30,8 @@ export function updatePanelPropertiesInProject(
   }
   if (Object.keys(updatesToApply).length === 0) return false
   const previousName = panel.name
+  const uniquePreviousName = typeof updatesToApply.name === 'string' &&
+    ![...walkPanels(panels)].some((other) => other.id !== id && other.name === previousName)
   const isMainEarthingUpdate =
     panel.isMain && Object.prototype.hasOwnProperty.call(updatesToApply, 'earthingSystem')
   const previousMainEarthing = isMainEarthingUpdate ? panel.earthingSystem : undefined
@@ -45,27 +48,28 @@ export function updatePanelPropertiesInProject(
   // Keep the panel_distribution endpoint label aligned with panel.name.
   // This avoids false orphan warnings right after renaming a panel.
   if (typeof updatesToApply.name === 'string' && updatesToApply.name.trim().length > 0) {
-    const syncCircuitEndpoints = (circuit: Circuit) => {
+    const syncCircuitEndpoints = (circuit: Circuit, ownerId: string) => {
       for (const endpoint of circuit.endpoints ?? []) {
         if (endpoint.symbol !== 'panel_distribution') continue
-        // PANEL pseudo-circuit endpoints are canonical panel symbols for this panel.
-        // Always sync them on rename, even if legacy data still has stale labels/panelId.
-        if (
-          circuit.code === 'PANEL' ||
-          endpoint.panelId === panel.id ||
-          endpoint.label === previousName
-        ) {
+        const matchesPanel = endpoint.panelId
+          ? endpoint.panelId === id
+          : circuit.code === 'PANEL'
+            ? ownerId === id
+            : uniquePreviousName && endpoint.label === previousName
+        if (matchesPanel) {
           endpoint.label = panel.name
           endpoint.panelId = panel.id
         }
       }
     }
-    for (const circuit of panel.circuits ?? []) {
-      syncCircuitEndpoints(circuit)
-    }
-    for (const protection of panel.protections ?? []) {
-      for (const circuit of protection.circuits ?? []) {
-        syncCircuitEndpoints(circuit)
+    for (const owner of walkPanels(panels)) {
+      for (const circuit of owner.circuits ?? []) {
+        syncCircuitEndpoints(circuit, owner.id)
+      }
+      for (const protection of owner.protections ?? []) {
+        for (const circuit of protection.circuits ?? []) {
+          syncCircuitEndpoints(circuit, owner.id)
+        }
       }
     }
   }

@@ -322,6 +322,7 @@ export function useHierarchyLibraryDrop({
       }
       const symbol = symbolData as SymbolMetadata
       const isModularSocketDrop = isModularSocketLibraryId(symbol.id)
+      const isSupplyConverterDrop = symbol.id === 'transformer' || symbol.id === 'inverter'
       const hoverSurface = isModularSocketDrop
         ? detectHierarchyLibraryDropHover(position)
         : detectHierarchyPanelTarget(position)
@@ -338,7 +339,9 @@ export function useHierarchyLibraryDrop({
       const invalid =
         !resolved.ghost ||
         (isModularSocketDrop &&
-          (hoverSurface.kind !== 'panel' || !canDropModularSocketOnPanel(hoverSurface.panel)))
+          (hoverSurface.kind !== 'panel' || !canDropModularSocketOnPanel(hoverSurface.panel))) ||
+        (isSupplyConverterDrop &&
+          (hoverSurface.kind !== 'panel' || !hoverSurface.panel?.isMain))
 
       setDragPreview({
         surfaceId: hoverSurface.id,
@@ -362,6 +365,8 @@ export function useHierarchyLibraryDrop({
       if (!currentProject || !symbolData || typeof symbolData !== 'object') return
       const symbol = symbolData as SymbolMetadata
       const modular = isModularSocketLibraryId(symbol.id)
+      const isTerminalStrip = symbol.id === 'terminal_strip'
+      const isSupplyConverter = symbol.id === 'transformer' || symbol.id === 'inverter'
       const surface = modular
         ? detectHierarchyLibraryDropHover(position)
         : detectHierarchyPanelTarget(position)
@@ -404,6 +409,32 @@ export function useHierarchyLibraryDrop({
           },
           panelGrid: { scope: 'main', row, col },
           label: 'place meter from library',
+        })
+        return
+      }
+      if (isTerminalStrip) {
+        const circuit = getLastAssignableCircuit(panel)
+        if (!circuit) return
+        placeElectricalSymbol({
+          symbolId: symbol.id,
+          searchPreset: symbol.searchPreset,
+          target: {
+            type: 'circuit',
+            panelId: panel.id,
+            circuitId: circuit.id,
+            circuitTrunkSegmentIndex: 0,
+          },
+          label: 'drop symbol from library onto panel',
+        })
+        return
+      }
+      if (isSupplyConverter) {
+        if (!panel.isMain) return
+        placeElectricalSymbol({
+          symbolId: symbol.id,
+          searchPreset: symbol.searchPreset,
+          target: { type: 'supplyWire', panelId: panel.id, supplyFeedScope: 'root' },
+          label: 'drop symbol from library onto panel',
         })
         return
       }

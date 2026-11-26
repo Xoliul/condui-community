@@ -6,6 +6,8 @@ export const CIRCUIT_CONVERTER_MAX_CONNECTIONS = 4
 export const CIRCUIT_CONVERTER_OUTPUT_STUB_LENGTH = 26
 export const CIRCUIT_CONVERTER_OUTPUT_ROW_SPACING = 40
 export const CIRCUIT_CONVERTER_OUTPUT_BRANCH_LEAD = 25
+/** Height of an unused output's stub while a sibling output of the same converter is in use. */
+export const CIRCUIT_CONVERTER_EMPTY_OUTPUT_STUB = 24
 /** Matches the normal MCB/trunk-device to first endpoint-branch spacing. */
 export const CIRCUIT_CONVERTER_FIRST_OUTPUT_ROW_OFFSET = 80
 /** Matches the converter entry in wireInsets.ts. */
@@ -26,6 +28,18 @@ export function getCircuitConverterDcConnectionCount(device: TrunkDevice | undef
     CIRCUIT_CONVERTER_MIN_CONNECTIONS,
     Math.min(CIRCUIT_CONVERTER_MAX_CONNECTIONS, value)
   )
+}
+
+/**
+ * Horizontal offset of a converter's DC output port from its anchor. A converter in a circuit
+ * draws each output as a row that rises at its port and runs to the right, the last output
+ * highest; its ports are therefore numbered right to left, so the leftmost riser is the tallest and
+ * no row crosses a riser to its right. Supply converters keep their ports in output order.
+ */
+export function getCircuitConverterPortOffset(device: TrunkDevice, connectionIndex: number): number {
+  const count = getCircuitConverterDcConnectionCount(device)
+  const inCircuit = !device.supplyPath && !device.supplyDcBusId
+  return (inCircuit ? count - 1 - connectionIndex : connectionIndex) * CIRCUIT_CONVERTER_BLOCK_SIZE
 }
 
 export function getCircuitConverterBodyGeometry(
@@ -49,7 +63,7 @@ export function getCircuitConverterBodyGeometry(
     anchor,
     dcPorts: Array.from({ length: count }, (_, index) => ({
       index,
-      x: anchor.x + index * CIRCUIT_CONVERTER_BLOCK_SIZE,
+      x: anchor.x + getCircuitConverterPortOffset(device, index),
       y: anchor.y - CIRCUIT_CONVERTER_TOP_WIRE_INSET,
     })),
   }
@@ -228,4 +242,37 @@ export function promoteOrdinaryCircuitBranchesToDcBus(
       ? branch
       : { ...branch, dcBusId }
   )
+}
+
+/** Distance between the circuit devices on one output of a circuit converter (protections, strips). */
+export const CIRCUIT_CONVERTER_OUTPUT_DEVICE_STEP = 50
+
+/**
+ * Horizontal positions on one output row of a circuit converter: its circuit devices first, one
+ * step apart from the lead, then its endpoints at their own offsets behind them. A lone item stands
+ * on its port. `deviceStep` is the device spacing (outputs ending in a DC rail keep the endpoint
+ * spacing); `endpointOffsets` are the endpoints' offsets from the port without devices.
+ */
+export function getCircuitConverterOutputChainXs(input: {
+  portX: number
+  deviceCount: number
+  endpointOffsets: readonly number[]
+  deviceStep?: number
+}): { deviceXs: number[]; endpointXs: number[] } {
+  const { portX, deviceCount, endpointOffsets } = input
+  const step = input.deviceStep ?? CIRCUIT_CONVERTER_OUTPUT_DEVICE_STEP
+  if (deviceCount + endpointOffsets.length === 1)
+    return { deviceXs: deviceCount === 1 ? [portX] : [], endpointXs: deviceCount === 1 ? [] : [portX] }
+  const deviceXs = Array.from(
+    { length: deviceCount },
+    (_, index) => portX + CIRCUIT_CONVERTER_OUTPUT_BRANCH_LEAD + index * step
+  )
+  const endpointXs =
+    deviceCount === 0
+      ? endpointOffsets.map((offset) => portX + offset)
+      : endpointOffsets.map(
+          (offset) =>
+            portX + CIRCUIT_CONVERTER_OUTPUT_BRANCH_LEAD + deviceCount * step + offset - endpointOffsets[0]!
+        )
+  return { deviceXs, endpointXs }
 }

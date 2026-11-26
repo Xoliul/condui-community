@@ -1,3 +1,4 @@
+import { cloneValue } from '@/utils/cloneValue'
 import { z } from 'zod'
 import { createShortCircuitDocumentAsset } from '@/lib/documents/projectDocuments'
 import {
@@ -78,7 +79,7 @@ export const documentShortCircuit = defineProjectCommand({
             index: nextRevisionIndex(revisions),
             issuedAt: env.now(),
             ...(input.description ? { description: input.description } : {}),
-            report: structuredClone(input.report),
+            report: cloneValue(input.report),
           },
         ],
       }

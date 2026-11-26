@@ -1,6 +1,7 @@
 import { getCircuitBranches } from '@/lib/layout/endpointChains'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
 import type { Circuit, TrunkDevice } from '@/types/schema'
+import { hasOneWireRisers } from './oneWireRisers'
 
 /**
  * Switching devices that may sit in series on an ordinary circuit trunk, where
@@ -54,7 +55,9 @@ export function isCircuitTrunkSwitchDropTarget(target: DropTarget): boolean {
  * pointer. Trunk wire segments only split at existing trunk devices, so `fallback` (the
  * segment-derived position) cannot reach a gap between branches.
  */
-export function getCircuitTrunkSwitchPositionForDrop(target: DropTarget, fallback: number): number {
+export function getCircuitTrunkSwitchPositionForDrop(target: DropTarget, fallback: number, circuit?: Pick<Circuit, 'branches'>): number {
+  // Risers: the switch stays on the shared part (the fallback is position 0), never in a gap between rows.
+  if (circuit && hasOneWireRisers(circuit)) return fallback
   return typeof target.circuitTrunkBranchSlot === 'number' && target.insertAfterCircuitContent !== true
     ? target.circuitTrunkBranchSlot
     : fallback

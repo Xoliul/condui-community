@@ -1,4 +1,5 @@
 import { useEendraadSelectionBounds } from './eendraad/useEendraadSelectionBounds'
+import { isSupplyDiagramId, normalizeBusFeedSupplyFrameDrop } from '@/lib/layout/supplyFrameRole'
 import { useEendraadViewportNavigation } from './eendraad/useEendraadViewportNavigation'
 import { useEendraadElementDrag } from './eendraad/useEendraadElementDrag'
 import { useEendraadSceneArtwork } from './eendraad/useEendraadSceneArtwork'
@@ -90,13 +91,6 @@ import {
   endpointMergeSettingsMatchEndpoints,
   type SameSymbolAddMoreTarget,
 } from '@/lib/eendraad/sameSymbolAddMore'
-import {
-  collectBranchDropTargets,
-  resolveBranchDropIntent,
-  resolveBranchDropFallback,
-  resolveBranchStemFallback,
-  type BranchDropTargets,
-} from '@/lib/layout/branchDropInteraction'
 
 import { validateEendraadPreview } from '@/hooks/eendraad/validateEendraadPreview'
 
@@ -113,6 +107,7 @@ import {
 } from '@/hooks/eendraad'
 
 import { useEendraadPreviewGraph } from '@/hooks/eendraad/useEendraadPreviewGraph'
+import { useBranchDropResolver } from '@/hooks/eendraad/useBranchDropResolver'
 import { resolveOffscreenSupplyPreviewDirection } from '@/lib/layout/offscreenSupplyPreviewIndicator'
 import type { LayoutNode } from '@/lib/layout/layoutTree'
 
@@ -578,54 +573,19 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
   }, [selection, wireSegments, setSelection])
 
   // Drop target detection
-  const detectDropTargetCallback = useDropTargetDetection() // Tree-based hit testing
+  const detectDropTargetCallback = useDropTargetDetection(internalDragElementIdRef, endpointDragStartSelectionIdsRef) // Tree-based hit testing, never the supply side for a dragged horizontal module
 
-  const branchTargetCache = useRef<{
-    layout: typeof layout; key: string; targets: BranchDropTargets; previousId: string | null
-  } | null>(null)
-  const branchMovingIds = useCallback(() => {
-    const id = internalDragElementIdRef.current
-    if (!id || elementDragModeRef.current === 'duplicate') return []
-    if (!useProjectStore.getState().getEndpointById(id)) return []
-    return endpointDragStartSelectionIdsRef.current ?? [id]
-  }, [])
-  const getBranchTargets = useCallback((symbol: SymbolMetadata, movingIds = branchMovingIds()) => {
-    const zoom = canvasRef.current?.getLiveViewTransform().zoom ?? eendraadViewRef.current.zoom
-    const key = JSON.stringify([symbol.id, symbol.searchPreset, zoom, movingIds])
-    if (!branchTargetCache.current || branchTargetCache.current.layout !== layout || branchTargetCache.current.key !== key) {
-      branchTargetCache.current = {
-        layout, key, previousId: null,
-        targets: layout && layoutTree ? collectBranchDropTargets(layout, layoutTree, symbol, zoom, movingIds, true)
-          : { intents: [], regions: [], endpointNodeIds: new Set(), circuitIds: new Set() },
-      }
-    }
-    return { ...branchTargetCache.current, zoom }
-  }, [layout, layoutTree, branchMovingIds])
-  const resolveBranchDrop = useCallback((position: Point, symbol: SymbolMetadata, movingIds?: string[]) => {
-    const internalId = internalDragElementIdRef.current
-    if (internalId && (elementDragModeRef.current === 'duplicate' ||
-      !useProjectStore.getState().getEndpointById(internalId))) return { handled: false, intent: null }
-    const ids = movingIds ?? branchMovingIds()
-    if (ids.some((id) => !useProjectStore.getState().getEndpointById(id))) return { handled: false, intent: null }
-    const { targets, zoom, previousId } = getBranchTargets(symbol, ids)
-    let resolved = resolveBranchDropIntent(targets, position, zoom, previousId)
-    if (!resolved.handled && targets.intents.length && layoutTree) {
-      const target = findDropTarget(layoutTree, position, { preferMainBusOverGroundWire: true })
-      const circuit = target.circuitId ? useProjectStore.getState().getCircuitById(target.circuitId) : null
-      const intent = resolveBranchStemFallback(targets, layoutTree, position)
-        ?? (circuit ? resolveBranchDropFallback(targets, target, circuit, symbol) : null)
-      if (intent) resolved = { handled: true, intent }
-    }
-    branchTargetCache.current!.previousId = resolved.intent?.id ?? null
-    return resolved
-  }, [getBranchTargets, branchMovingIds, layoutTree])
+  const { getBranchTargets, resolveBranchDrop, clearBranchDrop } = useBranchDropResolver({
+    layout, layoutTree, project: currentProject, internalDragElementIdRef, elementDragModeRef, endpointDragStartSelectionIdsRef,
+    getZoom: () => canvasRef.current?.getLiveViewTransform().zoom ?? eendraadViewRef.current.zoom,
+  })
 
   // Drag preview state and handler
   const { dragPreview: pendingDragPreview, setDragPreview, handleDragOver } = useEendraadDragPreview(
     detectDropTargetCallback,
     {
       resolveBranchDrop,
-      clearBranchDrop: () => { if (branchTargetCache.current) branchTargetCache.current.previousId = null },
+      clearBranchDrop,
       draggingProtectionIdRef,
       getProtectionById: (id) => getProtectionById(id),
       movingPanelAttachmentIdRef,
@@ -1143,15 +1103,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
       }
 
       // Augment drop target with wire-domain information from the actual wire segments under the cursor.
-      let dropTarget = rawTarget
-      if (
-        symbol.busFeedKind &&
-        rawTarget.type === null &&
-        rawTarget.panelId &&
-        rawTarget.diagramId?.endsWith('--supply')
-      ) {
-        dropTarget = { ...rawTarget, type: 'mainBus', mainBusInsertIndex: 0 }
-      }
+      let dropTarget = normalizeBusFeedSupplyFrameDrop(rawTarget, symbol)
       if (
         rawTarget.type === 'circuit' &&
         rawTarget.circuitId &&
@@ -1194,7 +1146,7 @@ function EendraadCanvasInner({ onMultiFingerSwipe, capabilities }: EendraadCanva
       if (symbol.busFeedKind) {
         const panel = dropTarget.panelId ? getPanelById(dropTarget.panelId) : undefined
         if (!panel) return
-        const isSupplyFrameDrop = dropTarget.diagramId?.endsWith('--supply') ?? false
+        const isSupplyFrameDrop = isSupplyDiagramId(dropTarget.diagramId)
         if (isSupplyFrameDrop) {
           const didEnableSplit = panel.busSections?.length
             ? true

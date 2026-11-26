@@ -198,6 +198,26 @@ export const projectCommandExamples: Record<
         destination: { kind: 'endpoint', endpointId: 'switch-id' },
       },
     },
+    {
+      purpose:
+        'Start a new branch on a supply DC bus, or (with afterDeviceId) place right after that device inside its branch; a device after a fuse sits above it. busDeviceId is the dc_bus supply device.',
+      section: 'destination',
+      variant: 'dcBusBranch',
+      input: {
+        symbolId: 'dc_dc_converter',
+        destination: { kind: 'dcBusBranch', busDeviceId: 'dc-bus-id', afterDeviceId: 'fuse-id' },
+      },
+    },
+    {
+      purpose:
+        'Place on one DC output of a widened converter (resize it first with properties_resize_converter); the symbol joins the end of that output string, or follows afterDeviceId.',
+      section: 'destination',
+      variant: 'converterOutput',
+      input: {
+        symbolId: 'solar_panel',
+        destination: { kind: 'converterOutput', converterId: 'mppt-id', connectionIndex: 1 },
+      },
+    },
   ],
   'plan.drawWire': [
     {

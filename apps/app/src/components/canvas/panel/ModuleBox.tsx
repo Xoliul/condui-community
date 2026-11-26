@@ -20,6 +20,7 @@ import {
   getDomainForSymbol,
 } from '@/lib/symbols'
 import { getSurgeProtectionSymbolPath } from '@/lib/surgeProtectionSymbol'
+import { useProtectionSymbolSvgPath } from '@/hooks/useProtectionSymbolSvgPath'
 import {
   getConverterArtworkLayout,
   getConverterCornerPosition,
@@ -40,6 +41,7 @@ import { ModularSocketModuleGraphic } from './ModularSocketModuleGraphic'
 import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
 import { getPanelModuleLabelFontSize } from './panelModuleLabelLayout'
 import { getPanelModuleSpecLayout } from './panelModuleSpecLayout'
+import { getSelectionForRef } from './moduleSelection'
 
 const DRAG_THRESHOLD = 8
 const RESIZE_HANDLE_W = 10
@@ -53,7 +55,6 @@ export interface ModuleTooltipData {
 interface ModuleBoxProps {
   moduleRef: PanelGridModuleRef
   terminalStripMemberRefs?: PanelGridModuleRef[]
-  terminalStripRail?: 'top' | 'bottom'
   selectionOverride?: Selection
   x: number
   y: number
@@ -110,18 +111,6 @@ interface ModuleBoxProps {
   compactLabelMode?: boolean
 }
 
-function getSelectionForRef(ref: PanelGridModuleRef, endpoint?: Endpoint): Selection {
-  if (ref.kind === 'protection') return { type: 'protection', ids: [ref.id] }
-  if (ref.kind === 'trunkDevice') return { type: 'trunkDevice', ids: [ref.id] }
-  if (ref.kind === 'domotica') {
-    if (endpoint?.symbol === 'panel_distribution' && endpoint.panelId) {
-      return { type: 'panel', ids: [endpoint.panelId] }
-    }
-    return { type: 'endpoint', ids: [ref.endpointId] }
-  }
-  return { type: null, ids: [] }
-}
-
 const SPEC_FONT_SIZE = 7.5
 const SPEC_LINE_HEIGHT = 8.5
 const MAX_SPEC_LINES = 3
@@ -155,7 +144,6 @@ type ModuleDragEvent = KonvaEventObject<DragEvent>
 function ModuleBox({
   moduleRef,
   terminalStripMemberRefs,
-  terminalStripRail,
   selectionOverride,
   x,
   y,
@@ -710,9 +698,7 @@ function ModuleBox({
     moduleLabel, textWidth, topTextHeight,
     (text, size) => measureSymbolLabelTextWidth(text, fontFamily, size, moduleLabelFontStyle),
   )
-  const spdSymbolPath = spdDevice
-    ? getSurgeProtectionSymbolPath(spdDevice.surgeProtectionKind)
-    : null
+  const spdSymbolPath = useProtectionSymbolSvgPath(spdDevice ? getSurgeProtectionSymbolPath(spdDevice.surgeProtectionKind) : null)
 
   const { acSymbolImage, dcSymbolImage, energyDeviceImage, energyBaseImage, energyDiagonalImage, rotatingSwitchImage, spdSymbolImage, relaySymbolImage, relayControlOverlayImage, domoticaMainImage, domoticaControlImages } = useModuleArtwork({
     moduleKind: moduleRef.kind, domoticaProps, info, themeMode, isEnergyConversionModule,
@@ -778,27 +764,31 @@ function ModuleBox({
           const labelFontSize = Math.max(4.5, Math.min(9, effectiveModuleWidth * 0.42))
           const pinFontSize = Math.max(4, Math.min(8, effectiveModuleWidth * 0.38))
           const slim = effectiveModuleWidth < CELL_W * 0.55
-          const horizontal = terminalStripRail != null && effectiveModuleWidth > CELL_W * 2
+          const horizontal = effectiveModuleWidth > CELL_W * 0.55
           const dotsX = effectiveModuleWidth / 2
           const labelHeight = horizontal
             ? Math.min(10, Math.max(7, labelFontSize + 1))
             : Math.max(8, labelFontSize + 3)
           const labelY = height / 2 - labelHeight / 2
           const reservedTop = slim ? 13 : 4
-          const positions = Array.from({ length: pinCount }, (_, index) =>
+          const connectedPins = terminal.connectedPins
+          const displayedPins = connectedPins.length > 0
+            ? connectedPins
+            : Array.from({ length: pinCount }, (_, index) => index + 1)
+          const positions = displayedPins.map((pin, index) =>
             horizontal
               ? {
-                  x: (effectiveModuleWidth * (index + 1)) / (pinCount + 1),
+                  x: (effectiveModuleWidth * (index + 1)) / (displayedPins.length + 1),
                   y: height - Math.max(4, dotRadius + 2),
                 }
               : {
                   x: dotsX,
-                  y: reservedTop + ((height - reservedTop - 4) * (index + 1)) / (pinCount + 1),
+                  y: reservedTop + ((height - reservedTop - 4) * pin) / (pinCount + 1),
                 }
           )
-          const connectedPins = terminal.connectedPins
+          const pointByPin = new Map(displayedPins.map((pin, index) => [pin, positions[index]!]))
           const connectedPositions = connectedPins.map(
-            (pin) => positions[Math.min(pinCount - 1, Math.max(0, pin - 1))]!
+            (pin) => pointByPin.get(pin) ?? positions[0]!
           )
           const labelCandidates = horizontal ? [1] : [labelY, 2, height - labelHeight - 2]
           const resolvedLabelY = labelCandidates.reduce((best, candidate) => {
@@ -825,11 +815,17 @@ function ModuleBox({
                 />
               ))}
               {connectedPins.map((pin) => {
-                const point = positions[Math.min(pinCount - 1, Math.max(0, pin - 1))]!
+                const point = pointByPin.get(pin) ?? positions[0]!
+                const horizontalLabelWidth = Math.min(
+                  16,
+                  effectiveModuleWidth / (displayedPins.length + 1)
+                )
                 return (
                   <Text
                     key={`terminal-pin-${pin}`}
-                    x={horizontal ? point.x - 8 : slim ? 0 : dotsX + dotRadius + 2}
+                    x={horizontal
+                      ? point.x - horizontalLabelWidth / 2
+                      : slim ? 0 : dotsX + dotRadius + 2}
                     y={
                       horizontal
                         ? point.y - dotRadius - pinFontSize - 1
@@ -839,7 +835,7 @@ function ModuleBox({
                     }
                     width={
                       horizontal
-                        ? 16
+                        ? horizontalLabelWidth
                         : slim
                           ? effectiveModuleWidth
                           : Math.max(1, effectiveModuleWidth - dotsX - dotRadius - 3)

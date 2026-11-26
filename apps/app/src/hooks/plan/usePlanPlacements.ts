@@ -20,6 +20,7 @@ import { getElectricalLookupIndex } from '@/lib/projectV2/electricalLookupIndex'
 import { findProjectTrunkDevice } from '@/lib/projectV2/trunkDeviceLookup'
 import { findCircuitForEndpointInPanel } from '@/lib/eendraad/findCircuitForEndpointInPanel'
 import { findPanelContainingCircuit } from '@/lib/eendraad/projectElectricalDomain'
+import { getJunctionBoxPlanLabel } from '@/lib/plan/junctionBoxPlanLabel'
 
 type SitplanPlacementRow = Placement & {
   endpointId?: string
@@ -126,6 +127,11 @@ export function usePlanPlacements(
     const currentProject = electricalProject
     if (!activeFloorId || !currentProject || !projectId || !lookups) return []
     const floorPlacements = getPlacementsByFloor(activeFloorId)
+    const trunkInfoById = new Map<string, ReturnType<typeof lookups.trunk>>()
+    const getTrunkInfo = (id: string) => {
+      if (!trunkInfoById.has(id)) trunkInfoById.set(id, lookups.trunk(id))
+      return trunkInfoById.get(id)
+    }
     const hasGround = installationHasAnyEarthing(
       selectProjectElectricalPanels(currentProject),
       selectProjectElectricalInstallation(currentProject)
@@ -135,7 +141,7 @@ export function usePlanPlacements(
       if (placement.junctionPanelLabel != null || placement.enclosureId != null) return true
       const endpoint = placement.endpointId ? lookups.endpoint(placement.endpointId) : undefined
       const trunkInfo = placement.trunkDeviceId
-        ? lookups.trunk(placement.trunkDeviceId)
+        ? getTrunkInfo(placement.trunkDeviceId)
         : undefined
       const trunkDevice = trunkInfo?.device
       if (endpoint) return endpointSymbolVisibleOnSitplan(endpoint)
@@ -170,7 +176,7 @@ export function usePlanPlacements(
           return lookups.endpointPanel(placement.endpointId)?.id === sitplanPanelFilterId
         }
         if (placement.trunkDeviceId) {
-          const trunkInfo = lookups.trunk(placement.trunkDeviceId)
+          const trunkInfo = getTrunkInfo(placement.trunkDeviceId)
           if (
             trunkInfo?.isSupplyDevice &&
             trunkInfo.device.type === 'energy_meter' &&
@@ -188,7 +194,15 @@ export function usePlanPlacements(
         return false
       })
     }
-    return filtered
+    return filtered.map((placement) => {
+      if (!placement.trunkDeviceId) return placement
+      const trunkInfo = getTrunkInfo(placement.trunkDeviceId)
+      if (!trunkInfo?.circuit || trunkInfo.device.symbol !== 'junction_box') return placement
+      const planLabel = getJunctionBoxPlanLabel(trunkInfo.circuit, trunkInfo.device)
+      return planLabel && planLabel !== placement.planLabel
+        ? { ...placement, planLabel }
+        : placement
+    })
   }, [
     activeFloorId,
     electricalProject,

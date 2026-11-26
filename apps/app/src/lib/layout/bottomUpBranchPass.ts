@@ -6,6 +6,11 @@ import { getCircuitBranches, getStandardCircuitBranches } from './endpointChains
 import type { BranchLayout, TrunkLayout } from './wireSegments'
 import { calculateBranchWidth, getEndpointLayoutOffsets } from './bottomUpBranchWidths'
 import {
+  getHorizontalDomoticaExtraRows,
+  getHorizontalDomoticaLongestChain,
+  isHorizontalDomotica,
+} from './domoticaHorizontalGeometry'
+import {
   DOMOTICA_NOTE_LINE_HEIGHT,
   getDomoticaNoteBounds,
 } from '@/lib/eendraad/domoticaNotes'
@@ -27,10 +32,15 @@ import {
 import {
   getTrunkDeviceVerticalPaintHeight,
   TRUNK_DEVICE_BRANCH_CLEARANCE,
+  getTrunkDeviceMcbGap,
 } from './trunkDeviceSpacing'
 import { getBranchConverterMetadataCalloutHeight } from './circuitConverterMetadataCallouts'
 import { getControlButtonAnnotationBounds } from '@/lib/eendraad/controlButtonLabels'
 import { CIRCUIT_WIRE_LABEL_BRANCH_CLEARANCE } from './circuitWireLabelSpacing'
+import { applyAutomaticCircuitColumns } from './circuitColumnRows'
+import { planCircuitRuns, usesForkRowLayout } from './circuitRunPlan'
+import { circuitHasRootStems } from '@/lib/wires/riserStems'
+import { getRiserSplitGeometry } from './circuitRiserSplit'
 
 export interface BranchPassConstants {
   BRANCH_LEAD_IN: number
@@ -58,6 +68,7 @@ export interface CircuitLayoutForBranches {
   x: number
   leftReserve: number
   wireLabelSpan?: number
+  columnAnchorOffsets?: number[]
 }
 
 export interface BranchLayoutPassResult {
@@ -176,7 +187,7 @@ export function calculateFirstBranchY(
   )
   return trunkDevicesBeforeBranches.length > 0
     ? mcbStartY -
-        constants.TRUNK_DEVICE_MCB_GAP -
+        getTrunkDeviceMcbGap(circuitLayout.circuit, constants.TRUNK_DEVICE_MCB_GAP) -
         (trunkDevicesBeforeBranches.length - 1) *
           (constants.TRUNK_DEVICE_SPACING + constants.SYMBOL_SIZE) -
         constants.BRANCH_START_OFFSET -
@@ -229,6 +240,20 @@ function getDomoticaExtraRows(
   const visit = (module: Endpoint, inputRow: number, ancestry: Set<string>): number => {
     if (ancestry.has(module.id)) return inputRow
     const nextAncestry = new Set(ancestry).add(module.id)
+    if (isHorizontalDomotica(module)) {
+      // The body sits above the feed and its children above the body: reserve the height of the
+      // longest chain. A nested module on an output keeps growing upward from that child.
+      const rows = getHorizontalDomoticaExtraRows(
+        getHorizontalDomoticaLongestChain(module, branchEndpoints)
+      )
+      return (byParent.get(module.id) ?? []).reduce(
+        (maxRow, child) =>
+          child.symbol === 'domotica'
+            ? Math.max(maxRow, visit(child, rows, nextAncestry))
+            : maxRow,
+        inputRow + rows
+      )
+    }
     const endpointCount = Math.max(
       constants.DOMOTICA_MIN_ENDPOINT_OUTPUTS,
       Math.min(
@@ -337,14 +362,27 @@ function createEndpointBranchRows(
   firstBranchY: number,
   constants: BranchPassConstants,
   nestedBranchLabelClearance: number,
-  protection?: ProtectionDevice | null
+  protection?: ProtectionDevice | null,
+  columns?: { columnAnchorOffsets?: number[]; circuitMap: ReadonlyMap<string, Circuit>; wireLabelSpan?: number }
 ): BranchLayout[] {
-  if (hasOneWireForks(circuit)) return layoutCircuitForkBranches(circuit, startX, startY, firstBranchY, {
-    branchLeadIn: constants.BRANCH_LEAD_IN, endpointSpacing: constants.ENDPOINT_HORIZONTAL_SPACING,
-    applianceAfterSocketGap: constants.APPLIANCE_AFTER_SOCKET_GAP, rowSpacing: constants.ENDPOINT_BRANCH_SPACING,
-    trunkDeviceSpacing: constants.TRUNK_DEVICE_SPACING, bottomHeight: getBranchBottomLabelHeight,
-    topReserve: (endpoints) => getBranchMetadataCardClearance(endpoints, constants.SYMBOL_SIZE),
-  })
+  const runOptions = { protection, circuitMap: columns?.circuitMap }
+  if (usesForkRowLayout(circuit, runOptions)) {
+    const plan = planCircuitRuns(circuit, runOptions)
+    const offsets = columns?.columnAnchorOffsets
+    // Manual risers split off above the breaker: lift the rows so each riser's cable caption still has its full span.
+    const split = circuitHasRootStems(circuit)
+      ? getRiserSplitGeometry(circuit, startY, firstBranchY, constants, (columns?.wireLabelSpan ?? 0) + CIRCUIT_WIRE_LABEL_BRANCH_CLEARANCE)
+      : null
+    const liftedFirstY = split ? firstBranchY - split.lift : firstBranchY
+    return layoutCircuitForkBranches(circuit, startX, startY, liftedFirstY, {
+      branchLeadIn: constants.BRANCH_LEAD_IN, endpointSpacing: constants.ENDPOINT_HORIZONTAL_SPACING,
+      applianceAfterSocketGap: constants.APPLIANCE_AFTER_SOCKET_GAP, rowSpacing: constants.ENDPOINT_BRANCH_SPACING,
+      trunkDeviceSpacing: constants.TRUNK_DEVICE_SPACING, bottomHeight: getBranchBottomLabelHeight,
+      topReserve: (endpoints) => getBranchMetadataCardClearance(endpoints, constants.SYMBOL_SIZE),
+      columnBottomExtent: (endpoints) => Math.max(ENDPOINT_LABEL_FIXED_VERTICAL_CLEARANCE + getBranchBottomLabelHeight(endpoints),
+        getDomoticaBranchBottomExtent(endpoints, constants.SYMBOL_SIZE)),
+    }, plan && offsets && offsets.length === plan.runs.length ? { plan, offsets, splitRise: split?.splitRise } : undefined)
+  }
   const endpointBranches = getStandardCircuitBranches(circuit)
   const storedBranches = (circuit.branches ?? []).filter((branch) => !branch.dcBusId)
   const result: BranchLayout[] = []
@@ -474,7 +512,13 @@ function createEndpointBranchRows(
       getDomoticaExtraRows(branchEndpoints, constants) * constants.DOMOTICA_OUTPUT_SPACING
   })
 
-  return result
+  return columns
+    ? applyAutomaticCircuitColumns(circuit, result, firstBranchY, {
+        ...columns, protection, rowSpacing: constants.ENDPOINT_BRANCH_SPACING,
+        bottomExtent: (endpoints) => Math.max(ENDPOINT_LABEL_FIXED_VERTICAL_CLEARANCE + getBranchBottomLabelHeight(endpoints),
+          getDomoticaBranchBottomExtent(endpoints, constants.SYMBOL_SIZE)),
+      })
+    : result
 }
 
 /** Topmost branch anchor among an already-collected set of a circuit's branches. */
@@ -589,7 +633,8 @@ function processNestedCircuitBranches(
           nestedFirstBranchY,
           constants,
           NESTED_BRANCH_LABEL_CLEARANCE,
-          nestedCircuitLayout?.protection
+          nestedCircuitLayout?.protection,
+          { columnAnchorOffsets: nestedCircuitLayout?.columnAnchorOffsets, circuitMap }
         )
       )
     }
@@ -650,7 +695,8 @@ export function calculateBranchLayoutPass(
     const circuitBranchRows =
       getNonPanelEndpoints(circuit).length === 0 && !hasOneWireForks(circuit)
         ? [createEmptyBranch(circuit, startX, startY, firstBranchY)]
-        : createEndpointBranchRows(circuit, startX, startY, firstBranchY, constants, 0, circuitLayout.protection)
+        : createEndpointBranchRows(circuit, startX, startY, firstBranchY, constants, 0, circuitLayout.protection,
+            { columnAnchorOffsets: circuitLayout.columnAnchorOffsets, circuitMap, wireLabelSpan: circuitLayout.wireLabelSpan })
     branches.push(...circuitBranchRows)
 
     if (nestedCircuits.length === 0) continue

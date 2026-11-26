@@ -39,6 +39,7 @@ import type { Point } from '@/types/ui'
 import { getSupplyProtectionLabelCollisionInfo } from '@/lib/eendraad/supplyProtectionLabelCollisions'
 import { findPanelDistributionEndpointInCircuit } from '@/lib/eendraad/panelSupplyLink'
 import { isNumberedCircuitTrunkSwitch } from '@/lib/eendraad/circuitPointNumbering'
+import { isStructuralCarrierProtection } from '@/lib/eendraad/structuralCarrier'
 import { countPanelCircuits } from '@/utils/plan/placementHelpers'
 import {
   getPanelSupplyOrientationContext,
@@ -169,7 +170,8 @@ const PositionedRenderIsland = memo(function PositionedRenderIsland({
   disableViewportIsland,
 }: RenderNodeProps) {
   const [local, setLocal] = useState(() => ({
-    source: node, node: localizeLayoutNode(node, node.bounds.x, node.bounds.y),
+    source: node,
+    node: localizeLayoutNode(node, node.bounds.x, node.bounds.y),
   }))
   if (local.source !== node) {
     const localized = localizeLayoutNode(node, node.bounds.x, node.bounds.y)
@@ -221,9 +223,14 @@ const RenderNode = memo(function RenderNodeImpl({
   const renderProjectOverride = useContext(OneWireRenderProjectContext)
   const detailScope = useContext(DiagramDetailContext)
   if (
-    detailScope.localized && !detailScope.materialized && !disableViewportIsland &&
-    (node.type === 'rcd' || node.type === 'mcb' || node.type === 'branch' ||
-      node.visual?.type === 'symbol' || node.visual?.type === 'label')
+    detailScope.localized &&
+    !detailScope.materialized &&
+    !disableViewportIsland &&
+    (node.type === 'rcd' ||
+      node.type === 'mcb' ||
+      node.type === 'branch' ||
+      node.visual?.type === 'symbol' ||
+      node.visual?.type === 'label')
   ) {
     return (
       <ViewportDetailRegion bounds={diagramDetailBounds(node)}>
@@ -355,7 +362,7 @@ const RenderNode = memo(function RenderNodeImpl({
       const targetPanel =
         protection.subPanelId && getPanelById ? getPanelById(protection.subPanelId) : undefined
       const renderProtectionSymbol = !(
-        protection.directDcBusFeeder === true ||
+        protection.directDcBusFeeder === true || protection.directTrunkFeeder === true ||
         ((node.id.includes('-nest-') || protection.directPanelFeeder === true) &&
           isPanelOnlySubPanelFeeder(protection, node.circuitIdForWires, targetPanel))
       )
@@ -390,8 +397,7 @@ const RenderNode = memo(function RenderNodeImpl({
           )}
           {!renderProtectionSymbol &&
             !node.id.includes('-nest-') &&
-            !protection.directPanelFeeder &&
-            !protection.directDcBusFeeder && (
+            !isStructuralCarrierProtection(protection) && (
               <ProtectionSymbol
                 protection={protection}
                 position={{ x: node.bounds.x, y: node.bounds.y }}
@@ -504,12 +510,19 @@ const RenderNode = memo(function RenderNodeImpl({
 
         if (subPanel) {
           // The fed main panel of a hosted stub feeder is not a sub-panel attachment.
-          const allowAttachmentDrag = !node.id.startsWith('feed-stub-feeder-panel-') && !endpoint?.domoticaChildProps
+          const allowAttachmentDrag =
+            !node.id.startsWith('feed-stub-feeder-panel-') && !endpoint?.domoticaChildProps
           const outputBranch = endpoint?.domoticaChildProps
-            ? panelLayout?.branches.find((branch) => branch.endpoints.some((candidate) => candidate.id === endpoint.id))
+            ? panelLayout?.branches.find((branch) =>
+                branch.endpoints.some((candidate) => candidate.id === endpoint.id)
+              )
             : undefined
-          const hasOutputCaption = !!(endpoint && outputBranch && panelLayout &&
-            getDomoticaRowLabelPlacement(panelLayout, outputBranch.endpoints, endpoint))
+          const hasOutputCaption = !!(
+            endpoint &&
+            outputBranch &&
+            panelLayout &&
+            getDomoticaRowLabelPlacement(panelLayout, outputBranch.endpoints, endpoint)
+          )
           const feederProtectionId = node.id.startsWith('subpanel-symbol-')
             ? node.id.slice('subpanel-symbol-'.length)
             : undefined
@@ -538,7 +551,8 @@ const RenderNode = memo(function RenderNodeImpl({
               ? Math.max(40, nextColumnX - labelStartX - 8)
               : Math.max(80, panelLayout!.frame.x + panelLayout!.frame.width - labelStartX - 12)
 
-          const latestProject = renderProjectOverride?.project ?? useProjectStore.getState().currentProject
+          const latestProject =
+            renderProjectOverride?.project ?? useProjectStore.getState().currentProject
           const panelName =
             latestProject != null
               ? getPanelSymbolLabel(latestProject, subPanel, advancedPanelLabels)
@@ -624,6 +638,7 @@ const RenderNode = memo(function RenderNodeImpl({
           mirrorHorizontally={
             node.visual?.type === 'symbol' ? node.visual.mirrorHorizontally : undefined
           }
+          symbolRotationDeg={node.visual?.type === 'symbol' ? node.visual.rotationDeg : undefined}
           bottomLabelMinimumLeftX={
             node.visual?.type === 'symbol' ? node.visual.bottomLabelMinimumLeftX : undefined
           }
@@ -686,9 +701,7 @@ const RenderNode = memo(function RenderNodeImpl({
             isHorizontal={isSupplyTrunkDevice && !isVerticalSupplyBranchDevice}
             symbolRotationDeg={node.visual?.type === 'symbol' ? node.visual.rotationDeg : undefined}
             protectionLabelPosition={isVerticalSupplyBranchDevice ? 'right' : undefined}
-            showDeviceLabelLeft={
-              isSubPanelSupplyTrunkDevice || isVerticalSupplyBranchDevice
-            }
+            showDeviceLabelLeft={isSubPanelSupplyTrunkDevice || isVerticalSupplyBranchDevice}
             showCircuitPointLabel={
               !isSupplyTrunkDevice &&
               !isSubPanelSupplyTrunkDevice &&
@@ -778,7 +791,9 @@ const RenderNode = memo(function RenderNodeImpl({
             onTap={selectSupply}
           >
             <CircuitLabel
-              previewSection={isSupplyFeedLabel ? undefined : labelCircuit ? 'circuits' : 'branches'}
+              previewSection={
+                isSupplyFeedLabel ? undefined : labelCircuit ? 'circuits' : 'branches'
+              }
               x={node.bounds.x}
               y={node.bounds.y}
               label={

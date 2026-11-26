@@ -9,6 +9,7 @@ import { getPushbuttonOverlayPath, type SwitchSymbolProps } from './switchSymbol
 export type { SwitchSymbolProps } from './switchSymbolProps'
 import type { ElectricalDomain } from '../types/schema'
 import { DEFAULT_ELECTRICAL_DOMAIN as DEFAULT_DOMAIN } from '../types/schema'
+import { DOMOTICA_SHARED_TAGS, libraryPresetEntries } from './libraryPresetEntries'
 
 export interface SymbolMetadata {
   id: string
@@ -1075,15 +1076,9 @@ export const symbols: SymbolMetadata[] = [
     scope: 'both',
     svgPath: '/symbols/domotica/domotica.svg',
     iconSvgPath: '/symbols/domotica/domotica_icon.svg',
-    tags: [
-      'domotica',
-      'smarthome',
-      'smart home',
-      'domotique',
-      'slimme installatie',
-      'teleruptor',
-    ],
+    tags: ['domotica', 'smarthome', 'smart home', 'domotique', 'slimme installatie', 'teleruptor', ...DOMOTICA_SHARED_TAGS],
   },
+  ...libraryPresetEntries,
 
   // Metering
   {

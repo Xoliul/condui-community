@@ -10,6 +10,7 @@ import {
   selectProjectAuxiliaryElectricalEnclosures,
 } from '@/lib/projectV2/electrical'
 import { orderPanelsByNumber } from '@/lib/panel/panelNumberOrder'
+import { isBoardPanel } from '@/lib/supplyTaps/virtualPanel'
 import { getPanelDisplayName } from '@/utils/panelNames'
 import { collectJunctionIdentities } from '@/lib/junctionIdentity'
 import {
@@ -284,7 +285,7 @@ export function LabelStripExportDialog({
     const panels = orderPanelsByNumber(
       getProjectElectricalPanels(currentProject),
       getProjectElectricalInstallation(currentProject)
-    )
+    ).filter(isBoardPanel)
     const panelSources = panels.map((panel: Panel) => {
       const modules = getPanelGridModules(panel.id).filter(
         (module) => !(module.ref.kind === 'trunkDevice' && module.ref.scope === 'ground')

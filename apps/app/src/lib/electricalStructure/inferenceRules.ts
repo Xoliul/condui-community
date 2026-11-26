@@ -70,4 +70,12 @@ export const ELECTRICAL_STRUCTURE_INFERENCE_RULES = {
     emits: 'represents-occurrence-of',
     reviewCondition: 'Remove when placements are first-class typed V2 occurrences.',
   },
+  supplyTapOrigin: {
+    id: 'v2.supply-tap-origin',
+    description:
+      'A supply tap is fed from its origin on the grid side: the first terminal strip after the nearest upstream protection, else that protection. Taps sharing an origin form a star from it; each gets a terminal on an originating strip (explicit when the tap starts with its own strip section, else implicit).',
+    acceptedSourceFacts: ['Panel.supplyTap', 'Circuit.supplyTap', 'InstallationFeedTopology.rootFeeds[].trunkDevices[]'],
+    emits: 'feeds',
+    reviewCondition: 'Remove when V2 persists the tap feed and its terminal as explicit relationships.',
+  },
 } as const satisfies Record<string, ElectricalStructureInferenceRule>

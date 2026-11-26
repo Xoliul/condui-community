@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Group, Rect, Line, Circle, Image } from 'react-konva'
+import { useDetailedProtectionSymbols } from '@/hooks/useProtectionSymbolSvgPath'
+import { resolveProtectionSvgPath } from '@/lib/detailedProtectionSymbols'
 import { getSymbolById } from '@/lib/symbols'
 import type { SymbolMetadata } from '@/lib/symbols'
 import { loadProcessedSymbol } from '@/lib/symbolImage'
@@ -50,6 +52,7 @@ export function DragPreview({
   const previewColor = '#0284c7' // Blue for preview
   const previewOpacity = 0.6
   const isDark = useSettingsStore((state) => state.theme.mode === 'dark')
+  const detailedProtection = useDetailedProtectionSymbols()
   const [symbolImage, setSymbolImage] = useState<HTMLImageElement | null>(null)
   const [imageSource, setImageSource] = useState({ symbolData, isDark })
   if (imageSource.symbolData !== symbolData || imageSource.isDark !== isDark) {
@@ -124,7 +127,7 @@ export function DragPreview({
     if (!symbol || !symbol.svgPath) return
 
     let cancelled = false
-    loadProcessedSymbol(symbol.svgPath, isDark)
+    loadProcessedSymbol(resolveProtectionSvgPath(symbol.svgPath, detailedProtection), isDark)
       .then((image) => {
         if (!cancelled) setSymbolImage(image)
       })
@@ -134,7 +137,7 @@ export function DragPreview({
     return () => {
       cancelled = true
     }
-  }, [isDark, symbolData])
+  }, [isDark, symbolData, detailedProtection])
 
   if (!layout || !dropTarget) return null
 
@@ -198,7 +201,7 @@ export function DragPreview({
     } else if (dropTarget.type === 'circuit' && dropTarget.circuitId) {
       // Highlight vertical wire for the circuit
       const verticalWire = panelWires.find(
-        s => s.circuitId === dropTarget.circuitId && s.type === 'vertical'
+        s => s.circuitId === dropTarget.circuitId && s.type === 'vertical' && !s.trunkContinuation && !s.riserStem
       )
       if (verticalWire) hoveredWireSegments.push(verticalWire)
       
@@ -347,7 +350,7 @@ export function DragPreview({
             // Find the vertical wire for this circuit
             const verticalWires = wireSegments.filter(
               s => s.circuitId === dropTarget.circuitId &&
-                   s.type === 'vertical' &&
+                   s.type === 'vertical' && !s.trunkContinuation && !s.riserStem &&
                    s.panelId === panelLayout.panel.id &&
                    (s.diagramId ?? s.panelId) === getPanelDiagramId(panelLayout)
             )
@@ -523,7 +526,7 @@ export function DragPreview({
             // Find vertical wire segments for this circuit
             const verticalWires = wireSegments.filter(
               s => s.circuitId === dropTarget.circuitId &&
-                   s.type === 'vertical' &&
+                   s.type === 'vertical' && !s.trunkContinuation && !s.riserStem &&
                    s.panelId === panelLayout.panel.id &&
                    (s.diagramId ?? s.panelId) === getPanelDiagramId(panelLayout)
             )
@@ -631,7 +634,7 @@ export function DragPreview({
             // Find the actual vertical wire segment for this circuit to get the correct X position and top end
             const verticalWire = wireSegments.find(
               s => s.circuitId === dropTarget.circuitId && 
-                   s.type === 'vertical' && 
+                   s.type === 'vertical' && !s.trunkContinuation && !s.riserStem &&
                    s.panelId === panelLayout.panel.id &&
                    (s.diagramId ?? s.panelId) === getPanelDiagramId(panelLayout)
             )

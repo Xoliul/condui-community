@@ -1,23 +1,42 @@
 /** Main-bus scene geometry, with circuit builders supplied by the scene assembler. */
-import type { Panel, ProtectionDevice } from '@/types/schema'
 import type { LayoutNode } from './layoutTree'
 import type { BottomUpCircuitLayout, BottomUpLayoutElement, BottomUpPanelLayout } from './bottomUpLayout'
 import { LAYOUT_CONSTANTS } from './bottomUpLayoutConstants'
 import { getPanelDiagramId } from './bottomUpLayout'
-import { PANEL_BUS_FEED_GAP } from '@/lib/panel/panelBusFeedPreview'
-import { getPrimaryPanelBusSectionId, getProtectionBusSectionId, hasExplicitPanelBusSections } from '@/lib/panel/panelBusSections'
-import { applyHostedFeederSectionCut } from './feedStubFeeders'
 import { getDirectConverterChangeoverInsertIndex } from '@/lib/supplyAssembly/directConverterBackupUpgrade'
-import { getSecondaryBusSectionBoundaryX } from './mainBusSectionBoundary'
+import { buildMainBusSegmentNodes } from './mainBusSegmentNodes'
+import {
+  horizontalSupplyHitNode,
+  isChangeoverGridRailDrawn,
+  resolveChangeoverGridRailStartX,
+  resolveDrawnChangeoverElbowX,
+  resolveGroundWireTopY,
+  resolveSupplyBusRunStubX,
+  verticalSupplyHitNode,
+} from './supplyHitZoneGeometry'
+import { isSupplyTapNode, markSupplyTapNodes } from './layoutTreeSupplyTaps'
 import { getSupplyConverterBodyGeometry } from './circuitConverterGeometry'
 import { getSupplyConverterDcConnectionIndex } from '@/lib/supplyAssembly/converterDcConnections'
 import { isConverterGridLegPlacement, orderConverterGridLegDevicesFromConverter } from '@/lib/supplyAssembly/changeoverGridSource'
 
-function getProtectionBusSectionIdForLayoutNode(panel: Panel, node: LayoutNode): string {
-  const protection = node.domainRef as ProtectionDevice | undefined
-  return protection
-    ? getProtectionBusSectionId(panel, protection)
-    : getPrimaryPanelBusSectionId(panel)
+/**
+ * Bottom y of a feed stub insertion gap. The backup section's stub is a changeover load riser, which
+ * deriveWires draws down to the changeover's row, beyond the end of the stub stack.
+ */
+export function resolveFeedStubGapEndY(
+  panelLayout: BottomUpPanelLayout,
+  busSectionId: string,
+  centers: readonly number[],
+  gapIndex: number
+): number {
+  const isLastGap = gapIndex === centers.length - 2
+  const endY = centers[gapIndex + 1]!
+  const isBackup = panelLayout.panel.busSections?.some(
+    (section) => section.id === busSectionId && section.role === 'backup'
+  )
+  const branches = panelLayout.supplyChangeoverBranches
+  if (isLastGap && branches && isBackup) return Math.max(endY, branches.y)
+  return endY - (isLastGap ? 0 : 13)
 }
 
 export function buildMainBusNode(
@@ -84,6 +103,13 @@ export function buildMainBusNode(
       children.push(mcbNode)
     }
   }
+
+  markSupplyTapNodes(panelLayout, children)
+  const busSegmentNodes = buildMainBusSegmentNodes(panelLayout, mainBusElement, children)
+  // The changeover frame draws its load riser at the backup section's feed stub.
+  const backupBusStubX = panelLayout.supplyChangeoverBranches
+    ? resolveSupplyBusRunStubX(busSegmentNodes, panelLayout.panel, 'backup')
+    : undefined
 
   // Supply wire: drop target for inserting energy meters and protection devices.
   // The wire goes from main bus down to the bend point, then optionally horizontal to the supply symbol.
@@ -188,7 +214,7 @@ export function buildMainBusNode(
         id: `supply-wire-vertical-${diagramId}`,
         type: 'wire',
         bounds: {
-          x: bendX - pad,
+          x: (backupBusStubX ?? bendX) - pad,
           y: mainBusElement.position.y,
           width: pad * 2,
           height: (separateConverter?.y ?? bendY) - mainBusElement.position.y,
@@ -409,6 +435,12 @@ export function buildMainBusNode(
     const backupConverter = devices.find((candidate) => candidate.device.supplyPath === 'backup')
     const converterGridInputConnected =
       backupConverter?.device.converterGridInputConnected !== false
+    // deriveWires re-derives the riser x from the positioned nodes; follow it, not the layout field.
+    const elbowX = resolveDrawnChangeoverElbowX(panelLayout, devices)
+    const rightPortX = changeoverBranches.x + LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_RENDER_SIZE / 2
+    const portOffset = (LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_RENDER_SIZE * 7) / 24
+    const upperPortY = changeoverBranches.y - portOffset
+    const lowerPortY = changeoverBranches.y + portOffset
     const isBranchDevice = (candidate: (typeof devices)[number]) =>
       ['backup', 'backup-output', 'changeover-grid', 'converter-grid'].includes(
         candidate.device.supplyPath ?? ''
@@ -450,7 +482,7 @@ export function buildMainBusNode(
       const outputDevices = devices.filter(
         (candidate) => candidate.x < changeover.x && !isBranchDevice(candidate)
       )
-      let previousX = panelLayout.supplyBend?.x ?? changeover.x
+      let previousX = backupBusStubX ?? panelLayout.supplyBend?.x ?? changeover.x
       for (const candidate of [...outputDevices, changeover]) {
         pushLaneSegment(
           `supply-changeover-load-slot-${panelLayout.panel.id}-${candidate.device.id}`,
@@ -470,7 +502,12 @@ export function buildMainBusNode(
             candidate.device.changeoverGridPlacement !== 'input-leg'
         )
         .sort((a, b) => a.x - b.x)
-      const gridRailX = groundElement?.position.x ?? mainBusElement.position.x + 20
+      const gridBusStubX = resolveSupplyBusRunStubX(busSegmentNodes, panelLayout.panel, 'normal')
+      const gridRailX = resolveChangeoverGridRailStartX(
+        gridBusStubX,
+        groundElement?.position.x,
+        mainBusElement.position.x
+      )
       previousX = gridRailX
       for (const candidate of changeoverGridDevices) {
         pushLaneSegment(
@@ -484,25 +521,46 @@ export function buildMainBusNode(
         )
         previousX = candidate.x
       }
-      pushLaneSegment(
-        `supply-changeover-grid-rail-slot-${panelLayout.panel.id}-append`,
-        previousX,
-        changeoverBranches.elbowX,
-        changeoverBranches.lowerY,
-        Math.max(
-          changeover.feedIndex + 1,
-          ...changeoverGridDevices.map((candidate) => candidate.feedIndex + 1),
-          ...devices
-            .filter(
-              (candidate) =>
-                candidate.device.supplyPath === 'changeover-grid' &&
-                candidate.device.changeoverGridPlacement === 'input-leg'
-            )
-            .map((candidate) => candidate.feedIndex + 1)
-        ),
-        'root',
-        'supplyChangeoverGridWire'
+      const railAppendIndex = Math.max(
+        changeover.feedIndex + 1,
+        ...changeoverGridDevices.map((candidate) => candidate.feedIndex + 1),
+        ...devices
+          .filter(
+            (candidate) =>
+              candidate.device.supplyPath === 'changeover-grid' &&
+              candidate.device.changeoverGridPlacement === 'input-leg'
+          )
+          .map((candidate) => candidate.feedIndex + 1)
       )
+      // An empty rail (no grid bus section, no inline grid device) has no drawn wire, so no zone.
+      if (isChangeoverGridRailDrawn(gridBusStubX, changeoverGridDevices.length)) {
+        pushLaneSegment(
+          `supply-changeover-grid-rail-slot-${panelLayout.panel.id}-append`,
+          previousX,
+          elbowX,
+          changeoverBranches.lowerY,
+          railAppendIndex,
+          'root',
+          'supplyChangeoverGridWire'
+        )
+      }
+      if (gridBusStubX != null) {
+        // The grid section's riser: it carries the first rail section's insertion point.
+        const riser = verticalSupplyHitNode(
+          `supply-changeover-grid-bus-riser-${panelLayout.panel.id}`,
+          gridBusStubX,
+          mainBusElement.position.y + (mainBusElement.height || LAYOUT_CONSTANTS.BUS_THICKNESS) / 2,
+          changeoverBranches.lowerY,
+          {
+            type: 'supplyChangeoverGridWire',
+            padding: 0,
+            supplyFeedScope: 'root',
+            supplyInsertIndex: changeoverGridDevices[0]?.feedIndex ?? railAppendIndex,
+            supplyPanelId: panelLayout.panel.id,
+          }
+        )
+        if (riser) children.unshift(riser)
+      }
       const changeoverGridInputLegDevices = devices
         .filter(
           (candidate) =>
@@ -514,7 +572,7 @@ export function buildMainBusNode(
       // devices inline (the first stored one nearest the T), and rises to port 1 at the riser
       // when the T sits lower than the port.
       const converterInputTap = changeoverBranches.converterInputTap
-      const portOneRiserX = converterInputTap?.riserX ?? changeoverBranches.elbowX
+      const portOneRiserX = elbowX
       if (converterInputTap) {
         const towardsTap = converterInputTap.x >= portOneRiserX
         const lane = [...changeoverGridInputLegDevices].sort((a, b) =>
@@ -556,8 +614,28 @@ export function buildMainBusNode(
             children: [],
           })
         }
-        const portY = changeover.y + (LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_RENDER_SIZE * 7) / 24
-        if (converterInputTap.y > portY) {
+        const portY = lowerPortY
+        const tapPortOneHitZone = {
+          type: 'supplyChangeoverGridWire' as const,
+          padding: 0,
+          supplyFeedScope: 'root' as const,
+          // Nearest the switch: after every stored port-1 device.
+          supplyInsertIndex: nearestSwitch
+            ? Math.max(...lane.map((candidate) => candidate.feedIndex)) + 1
+            : changeover.feedIndex,
+          supplyPanelId: panelLayout.panel.id,
+          changeoverGridPlacement: 'input-leg' as const,
+          changeoverGridSource: 'converter-input' as const,
+        }
+        const tapStub = horizontalSupplyHitNode(
+          `supply-changeover-converter-input-stub-${panelLayout.panel.id}`,
+          rightPortX,
+          portOneRiserX,
+          portY,
+          tapPortOneHitZone
+        )
+        if (tapStub) children.unshift(tapStub)
+        if (converterInputTap.y > portY + 0.01) {
           children.unshift({
             id: `supply-changeover-converter-input-riser-slot-${panelLayout.panel.id}`,
             type: 'wire',
@@ -567,18 +645,7 @@ export function buildMainBusNode(
               width: pad * 2,
               height: converterInputTap.y - portY + pad * 2,
             },
-            hitZone: {
-              type: 'supplyChangeoverGridWire',
-              padding: 0,
-              supplyFeedScope: 'root',
-              // Nearest the switch: after every stored port-1 device.
-              supplyInsertIndex: nearestSwitch
-                ? Math.max(...lane.map((candidate) => candidate.feedIndex)) + 1
-                : changeover.feedIndex,
-              supplyPanelId: panelLayout.panel.id,
-              changeoverGridPlacement: 'input-leg' as const,
-              changeoverGridSource: 'converter-input' as const,
-            },
+            hitZone: tapPortOneHitZone,
             children: [],
           })
         }
@@ -587,7 +654,7 @@ export function buildMainBusNode(
         ? []
         : [
             {
-              y: changeover.y + (LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_RENDER_SIZE * 7) / 24,
+              y: lowerPortY,
               index: changeover.feedIndex,
             },
             ...changeoverGridInputLegDevices.map((candidate) => ({
@@ -596,6 +663,26 @@ export function buildMainBusNode(
             })),
             { y: changeoverBranches.lowerY, index: changeover.feedIndex },
           ]
+      if (changeoverGridInputLegWaypoints.length > 1) {
+        // The feed leaves port 1 sideways before it turns onto the riser.
+        const stub = horizontalSupplyHitNode(
+          `supply-changeover-grid-input-stub-${panelLayout.panel.id}`,
+          rightPortX,
+          portOneRiserX,
+          lowerPortY,
+          {
+            type: 'supplyChangeoverGridWire',
+            padding: 0,
+            supplyFeedScope: 'root',
+            // Same position as the riser slot below it (the top slot sits after the first device).
+            supplyInsertIndex:
+              changeoverGridInputLegWaypoints[1]!.index + (changeoverGridInputLegWaypoints.length > 2 ? 1 : 0),
+            supplyPanelId: panelLayout.panel.id,
+            changeoverGridPlacement: 'input-leg',
+          }
+        )
+        if (stub) children.unshift(stub)
+      }
       for (let index = 0; index < changeoverGridInputLegWaypoints.length - 1; index++) {
         const from = changeoverGridInputLegWaypoints[index]!
         const to = changeoverGridInputLegWaypoints[index + 1]!
@@ -613,7 +700,10 @@ export function buildMainBusNode(
             type: 'supplyChangeoverGridWire',
             padding: 0,
             supplyFeedScope: 'root',
-            supplyInsertIndex: to.index,
+            // The riser is stored bottom-up (grid first), the waypoints run top-down: a slot sits
+            // after the device below it, or before the one above when nothing is below.
+            supplyInsertIndex:
+              index + 1 < changeoverGridInputLegWaypoints.length - 1 ? to.index + 1 : from.index,
             supplyPanelId: panelLayout.panel.id,
             changeoverGridPlacement: 'input-leg' as const,
           },
@@ -621,7 +711,7 @@ export function buildMainBusNode(
         })
       }
       const gridTapX = backupConverter?.x ?? changeoverBranches.slotEndX
-      previousX = changeoverBranches.elbowX
+      previousX = elbowX
       const converterGridDevices = converterGridInputConnected
         ? devices
             .filter(
@@ -755,8 +845,12 @@ export function buildMainBusNode(
         }
       }
 
+      // DC devices belong to the converter's DC wires, not to the AC grid lane.
       const gridDevices = devices.filter(
-        (candidate) => candidate.x > changeover.x && !isBranchDevice(candidate)
+        (candidate) =>
+          candidate.x > changeover.x &&
+          !isBranchDevice(candidate) &&
+          !['converter-dc', 'converter-dc-top'].includes(candidate.device.supplyPath ?? '')
       )
       let previousScope: 'shared' | 'root' = 'root'
       for (const candidate of gridDevices) {
@@ -791,7 +885,8 @@ export function buildMainBusNode(
         previousX = candidate.x
         previousScope = candidate.feedScope
       }
-      const supplyEndX = supply.x + LAYOUT_CONSTANTS.SYMBOL_SIZE / 2
+      // The grid lane stops at the supply symbol, not past it.
+      const supplyEndX = supply.x
       if (previousScope === 'root') {
         const separatorX = (previousX + supplyEndX) / 2
         pushLaneSegment(
@@ -824,8 +919,46 @@ export function buildMainBusNode(
       const backupOutputDevices = devices
         .filter((candidate) => candidate.device.supplyPath === 'backup-output')
         .sort((a, b) => a.x - b.x)
+      // Port 2 leaves the switch sideways and turns up at the riser onto the backup lane.
+      const pushBackupPortWires = (
+        type: 'supplyBackupOutputWire' | 'supplyBackupWire',
+        insertIndex: number
+      ) => {
+        const hitZone = {
+          type,
+          padding: 0,
+          supplyFeedScope: 'root' as const,
+          supplyInsertIndex: insertIndex,
+          supplyPanelId: panelLayout.panel.id,
+        }
+        for (const node of [
+          horizontalSupplyHitNode(
+            `supply-changeover-backup-port-${panelLayout.panel.id}`,
+            rightPortX,
+            elbowX,
+            upperPortY,
+            hitZone
+          ),
+          verticalSupplyHitNode(
+            `supply-changeover-backup-riser-${panelLayout.panel.id}`,
+            elbowX,
+            changeoverBranches.upperY,
+            upperPortY,
+            hitZone
+          ),
+        ]) {
+          if (node) children.unshift(node)
+        }
+      }
       if (backupConverter) {
-        previousX = changeoverBranches.elbowX
+        const firstBackupSlot = [...backupOutputDevices, backupConverter][0]!
+        pushBackupPortWires(
+          'supplyBackupOutputWire',
+          firstBackupSlot.device.supplyPath === 'backup'
+            ? changeover.feedIndex
+            : firstBackupSlot.feedIndex
+        )
+        previousX = elbowX
         for (const candidate of [...backupOutputDevices, backupConverter]) {
           pushLaneSegment(
             `supply-changeover-backup-output-slot-${panelLayout.panel.id}-${candidate.device.id}`,
@@ -839,7 +972,14 @@ export function buildMainBusNode(
           previousX = candidate.x
         }
       } else {
-        previousX = changeoverBranches.elbowX
+        const firstBackupOutput = backupOutputDevices[0]
+        pushBackupPortWires(
+          firstBackupOutput ? 'supplyBackupOutputWire' : 'supplyBackupWire',
+          firstBackupOutput
+            ? firstBackupOutput.feedIndex
+            : (backupOutputDevices.at(-1)?.feedIndex ?? changeover.feedIndex) + 1
+        )
+        previousX = elbowX
         for (const candidate of backupOutputDevices) {
           pushLaneSegment(
             `supply-changeover-backup-slot-${panelLayout.panel.id}-${candidate.device.id}`,
@@ -855,7 +995,7 @@ export function buildMainBusNode(
         pushLaneSegment(
           `supply-changeover-backup-slot-${panelLayout.panel.id}-append`,
           previousX,
-          changeoverBranches.slotEndX,
+          (backupOutputDevices.at(-1)?.x ?? elbowX) + LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_SLOT_LENGTH,
           changeoverBranches.upperY,
           backupOutputDevices.at(-1)?.feedIndex != null
             ? backupOutputDevices.at(-1)!.feedIndex + 1
@@ -1185,8 +1325,18 @@ export function buildMainBusNode(
   // This must be added AFTER supply wire so it's checked first in hit detection
   if (groundElement && mainBusElement.position) {
     const pad = 10
-    const wireY = Math.min(groundElement.position.y, mainBusElement.position.y)
-    const wireHeight = Math.abs(groundElement.position.y - mainBusElement.position.y)
+    // With split bus sections the earth wire rises to the grid lane, not to the bus.
+    const hasMainBusConnections = children.some((child) => {
+      if (child.type !== 'rcd' && child.type !== 'mcb') return false
+      if (isSupplyTapNode(child)) return false
+      return (
+        panelLayout.circuits.find((candidate) => candidate.circuit.id === child.circuitIdForWires)
+          ?.circuit.supplySource?.kind !== 'converter-backup'
+      )
+    })
+    const topY = resolveGroundWireTopY(panelLayout, mainBusElement.position.y, hasMainBusConnections)
+    const wireY = Math.min(groundElement.position.y, topY)
+    const wireHeight = Math.abs(groundElement.position.y - topY)
     children.unshift({
       id: `ground-wire-${panelLayout.panel.id}`,
       type: 'wire',
@@ -1204,166 +1354,7 @@ export function buildMainBusNode(
     })
   }
 
-  // Add per-segment hit zones along the main bus so that hitboxes visually
-  // match the segmented bus rendering in deriveWires. Segments span the gaps
-  // between protections (RCD/MCB) on the main bus.
-  if (mainBusElement.position) {
-    const busYTop = mainBusElement.position.y
-    const busThickness = mainBusElement.height || LAYOUT_CONSTANTS.BUS_THICKNESS
-    const busStartX = mainBusElement.position.x
-    const busEndX = busStartX + (mainBusElement.width || 0)
-
-    const connectionEntries = children
-      .filter((child) => {
-        if (child.type !== 'rcd' && child.type !== 'mcb') return false
-        const circuit = panelLayout.circuits.find(
-          (candidate) => candidate.circuit.id === child.circuitIdForWires
-        )?.circuit
-        return circuit?.supplySource?.kind !== 'converter-backup'
-      })
-      .map((child) => ({
-        x: child.bounds.x,
-        busSectionId: getProtectionBusSectionIdForLayoutNode(panelLayout.panel, child),
-      }))
-      .sort((a, b) => a.x - b.x)
-    const connectionXs = connectionEntries.map((entry) => entry.x)
-    const secondaryBusSectionRanges = children.flatMap((node) => {
-      if (node.type !== 'rcd' && node.type !== 'mcb') return []
-      const sectionId = getProtectionBusSectionIdForLayoutNode(panelLayout.panel, node)
-      if (!sectionId) return []
-      return node.children
-        .filter((child) => child.type === 'secondaryBus' && child.bounds.width > 0)
-        .map((secondaryBus) => ({
-          sectionId,
-          startX: secondaryBus.bounds.x,
-          endX: secondaryBus.bounds.x + secondaryBus.bounds.width,
-        }))
-    })
-
-    const explicitEmptySections =
-      connectionXs.length === 0 && hasExplicitPanelBusSections(panelLayout.panel)
-        ? [...(panelLayout.panel.busSections ?? [])].sort((left, right) =>
-            left.role === right.role ? 0 : left.role === 'backup' ? 1 : -1
-          )
-        : []
-    if (explicitEmptySections.length > 0) {
-      const sectionWidth =
-        (busEndX - busStartX - PANEL_BUS_FEED_GAP * Math.max(0, explicitEmptySections.length - 1)) /
-        explicitEmptySections.length
-      explicitEmptySections.forEach((section, index) => {
-        const startX = busStartX + index * (sectionWidth + PANEL_BUS_FEED_GAP)
-        children.push({
-          id: `main-bus-segment-${getPanelDiagramId(panelLayout)}-${section.id}-empty`,
-          type: 'wire',
-          bounds: { x: startX, y: busYTop, width: sectionWidth, height: busThickness },
-          visual: { type: 'busBar', thickness: LAYOUT_CONSTANTS.BUS_THICKNESS },
-          hitZone: {
-            // Detached supply frames keep the two short grid/backup rail stubs as
-            // first-class insertion points. The surrounding bus container remains
-            // non-droppable, so only the explicit rail itself can create a circuit.
-            type: 'mainBus',
-            padding: panelLayout.frameRole === 'supply' ? 10 : 0,
-            mainBusInsertIndex: 0,
-            busSectionId: section.id,
-          },
-          children: [],
-        })
-      })
-    } else if (hasExplicitPanelBusSections(panelLayout.panel) && connectionEntries.length > 0) {
-      const splitGap = PANEL_BUS_FEED_GAP
-      const drawsHostedFeeders =
-        panelLayout.supplyEndpointKind === 'continuation' ||
-        (panelLayout.supplyEndpointKind === 'mains' &&
-          panelLayout.frameRole === 'panel' && panelLayout.panel.isMain)
-      const hostedFeederCounts = new Map(drawsHostedFeeders
-        ? (panelLayout.panelLocalFeedStubStacks ?? []).map((stack) =>
-            [stack.busSectionId, stack.feeders?.length ?? 0] as const)
-        : [])
-      const sectionCut = (left: number, right: number) => {
-        const previous = connectionEntries[left]!
-        const entry = connectionEntries[right]!
-        const boundaryX = getSecondaryBusSectionBoundaryX(
-          secondaryBusSectionRanges,
-          previous.busSectionId,
-          entry.busSectionId,
-          (previous.x + entry.x) / 2
-        )
-        const firstOfSection = connectionEntries.findIndex((candidate) =>
-          candidate.busSectionId === entry.busSectionId) === right
-        return applyHostedFeederSectionCut(
-          { leftEndX: boundaryX - splitGap / 2, rightStartX: boundaryX + splitGap / 2 },
-          previous.x,
-          Math.min(entry.x, ...secondaryBusSectionRanges
-            .filter((range) => range.sectionId === entry.busSectionId && range.startX > previous.x)
-            .map((range) => range.startX)),
-          firstOfSection ? hostedFeederCounts.get(entry.busSectionId) ?? 0 : 0
-        )
-      }
-      connectionEntries.forEach((entry, index) => {
-        const previous = connectionEntries[index - 1]
-        const next = connectionEntries[index + 1]
-        let startX = previous ? (previous.x + entry.x) / 2 : busStartX
-        let endX = next ? (entry.x + next.x) / 2 : busEndX
-        if (previous && previous.busSectionId !== entry.busSectionId) {
-          startX = sectionCut(index - 1, index).rightStartX
-        }
-        if (next && next.busSectionId !== entry.busSectionId) {
-          endX = sectionCut(index, index + 1).leftEndX
-        }
-        const pushSegment = (
-          suffix: 'before' | 'after',
-          x: number,
-          width: number,
-          insertIndex: number
-        ) => {
-          if (width <= 0) return
-          children.push({
-            id: `main-bus-segment-${panelLayout.panel.id}-${index}-${suffix}`,
-            type: 'wire',
-            bounds: { x, y: busYTop, width, height: busThickness },
-            visual: { type: 'busBar', thickness: LAYOUT_CONSTANTS.BUS_THICKNESS },
-            hitZone: {
-              type: panelLayout.frameRole === 'supply' ? null : 'mainBus',
-              // Keep the forgiving vertical target, but never expand it
-              // horizontally into the neighboring insertion slot.
-              padding: 0,
-              paddingY: 12,
-              mainBusInsertIndex: insertIndex,
-              busSectionId: entry.busSectionId,
-            },
-            children: [],
-          })
-        }
-
-        // Split-feed bus segments are centered around their protection in the
-        // rendered wire layout. Split the hit surface at the protection stem
-        // as well, so the two sides retain distinct before/after semantics.
-        pushSegment('before', startX, entry.x - startX, index)
-        pushSegment('after', entry.x, endX - entry.x, index + 1)
-      })
-    } else {
-      const waypoints: number[] = [busStartX, ...connectionXs, busEndX]
-      for (let i = 0; i < waypoints.length - 1; i++) {
-        const startX = waypoints[i]!
-        const endX = waypoints[i + 1]!
-        if (endX <= startX) continue
-
-        children.push({
-          id: `main-bus-segment-${panelLayout.panel.id}-${i}`,
-          type: 'wire',
-          bounds: { x: startX, y: busYTop, width: endX - startX, height: busThickness },
-          visual: { type: 'busBar', thickness: LAYOUT_CONSTANTS.BUS_THICKNESS },
-          hitZone: {
-            type: panelLayout.frameRole === 'supply' ? null : 'mainBus',
-            padding: 0,
-            paddingY: 12,
-            mainBusInsertIndex: i,
-          },
-          children: [],
-        })
-      }
-    }
-  }
+  children.push(...busSegmentNodes)
 
   return {
     id: mainBusElement.id,

@@ -7,6 +7,7 @@ import {
   getChangeoverAvailableConductors,
 } from './supplyAssemblyAcConductorFlow'
 export { reconcileSupplyAssemblyAcConductorFlow } from './supplyAssemblyAcConductorFlow'
+import { cloneValue, plainSnapshot } from '@/utils/cloneValue'
 import {
   getProjectElectricalInstallation,
   getProjectElectricalPanels,
@@ -40,7 +41,7 @@ import {
   isGeneratedCommonPanelHandoff,
   resolveAssemblyPanelInput,
 } from './electricalTopology'
-import { getSupplyConverterDcConnectionIndex } from './converterDcConnections'
+import { getSupplyConverterDcConnectionIndex, keepDcConnectionIds } from './converterDcConnections'
 import {
   converterInputSplitNodeId,
   isConverterGridLegPlacement,
@@ -958,7 +959,7 @@ export function reconcileDirectConverterDcDevices(
         candidate.pathRole !== 'solar-dc' &&
         candidate.pathRole !== 'dc-bus'
     ),
-    ...dcConnections,
+    ...keepDcConnectionIds(previousDcConnections, dcConnections, project, assembly.id),
   ])
   const converterNode = assembly.nodes.find((node) => node.id === converter.id)
   const converterDcPort = converterNode?.ports.find((candidate) => candidate.id === 'dc')
@@ -1008,8 +1009,8 @@ export function attachBackupConverterToAssembly(
   changeoverGridDevicesOverride?: TrunkDevice[]
 ): OffGridSupplyAssembly {
   const existing = findAssemblyForChangeover(project, changeover.id)
-  const assembly = structuredClone(
-    existing ?? buildChangeoverSupplyAssembly(project, panelId, changeover)
+  const assembly = cloneValue(
+    plainSnapshot(existing) ?? buildChangeoverSupplyAssembly(project, panelId, changeover)
   )
   const conductors = acConductors(project)
   const system = getProjectElectricalInstallation(project)?.nominalVoltage.system ?? '1N~'
@@ -1201,15 +1202,13 @@ export function upgradeDirectConverterToChangeoverAssembly(
   backupDevicesOverride?: TrunkDevice[],
   changeoverGridDevicesOverride?: TrunkDevice[]
 ): OffGridSupplyAssembly {
-  const directAssembly = findAssemblyForDirectConverter(project, converter.id)
+  // Library drops run in a command draft; the copies below need a plain snapshot.
+  const directAssembly = plainSnapshot(findAssemblyForDirectConverter(project, converter.id))
   const upgraded = attachBackupConverterToAssembly(
     project,
     panelId,
     changeover,
-    {
-      ...converter,
-      supplyPath: 'backup',
-    },
+    { ...converter, supplyPath: 'backup' },
     backupDevicesOverride,
     changeoverGridDevicesOverride
   )
@@ -1221,7 +1220,7 @@ export function upgradeDirectConverterToChangeoverAssembly(
     const incoming = directAssembly.connections.filter((edge) => edge.endpoints[1].nodeId === handoff.handoffNodeId)
     const generated = isGeneratedCommonPanelHandoff(directAssembly, handoff) &&
       (incoming.length === 0 || (incoming.length === 1 && incoming[0]!.id === `${directAssembly.id}-to-${handoff.handoffNodeId}`))
-    const copiedHandoff = structuredClone(handoff)
+    const copiedHandoff = cloneValue(handoff)
     if (generated && input) {
       copiedHandoff.id = `${upgraded.id}-panel-load-${input.panelId}`
       copiedHandoff.handoffNodeId = `${upgraded.id}-panel-handoff-${input.panelId}`
@@ -1229,7 +1228,7 @@ export function upgradeDirectConverterToChangeoverAssembly(
     const handoffNode = directAssembly.nodes.find((node) => node.id === handoff.handoffNodeId)
     if (!handoffNode) continue
     upgraded.loadHandoffs.push(copiedHandoff)
-    upgraded.nodes.push({ ...structuredClone(handoffNode), id: copiedHandoff.handoffNodeId })
+    upgraded.nodes.push({ ...cloneValue(handoffNode), id: copiedHandoff.handoffNodeId })
     // Generated root inputs are rewired to the completed switched load path by
     // reconciliation. Private branches retain their explicit upstream graph.
     if (generated) continue
@@ -1238,12 +1237,12 @@ export function upgradeDirectConverterToChangeoverAssembly(
       if (visited.has(nodeId)) return
       visited.add(nodeId)
       for (const edge of directAssembly.connections.filter((candidate) => candidate.endpoints[1].nodeId === nodeId)) {
-        const copied = structuredClone(edge)
+        const copied = cloneValue(edge)
         const source = directAssembly.nodes.find((node) => node.id === copied.endpoints[0].nodeId)
         if (source?.kind === 'utility-source') {
           copied.endpoints[0].nodeId = upgraded.nodes.find((node) => node.kind === 'utility-source')!.id
         } else if (source && !upgraded.nodes.some((node) => node.id === source.id)) {
-          upgraded.nodes.push(structuredClone(source))
+          upgraded.nodes.push(cloneValue(source))
           copyIncoming(source.id)
         }
         if (!upgraded.connections.some((candidate) => candidate.id === copied.id)) upgraded.connections.push(copied)
@@ -1263,9 +1262,9 @@ export function upgradeDirectConverterToChangeoverAssembly(
   upgraded.nodes.push(
     ...directAssembly.nodes
       .filter(({ id }) => dcNodeIds.has(id))
-      .map((node) => structuredClone(node))
+      .map((node) => cloneValue(node))
   )
-  upgraded.connections.push(...dcConnections.map((candidate) => structuredClone(candidate)))
+  upgraded.connections.push(...dcConnections.map((candidate) => cloneValue(candidate)))
 
   const previousGridConnections = directAssembly.connections.filter(
     ({ pathRole }) => pathRole === 'inverter-grid-ac'

@@ -1,6 +1,8 @@
 /** Circuit-level wire derivation, keeping recursive DC-bus and branch traversal together. */
 import { deriveWireAnchorKey } from '@/lib/projectV2/wireRuns'
 import { deriveSavedForkWires } from './deriveSavedForkWires'
+import { deriveCircuitColumnWires, getBranchNodeStem, getBranchRiserX, getCircuitCrossbarY, getTrunkOwnBranchNodes, isColumnTopBranch } from './deriveCircuitColumnWires'
+import { deriveManualRiserWires, deriveTrunkDeviceColumnWires, getManualRiserStems } from './deriveCircuitRiserWires'
 import { logger } from '@/lib/logger'
 import { generateId } from '@/utils'
 import type { LayoutNode } from './layoutTree'
@@ -30,7 +32,13 @@ import {
   isPanelOnlySubPanelFeeder,
 } from './bottomUpLayout'
 import { applyWireInset } from './wireInsets'
+import {
+  buildHorizontalDomoticaFeedStub,
+  getHorizontalDomoticaBody,
+  getHorizontalDomoticaFeedNode,
+} from './deriveHorizontalDomoticaFeed'
 import { CIRCUIT_WIRE_LABEL_BASE_SPAN, TERMINAL_STRIP_WIRE_LABEL_SPAN } from './trunkDeviceSpacing'
+import { isStripLedSupplyTapCircuit } from '@/lib/supplyTaps/stripTapLoads'
 import { isSharedJunctionSymbol } from '@/lib/junctionIdentity'
 import {
   DOMOTICA_BRANCH_LEAD,
@@ -66,7 +74,8 @@ export function deriveRcdWires(
   rcdNode: LayoutNode,
   panel: Panel,
   mainBusY: number,
-  phaseSystem?: Installation['nominalVoltage']['system']
+  phaseSystem?: Installation['nominalVoltage']['system'],
+  runsLeft = rcdNode.supplyTapLaneY != null
 ): WireSegment[] {
   const segments: WireSegment[] = []
   const rcdY = rcdNode.bounds.y
@@ -156,7 +165,7 @@ export function deriveRcdWires(
     // Process MCB children of secondary bus
     for (const mcbChild of secondaryBusNode.children) {
       if (mcbChild.type === 'mcb') {
-        const mcbSegments = deriveMcbWires(mcbChild, panel, mainBusY, secondaryBusNode)
+        const mcbSegments = deriveMcbWires(mcbChild, panel, mainBusY, secondaryBusNode, undefined, runsLeft)
         segments.push(...mcbSegments)
       }
     }
@@ -377,7 +386,13 @@ export function deriveMcbWires(
     node: LayoutNode
     assemblyId?: string
     connection?: SupplyConnection
-  }
+  },
+  /**
+   * The branches of this circuit run left in the node tree. A supply tap is laid out reflected in
+   * canonical space (the detached-frame mirror turns it into the ordinary right-running board
+   * orientation), so its wires are derived leftward here.
+   */
+  runsLeft = mcbNode.supplyTapLaneY != null
 ): WireSegment[] {
   const segments: WireSegment[] = []
   const protection = mcbNode.domainRef as ProtectionDevice | undefined
@@ -445,7 +460,9 @@ export function deriveMcbWires(
   const panelOnlyFeederStub =
     (mcbNode.id.includes('-nest-') || protection?.directPanelFeeder === true) &&
     isPanelOnlySubPanelFeeder(protection, circuit)
-  const directDcBusFeeder = protection?.directDcBusFeeder === true
+  const dcBusCarrierCable = protection?.directDcBusFeeder === true
+  // Hidden owners (DC-bus branch, directly wired kWh meter) have no symbol: the wire runs through.
+  const hiddenOwnerWire = dcBusCarrierCable || protection?.directTrunkFeeder === true
 
   // Find branches, trunk devices, direct endpoint children (sub-panel symbols), and parent wire end for this circuit
   const branchNodes = mcbNode.children.filter((c) => c.type === 'branch' && !c.branchLayout?.forkFrom && !c.branchLayout?.forkUnresolved)
@@ -478,7 +495,7 @@ export function deriveMcbWires(
           converterSource.node
         )
       : connStart
-    const targetPoint = directDcBusFeeder
+    const targetPoint = hiddenOwnerWire
       ? connEnd
       : converterSource
         ? applyNodeWireInset(connEnd, sourcePoint, mcbNode)
@@ -488,7 +505,7 @@ export function deriveMcbWires(
       type: converterSource ? 'branch' : 'vertical',
       startPoint: sourcePoint,
       endPoint: targetPoint,
-      cable: converterSource ? cable : directDcBusFeeder ? cable : panelBusCable,
+      cable: converterSource ? cable : dcBusCarrierCable ? cable : panelBusCable,
       panelId: panel.id,
       domain: circuitBaseDomain,
       fromElementType: converterSource ? undefined : connectFromType,
@@ -556,7 +573,7 @@ export function deriveMcbWires(
     // spacing matches protection-like visuals and keeps room for future inserts.
     let topmostBranchWireY: number | null = null
     if (branchNodes.length > 0) {
-      const topmostBranch = branchNodes.reduce((top, branch) =>
+      const topmostBranch = getTrunkOwnBranchNodes(branchNodes).reduce((top, branch) =>
         branch.bounds.y < top.bounds.y ? branch : top
       )
       topmostBranchWireY = topmostBranch.bounds.y + topmostBranch.bounds.height / 2
@@ -601,9 +618,10 @@ export function deriveMcbWires(
     const branchSymbolBottomY = Math.max(-Infinity, ...branchNodes.flatMap((branch) =>
       branch.children.filter((node) => node.type === 'endpoint')
         .map((node) => node.bounds.y + node.bounds.height / 2)))
-    const baseWireLabelEndPoint = (start: Point2, end: Point2): Point2 => ({
+    const crossbarY = getCircuitCrossbarY(mcbNode) // the cable caption stops here for a circuit in columns
+    const baseWireLabelEndPoint = (start: Point2, end: Point2, stemCrossbarY = crossbarY): Point2 => ({
       x: start.x,
-      y: Math.min(start.y, Math.max(end.y, start.y - (mcbNode.circuitWireLabelSpan ?? CIRCUIT_WIRE_LABEL_BASE_SPAN), branchSymbolBottomY + 8)),
+      y: Math.min(start.y, Math.max(end.y, start.y - (mcbNode.circuitWireLabelSpan ?? CIRCUIT_WIRE_LABEL_BASE_SPAN), branchSymbolBottomY + 8, stemCrossbarY ?? -Infinity)),
     })
 
     // Build vertical wire segments — wire passes THROUGH the trunk device center.
@@ -624,15 +642,17 @@ export function deriveMcbWires(
       // Create wire segments between consecutive waypoints
       // Apply wire insets at MCB and each trunk device
       // waypoint 0 = MCB, waypoints 1..n-1 = trunk devices, waypoint n = branch/endpoint
-      const allTrunkNodes = [directDcBusFeeder ? undefined : mcbNode, ...trunkDeviceNodes]
+      const allTrunkNodes = [hiddenOwnerWire ? undefined : mcbNode, ...trunkDeviceNodes]
       // Domain along the trunk: start at MCB (AC by default) and let conversion devices update it.
       let currentDomain: typeof DEFAULT_ELECTRICAL_DOMAIN = circuitBaseDomain
       // Only when the user explicitly sets hideWireLabel=true do we hide labels
       // on all trunk segments. By default (undefined/false), the first segment
       // after the protection can show a label; higher segments stay hidden.
-      const hideAllWireLabels = (defaultWireProps.hideWireLabel ?? false) === true
+      // A supply tap that starts with a terminal strip stays in the cabinet up to its breaker.
+      const hideAllWireLabels = (defaultWireProps.hideWireLabel ?? false) === true || isStripLedSupplyTapCircuit(circuit)
       const firstTrunkDevice = trunkDeviceNodes[0]?.domainRef as TrunkDevice | undefined
       const terminalStripDirectlyAfterProtection = firstTrunkDevice?.symbol === 'terminal_strip'
+      let lastTrunkSegment: WireSegment | undefined
       for (let i = 0; i < waypoints.length - 1; i++) {
         const from = waypoints[i]
         const to = waypoints[i + 1]
@@ -671,7 +691,7 @@ export function deriveMcbWires(
           currentDomain,
           segmentSectionRef
         )
-        segments.push({
+        segments.push(lastTrunkSegment = {
           id: generateId(),
           type: 'vertical',
           startPoint: adjustedStart,
@@ -710,6 +730,8 @@ export function deriveMcbWires(
         currentDomain = getTrunkDomainAfterNode(currentDomain, toNode ?? null)
       }
 
+      segments.push(...deriveTrunkDeviceColumnWires(segments, lastTrunkSegment, { mcbNode, circuit, panel, protection, branchNodes, labelBaseEnd: baseWireLabelEndPoint }))
+
       // Debug logging for suspiciously short trunk stubs above the last trunk device.
       // This helps diagnose cases where the wire above a trunk device is only a few pixels.
       if (typeof console !== 'undefined' && trunkDeviceNodes.length > 0) {
@@ -745,7 +767,7 @@ export function deriveMcbWires(
       const firstBranch = branchNodes.reduce((nearest, branch) =>
         branch.bounds.y > nearest.bounds.y ? branch : nearest
       )
-      const firstBranchWireY = firstBranch.bounds.y + firstBranch.bounds.height / 2
+      const firstBranchWireY = crossbarY ?? firstBranch.bounds.y + firstBranch.bounds.height / 2
       // When parent has endpoint + subcircuits, verticalWireTopY is above the branch (secondary bus); draw wire all the way to bus
       const wireEndY = verticalWireTopY
       const mcbToBranchStart = { x: mcbX, y: mcbY }
@@ -760,13 +782,13 @@ export function deriveMcbWires(
         circuitBaseDomain,
         noTrunkSectionRef
       )
-      segments.push({
+      const noTrunkSegment: WireSegment = {
         id: generateId(),
         type: 'vertical',
         // The direct DC-bus feeder has no rendered protection symbol. Keep the
         // trunk continuous through its structural owner instead of leaving an
         // inset gap (or drawing through an invisible symbol).
-        startPoint: directDcBusFeeder
+        startPoint: hiddenOwnerWire
           ? mcbToBranchStart
           : applyNodeWireInset(mcbToBranchStart, mcbToBranchEnd, mcbNode),
         endPoint: mcbToBranchEnd,
@@ -781,7 +803,7 @@ export function deriveMcbWires(
         inWall: noTrunkWireProps.inWall,
         wireLabelEndPoint: { x: mcbX, y: firstBranchWireY },
         wireLabelBaseEndPoint: baseWireLabelEndPoint(
-          directDcBusFeeder ? mcbToBranchStart : applyNodeWireInset(mcbToBranchStart, mcbToBranchEnd, mcbNode),
+          hiddenOwnerWire ? mcbToBranchStart : applyNodeWireInset(mcbToBranchStart, mcbToBranchEnd, mcbNode),
           { x: mcbX, y: firstBranchWireY }
         ),
         // This vertical is directly above the protection; by default its label
@@ -791,7 +813,12 @@ export function deriveMcbWires(
           ? (noTrunkWireProps.hideWireLabel ?? true)
           : noTrunkWireProps.hideWireLabel,
         ...(emptyOutputAnchor ? { wireAnchor: emptyOutputAnchor } : {}),
-      })
+      }
+      if (getManualRiserStems(mcbNode).length > 0) {
+        // Manual risers: the trunk splits above the breaker; every stem draws its own cable.
+        const risers = deriveManualRiserWires({ mcbNode, circuit, panel, protection, trunkSegment: noTrunkSegment, branchNodes, labelBaseEnd: baseWireLabelEndPoint })
+        segments.push(...risers.trunk, ...risers.segments, ...deriveCircuitColumnWires(mcbNode, risers.trunk[1], risers.riserSegments))
+      } else segments.push(noTrunkSegment, ...deriveCircuitColumnWires(mcbNode, noTrunkSegment))
     } else if (trunkEndpointNodes.length > 0) {
       // No trunk devices, no branches, has direct endpoint (panel symbol):
       // Single vertical from bus→MCB stub + MCB→endpoint merged into one bus→endpoint wire for panel-only feeders;
@@ -936,18 +963,23 @@ export function deriveMcbWires(
         fromElementId: upstreamDevices.at(-1)?.domainId ?? protection?.id,
         domain: trunkDomainAtBranch,
       }
-      const trunkOriginWireProps = getCircuitWirePropertiesForDomain(circuit, trunkDomainAtBranch, trunkExitSectionRef)
+      // A row on a manual riser takes its cable from that riser's own section.
+      const rowStem = getBranchNodeStem(branchNode)
+      const rowSectionRef = rowStem > 0 ? { ...trunkExitSectionRef, riserStem: rowStem } : trunkExitSectionRef
+      const trunkOriginWireProps = getCircuitWirePropertiesForDomain(circuit, trunkDomainAtBranch, rowSectionRef)
       const branchSegments = deriveBranchWires(
         branchNode,
         circuit,
         panel,
-        mcbX,
+        getBranchRiserX(mcbNode, branchNode, mcbX),
         trunkDomainAtBranch,
         trunkOriginWireProps,
-        trunkExitSectionRef,
-        !!lastBranchNode && branchNode.id === lastBranchNode.id
+        rowSectionRef,
+        isColumnTopBranch(branchNode, branchNodes, !!lastBranchNode && branchNode.id === lastBranchNode.id),
+        true,
+        runsLeft
       )
-      segments.push(...branchSegments)
+      segments.push(...(rowStem > 0 ? branchSegments.map((segment) => ({ ...segment, riserStem: rowStem })) : branchSegments)) // the row's wires belong to its riser's cable
     }
   }
 
@@ -1086,7 +1118,7 @@ export function deriveMcbWires(
     }
 
     for (const nestedMcb of nestedMcbNodes) {
-      const nestedSegments = deriveMcbWires(nestedMcb, panel, mainBusY, virtualSecondaryBus)
+      const nestedSegments = deriveMcbWires(nestedMcb, panel, mainBusY, virtualSecondaryBus, undefined, runsLeft)
       segments.push(...nestedSegments)
     }
 
@@ -1145,7 +1177,8 @@ function deriveBranchWires(
   trunkOriginWireProps?: ReturnType<typeof getCircuitWirePropertiesForDomain>,
   trunkOriginSectionRef?: CircuitSectionRef,
   isLastBranchOnCircuit = false,
-  includeDomoticaOutputs = true
+  includeDomoticaOutputs = true,
+  runsLeft = false
 ): WireSegment[] {
   const segments: WireSegment[] = []
   const inheritedBranchWireProps =
@@ -1157,11 +1190,11 @@ function deriveBranchWires(
 
   // Follow the visual flow away from the protection. Ordinary circuits run right;
   // standalone converter-backup circuits are mirrored and run left.
-  const isHorizontalConverterBackup = circuit.supplySource?.kind === 'converter-backup'
+  const runsLeftward = circuit.supplySource?.kind === 'converter-backup' || runsLeft
   const endpointNodes = branchNode.children
     .filter((c) => c.type === 'endpoint')
     .sort((a, b) =>
-      isHorizontalConverterBackup ? b.bounds.x - a.bounds.x : a.bounds.x - b.bounds.x
+      runsLeftward ? b.bounds.x - a.bounds.x : a.bounds.x - b.bounds.x
     )
 
   if (endpointNodes.length === 0) return segments
@@ -1181,6 +1214,8 @@ function deriveBranchWires(
     const endpointOutputWires = domotica?.domoticaProps?.endpointOutputWires ?? []
     const domoticaHeight = Math.max(0, endpointCount - 1) * DOMOTICA_OUTPUT_SPACING
     const firstOutputY = branchY - domoticaHeight
+    // Horizontal module: the feed arrives at the anchor column and the outputs leave the top edge.
+    const horizontalBody = getHorizontalDomoticaBody(domoticaNode, branchY, endpointCount)
 
     const addDomoticaOutputChain = (
       sourceNode: LayoutNode,
@@ -1190,7 +1225,8 @@ function deriveBranchWires(
       fallbackLead: number,
       wireProps: Partial<ReturnType<typeof getCircuitWirePropertiesForDomain>> | undefined,
       baseProps: ReturnType<typeof getCircuitWirePropertiesForDomain>,
-      domain: typeof DEFAULT_ELECTRICAL_DOMAIN
+      domain: typeof DEFAULT_ELECTRICAL_DOMAIN,
+      port?: { x: number; y: number }
     ) => {
       const childrenOnRow = endpointNodes
         .filter((n) => {
@@ -1208,7 +1244,8 @@ function deriveBranchWires(
             childProps?.outputIndex === index
           )
         })
-        .sort((a, b) => a.bounds.x - b.bounds.x)
+        // A horizontal module's chain runs upward from its port; vertical rows run to the right.
+        .sort((a, b) => (port ? b.bounds.y - a.bounds.y : a.bounds.x - b.bounds.x))
 
       // A board's receiving copy resolves the physical output independently of
       // the wire before the module. Keep both copies on the same exact row
@@ -1226,11 +1263,15 @@ function deriveBranchWires(
       } = resolveDomoticaOutputWireProperties(rowBaseProps, wireProps)
 
       const sourceBoxRightX = sourceNode.bounds.x + DOMOTICA_BOX_WIDTH / 2
-      const start = { x: sourceBoxRightX, y: outputY }
+      const start = port ? { x: port.x, y: port.y } : { x: sourceBoxRightX, y: outputY }
       const firstNode = childrenOnRow[0]
-      const firstEnd = firstNode
-        ? { x: firstNode.bounds.x, y: outputY }
-        : { x: sourceBoxRightX + fallbackLead, y: outputY }
+      const firstEnd = port
+        ? firstNode
+          ? { x: firstNode.bounds.x, y: firstNode.bounds.y }
+          : { x: port.x, y: port.y - fallbackLead }
+        : firstNode
+          ? { x: firstNode.bounds.x, y: outputY }
+          : { x: sourceBoxRightX + fallbackLead, y: outputY }
 
       segments.push({
         id: generateId(),
@@ -1263,8 +1304,8 @@ function deriveBranchWires(
         const fromEndpoint = fromNode.domainRef as Endpoint | undefined
         const resolved = fromEndpoint?.symbol ? resolveSymbolPortsForWire(fromEndpoint.symbol, currentDomain) : null
         if (resolved?.matched && resolved.oppositePortDomain) currentDomain = resolved.oppositePortDomain
-        const fromPt = { x: fromNode.bounds.x, y: outputY }
-        const toPt = { x: toNode.bounds.x, y: outputY }
+        const fromPt = { x: fromNode.bounds.x, y: port ? fromNode.bounds.y : outputY }
+        const toPt = { x: toNode.bounds.x, y: port ? toNode.bounds.y : outputY }
         segments.push({
           id: generateId(),
           type: 'branch',
@@ -1296,24 +1337,31 @@ function deriveBranchWires(
     // section overrides and symbol insets.
     const inputNodes = endpointNodes.slice(0, endpointNodes.indexOf(domoticaNode))
       .filter((node) => !(node.domainRef as Endpoint | undefined)?.domoticaChildProps)
-    segments.push(...deriveBranchWires(
-      { ...branchNode, children: [...inputNodes, domoticaNode] },
+    const inputSegments = deriveBranchWires(
+      { ...branchNode, children: [...inputNodes, getHorizontalDomoticaFeedNode(domoticaNode, horizontalBody, branchY)] },
       circuit, panel, trunkX, trunkDomainAtBranch, trunkOriginWireProps,
-      trunkOriginSectionRef, isLastBranchOnCircuit, false
-    ))
+      trunkOriginSectionRef, isLastBranchOnCircuit, false, runsLeft
+    )
+    segments.push(...inputSegments)
     const moduleInputDomain = getDomoticaEndpointInputDomain(circuit, domoticaNode.domainId!, trunkDomainAtBranch)
 
-    for (let i = 0; i < endpointCount; i++) {
-      const outputY = firstOutputY + i * DOMOTICA_OUTPUT_SPACING
+    if (horizontalBody) {
+      segments.push(buildHorizontalDomoticaFeedStub({
+        id: generateId(), body: horizontalBody, feed: inputSegments.at(-1),
+        fallback: inheritedBranchWireProps, panelId: panel.id, circuitId: circuit.id,
+        domain: moduleInputDomain, moduleId: domoticaNode.domainId,
+      }))
+    }
+
+    // Vertical: rows to the right of the box. Horizontal: ports on the top edge.
+    const outputs = horizontalBody?.outputs ??
+      Array.from({ length: endpointCount }, (_, index) =>
+        ({ index, x: 0, y: firstOutputY + index * DOMOTICA_OUTPUT_SPACING }))
+    for (const port of outputs) {
       addDomoticaOutputChain(
-        domoticaNode,
-        'endpoint',
-        i,
-        outputY,
-        DOMOTICA_BRANCH_LEAD,
-        endpointOutputWires[i],
-        inheritedBranchWireProps,
-        moduleInputDomain
+        domoticaNode, 'endpoint', port.index, port.y, DOMOTICA_BRANCH_LEAD,
+        endpointOutputWires[port.index], inheritedBranchWireProps, moduleInputDomain,
+        horizontalBody ? port : undefined
       )
     }
 
@@ -1376,13 +1424,13 @@ function deriveBranchWires(
   const firstNode = endpointNodes[0]! // Safe: checked length === 0 above
   const firstEndpointX = firstNode.bounds.x
   if (
-    (isHorizontalConverterBackup && trunkX > firstEndpointX) ||
-    (!isHorizontalConverterBackup && trunkX < firstEndpointX)
+    (runsLeftward && trunkX > firstEndpointX) ||
+    (!runsLeftward && trunkX < firstEndpointX)
   ) {
     // For the last (top-most) branch, nudge the horizontal start a tiny
     // bit to the left so the corner visually overlaps the vertical trunk.
     const trunkStartX = isLastBranchOnCircuit
-      ? trunkX + ((isHorizontalConverterBackup ? 1 : -1) * LAYOUT_CONSTANTS.BRANCH_LINE_WIDTH) / 2
+      ? trunkX + ((runsLeftward ? 1 : -1) * LAYOUT_CONSTANTS.BRANCH_LINE_WIDTH) / 2
       : trunkX
     const trunkStart = { x: trunkStartX, y: branchY }
     const firstEnd = { x: firstEndpointX, y: branchY }

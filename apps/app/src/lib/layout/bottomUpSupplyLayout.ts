@@ -70,6 +70,17 @@ import {
 } from './bottomUpSupplyGeometry'
 
 import type { BottomUpCircuitLayoutPass } from './bottomUpCircuitLayout'
+import { sortSupplyTapsByOrder } from '@/lib/supplyTaps/tapOrder'
+import {
+  getSupplyTapDeviceHalfExtent,
+  planSupplyTapRun,
+  resolveAwayFromLowerGap,
+  resolveTowardLowerGap,
+  SUPPLY_TAP_ROW_CLEARANCE,
+  type SupplyTapMeasure,
+  type SupplyTapPlacement,
+  type SupplyTapRunPlan,
+} from './supplyTapLayout'
 
 export type SupplyDevicePosition = {
   device: TrunkDevice
@@ -99,7 +110,10 @@ type CalculatePanelSupplyLayoutInput =
     | 'mainBusX'
     | 'mainBusY'
     | 'branches'
-  >
+  > & {
+    /** Measured items of the owner's supply-taps board, drawn in a detached supply frame. */
+    supplyTaps?: readonly SupplyTapMeasure[]
+  }
 
 const TOP_LANE_MIN_EXTRA_ROW_GAP = 20
 const TOP_LANE_BELOW_LABEL_LINE_HEIGHT = 12
@@ -162,7 +176,10 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
     mainBusX,
     mainBusY,
     branches,
+    supplyTaps: unorderedSupplyTaps = [],
   } = input
+  // Taps at one anchor follow their `order` along the power flow; unordered ones keep board order.
+  const supplyTaps = sortSupplyTapsByOrder(unorderedSupplyTaps)
   // Calculate ground and supply positions
   // Ground wire is at the very start of main bus, offset by 20px to the right
   // Supply wire is spaced from ground by the current SUPPLY_LEFT_OFFSET (30px)
@@ -376,6 +393,131 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
       isConverterGridLegPlacement(device.converterGridPlacement)
   )
   const converterGridInputLegDeviceCount = converterGridLegDevices.length
+  // Supply taps leave the grid lane upward between two devices. Each gap that carries taps is
+  // widened (devices on its outer side move out) and the lane drops below the converter row
+  // when a tap is taller than the free space under that row.
+  const tapLaneClearance =
+    supplyTaps.length > 0 && (hasSupplyChangeover || hasDirectConverter)
+      ? SUPPLY_TAP_ROW_CLEARANCE + Math.max(...supplyTaps.map((tap) => tap.height))
+      : 0
+  const tapHalf = LAYOUT_CONSTANTS.SYMBOL_SIZE / 2 + 24
+  const planTapRun = (
+    devices: readonly TrunkDevice[],
+    pitchOffset: number,
+    taps: readonly SupplyTapMeasure[],
+    resolveGap: typeof resolveTowardLowerGap,
+    fromUpper: boolean
+  ): SupplyTapRunPlan =>
+    planSupplyTapRun({
+      items: devices.map((device, index) => ({
+        id: device.id,
+        x: pitchOffset + (index + 1) * LAYOUT_CONSTANTS.SUPPLY_DEVICE_SPACING,
+        half: getSupplyTapDeviceHalfExtent(device),
+      })),
+      lowerBoundX: pitchOffset,
+      lowerBoundHalf: tapHalf,
+      taps,
+      gapByTapId: new Map(
+        taps.map((tap) => [
+          tap.id,
+          resolveGap(
+            tap,
+            devices.map((device) => device.id)
+          ),
+        ])
+      ),
+      fromUpper,
+    })
+  // Taps after the converter T, on the grid wire toward the changeover: the leg start or after one
+  // of the inline converter-grid devices drawn there.
+  const inlineRunDevices = hasSupplyChangeover && !usesConverterInputTap
+    ? supplyTrunkDevices.filter(
+        (device) =>
+          device.supplyPath === 'converter-grid' &&
+          !isConverterGridLegPlacement(device.converterGridPlacement)
+      )
+    : []
+  const inlineRunTaps = hasSupplyChangeover && !usesConverterInputTap
+    ? supplyTaps.filter(
+        (tap) =>
+          tap.anchor.leg === 'converter-input' &&
+          (tap.anchor.afterTrunkDeviceId === undefined ||
+            inlineRunDevices.some((device) => device.id === tap.anchor.afterTrunkDeviceId))
+      )
+    : []
+  const gridRunTaps = supplyTaps.filter(
+    (tap) =>
+      !(hasSupplyChangeover && tap.anchor.leg === 'changeover-grid') && !inlineRunTaps.includes(tap)
+  )
+  const changeoverGridLegTaps = hasSupplyChangeover
+    ? supplyTaps.filter((tap) => tap.anchor.leg === 'changeover-grid')
+    : []
+  const isSerialDevice = (device: TrunkDevice) =>
+    device.supplyPath == null || device.supplyPath === 'serial'
+  // Ascending x: the device nearest the converter T comes first.
+  const sourceSerialRunDevices =
+    gridRunTaps.length > 0 && hasSupplyChangeover
+      ? supplyTrunkDevices
+          .filter((device, index) => index < supplyChangeoverIndex && isSerialDevice(device))
+          .reverse()
+      : gridRunTaps.length > 0 && hasDirectConverter
+        ? supplyTrunkDevices
+            .filter((device, index) => index < directConverterIndex && isSerialDevice(device))
+            .reverse()
+        : []
+  const directSeparateGridOffset =
+    hasDirectConverter &&
+    supplyTrunkDevices[directConverterIndex]?.converterAcConnection === 'separate'
+      ? supplyTrunkDevices.filter(
+          (device) =>
+            device.supplyPath === 'converter-grid' &&
+            !isConverterGridLegPlacement(device.converterGridPlacement)
+        ).length * LAYOUT_CONSTANTS.SUPPLY_DEVICE_SPACING
+      : 0
+  const serialRunTapPlan =
+    gridRunTaps.length > 0 && (hasSupplyChangeover || hasDirectConverter)
+      ? planTapRun(
+          sourceSerialRunDevices,
+          directSeparateGridOffset,
+          gridRunTaps,
+          (tap, ids) => (tap.anchor.leg === 'grid-run' ? resolveTowardLowerGap(tap, ids) : 0),
+          true
+        )
+      : undefined
+  const changeoverGridLegDevices = supplyTrunkDevices.filter(
+    (device) =>
+      device.supplyPath === 'changeover-grid' && device.changeoverGridPlacement !== 'input-leg'
+  )
+  const gridLegTapPlan =
+    changeoverGridLegTaps.length > 0
+      ? hasExplicitPanelBusSections(panel)
+        ? // Split bus: grid power runs from the changeover riser along this wire to the grid bus
+          // riser at the lower boundary, so a tap after a device sits on its bus side.
+          planTapRun(changeoverGridLegDevices, 0, changeoverGridLegTaps, resolveTowardLowerGap, true)
+        : planTapRun(changeoverGridLegDevices, 0, changeoverGridLegTaps, resolveAwayFromLowerGap, false)
+      : undefined
+  const supplyTapPlacements: SupplyTapPlacement[] = []
+  const placeTaps = (
+    taps: readonly SupplyTapMeasure[],
+    plan: SupplyTapRunPlan | undefined,
+    baseX: number
+  ) => {
+    if (!plan) return
+    for (const tap of taps) {
+      const x = plan.tapX.get(tap.id)
+      if (x == null) continue
+      supplyTapPlacements.push({
+        id: tap.id,
+        circuitIds: [...tap.circuitIds],
+        protectionId: tap.protectionId,
+        anchor: tap.anchor,
+        x: baseX + x,
+        laneY: 0,
+        topY: 0,
+      })
+    }
+  }
+  let supplyTapMinSupplyX = Number.NEGATIVE_INFINITY
   if (hasSupplyChangeover) {
     supplyY += 48 + (LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_LANE_OFFSET - 44)
   }
@@ -484,9 +626,12 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
     }
   }
   const directConverterLaneOffset = hasDirectConverter
-    ? LAYOUT_CONSTANTS.SUPPLY_DIRECT_CONVERTER_OFFSET +
-      Math.max(0, converterGridInputLegDeviceCount - 2) *
-        LAYOUT_CONSTANTS.SUPPLY_DIRECT_CONVERTER_INPUT_LEG_EXPANSION
+    ? Math.max(
+        LAYOUT_CONSTANTS.SUPPLY_DIRECT_CONVERTER_OFFSET +
+          Math.max(0, converterGridInputLegDeviceCount - 2) *
+            LAYOUT_CONSTANTS.SUPPLY_DIRECT_CONVERTER_INPUT_LEG_EXPANSION,
+        tapLaneClearance
+      )
     : 0
   if (
     !options.feedOutput &&
@@ -589,7 +734,8 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
       // One grid-input protection fits on the existing rail-to-selector span. Further
       // protections extend that span, sharing any expansion already required by load-side devices.
       const gridInputExpansion =
-        Math.max(0, changeoverGridDeviceCount - 1) * LAYOUT_CONSTANTS.SUPPLY_DEVICE_SPACING
+        Math.max(0, changeoverGridDeviceCount - 1) * LAYOUT_CONSTANTS.SUPPLY_DEVICE_SPACING +
+        (gridLegTapPlan?.totalExtra ?? 0)
       changeoverDevicePosition.x =
         supplyBendX +
         LAYOUT_CONSTANTS.SUPPLY_DEVICE_SPACING +
@@ -619,6 +765,7 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
         (converterGridInputLegDeviceCount + 1) * LAYOUT_CONSTANTS.SUPPLY_VERTICAL_LEG_DEVICE_SPACING
       const gridTapLowerY = Math.max(
         baseLowerY,
+        tapLaneClearance > 0 ? upperY + tapLaneClearance : baseLowerY,
         riserDeviceCount > 0 ? changeoverLegRequiredLowerY : baseLowerY,
         converterGridInputLegDeviceCount > 0 ? converterLegRequiredLowerY : baseLowerY
       )
@@ -702,7 +849,30 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
               })),
           })
         : undefined
-      const converterX = tapLane?.converterX ?? gridTapConverterX
+      // Inline devices sit from the elbow toward the T; power flows from the T toward the elbow,
+      // so a tap after a device sits on its elbow side and the leg start next to the T.
+      const inlineRunTapPlan = inlineRunTaps.length > 0
+        ? planSupplyTapRun({
+            items: inlineRunDevices.map((device, index) => ({
+              id: device.id,
+              x:
+                LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_SLOT_LENGTH +
+                index * LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_BRANCH_DEVICE_SPACING,
+              half: getSupplyTapDeviceHalfExtent(device),
+            })),
+            lowerBoundX: 0,
+            lowerBoundHalf: tapHalf,
+            taps: inlineRunTaps,
+            gapByTapId: new Map(
+              inlineRunTaps.map((tap) => [
+                tap.id,
+                resolveTowardLowerGap(tap, inlineRunDevices.map((device) => device.id)),
+              ])
+            ),
+            fromUpper: true,
+          })
+        : undefined
+      const converterX = (tapLane?.converterX ?? gridTapConverterX) + (inlineRunTapPlan?.totalExtra ?? 0)
       const converterPosition = supplyDevicePositions.find(
         ({ device }) => device.supplyPath === 'backup'
       )
@@ -761,9 +931,13 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
           device.supplyPath === 'changeover-grid' && device.changeoverGridPlacement !== 'input-leg'
       )
       changeoverGridPositions.forEach((position, index) => {
-        position.x = groundX + (index + 1) * LAYOUT_CONSTANTS.SUPPLY_DEVICE_SPACING
+        position.x =
+          groundX +
+          (index + 1) * LAYOUT_CONSTANTS.SUPPLY_DEVICE_SPACING +
+          (gridLegTapPlan?.shifts[index] ?? 0)
         position.y = lowerY
       })
+      placeTaps(changeoverGridLegTaps, gridLegTapPlan, groundX)
       const changeoverGridInputLegPositions = supplyDevicePositions.filter(
         ({ device }) =>
           device.supplyPath === 'changeover-grid' && device.changeoverGridPlacement === 'input-leg'
@@ -793,9 +967,11 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
         position.x =
           elbowX +
           LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_SLOT_LENGTH +
-          index * LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_BRANCH_DEVICE_SPACING
+          index * LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_BRANCH_DEVICE_SPACING +
+          (inlineRunTapPlan?.shifts[index] ?? 0)
         position.y = lowerY
       })
+      placeTaps(inlineRunTaps, inlineRunTapPlan, elbowX)
       // Drawn from the converter down to the grid lane: converter-only devices first.
       const converterGridInputLegPositions = orderConverterGridLegDevicesFromConverter(
         supplyDevicePositions.filter(
@@ -840,9 +1016,18 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
         })
       const minimumSourceSerialX = converterX + LAYOUT_CONSTANTS.SUPPLY_DEVICE_SPACING
       sourceSerialPositions.forEach((position, index) => {
-        position.x = minimumSourceSerialX + index * LAYOUT_CONSTANTS.SUPPLY_DEVICE_SPACING
+        position.x =
+          minimumSourceSerialX +
+          index * LAYOUT_CONSTANTS.SUPPLY_DEVICE_SPACING +
+          (serialRunTapPlan?.shifts[index] ?? 0)
         position.y = lowerY
       })
+      placeTaps(gridRunTaps, serialRunTapPlan, converterX)
+      if (serialRunTapPlan) {
+        const last = sourceSerialPositions.at(-1)
+        supplyTapMinSupplyX =
+          (last?.x ?? converterX) + serialRunTapPlan.trailingNeed + LAYOUT_CONSTANTS.SYMBOL_SIZE
+      }
     }
     if (hasDirectConverter) {
       const converterPosition = supplyDevicePositions.find(
@@ -973,6 +1158,18 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
             position.x += directGridPositions.length * LAYOUT_CONSTANTS.SUPPLY_DEVICE_SPACING
           })
         }
+        // Source-side serial devices are ordered away from the inverter T; widen the gaps that carry taps.
+        const directSourceSerialByX = [...sourceSerialPositions].sort((a, b) => a.x - b.x)
+        directSourceSerialByX.forEach((position, index) => {
+          position.x += serialRunTapPlan?.shifts[index] ?? 0
+        })
+        placeTaps(gridRunTaps, serialRunTapPlan, converterPosition.x)
+        if (serialRunTapPlan) {
+          supplyTapMinSupplyX =
+            (directSourceSerialByX.at(-1)?.x ?? converterPosition.x + directSeparateGridOffset) +
+            serialRunTapPlan.trailingNeed +
+            LAYOUT_CONSTANTS.SYMBOL_SIZE
+        }
         directGridInputLegPositions.forEach((position, index) => {
           position.x = converterPosition.x
           position.y =
@@ -1092,6 +1289,7 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
       (hasSupplyChangeover
         ? LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_GRID_SOURCE_LEAD
         : LAYOUT_CONSTANTS.SUPPLY_DEVICE_SPACING)
+    supplyX = Math.max(supplyX, supplyTapMinSupplyX)
     if (hasDirectConverter) {
       const isolatedConverter = supplyDevicePositions.find(
         ({ device }) =>
@@ -1141,6 +1339,10 @@ export function calculatePanelSupplyLayout(input: CalculatePanelSupplyLayoutInpu
     supplyDevicePositions,
     supplyChangeoverLowerY,
     supplyConverterInputTap,
+    supplyTapPlacements: supplyTapPlacements.map((placement) => {
+      const measure = supplyTaps.find((tap) => tap.id === placement.id)
+      return { ...placement, laneY: supplySourceY, topY: supplySourceY - (measure?.height ?? 0) }
+    }),
   }
 }
 

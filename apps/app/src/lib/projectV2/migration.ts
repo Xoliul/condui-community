@@ -1,3 +1,4 @@
+import { cloneValue } from '@/utils/cloneValue'
 import type {
   Door,
   Endpoint,
@@ -14,7 +15,6 @@ import type {
 } from '@/types/schema'
 import {
   PROJECT_V2_SCHEMA_VERSION,
-  PROJECT_V2_FORK_SCHEMA_VERSION,
   PROJECT_SCOPE_IDS,
   type AssetModelV2,
   type ChronologyModelV2,
@@ -34,6 +34,13 @@ import {
 } from '@/types/projectV2'
 import { emptyChronology } from '@/lib/chronology/chronology'
 import { sanitizeLegacyV2Project } from './sanitizeLegacyV2Project'
+import {
+  getRequiredSchemaVersion,
+  hasSufficientSchemaVersion,
+  isCurrentProjectV2SchemaVersion,
+  maxSchemaVersion,
+  raiseSchemaVersion,
+} from './projectSchemaVersion'
 import { normalizeLegacyPlanWiringAtBoundary } from './planWiring'
 import { repairSeededWireRunRoutes, seedWireRunsFromLegacy } from './wireRunSeed'
 
@@ -70,7 +77,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function isProjectV2(value: unknown): value is ProjectV2 {
-  return isRecord(value) && (value.schemaVersion === PROJECT_V2_SCHEMA_VERSION || value.schemaVersion === PROJECT_V2_FORK_SCHEMA_VERSION)
+  return isRecord(value) && isCurrentProjectV2SchemaVersion(value.schemaVersion)
 }
 
 function isProjectV2BeforeScopes(value: unknown): value is ProjectV2BeforeScopes {
@@ -892,18 +899,7 @@ const BOUNDARY_HEALERS: BoundaryHealer[] = [normalizeLegacyPlanWiringAtBoundary]
 
 function applyBoundaryHealers(project: ProjectV2): void {
   for (const heal of BOUNDARY_HEALERS) heal(project)
-  if (requiresForkSchema(project)) project.schemaVersion = PROJECT_V2_FORK_SCHEMA_VERSION
-}
-
-function requiresForkSchema(project: ProjectV2): boolean {
-  const pending = [...(project.disciplines.electrical?.panels ?? [])]
-  for (let index = 0; index < pending.length; index++) {
-    const panel = pending[index]!
-    if ([...panel.circuits, ...panel.protections.flatMap((protection) => protection.circuits ?? [])]
-      .some((circuit) => circuit.branches?.some((branch) => branch.forkFrom || branch.keepEmpty))) return true
-    pending.push(...panel.subPanels)
-  }
-  return false
+  raiseSchemaVersion(project, getRequiredSchemaVersion(project))
 }
 
 /**
@@ -912,7 +908,7 @@ function requiresForkSchema(project: ProjectV2): boolean {
  */
 function needsBoundaryHealing(project: ProjectV2): boolean {
   return (project.disciplines.electrical?.planWiring?.routes.length ?? 0) > 0 ||
-    (project.schemaVersion !== PROJECT_V2_FORK_SCHEMA_VERSION && requiresForkSchema(project))
+    !hasSufficientSchemaVersion(project)
 }
 
 export function normalizeStoredProjectToV2(document: LegacyProjectDocument): ProjectV2 {
@@ -929,7 +925,7 @@ export function normalizeStoredProjectToV2(document: LegacyProjectDocument): Pro
 }
 
 function cloneJsonProject(project: ProjectV2): ProjectV2 {
-  if (typeof structuredClone === 'function') return structuredClone(project)
+  if (typeof structuredClone === 'function') return cloneValue(project)
   return JSON.parse(JSON.stringify(project)) as ProjectV2
 }
 
@@ -987,6 +983,6 @@ export function projectToStoredProjectV2(project: LegacyProjectDocument): Projec
   )
   const { schemaVersion: _schemaVersion, collaboration, ...nativeProject } = stored
   const result = applyScopeContract(nativeProject, collaboration.contributions)
-  if (stored.schemaVersion === PROJECT_V2_FORK_SCHEMA_VERSION || requiresForkSchema(result)) result.schemaVersion = PROJECT_V2_FORK_SCHEMA_VERSION
+  result.schemaVersion = maxSchemaVersion(stored.schemaVersion, getRequiredSchemaVersion(result))
   return result
 }

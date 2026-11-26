@@ -16,6 +16,7 @@ import type { TFunction } from 'i18next'
 import { type ProjectWithOptionalV2Electrical } from '@/lib/projectV2/electrical'
 import { type ProjectWithOptionalV2Building } from '@/lib/projectV2/buildingFloors'
 import { findPanelById } from '@/lib/panel/panelTree'
+import { getSupplyTapsPanel } from '@/lib/supplyTaps/virtualPanel'
 import type { OffGridSupplyAssembly } from '@/types/supplyAssembly'
 
 export type DropBehaviorProject = ProjectWithOptionalV2Building & ProjectWithOptionalV2Electrical
@@ -148,12 +149,20 @@ export function findProtectionInProject(panels: Panel[], id: string): Protection
 }
 
 /**
- * Helper to find panel for a drop target
+ * The board a drop lands in. A supply-frame drop names the owner main panel; when its circuit is
+ * a supply tap, the circuit lives in the owner's supply-taps board, so new protections and
+ * circuits for it belong there too (else the tap would reference a circuit in another board).
  */
 export function findPanelForTarget(project: DropBehaviorProject, target: DropTarget): Panel | null {
   const panels = projectPanels(project)
   if (target.panelId) {
-    return findPanelById(panels, target.panelId) ?? null
+    const panel = findPanelById(panels, target.panelId) ?? null
+    const taps = panel && target.circuitId ? getSupplyTapsPanel(panel) : undefined
+    const ownsCircuit = taps && [
+      ...(taps.circuits ?? []),
+      ...(taps.protections ?? []).flatMap((protection) => protection.circuits ?? []),
+    ].some((circuit) => circuit.id === target.circuitId)
+    return ownsCircuit ? taps : panel
   }
   return panels.find((p) => p.isMain) || panels[0] || null
 }

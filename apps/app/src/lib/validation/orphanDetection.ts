@@ -39,6 +39,10 @@ import type {
 } from '@/types/schema'
 import i18next from '@/lib/validation/validationI18n'
 import type { OrphanReason } from '@/types/schema'
+import type { OrphanResolutionPayload } from './orphanResolutionPayload'
+import type { DuplicatedBoardSymbol } from '@/lib/panel/duplicatedBoardSymbols'
+import type { DuplicateIdentity } from '@/lib/projectV2/entityIdentity'
+import { detectIdentityOrphans, identityOrphansToDetected, identityOrphansToIssues, logIdentityOrphans } from './orphanIdentity'
 import type { Issue, Offender } from './core/types'
 import { findCircuitInProject, resolveFrameContentItems } from '@/lib/eendraad/frameContent'
 import { endpointSupportsMultiplier } from '@/utils/endpointMultipliers'
@@ -199,85 +203,7 @@ export interface DetectedOrphan {
     | { kind: 'circuit'; circuitId: string; originalParentId?: string; originalRefId?: string }
     | { kind: 'endpoint'; circuitId: string; endpointId: string; originalRefId?: string }
   /** Optional non-destructive repair payload for inspector quick-fixes. */
-  resolutionPayload?:
-    | {
-        kind: 'dedupeEndpointPlacements'
-        endpointId: string
-        keepPlacementId: string
-        removePlacementIds: string[]
-      }
-    | {
-        kind: 'repairSharedPlanPlacementIds'
-        placementId: string
-        owners: Array<{ kind: 'endpoint' | 'trunkDevice'; id: string }>
-      }
-    | {
-        kind: 'attachCircuitToProtection'
-        panelId: string
-        circuitId: string
-      }
-    | {
-        kind: 'repairPanelGridDuplicateModules'
-        panelId: string
-        removeSlots: Array<{
-          area: 'main' | 'supply'
-          row: number
-          col: number
-          moduleKey: string
-        }>
-        hideModuleKeys: string[]
-      }
-    | {
-        /** Move a supply-scope trunk module from main `gridView.slots` into `supplyPanelSlots`. */
-        kind: 'ejectSupplyTrunkToSupplyStrip'
-        panelId: string
-        moduleRef: PanelGridModuleRef
-      }
-    | {
-        /** Move a physically panel-mounted supply module out of stale supply-strip slots. */
-        kind: 'repairSupplyTrunkPanelMountingSlot'
-        panelId: string
-        deviceId: string
-      }
-    | {
-        kind: 'repairDomoticaChildLink'
-        circuitId: string
-        endpointId: string
-        parentEndpointId: string
-        outputGroup: 'endpoint' | 'control'
-        outputIndex: number
-      }
-    | { kind: 'addAutoSitplanPlacement'; endpointId: string }
-    | { kind: 'syncPanelDistributionLabel'; endpointId: string }
-    | {
-        kind: 'mergeMultiplierEndpointsOnBranch'
-        circuitId: string
-        keepEndpointId: string
-        absorbEndpointIds: string[]
-      }
-    | {
-        /** Rebuild `circuit.branches` so every endpoint is on a branch (e.g. missing branches after a bug). */
-        kind: 'repairCircuitBranchMembership'
-        panelId: string
-        circuitId: string
-      }
-    | {
-        /** Remove a circuit's own id from `subCircuitIds` (invalid self-nesting). */
-        kind: 'repairSubCircuitSelfReference'
-        panelId: string
-        circuitId: string
-      }
-    | {
-        /** Drop a stale id from eendraad frame membership (or remove the frame if empty). */
-        kind: 'pruneFrameContentReference'
-        contentId: string
-        contentType: 'endpoint' | 'protection' | 'trunkDevice' | 'ground' | 'circuit'
-      }
-    | {
-        /** Collapse stale split-feed data back onto the main panel's single grid feed. */
-        kind: 'collapsePanelFeedToSingleGrid'
-        panelId: string
-      }
+  resolutionPayload?: OrphanResolutionPayload
 }
 
 /** Build circuit id -> circuit for a panel (same logic as layout) */
@@ -387,7 +313,7 @@ export interface OrphanReport {
     endpointId: string
     endpointLabel: string
   }>
-  /** Endpoint has placements on multiple floors, but symbol is single-instance */
+  /** A single-instance endpoint has multiple placements, possibly on the same floor. */
   endpointMultipleFloorPlacements: Array<{
     circuitId: string
     circuitCode: string
@@ -408,6 +334,10 @@ export interface OrphanReport {
   }>
   /** Multiple plan symbols share one global placement id, breaking plan selection and labels. */
   planPlacementIdentityConflict: Array<PlanPlacementIdentityConflict>
+  /** One board symbol ID held by several boards (an older board-creation path matched names). */
+  duplicatedBoardSymbol: DuplicatedBoardSymbol[]
+  /** Any other stored entity ID held by several entities (board symbols are reported above). */
+  duplicateEntityId: DuplicateIdentity[]
   /** Domotica parent slot list references an endpoint whose reverse child link is missing/wrong. */
   domoticaChildLinkMismatch: Array<{
     circuitId: string
@@ -512,6 +442,8 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
     endpointMultipleFloorPlacements: [],
     endpointPlacementIntegrity: [],
     planPlacementIdentityConflict: [],
+    duplicatedBoardSymbol: [],
+    duplicateEntityId: [],
     domoticaChildLinkMismatch: [],
     endpointMissingPlanPlacement: [],
     panelDistributionLabelDrift: [],
@@ -540,6 +472,9 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
   const currentPanel = panel
   if (currentPanel.isMain === true) {
     report.planPlacementIdentityConflict = collectPlanPlacementIdentityConflicts(project)
+    // Project-wide: reported once, from the first main board, even with several root boards.
+    if (projectPanels.find((root) => root.isMain === true)?.id === currentPanel.id)
+      Object.assign(report, detectIdentityOrphans(project))
   }
   if (
     currentPanel.isMain !== false &&
@@ -582,7 +517,7 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
     }
   }
 
-  if (!currentPanel.isMain) {
+  if (!currentPanel.isMain && currentPanel.virtual == null) {
     const link = resolvePanelSupplyLinkForPanel(project, panelId)
     if (!link || !panelSupplyLinkHasRenderableSymbol(link)) {
       reportMissingOneWirePanel(
@@ -803,7 +738,7 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
     const endpointCount = circuit.endpoints.filter(
       (endpoint) => endpoint.symbol !== 'panel_distribution'
     ).length
-    if (circuit.code !== 'PANEL' && !hasDirectCircuitOwner(currentPanel, circuit.id)) {
+    if (circuit.code !== 'PANEL' && currentPanel.virtual == null && !hasDirectCircuitOwner(currentPanel, circuit.id)) {
       report.circuitMissingProtection.push({
         circuitId: circuit.id,
         circuitCode: validationCircuitCode(circuit.code),
@@ -866,18 +801,15 @@ export function detectPanelOrphans(project: OrphanDetectionProject, panelId: str
     for (const ep of circuit.endpoints) {
       pushPlacementIntegrity(circuit, ep)
       if (ep.symbol === 'panel_distribution') continue
-      if (!endpointSupportsMultiplier(ep)) {
-        const floorIds = Array.from(new Set(ep.placements.map((p) => p.floorId)))
-        if (ep.placements.length > 1) {
-          report.endpointMultipleFloorPlacements.push({
-            circuitId: circuit.id,
-            circuitCode: validationCircuitCode(circuit.code),
-            endpointId: ep.id,
-            endpointLabel: ep.label || ep.id,
-            placementIds: ep.placements.map((p) => p.id),
-            floorIds,
-          })
-        }
+      if (!endpointSupportsMultiplier(ep) && ep.placements.length > 1) {
+        report.endpointMultipleFloorPlacements.push({
+          circuitId: circuit.id,
+          circuitCode: validationCircuitCode(circuit.code),
+          endpointId: ep.id,
+          endpointLabel: ep.label || ep.id,
+          placementIds: ep.placements.map((p) => p.id),
+          floorIds: [...new Set(ep.placements.map((p) => p.floorId))],
+        })
       }
       if (ep.placements.length === 0 && endpointExpectedOnSitplan(ep) && !placedElsewhere(ep)) {
         report.endpointMissingPlanPlacement.push({
@@ -1257,7 +1189,7 @@ export function getDetectedOrphans(project: OrphanDetectionProject): DetectedOrp
         id: `endpoint-multi-floor-${item.endpointId}`,
         kind: 'endpoint',
         reason: 'endpointMultipleFloorPlacements',
-        summary: `Endpoint "${item.endpointLabel}" has placements on multiple floors (${item.floorIds.length})`,
+        summary: `Endpoint "${item.endpointLabel}" has ${item.placementIds.length} plan placements but supports only one`,
         panelId,
         focusSelection: { type: 'endpoint', ids: [item.endpointId] },
         ...(keepPlacementId && removePlacementIds.length > 0
@@ -1286,6 +1218,7 @@ export function getDetectedOrphans(project: OrphanDetectionProject): DetectedOrp
         focusSelection: { type: 'endpoint', ids: [item.endpointId] },
       })
     }
+    out.push(...identityOrphansToDetected(report, panelId))
     for (const item of report.planPlacementIdentityConflict) {
       const trunkDeviceIds = [
         ...new Set(
@@ -1498,6 +1431,8 @@ export function logOrphanReport(project: OrphanDetectionProject): void {
       report.endpointMultipleFloorPlacements.length +
       report.endpointPlacementIntegrity.length +
       report.planPlacementIdentityConflict.length +
+      report.duplicatedBoardSymbol.length +
+      report.duplicateEntityId.length +
       report.domoticaChildLinkMismatch.length +
       report.endpointMissingPlanPlacement.length +
       report.panelDistributionLabelDrift.length +
@@ -1658,7 +1593,7 @@ export function logOrphanReport(project: OrphanDetectionProject): void {
       )
     }
     for (const item of report.endpointMultipleFloorPlacements) {
-      const msg = `${ORPHAN_LOG_PREFIX} Endpoint placed on multiple floors: "${item.endpointLabel}" (id: ${item.endpointId}) is on floors [${item.floorIds.join(', ')}] but this symbol supports only one placement.`
+      const msg = `${ORPHAN_LOG_PREFIX} Endpoint "${item.endpointLabel}" (id: ${item.endpointId}) has ${item.placementIds.length} placements on floors [${item.floorIds.join(', ')}] but supports only one placement.`
       logger.error(msg)
       logger.error(
         `${ORPHAN_LOG_PREFIX} Likely cause: A move/sync path appended a new placement instead of moving/replacing the existing placement. Keep exactly one placement for this endpoint.`,
@@ -1694,6 +1629,8 @@ export function logOrphanReport(project: OrphanDetectionProject): void {
         }
       )
     }
+
+    logIdentityOrphans(report, panelId, ORPHAN_LOG_PREFIX)
 
     for (const item of report.planPlacementIdentityConflict) {
       logger.error(
@@ -1845,6 +1782,8 @@ export function orphanReportToIssues(
     endpointMultipleFloorPlacements: (opts: Record<string, string>) => string
     endpointPlacementIntegrity: (opts: Record<string, string>) => string
     planPlacementIdentityConflict: (opts: Record<string, string>) => string
+    duplicatedBoardSymbol: (opts: Record<string, string>) => string
+    duplicateEntityId: (opts: Record<string, string>) => string
     domoticaChildLinkMismatch?: (opts: Record<string, string>) => string
     endpointMissingPlanPlacement: (opts: Record<string, string>) => string
     panelDistributionLabelDrift: (opts: Record<string, string>) => string
@@ -2086,7 +2025,7 @@ export function orphanReportToIssues(
       ],
       message: msg.endpointMultipleFloorPlacements({
         endpointLabel: item.endpointLabel,
-        floorCount: String(item.floorIds.length),
+        placementCount: String(item.placementIds.length),
       }),
       details: undefined,
       citations: [],
@@ -2116,6 +2055,8 @@ export function orphanReportToIssues(
       tags: ['orphan', 'eendraad', 'consistency'],
     })
   }
+
+  issues.push(...identityOrphansToIssues(report, panelId, ruleId, jurisdiction, rulesetVersion, msg))
 
   for (const item of report.planPlacementIdentityConflict) {
     issues.push({

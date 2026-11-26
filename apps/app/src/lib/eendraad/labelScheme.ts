@@ -6,6 +6,8 @@ import type {
   Panel,
   PanelNumberStyle,
 } from '@/types/schema'
+import type { TerminalNumberFormat, TerminalNumbering, TerminalStripLabelScheme } from '@/types/junction'
+import { isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 
 /** Today's labels: A, B, C… per panel, branches A1, domotica outputs A1.1, panels B01. */
 export const CLASSIC_LABEL_SCHEME: LabelScheme = Object.freeze({
@@ -15,6 +17,32 @@ export const CLASSIC_LABEL_SCHEME: LabelScheme = Object.freeze({
   circuit: Object.freeze({ style: 'upper', panelPart: 'none', joinPanel: true }),
   branch: Object.freeze({ join: true }),
 }) as LabelScheme
+
+/** Today's behaviour: a circuit reuses its number on a strip, written X1-1. */
+export const DEFAULT_TERMINAL_STRIP_SCHEME: TerminalStripLabelScheme = Object.freeze({
+  numbering: 'circuit',
+  format: 'X5-1',
+}) as TerminalStripLabelScheme
+
+const TERMINAL_NUMBERINGS: readonly TerminalNumbering[] = ['circuit', 'cable']
+const TERMINAL_FORMATS: readonly TerminalNumberFormat[] = ['X5-1', 'X5.1', 'X5.01']
+
+/** The scheme's terminal strip settings with the defaults filled in. */
+export function resolveTerminalStripScheme(scheme: LabelScheme | undefined | null): TerminalStripLabelScheme {
+  return {
+    numbering: scheme?.terminalStrip?.numbering ?? DEFAULT_TERMINAL_STRIP_SCHEME.numbering,
+    format: scheme?.terminalStrip?.format ?? DEFAULT_TERMINAL_STRIP_SCHEME.format,
+  }
+}
+
+/** The stored form: absent when it equals the defaults. */
+function terminalStripForStorage(scheme: LabelScheme): LabelScheme['terminalStrip'] | undefined {
+  const resolved = resolveTerminalStripScheme(scheme)
+  return resolved.numbering === DEFAULT_TERMINAL_STRIP_SCHEME.numbering &&
+    resolved.format === DEFAULT_TERMINAL_STRIP_SCHEME.format
+    ? undefined
+    : resolved
+}
 
 export type BuiltInLabelStyleId =
   | 'classic'
@@ -58,12 +86,14 @@ export const BUILT_IN_LABEL_STYLE_IDS = Object.keys(BUILT_IN_RULES) as BuiltInLa
 /** Built-in style applied on top of `base`, keeping the separator the user picked. */
 export function builtInLabelScheme(id: BuiltInLabelStyleId, base: LabelScheme = CLASSIC_LABEL_SCHEME): LabelScheme {
   const rules = BUILT_IN_RULES[id]
+  const terminalStrip = terminalStripForStorage(base)
   return {
     version: 1,
     separator: base.separator,
     panel: { ...rules.panel },
     circuit: { ...rules.circuit },
     branch: { ...rules.branch },
+    ...(terminalStrip ? { terminalStrip } : {}),
   }
 }
 
@@ -83,7 +113,14 @@ function rulesKey(rules: SchemeRules): string {
 }
 
 export function labelSchemesEqual(a: LabelScheme, b: LabelScheme): boolean {
-  return a.separator === b.separator && rulesKey(a) === rulesKey(b)
+  const ta = resolveTerminalStripScheme(a)
+  const tb = resolveTerminalStripScheme(b)
+  return (
+    a.separator === b.separator &&
+    rulesKey(a) === rulesKey(b) &&
+    ta.numbering === tb.numbering &&
+    ta.format === tb.format
+  )
 }
 
 /** Whether a style that puts the panel in circuit labels needs panel numbering. */
@@ -113,6 +150,7 @@ export function parseLabelScheme(value: unknown): LabelScheme | undefined {
   if (!SEQUENCE_STYLES.includes(circuit.style as LabelSequenceStyle)) return undefined
   if (!['none', 'number', 'full', 'continuous'].includes(circuit.panelPart as string)) return undefined
   if (typeof circuit.joinPanel !== 'boolean' || typeof branch.join !== 'boolean') return undefined
+  const terminalStrip = parseTerminalStripScheme(v.terminalStrip)
   return {
     version: 1,
     separator: v.separator as LabelSeparator,
@@ -128,7 +166,17 @@ export function parseLabelScheme(value: unknown): LabelScheme | undefined {
       joinPanel: circuit.joinPanel,
     },
     branch: { join: branch.join },
+    ...(terminalStrip ? { terminalStrip } : {}),
   }
+}
+
+/** An invalid terminal strip block is dropped on its own; the rest of the scheme stays valid. */
+function parseTerminalStripScheme(value: unknown): TerminalStripLabelScheme | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const { numbering, format } = value as Record<string, unknown>
+  if (!TERMINAL_NUMBERINGS.includes(numbering as TerminalNumbering)) return undefined
+  if (!TERMINAL_FORMATS.includes(format as TerminalNumberFormat)) return undefined
+  return { numbering: numbering as TerminalNumbering, format: format as TerminalNumberFormat }
 }
 
 const parsedSchemes = new WeakMap<object, LabelScheme>()
@@ -145,7 +193,10 @@ export function resolveLabelScheme(raw: Installation['labelScheme'] | unknown): 
 
 /** Value to store on the installation: classic is stored as "no scheme" for older readers. */
 export function labelSchemeForStorage(scheme: LabelScheme): LabelScheme | undefined {
-  return labelSchemesEqual(scheme, CLASSIC_LABEL_SCHEME) ? undefined : scheme
+  if (labelSchemesEqual(scheme, CLASSIC_LABEL_SCHEME)) return undefined
+  const { terminalStrip: _terminalStrip, ...rest } = scheme
+  const terminalStrip = terminalStripForStorage(scheme)
+  return { ...rest, ...(terminalStrip ? { terminalStrip } : {}) }
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +313,7 @@ export function buildPanelCodesById(panels: readonly Panel[], scheme: LabelSchem
   const visit = (list: readonly Panel[], parentNumber: string | null) => {
     let childIndex = 0
     for (const panel of list) {
+      if (isVirtualPanel(panel)) continue
       let number: string
       if (parentNumber === null || !scheme.panel.nested) {
         flatIndex += 1

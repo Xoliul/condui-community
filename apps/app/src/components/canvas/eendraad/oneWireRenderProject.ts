@@ -1,6 +1,8 @@
 import { createContext, useContext } from 'react'
 import type { ProjectV2 } from '@/types/projectV2'
 import { useProjectStore } from '@/stores/projectStore'
+import type { TerminalNumberFormat } from '@/types/junction'
+import { getProjectTerminalNumberFormat } from '@/lib/terminalStrip/labels'
 
 export interface OneWireRenderProject {
   project: ProjectV2
@@ -25,6 +27,13 @@ export function useOneWireProjectSelector<T>(selector: (state: OneWireProjectSta
   const override = useContext(OneWireRenderProjectContext)
   const live = useProjectStore((state) => (override ? undefined : selector(state)))
   return override ? selector({ currentProject: override.project }) : (live as T)
+}
+
+/** Terminal strip number format (X1-1, X1.1, X1.01) of the drawn project's naming preset. */
+export function useOneWireTerminalNumberFormat(): TerminalNumberFormat {
+  return useOneWireProjectSelector((state) =>
+    state.currentProject ? getProjectTerminalNumberFormat(state.currentProject) : 'X5-1'
+  )
 }
 
 /** Project id to check feature access with: the open project, also while drawing a preview. */

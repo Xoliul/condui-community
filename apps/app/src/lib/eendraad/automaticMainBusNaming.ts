@@ -15,6 +15,11 @@ import {
   resolveLabelScheme,
 } from '@/lib/eendraad/labelScheme'
 import { withLabelScheme } from '@/lib/eendraad/labelSchemeContext'
+import {
+  findVirtualPanelOwner,
+  getSupplyTapsPanel,
+  isVirtualPanel,
+} from '@/lib/supplyTaps/virtualPanel'
 import { relabelDomoticaChildRows } from '@/lib/eendraad/domoticaOutputOrdering'
 import { installationHideFeederLetters } from '@/lib/eendraad/eendraadNamingInstall'
 import { getMainBusOrder } from '@/lib/eendraad/mainBusOrder'
@@ -227,33 +232,49 @@ export function getManualCircuitLabelWarnings(
   const empty = { nonStandard: false, duplicate: false }
   if (!panel) return empty
 
-  const owningProtection = findProtectionOwningCircuit(panel, circuitId)
+  // Supply taps (virtual board) share the owner's code sequence: check owner and taps together.
+  const ownerPanel = isVirtualPanel(panel)
+    ? findVirtualPanelOwner(getProjectElectricalPanels(project), panel.id) ?? panel
+    : panel
+  const boards = [ownerPanel, getSupplyTapsPanel(ownerPanel)].filter(
+    (board): board is Panel => board != null,
+  )
+  const circuitBoard =
+    boards.find(
+      (board) =>
+        findProtectionOwningCircuit(board, circuitId) ||
+        board.circuits.some((candidate) => candidate.id === circuitId),
+    ) ?? ownerPanel
+  const owningProtection = findProtectionOwningCircuit(circuitBoard, circuitId)
   const circuit = owningProtection?.circuits?.find((candidate) => candidate.id === circuitId)
-    ?? panel.circuits.find((candidate) => candidate.id === circuitId)
+    ?? circuitBoard.circuits.find((candidate) => candidate.id === circuitId)
   if (!circuit) return empty
 
   const label = (labelOverride ?? owningProtection?.label ?? circuit.code ?? '').trim()
-  if (!label) return { nonStandard: true, duplicate: false }
+  // A supply tap circuit may stay unlabelled: it is left out of automatic labelling.
+  if (!label) return { nonStandard: !isVirtualPanel(circuitBoard), duplicate: false }
 
   const targetKey = normalizeProtectionLabelForUniqueness(label)
   const targetRowKey = owningProtection ? `protection:${owningProtection.id}` : `circuit:${circuit.id}`
   const labels: Array<{ rowKey: string; label: string }> = []
 
-  for (const protection of panel.protections ?? []) {
-    labels.push({ rowKey: `protection:${protection.id}`, label: protection.label ?? '' })
+  for (const board of boards) {
+    for (const protection of board.protections ?? []) {
+      labels.push({ rowKey: `protection:${protection.id}`, label: protection.label ?? '' })
+    }
+
+    const protectedCircuitIds = new Set(
+      (board.protections ?? []).flatMap((protection) =>
+        (protection.circuits ?? []).map((candidate) => candidate.id),
+      ),
+    )
+    for (const directCircuit of board.circuits ?? []) {
+      if (directCircuit.code === 'PANEL' || protectedCircuitIds.has(directCircuit.id)) continue
+      labels.push({ rowKey: `circuit:${directCircuit.id}`, label: directCircuit.code ?? '' })
+    }
   }
 
-  const protectedCircuitIds = new Set(
-    (panel.protections ?? []).flatMap((protection) =>
-      (protection.circuits ?? []).map((candidate) => candidate.id),
-    ),
-  )
-  for (const directCircuit of panel.circuits ?? []) {
-    if (directCircuit.code === 'PANEL' || protectedCircuitIds.has(directCircuit.id)) continue
-    labels.push({ rowKey: `circuit:${directCircuit.id}`, label: directCircuit.code ?? '' })
-  }
-
-  for (const device of collectFeedPathProtectionDevicesOnPanel(panel, project)) {
+  for (const device of collectFeedPathProtectionDevicesOnPanel(ownerPanel, project)) {
     labels.push({ rowKey: `supply:${device.id}`, label: device.label ?? '' })
   }
 
@@ -262,7 +283,7 @@ export function getManualCircuitLabelWarnings(
     nonStandard: !isRegularAutomaticCircuitLabel(
       label,
       scheme,
-      circuitLabelPanelPart(panel, project, scheme, getProjectElectricalInstallation(project)?.panelNumberingEnabled),
+      circuitLabelPanelPart(ownerPanel, project, scheme, getProjectElectricalInstallation(project)?.panelNumberingEnabled),
     ),
     duplicate: labels.some(
       (candidate) =>
@@ -429,16 +450,29 @@ export function resolveUniqueProtectionLabelOnPanel(
   const requested = requestedLabel.trim()
   if (!requested) return requested
 
+  // Supply taps (virtual board) share the owner's label namespace.
+  const ownerPanel =
+    project && isVirtualPanel(panel)
+      ? findVirtualPanelOwner(getProjectElectricalPanels(project), panel.id) ?? panel
+      : panel
+  const boards = [ownerPanel, getSupplyTapsPanel(ownerPanel)].filter(
+    (board): board is Panel => board != null,
+  )
+  if (!boards.includes(panel)) boards.push(panel)
   const currentLabel =
-    panel.protections.find((protection) => protection.id === protectionId)?.label?.trim() ?? ''
+    boards
+      .flatMap((board) => board.protections)
+      .find((protection) => protection.id === protectionId)?.label?.trim() ?? ''
   const currentLabelKey = normalizeProtectionLabelForUniqueness(currentLabel)
   const usedLabels = new Set<string>()
-  for (const protection of panel.protections ?? []) {
-    if (protection.id === protectionId) continue
-    addProtectionLabelKeyToUsedSet(usedLabels, protection.label)
+  for (const board of boards) {
+    for (const protection of board.protections ?? []) {
+      if (protection.id === protectionId) continue
+      addProtectionLabelKeyToUsedSet(usedLabels, protection.label)
+    }
   }
   if (project) {
-    for (const device of collectFeedPathProtectionDevicesOnPanel(panel, project)) {
+    for (const device of collectFeedPathProtectionDevicesOnPanel(ownerPanel, project)) {
       addProtectionLabelKeyToUsedSet(usedLabels, device.label)
     }
   }
@@ -787,8 +821,17 @@ function walkAutomaticNamingTargets(
   else panels.push(panel)
   const reserved = new Set<string>()
   for (const item of panels) {
-    for (const label of collectReservedCircuitLabelsOnPanel(item, project)) reserved.add(label)
+    // A virtual board has no supply path of its own; only its manual labels are reserved.
+    if (!isVirtualPanel(item)) {
+      for (const label of collectReservedCircuitLabelsOnPanel(item, project)) reserved.add(label)
+    }
     for (const label of collectManualLockedLabelsOnPanel(item)) reserved.add(label)
+  }
+  // Manually labelled supply tap circuits (virtual board) keep their label, so the owner's
+  // automatic codes must not repeat them. Unlabelled taps reserve nothing.
+  if (scheme.circuit.panelPart !== 'continuous') {
+    const taps = getSupplyTapsPanel(panel)
+    if (taps) for (const label of collectManualLockedLabelsOnPanel(taps)) reserved.add(label)
   }
   const panelPart = circuitLabelPanelPart(
     panel,
@@ -814,8 +857,11 @@ function walkAutomaticNamingTargets(
     onDirectFeederParentOmitted: skip,
   }
   for (const item of panels) {
-    const { primarySequence, deferredFeeders } = collectNamingTargets(item, opts)
+    // Virtual boards (supply taps) stay out of automatic naming: they are neither numbered nor
+    // counted, and keep any manual label.
+    if (isVirtualPanel(item)) continue
     const activeVisitor = item.id === panel.id ? visitor : countingVisitor
+    const { primarySequence, deferredFeeders } = collectNamingTargets(item, opts)
     applyTargetsWithVisitor(item, primarySequence, activeVisitor, nextCode, opts)
     applyTargetsWithVisitor(item, deferredFeeders, activeVisitor, nextCode, opts)
     if (item.id === panel.id) break
@@ -837,6 +883,8 @@ function automaticMainBusNamingWouldChangePanelUnpinned(
   opts: AutomaticMainBusNamingOpts,
   project: ProjectWithOptionalV2Electrical,
 ): boolean {
+  // A virtual board is named by its owner's pass.
+  if (isVirtualPanel(panel)) return false
   const assignedCodes = new Map<string, string>()
   let wouldChange = false
   walkAutomaticNamingTargets(panel, opts, {
@@ -897,10 +945,13 @@ function automaticMainBusNamingWouldChangePanelUnpinned(
       if (!letterShownOnOneWire(circuit)) wouldChange = true
     },
   }, project)
-  forEachCircuitOnPanel(panel, (c) => {
-    const code = assignedCodes.get(c.id) ?? (c.code ?? '').trim()
-    if (endpointBranchLabelsWouldChange(c, code, panel)) wouldChange = true
-  })
+  for (const board of [panel, getSupplyTapsPanel(panel)]) {
+    if (!board) continue
+    forEachCircuitOnPanel(board, (c) => {
+      const code = assignedCodes.get(c.id) ?? (c.code ?? '').trim()
+      if (endpointBranchLabelsWouldChange(c, code, board)) wouldChange = true
+    })
+  }
   return wouldChange
 }
 
@@ -964,6 +1015,8 @@ function applyAutomaticMainBusNamingToPanelUnpinned(
   opts: AutomaticMainBusNamingOpts,
   project: ProjectWithOptionalV2Electrical,
 ): void {
+  // A virtual board is named by its owner's pass.
+  if (isVirtualPanel(panel)) return
   walkAutomaticNamingTargets(panel, opts, {
     onProtection(protection, code, primary, showLetter) {
       void primary
@@ -986,8 +1039,11 @@ function applyAutomaticMainBusNamingToPanelUnpinned(
     onDirectFeederParentOmitted: clearDirectFeederParentNaming,
   }, project)
   reconcileSupplyProtectionLabelsOnPanel(panel, project)
-  applyAutomaticEndpointBranchLabelsToPanel(panel)
-  relabelDomoticaOutputsOnPanel(panel)
+  for (const board of [panel, getSupplyTapsPanel(panel)]) {
+    if (!board) continue
+    applyAutomaticEndpointBranchLabelsToPanel(board)
+    relabelDomoticaOutputsOnPanel(board)
+  }
 }
 
 /** Applies one naming pass to the installation, retaining per-board classic sequences. */

@@ -15,6 +15,9 @@ export function getSearchPresetArtwork(symbolId: string, presetId: string, plan 
   const preset = getSearchPreset(symbolId, presetId)
   const symbol = getSymbolById(symbolId)
   if (!preset || !symbol) return null
+  // A preset with its own library entry shows that entry's drawing.
+  const entry = preset.libraryEntry ? getSymbolById(preset.id) : null
+  if (entry) return { paths: [entry.svgPath], lines: [] as number[][], waterproof: false }
   const props = preset.defaults
   let paths = [symbol.svgPath]
   if (symbolId === 'spd') paths = [getSurgeProtectionSymbolPath(props.surgeProtectionKind)]

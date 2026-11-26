@@ -6,6 +6,7 @@ import {
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import { orderPanelsByNumber, panelNumberRankById } from '@/lib/panel/panelNumberOrder'
+import { isBoardPanel } from '@/lib/supplyTaps/virtualPanel'
 import type { Panel } from '@/types/schema'
 import {
   getAuxiliaryEnclosureSupplyDeviceIds,
@@ -22,7 +23,9 @@ export interface PanelExportTarget {
 }
 
 function collectAllPanels(panels: Panel[]): Panel[] {
-  return panels.flatMap((panel) => [panel, ...collectAllPanels(panel.subPanels)])
+  return panels.flatMap((panel) =>
+    isBoardPanel(panel) ? [panel, ...collectAllPanels(panel.subPanels)] : []
+  )
 }
 
 export function countElectricalPanels(panels: Panel[]): number {
@@ -60,7 +63,10 @@ export function buildPanelExportTargets(
   project: ProjectWithOptionalV2Electrical
 ): PanelExportTarget[] {
   const panelRoots = selectProjectElectricalPanels(project)
-  const panels = orderPanelsByNumber(panelRoots, selectProjectElectricalInstallation(project))
+  const panels = orderPanelsByNumber(
+    panelRoots,
+    selectProjectElectricalInstallation(project)
+  ).filter(isBoardPanel)
   const auxiliaryEnclosures = selectProjectAuxiliaryElectricalEnclosures(project).filter(
     (enclosure) => enclosure.hidden !== true
   )

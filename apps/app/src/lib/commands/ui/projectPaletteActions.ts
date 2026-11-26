@@ -1,6 +1,8 @@
 import { getPanelGridTotalColumns } from '@/lib/panel/panelGridFields'
 import type { ProjectV2 } from '@/types/projectV2'
 import { getForkPaletteActions } from './forkPaletteActions'
+import { getLibraryPresetPaletteActions } from './libraryPresetPaletteActions'
+import { getRiserPaletteActions } from './riserPaletteActions'
 import type { Selection } from '@/types/ui'
 import type { Panel, PanelGridModuleRef, PanelGridSlot, TrunkDevice } from '@/types/schema'
 import type { CommandInvocation } from '../project'
@@ -79,7 +81,7 @@ export function getProjectPaletteActions(
   activePanelId: string | null,
   activeFloorId: string | null
 ): ProjectPaletteAction[] {
-  const actions: ProjectPaletteAction[] = []
+  const actions: ProjectPaletteAction[] = [...getLibraryPresetPaletteActions(project, selection)]
   const panels = [...walkPanels(getProjectElectricalPanels(project))]
   const transformerPanels = panels.filter((panel) => panel.isMain !== false)
   if (transformerPanels.length) {
@@ -687,6 +689,7 @@ export function getProjectPaletteActions(
   return [
     ...actions,
     ...getForkPaletteActions(project, selection),
+    ...getRiserPaletteActions(project, selection),
     ...getFloorPaletteActions(project, activeFloorId),
     ...getBuildingPaletteActions(project, selection, activeFloorId),
     ...getPlacementPanelPaletteActions(project, selection, activeFloorId, activePanelId),

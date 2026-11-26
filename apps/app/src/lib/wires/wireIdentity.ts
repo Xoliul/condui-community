@@ -2,6 +2,7 @@ import { buildWireBusIndex } from './wireBusIndex'
 import { circuitIdFromWireAnchor, resolveConductorMarks } from './conductorMarks'
 import { isWireLabelVisibleForSegment } from '@/lib/wireLabelVisibility'
 import { wireRunAppearance } from './wireRunAppearance'
+import { circuitHasRootStems, getBranchStem, getEmptyRiserWireAnchor } from './riserStems'
 import { applyWireInstallationSpecification, circuitWireSpecifications } from './circuitWireSpecifications'
 import { asRailCable, isRailFeederAnchor, railRunByGroup, secondaryBusFeederCircuitId } from './railWireRuns'
 import {
@@ -265,8 +266,11 @@ export function stampWireSegmentAnchors(
         .sort((a, b) => a.trunkPosition - b.trunkPosition)
         .at(-1)
       if (lastTrunk && segment.fromElementId !== lastTrunk.id) continue
+      // With manual risers every stem is its own cable: a stem's vertical depicts only that stem's roots.
+      const stems = circuitHasRootStems(circuit)
+      const stem = segment.riserStem ?? 0
       const targets = (circuit.branches ?? [])
-        .filter((b) => !b.dcBusId)
+        .filter((b) => !b.dcBusId && (!stems || (!b.forkFrom && getBranchStem(b) === stem)))
         .flatMap((b) => {
           const first = [
             ...(b.branchDevices ?? []).map((device) => `trunk-device:${device.id}`),
@@ -288,6 +292,8 @@ export function stampWireSegmentAnchors(
           domain: segment.domain,
         })
       )
+      if (!segment.wireAnchors.length && stems && stem > 0)
+        segment.wireAnchors = [getEmptyRiserWireAnchor(circuit.id, segment.fromElementId!, stem, segment.domain)]
       if (segment.wireAnchors.length === 1) segment.wireAnchor = segment.wireAnchors[0]
     }
   }
@@ -400,7 +406,7 @@ export function applyWireRunsToSegments(
         panels,
         installation,
       })
-      if (marks) segment.conductorMarks = marks
+      if (marks && !segment.trunkContinuation) segment.conductorMarks = marks
     }
     if (run.medium === 'busbar') hideRailDecorations(segment)
   }
@@ -419,7 +425,7 @@ function markConductorMarkBranchPieces(segments: readonly WireSegment[]): void {
   for (const segment of segments) {
     const horizontal = segment.startPoint.y === segment.endPoint.y && segment.startPoint.x !== segment.endPoint.x
     const rail = segment.type === 'mainBus' || segment.type === 'secondaryBus'
-    if (horizontal && !rail && anchorsOf(segment).some((anchor) => stemAnchors.has(anchor)))
+    if (horizontal && !rail && !segment.trunkContinuation && anchorsOf(segment).some((anchor) => stemAnchors.has(anchor)))
       segment.conductorMarksBranchPiece = true
   }
 }

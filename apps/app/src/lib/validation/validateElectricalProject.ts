@@ -1,3 +1,4 @@
+import { cloneValue } from '@/utils/cloneValue'
 import type { Issue, ValidationProject, ValidationCoverageEntry, ValidationCoverageReport } from './core/types'
 import type { ValidationProjectRun } from './core/engine'
 import { buildValidationCoverageReport } from './coverage'
@@ -52,7 +53,7 @@ async function runElectricalProjectValidation(
   } | undefined,
   includeCoverage: boolean
 ): Promise<{ issues: Issue[]; coverage?: ValidationCoverageReport }> {
-  const snapshot = structuredClone(project)
+  const snapshot = cloneValue(project)
   const [
     validationEngine,
     { beAreiBook1_2025 },

@@ -10,6 +10,8 @@ import {
 import type { Endpoint } from '@/types/schema'
 import { LAYOUT_CONSTANTS, type BottomUpPanelLayout } from './bottomUpLayout'
 import { getDomoticaBusRowLabelMetrics } from '@/lib/eendraad/domoticaBusRowLabel'
+import { isHorizontalDomotica } from './domoticaHorizontalGeometry'
+import { getHorizontalDomoticaOutputLabels } from './horizontalDomoticaOutputLabels'
 
 /** Left-aligned row label ("T6.1") painted after the last endpoint of a domotica output row. */
 export interface DomoticaRowLabelPlacement {
@@ -74,13 +76,36 @@ export function getDomoticaRowLabelPlacement(
   }
 }
 
+/** Output number labels of the horizontal modules on one branch, as row label placements. */
+export function getHorizontalOutputLabelPlacements(
+  panelLayout: BottomUpPanelLayout,
+  branchEndpoints: Endpoint[],
+  endpoint: Endpoint
+): DomoticaRowLabelPlacement[] {
+  if (!isHorizontalDomotica(endpoint)) return []
+  const element = panelLayout.elements.find(
+    (candidate) => candidate.type === 'endpoint' && candidate.endpointId === endpoint.id
+  )
+  if (!element) return []
+  const code =
+    panelLayout.circuits.find((candidate) =>
+      candidate.circuit.endpoints.some((item) => item.id === endpoint.id)
+    )?.circuit.code ?? ''
+  return getHorizontalDomoticaOutputLabels(endpoint, branchEndpoints, element.position, code).map(
+    (label) => ({ endpointId: label.id, x: label.x, y: label.y, text: label.text })
+  )
+}
+
 export function collectDomoticaRowLabelPlacements(
   panelLayout: BottomUpPanelLayout
 ): DomoticaRowLabelPlacement[] {
   return (panelLayout.branches ?? []).flatMap((branch) =>
     branch.endpoints.flatMap((endpoint) => {
       const placement = getDomoticaRowLabelPlacement(panelLayout, branch.endpoints, endpoint)
-      return placement ? [placement] : []
+      return [
+        ...(placement ? [placement] : []),
+        ...getHorizontalOutputLabelPlacements(panelLayout, branch.endpoints, endpoint),
+      ]
     })
   )
 }

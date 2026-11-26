@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { symbols } from '@/lib/symbols'
+import { isLibraryPresetEntryId } from '@/lib/library/libraryPresets'
 import type { LabelScheme, SymbolKey } from '@/types/schema'
 import { CONTROL_SYSTEMS } from '@/types/schema'
 import { MAX_PANEL_PREFIX_LENGTH } from '@/lib/eendraad/labelScheme'
@@ -159,6 +160,7 @@ export const domoticaOutputWire = patchObject({
   showWireLengthLabel: bool,
 })
 export const domoticaProps = patchObject({
+  oneWireLayout: enumOrNull(['horizontal']),
   system: enumOrNull(CONTROL_SYSTEMS),
   outputSystem: enumOrNull(CONTROL_SYSTEMS),
   deviceAddress: str,
@@ -424,7 +426,8 @@ export const endpointPatchSchema = patchObject({
         'dc_bus',
         'switch_single',
         'switch_double',
-        ...symbols.map((symbol) => symbol.id),
+        // A library preset entry is never stored: it places its base symbol.
+        ...symbols.filter((symbol) => !isLibraryPresetEntryId(symbol.id)).map((symbol) => symbol.id),
       ]),
     ] as [SymbolKey, ...SymbolKey[]])
     .nullable(),
@@ -469,6 +472,10 @@ const labelSchemeProperties: z.ZodType<LabelScheme, LabelScheme> = z.object({
     joinPanel: z.boolean(),
   }).passthrough(),
   branch: z.object({ join: z.boolean() }).passthrough(),
+  terminalStrip: z.object({
+    numbering: z.enum(['circuit', 'cable']),
+    format: z.enum(['X5-1', 'X5.1', 'X5.01']),
+  }).passthrough().optional(),
 }).passthrough()
 
 export const installationPropertiesSchema = patchObject({

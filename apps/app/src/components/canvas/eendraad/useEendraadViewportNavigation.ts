@@ -173,7 +173,8 @@ export function useEendraadViewportNavigation({
           right: rect.x + rect.width,
           bottom: rect.y + rect.height,
         }
-        node.setAttr(VIEWPORT_HIT_BOUNDS_ATTRIBUTE, hitBounds)
+        // Cache metadata only: Node.setAttr would queue a repaint of the whole visible layer.
+        node.attrs[VIEWPORT_HIT_BOUNDS_ATTRIBUTE] = hitBounds
       }
 
       const shouldListen = boundsIntersect(hitBounds, visibleBounds)

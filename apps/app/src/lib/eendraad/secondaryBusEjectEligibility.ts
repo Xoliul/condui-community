@@ -85,7 +85,7 @@ export function resolveSecondaryBusEjectSelection(
     parentProtection = parentInfo.parentProtection
   }
 
-  if (!sourcePanel || !parentCircuit || !parentProtection) return null
+  if (!sourcePanel || !parentCircuit || !parentProtection || parentProtection.subPanelId) return null
 
   const directCircuitIds = parentCircuit.subCircuitIds ?? []
   if (directCircuitIds.length === 0) return null

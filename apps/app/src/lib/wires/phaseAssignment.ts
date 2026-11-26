@@ -684,10 +684,22 @@ export function getPanelIncomingPhaseState(
       installation
     )
     const output = getPanelFeedOutputPhaseState(panelFeed)
+    const feederProtection = findCircuitContext(panelFeed.feederCircuit.id, panels)?.protection
+    const manualFeederAssignment =
+      !feederProtection &&
+      panelFeed.feederCircuit.phaseAssignment?.source === 'manual' &&
+      isConcretePhaseAssignment(panelFeed.feederCircuit.phaseAssignment)
+        ? panelFeed.feederCircuit.phaseAssignment
+        : undefined
+    const cableAssignment = !feederProtection
+      ? getCablePhaseAssignment(panelFeed.feederCircuit, system)
+      : undefined
+    const assignment =
+      output.assignment ?? manualFeederAssignment ?? cableAssignment ?? inherited.assignment
     return {
-      assignment: output.assignment ?? inherited.assignment,
+      assignment,
       showPhaseLabel: output.showPhaseLabel ?? inherited.showPhaseLabel,
-      constraint: getInheritedPhaseConstraint(output.assignment ?? inherited.assignment),
+      constraint: getInheritedPhaseConstraint(assignment),
     }
   }
 
@@ -780,6 +792,56 @@ function isConcretePhaseAssignment(
   assignment: CircuitPhaseAssignment | undefined
 ): assignment is CircuitPhaseAssignment {
   return !!assignment && assignment.kind !== 'inherit' && assignment.kind !== 'dc'
+}
+
+/** Infer a panel feed's phase shape from its cable when no protection defines it. */
+function getCablePhaseAssignment(
+  circuit: Circuit,
+  system: VoltageSystem
+): CircuitPhaseAssignment | undefined {
+  const normalized = normalizeNominalVoltageSystem(system ?? '2~')
+  const activeConductors =
+    Math.max(0, Math.floor(circuit.cable.conductors || 0)) - (circuit.cable.hasPE ? 1 : 0)
+
+  if (normalized === '3N~') {
+    if (activeConductors === 2) {
+      return {
+        kind: 'single_phase',
+        phases: ['L1', 'N'],
+        neutral: 'used',
+        source: 'derived_from_voltage',
+      }
+    }
+    if (activeConductors === 3 || activeConductors === 4) {
+      return {
+        kind: 'three_phase',
+        phases: activeConductors === 4 ? ['L1', 'L2', 'L3', 'N'] : ['L1', 'L2', 'L3'],
+        neutral: activeConductors === 4 ? 'used' : 'not_present',
+        source: 'derived_from_voltage',
+      }
+    }
+  }
+
+  if (normalized === '3~') {
+    if (activeConductors === 2) {
+      return {
+        kind: 'phase_to_phase',
+        phases: ['L1', 'L2'],
+        neutral: 'not_present',
+        source: 'derived_from_voltage',
+      }
+    }
+    if (activeConductors >= 3) {
+      return {
+        kind: 'three_phase',
+        phases: ['L1', 'L2', 'L3'],
+        neutral: 'not_used',
+        source: 'derived_from_voltage',
+      }
+    }
+  }
+
+  return undefined
 }
 
 type PanelFeedInfo = {

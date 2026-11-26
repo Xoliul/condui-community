@@ -224,6 +224,8 @@ export function collectEendraadTextOverlays(
   const subPanelFeedAnchors = getSubPanelIncomingFeedLabelAnchors(panelLayout)
   const protectionXByCircuitId = new Map<string, number>()
   const circuitLabelByCircuitId = new Map<string, { x: number; text: string }>()
+  // Rows on a riser of a column drawing keep their own label column; only the first column lines up with the circuit code.
+  const riserBranchIds = new Set((panelLayout.branches ?? []).filter((branch) => (branch.column?.index ?? 0) > 0).map((branch) => branch.id))
   for (const el of panelLayout.elements) {
     if (el.type === 'protection' && el.circuitId) {
       protectionXByCircuitId.set(el.circuitId, el.position.x)
@@ -290,7 +292,7 @@ export function collectEendraadTextOverlays(
         el.position.x
     const circuitLabel = el.circuitId ? circuitLabelByCircuitId.get(el.circuitId) : undefined
     const x =
-      isBranchLabel && circuitLabel
+      isBranchLabel && circuitLabel && !riserBranchIds.has(el.branchId!)
         ? getCenteredCircuitLabelRight(circuitLabel.x, circuitLabel.text)
         : el.position.x
 

@@ -5,6 +5,7 @@ import { panelRewire } from './commands/panelRewire'
 import { ProjectCommandRegistry } from './registry'
 import { electricalPlaceSymbol } from './commands/electricalPlaceSymbol'
 import { electricalCreateFork, electricalDeleteEmptyFork } from './commands/electricalFork'
+import { electricalCreateRiser, electricalDeleteEmptyRiser, electricalJoinRisers } from './commands/electricalRiser'
 import { eendraadMoveEndpoints } from './commands/eendraadMoveEndpoints'
 import { electricalAssignEndpoints } from './commands/electricalAssignEndpoints'
 import { planAssignCircuit, circuitSetCodeAndPosition } from './commands/planAssignCircuit'
@@ -60,10 +61,13 @@ import { panelMoveAttachmentOnBus } from './commands/panelMoveAttachmentOnBus'
 import { planMoveEndpointsToFloor } from './commands/planMoveEndpointsToFloor'
 import { eendraadResetLabelOverrides } from './commands/eendraadResetLabelOverrides'
 import { planEnsurePanelPlacements } from './commands/planEnsurePanelPlacements'
+import { panelRepairDuplicatedBoardSymbols } from './commands/panelRepairDuplicatedBoardSymbols'
 import { panelEnsureEarthingStem } from './commands/panelEnsureEarthingStem'
 import { panelEjectSecondaryBusProtections } from './commands/panelEjectSecondaryBusProtections'
 import { supplyDisconnectInverterGridInput } from './commands/supplyDisconnectInverterGridInput'
 import { supplyAddSystem } from './commands/supplyAddSystem'
+import { supplyCreateTap } from './commands/supplyCreateTap'
+import { supplyMoveTap } from './commands/supplyMoveTap'
 import { electricalImportSchematic } from './commands/electricalImportSchematic'
 import {
   electricalMoveSupplyTrunkDevice,
@@ -135,6 +139,9 @@ export function createProjectCommandRegistry(): ProjectCommandRegistry {
     .register(electricalPlaceSymbol)
     .register(electricalCreateFork)
     .register(electricalDeleteEmptyFork)
+    .register(electricalCreateRiser)
+    .register(electricalJoinRisers)
+    .register(electricalDeleteEmptyRiser)
     .register(eendraadMoveEndpoints)
     .register(electricalAssignEndpoints)
     .register(planAssignCircuit)
@@ -173,10 +180,13 @@ export function createProjectCommandRegistry(): ProjectCommandRegistry {
     .register(planMoveEndpointsToFloor)
     .register(eendraadResetLabelOverrides)
     .register(planEnsurePanelPlacements)
+    .register(panelRepairDuplicatedBoardSymbols)
     .register(panelEnsureEarthingStem)
     .register(panelEjectSecondaryBusProtections)
     .register(supplyDisconnectInverterGridInput)
     .register(supplyAddSystem)
+    .register(supplyCreateTap)
+    .register(supplyMoveTap)
     .register(electricalImportSchematic)
     .register(electricalMoveSupplyTrunkDevice)
     .register(electricalMoveCircuitTrunkDevice)

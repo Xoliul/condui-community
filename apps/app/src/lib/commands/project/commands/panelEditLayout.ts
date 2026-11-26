@@ -172,7 +172,7 @@ export const panelEditLayoutInputSchema = z
         position: point,
       })
       .optional(),
-    /** Relays, meters and domotica modules hung in another panel or virtual enclosure. */
+    /** Relays, meters, domotica modules and supply tap breakers hung in another panel or virtual enclosure. */
     circuitModuleMoves: z
       .array(
         z.strictObject({

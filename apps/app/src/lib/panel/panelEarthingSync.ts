@@ -1,5 +1,6 @@
 import type { EarthingSystemType, Installation, Panel } from '@/types/schema'
 import { findMainPanel } from '@/lib/panel/panelTree'
+import { isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 
 export function normalizeEarthingSystem(
   value: EarthingSystemType | undefined
@@ -41,6 +42,7 @@ export function cascadeMainEarthingToPanels(
   const next = normalizeEarthingSystem(newEarthing)
   const visit = (list: Panel[]) => {
     for (const candidate of list) {
+      if (isVirtualPanel(candidate)) continue
       if (shouldReceiveMainEarthingCascade(candidate, mainPanel.id, previousMainEarthing)) {
         if (next === undefined) {
           delete candidate.earthingSystem

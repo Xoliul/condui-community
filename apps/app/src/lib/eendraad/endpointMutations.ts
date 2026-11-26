@@ -27,6 +27,7 @@ import {
   getEditableProjectElectricalPanels,
   getProjectElectricalPanels,
 } from '@/lib/projectV2/electrical'
+import { isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 import { generateId } from '@/utils/id'
 import { getNextAvailableCircuitCode } from '@/utils/project'
 import { endpointSupportsMultiplier, getEndpointMultiplier } from '@/utils/endpointMultipliers'
@@ -331,8 +332,10 @@ export function assignEndpointsToCircuitInProject(
   const existingTargetEndpointIds = targetOwner.circuit.endpoints.map((endpoint) => endpoint.id)
   const targetHadAlphabeticCode =
     !!targetOwner.circuit.code && /^[A-Z]+$/.test(targetOwner.circuit.code.trim())
-  if (firstEndpointOnTarget && !targetHadAlphabeticCode) {
-    const owner = findCircuitOwner(panels, targetCircuitId)
+  const targetCodeOwner = findCircuitOwner(panels, targetCircuitId)
+  // Supply tap circuits (virtual board) stay out of automatic labelling.
+  if (firstEndpointOnTarget && !targetHadAlphabeticCode && !isVirtualPanel(targetCodeOwner?.panel)) {
+    const owner = targetCodeOwner
     targetOwner.circuit.code = getNextAvailableCircuitCode(project, owner?.panel.id)
   }
 
@@ -438,7 +441,8 @@ export function addEndpointToProject(
         const circuitOwner = project
           ? findCircuitOwner(getProjectElectricalPanels(project), circuitId)
           : null
-        if (project) {
+        // Supply tap circuits (virtual board) stay out of automatic labelling.
+        if (project && !isVirtualPanel(circuitOwner?.panel)) {
           const newCode = getNextAvailableCircuitCode(project, circuitOwner?.panel.id)
           assignedCircuitCode = newCode
           result.circuit.code = newCode

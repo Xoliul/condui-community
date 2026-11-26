@@ -1,6 +1,7 @@
 {
   "oneWireFork": {
-    "invalidConnection": "Conexiunea ramurii este neclară."
+    "invalidConnection": "Conexiunea ramurii este neclară.",
+    "invalidRiser": "Coloanele nu sunt posibile pe acest circuit."
   },
   "forkLab": {
     "title": "Testarea ramificațiilor",
@@ -162,11 +163,9 @@
     "toggleVisibility": "Afișați sau ascundeți eticheta în schemă"
   },
   "terminalStrip": {
-    "pin": "Număr circuit",
-    "incomingPin": "In",
-    "outgoingPin": "Dezactivat",
+    "pin": "Număr de bornă",
     "circuitConflict": "{{label}} este atribuit unor circuite diferite.",
-    "circuitConflictRemediation": "Folosiți un număr separat de grup de borne pentru fiecare circuit."
+    "circuitConflictRemediation": "Folosiți un număr de bornă separat pentru fiecare circuit."
   },
   "appUpdate": {
     "banner": "Este disponibilă o nouă versiune a aplicației.",
@@ -186,7 +185,9 @@
     "offlineIndicatorTitle": "Sunteți offline",
     "cloudSyncPendingTitle": "Nesincronizat cu cloudul",
     "cloudSyncPendingMessage": "Modificările sunt salvate pe acest dispozitiv. Sincronizarea cu cloudul se reîncearcă.",
-    "cloudSyncConflictTitle": "Nesincronizat: alege o versiune"
+    "cloudSyncConflictTitle": "Nesincronizat: alege o versiune",
+    "browserStorageFullTitle": "Disc plin",
+    "browserStorageFullMessage": "Discul acestui computer este plin. Modificările sunt salvate doar în cloud."
   },
   "diagnostics": {
     "anonymousProjectName": "({{idShort}})",
@@ -257,6 +258,13 @@
       "browserOnly": "Proiecte doar în acest browser: {{total}}",
       "moveToServer": "Mută pe server",
       "moveFailed": "Mutarea proiectelor a eșuat: {{error}}"
+    },
+    "cloudUsage": {
+      "used_one": "{{used}} din {{count}} proiect cloud gratuit folosit",
+      "used_other": "{{used}} din {{count}} proiecte cloud gratuite folosite",
+      "used_few": "{{used}} din {{count}} proiecte cloud gratuite folosite",
+      "used_many": "{{used}} din {{count}} de proiecte cloud gratuite folosite",
+      "blocked": "Proiect cloud gratuit disponibil din nou la {{date}}"
     }
   },
   "dialog": {
@@ -320,6 +328,10 @@
   "commandPalette": {
     "createFork": "Adaugă o ramură",
     "deleteEmptyFork": "Șterge ramura goală",
+    "addRiser": "Adaugă o coloană",
+    "moveToOwnRiser": "Mută pe coloana proprie",
+    "joinRisers": "Unește pe un singur trunchi",
+    "deleteEmptyRiser": "Șterge coloana goală",
     "addPanelAtDomoticaOutput": "Adaugă tablou la ieșire",
     "addSupplyTransformer": "Adaugă transformator de alimentare",
     "placeholder": "Caută comenzi",
@@ -446,8 +458,12 @@
     "setBackupFeedBoundary": "Mută limita alimentării de rezervă",
     "movePanelSupply": "Mută alimentarea tabloului",
     "disconnectInverterGridInput": "Deconectează intrarea de rețea a invertorului",
+    "convertSupplyDeviceToTap": "Convertește în derivație",
+    "convertSupplyTapToInline": "Mută derivația înapoi în linie",
     "ejectSecondaryBusProtections": "Mută bara secundară într-un tablou nou",
-    "ensureSecondaryPanelEarthingStem": "Adaugă ramificația de împământare a tabloului"
+    "ensureSecondaryPanelEarthingStem": "Adaugă ramificația de împământare a tabloului",
+    "addDomoticaHorizontal": "Adaugă domotică (orizontal)",
+    "addDomoticaHorizontalSearch": "bus magistrală knx domotică automatizări casă inteligentă modul orizontal"
   },
   "shortcuts": {
     "title": "Taste rapide",
@@ -720,19 +736,22 @@
     "workflow": {
       "title": "Metodă",
       "placePlanSymbolsManually": "Plasați singur simbolurile pe plan",
-      "placePlanSymbolsManuallyHint": "Simbolurile noi apar pe planul de situație numai atunci când le plasați, de exemplu cu Quick Placer.",
       "defaultLayout": "Aspect implicit"
     },
     "navigation": {
       "title": "Navigare canvas",
       "leftDragPansCanvas": "Trageți la stânga pentru deplasare (desktop)",
-      "leftDragPansCanvasHint": "Pe laptop și desktop: trageți cu butonul stâng al mouse-ului pentru a muta pânza (ca la atingere). Țineți apăsată Shift și trageți pentru selectarea dreptunghiului. Schimbarea cu butoanele din mijloc și din dreapta mouse-ului continuă să funcționeze.",
       "wheelBehavior": "Rotița de derulare",
       "wheelBehaviorZoom": "Zoom (mouse)",
       "wheelBehaviorPan": "Deplasare (touchpad)",
       "keyboardLayout": "Tastatură",
       "keyboardLayoutAzerty": "AZERTY",
       "keyboardLayoutQwerty": "QWERTY"
+    },
+    "symbols": {
+      "protection": "Simboluri de protecție",
+      "simple": "Simplu",
+      "detailed": "Detaliat"
     },
     "debug": {
       "title": "Depanare",
@@ -938,10 +957,10 @@
     "noProjects": "Niciun proiect încă",
     "noProjectsDescription": "Începeți prin a crea primul proiect de instalare electrică",
     "createFirst": "Creați primul dvs. proiect",
-    "deleteConfirmTitle": "Ștergeți proiectul?",
-    "deleteConfirmMessage": "Sigur doriți să ștergeți {name}? Această acțiune nu poate fi anulată.",
-    "deleteConfirmShort": "Ești sigur că",
-    "deleteConfirmAction": "? Această acțiune nu poate fi anulată.",
+    "deleteConfirmTitle": "Ștergeți {{name}}?",
+    "deleteConfirmMessage": "Sigur doriți să ștergeți {{name}}? Această acțiune nu poate fi anulată.",
+    "deleteConfirmCooldown": "Un proiect cloud nou puteți crea abia de la {{date}}.",
+    "deleteConfirmIrreversible": "Ștergerea nu poate fi anulată.",
     "importDownloaded": "Importați proiectul descărcat",
     "importDownloadedInvalidFile": "Selectați un export de proiect .zip sau .pdf.",
     "importFailedTitle": "Importul nu a reușit",
@@ -951,14 +970,9 @@
     "importProjectLoadingBody": "Imaginile planului de etaj și datele proiectului sunt în curs de procesare. Fișierele mari pot dura ceva timp.",
     "importTrikInvalidFileTitle": "Fișier nevalid",
     "importTrikInvalidFileMessage": "Selectați un fișier .trik valid.",
-    "importTrikSuccessTitle": "Import cu succes",
-    "importTrikSuccessMessage": "TRiK „{{name}}” a fost importat.",
     "importRepairedSupplyHandoffs": "{{count}} Au fost eliminate legăturile de alimentare învechite, astfel încât proiectul să poată fi importat. Celelalte date ale proiectului au fost păstrate.",
-    "importTrikImportedLocallyTitle": "Importat local",
-    "importTrikImportedLocallyMessage": "TRiK „{{name}}” a fost importat local. Sincronizarea în cloud a eșuat, proiectul rămâne în stocarea locală.",
     "importTrikFailedTitle": "TRiK a eșuat",
     "importTrikFailedMessage": "TRiK nu a reușit: {{error}}",
-    "importTrikImportedNameSuffix": "(importat)",
     "importSchematicalsArchive": "Import Schematics Archive (dezvoltare)...",
     "importSchematicalsFolder": "Import Schematics folder (dezvoltare)...",
     "devElectricalImportButton": "Import JSON (dezvoltare)...",
@@ -985,7 +999,7 @@
     "newProjectLocalWarningShort": "Limita cloud atinsă. Acesta va fi un proiect local.",
     "newProjectLocalChosenWarning": "Acesta va fi un proiect local. Îl puteți face upgrade la cloud mai târziu.",
     "newProjectOfflineLocalWarning": "Sunteți offline. Acest proiect este salvat pe acest dispozitiv. Odată ce reveniți online, îl vom sincroniza cu cloud, dacă planul dvs. permite.",
-    "newProjectCooldownLocalWarning": "Slotul dvs. gratuit în cloud se răcește la {{date}}. Acest proiect este creat local.",
+    "newProjectCooldownLocalWarning": "Proiectul dvs. cloud gratuit va fi din nou disponibil la {{date}}. Acest proiect va fi creat local.",
     "createFailedTitle": "Crearea proiectului a eșuat",
     "createFailedMessage": "A apărut o eroare. Vă rugăm să încercați din nou.",
     "registrationRequiredCreateTitle": "Înregistrați-vă pentru a crea un proiect",
@@ -1001,14 +1015,34 @@
     "notFoundBody": "Link nevalid sau șters.",
     "notFoundBack": "Pornire",
     "keptOnDeviceTitle": "Salvat pe acest dispozitiv",
-    "keptOnDeviceMessage": "Nu există niciun slot cloud liber, așa că proiectul rămâne pe acest dispozitiv.",
+    "keptOnDeviceMessage": "Proiectul dvs. cloud gratuit este folosit, deci acest proiect rămâne pe acest dispozitiv. Cumpărați un proiect pentru a-l păstra în cloud.",
     "serverConflict": {
       "title": "Modificat pe alt dispozitiv",
       "message": "Acest proiect a fost salvat în altă parte după ce l-ați deschis. Ultimele modificări de aici nu sunt salvate.",
       "reload": "Încarcă ultima versiune",
       "overwrite": "Păstrează versiunea mea"
     },
-    "serverReloaded": "Actualizat cu modificări salvate în altă parte"
+    "serverReloaded": "Actualizat cu modificări salvate în altă parte",
+    "deleteConfirmFreeProject": "Acesta este proiectul dumneavoastră cloud gratuit. Și versiunile lui vor fi șterse. Doriți o versiune anterioară? Deschideți mai bine Versiuni.",
+    "versionsHint": "Căutați o copie de siguranță sigură? Proiectul dumneavoastră cloud păstrează automat versiunile.",
+    "versionsHintDismiss": "Nu mai afișa",
+    "localBadge": "Local · fără backup",
+    "deleteFailedTitle": "Ștergerea a eșuat",
+    "deleteFailedMessage": "Proiectul nu a putut fi șters. Încercați din nou.",
+    "importExisting": {
+      "title": "Aveți deja acest proiect",
+      "cloudBody": "Proiectele cloud își păstrează automat versiunile. Deschideți Versiuni pentru a reveni.",
+      "copy": "Importă ca o copie",
+      "open": "Deschide proiectul"
+    },
+    "importedNameSuffix": "(Importat)",
+    "importResult": {
+      "title": "Proiect importat",
+      "message": "„{{name}}” a fost importat.",
+      "syncedMessage": "„{{name}}” a fost importat și este în cloud.",
+      "deviceOnlyTitle": "Păstrat doar pe acest dispozitiv",
+      "cloudFailedMessage": "Nu s-a putut ajunge la cloud. Proiectul este pe acest dispozitiv."
+    }
   },
   "infoBlock": {
     "drawingSettings": "Desenul proiectului",
@@ -1063,6 +1097,10 @@
   },
   "panels": {
     "title": "plăci de distribuție",
+    "supplyTapsName": "Derivații",
+    "supplyTapInline": "În linie",
+    "supplyTapBranch": "Derivație",
+    "supplyTapMode": "Poziționare",
     "propertiesTitle": "tablou de distribuție",
     "add": "adăugați tablou de distribuție",
     "name": "Nume",
@@ -1325,6 +1363,7 @@
       "type_heat": "Căldură"
     },
     "motionDetector": {
+      "count": "Număr de detectoare de mișcare",
       "type": "Tip detector",
       "type_spread": "Răspândire",
       "type_generic": "General"
@@ -1407,6 +1446,14 @@
         "other": "Altul"
       },
       "controlArea": "Control",
+      "layout": "Aranjare",
+      "layout_vertical": "Vertical",
+      "layout_horizontal": "Orizontal",
+      "bodyDefault": "Domotică",
+      "labelText": "Text etichetă",
+      "layout_horizontal_blocked_last": "Trebuie să fie ultimul din circuit",
+      "layout_horizontal_blocked_nested": "Conține module",
+      "layout_horizontal_blocked_supply": "Indisponibil pe partea de alimentare",
       "control_programmed": ".",
       "control_wireless": "Wireless",
       "control_detection": "Detectare",
@@ -1723,7 +1770,12 @@
         "startHelp": "Primul număr de tablou. Seriile de litere încep de la A.",
         "circuitSequenceHelp": "Folosește majuscule, minuscule sau numere pentru circuite.",
         "betweenPanelAndCircuitHelp": "Unește codurile tabloului și circuitului sau pune separatorul între ele.",
-        "betweenCircuitAndBranchHelp": "Unește codul circuitului și numărul ramificației sau pune separatorul între ele."
+        "betweenCircuitAndBranchHelp": "Unește codul circuitului și numărul ramificației sau pune separatorul între ele.",
+        "terminalStrips": "Șiruri de borne",
+        "terminalNumbering": "Numerotare",
+        "terminalNumberingCircuit": "Per circuit",
+        "terminalNumberingCable": "Per cablu",
+        "terminalFormat": "Format"
       }
     }
   },
@@ -2039,7 +2091,8 @@
       "socket_waterproof": "Priză etanșă",
       "detector_gas": "Detector de gaz",
       "detector_heat": "Detector de căldură",
-      "detector_flame": "Detector de flacără"
+      "detector_flame": "Detector de flacără",
+      "domotica_horizontal": "Domotică (orizontal)"
     },
     "library": "Biblioteca de simboluri",
     "recent": "Recent",
@@ -2210,7 +2263,8 @@
       "dc_bus": "Bară DC",
       "note": "Notă / Etichetă",
       "light_sensor": "Întrerupător crepuscular",
-      "contact": "Contact"
+      "contact": "Contact",
+      "domotica_horizontal": "Domotică (orizontal)"
     }
   },
   "earthing": {
@@ -2264,7 +2318,7 @@
       "subCircuitSelfReference": "Piesa curentă este listată ca propria pistă subactuală",
       "subCircuitIdMissingCircuit": "Calea curentă se referă la calea sub-curentă lipsă",
       "endpointOnPanelCircuit": "Punct final pe calea pseudo-curentului PANEL",
-      "endpointMultipleFloorPlacements": "Punctul final este pe mai multe etaje",
+      "endpointMultipleFloorPlacements": "Punctul final apare de mai multe ori pe plan",
       "endpointPlacementIntegrity": "Eroare de integritate în plasarea punctului final",
       "endpointMissingPlanPlacement": "Lipsește din plan",
       "panelDistributionLabelDrift": "Simbolul panoului nu este sincronizat",
@@ -2663,9 +2717,11 @@
       "subCircuitSelfReference": "Circuitul „{{circuitCode}}” își listează propriul ID în subCircuitIds (invalid). Posibil să nu fie vizibil pe diagrama cu un singur fir, dar vizibil în listele de selecție.",
       "subCircuitIdMissingCircuit": "Circuitul „{{parentCircuitCode}}” face referire la un circuit secundar lipsă (ID: {{missingCircuitId}}).",
       "endpointOnPanelCircuit": "Punctul final \"{{endpointLabel}}\" este conectat la pseudo-circuitul PANEL și nu apare corect pe diagrama uniliniară.",
-      "endpointMultipleFloorPlacements": "Punctul final „{{endpointLabel}}” este pe etajele {{floorCount}}, dar acest simbol poate avea o singură destinație.",
+      "endpointMultipleFloorPlacements": "Punctul final „{{endpointLabel}}” apare de {{placementCount}} ori pe plan, deși poate fi amplasat o singură dată.",
       "endpointPlacementIntegrity": "Punctul final „{{endpointLabel}}” are date de plasare nevalide ({{violation}}).",
       "planPlacementIdentityConflict": "Planul de situație care afișează „{{placementId}}” este distribuit de {{ownerLabels}}. Simbolurile se pot suprapune, dispărea sau pot fi selectate împreună; recreați duplicatele afectate cu destinații de plasare unice.",
+      "duplicatedBoardSymbol": "Simbolul de tablou „{{label}}” este folosit de {{boardCount}} tablouri. Repară-l în Inspectorul orfan.",
+      "duplicateEntityId": "{{count}} elemente de tipul {{kind}} au același ID „{{id}}”. Modificările pot afecta elementul greșit.",
       "endpointMissingPlanPlacement": "{{endpointLabel}} ({{circuitCode}}) — în afara planului.",
       "panelDistributionLabelDrift": "Simbolul tabloului „{{endpointLabel}}” nu corespunde tabloului de distribuție „{{panelName}}” (circuitul {{circuitCode}}).",
       "panelMissingOneWireSymbol": "Panoul „{{panelName}}” există, dar nu are un simbol/legatură de putere cu un singur pol.",
@@ -3934,7 +3990,9 @@
   },
   "wheelBehaviorHint": {
     "question": "Folosești un touchpad?",
+    "questionMouse": "Folosești un mouse?",
     "usePan": "Derulează pentru deplasare",
+    "useZoom": "Derulează pentru zoom",
     "dismiss": "Închide"
   },
   "junctionDocuments": {

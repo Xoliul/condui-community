@@ -6,22 +6,64 @@
  */
 
 import {
-  detectWhiteFromRgba,
-  detectWhitePageBackgroundFromRgba,
+  createImagePixelSampler,
+  mapCanvasPixelsInBands,
+  releaseCanvas,
+} from '@/utils/canvasPixelOps'
+import {
+  detectWhiteFromSampler,
+  detectWhitePageBackgroundFromSampler,
   invertForDarkModeInPlace,
   removeWhitePixelsInPlace,
 } from '@/lib/image/planImagePixelOps'
 import {
-  detectWhiteBackgroundInWorker,
   invertImageColorsInWorker,
   planImageWorkerSupported,
   removeWhiteBackgroundInWorker,
 } from '@/lib/image/planImageWorkerClient'
+import { fitCanvasSize } from '@/utils/canvasSizeLimit'
 
 export interface PlanImageProcessingResult {
   processedDataUrl: string
   hasWhiteBackground: boolean
   originalDataUrl: string
+}
+
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('Failed to load image'))
+    img.src = url
+  })
+}
+
+/** Drops the decoded pixels of a temporary image so they do not wait for garbage collection. */
+function releaseImage(img: HTMLImageElement): void {
+  img.onload = null
+  img.onerror = null
+  img.removeAttribute('src')
+}
+
+/** Draws the image onto a scratch canvas, edits it band by band, and returns the PNG data URL. */
+function editImageToDataUrl(
+  image: HTMLImageElement,
+  edit: (data: Uint8ClampedArray) => void,
+): string {
+  const canvas = document.createElement('canvas')
+  try {
+    // Natural size, like before; only sizes a browser cannot allocate are reduced.
+    const size = fitCanvasSize(image.naturalWidth || image.width, image.naturalHeight || image.height)
+    canvas.width = size.width
+    canvas.height = size.height
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return ''
+    ctx.drawImage(image, 0, 0, size.width, size.height)
+    mapCanvasPixelsInBands(ctx, canvas.width, canvas.height, edit)
+    return canvas.toDataURL('image/png')
+  } finally {
+    releaseCanvas(canvas)
+  }
 }
 
 /** Same as regular background processing, but only when a painted white page is detected. */
@@ -30,48 +72,38 @@ export async function processPdfRasterBackground(
   threshold: number = 240,
   tolerance: number = 20,
 ): Promise<PlanImageProcessingResult> {
-  return new Promise((resolve, reject) => {
-    const img = new window.Image()
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas')
-        canvas.width = img.width
-        canvas.height = img.height
-        const ctx = canvas.getContext('2d', { willReadFrequently: true })
-        if (!ctx) throw new Error('Failed to create canvas context')
-        ctx.drawImage(img, 0, 0)
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const hasWhiteBackground = detectWhitePageBackgroundFromRgba(
-          imageData.data,
-          canvas.width,
-          canvas.height,
-          threshold,
-          tolerance,
-        )
-        if (!hasWhiteBackground) {
-          resolve({
-            processedDataUrl: imageDataUrl,
-            hasWhiteBackground: false,
-            originalDataUrl: imageDataUrl,
-          })
-          return
-        }
-        // Remove every near-white pixel, not only the page margin: rooms enclosed by walls are
-        // white too, and left opaque they invert to black blocks in dark mode.
-        removeWhitePixelsInPlace(imageData.data, threshold, tolerance)
-        ctx.putImageData(imageData, 0, 0)
-        resolve({
-          processedDataUrl: canvas.toDataURL('image/png'),
-          hasWhiteBackground: true,
-          originalDataUrl: imageDataUrl,
-        })
-      } catch (error) {
-        reject(error)
-      }
+  const img = await loadImage(imageDataUrl)
+  try {
+    const width = img.naturalWidth || img.width
+    const height = img.naturalHeight || img.height
+    // Detection only reads the page border, so it never needs a full-frame pixel buffer.
+    const sampler = createImagePixelSampler(img)
+    if (!sampler) throw new Error('Failed to create canvas context')
+    let hasWhiteBackground: boolean
+    try {
+      hasWhiteBackground = detectWhitePageBackgroundFromSampler(
+        sampler.sample,
+        width,
+        height,
+        threshold,
+        tolerance,
+      )
+    } finally {
+      sampler.dispose()
     }
-    img.onerror = () => reject(new Error('Failed to load image'))
-    img.src = imageDataUrl
-  })
+    if (!hasWhiteBackground) {
+      return { processedDataUrl: imageDataUrl, hasWhiteBackground: false, originalDataUrl: imageDataUrl }
+    }
+    // Remove every near-white pixel, not only the page margin: rooms enclosed by walls are
+    // white too, and left opaque they invert to black blocks in dark mode.
+    const processedDataUrl = editImageToDataUrl(img, (data) =>
+      removeWhitePixelsInPlace(data, threshold, tolerance),
+    )
+    if (!processedDataUrl) throw new Error('Failed to create canvas context')
+    return { processedDataUrl, hasWhiteBackground: true, originalDataUrl: imageDataUrl }
+  } finally {
+    releaseImage(img)
+  }
 }
 
 export interface InlineSvgEmbeddedImagesResult {
@@ -176,15 +208,18 @@ export function detectWhiteBackground(
   image: HTMLImageElement,
   threshold: number = 240
 ): boolean {
-  const canvas = document.createElement('canvas')
-  canvas.width = image.width
-  canvas.height = image.height
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) return false
-
-  ctx.drawImage(image, 0, 0)
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  return detectWhiteFromRgba(imageData.data, canvas.width, canvas.height, threshold)
+  const sampler = createImagePixelSampler(image)
+  if (!sampler) return false
+  try {
+    return detectWhiteFromSampler(
+      sampler.sample,
+      image.naturalWidth || image.width,
+      image.naturalHeight || image.height,
+      threshold,
+    )
+  } finally {
+    sampler.dispose()
+  }
 }
 
 /**
@@ -195,34 +230,14 @@ export function removeWhiteBackground(
   threshold: number = 240,
   tolerance: number = 20
 ): string {
-  const canvas = document.createElement('canvas')
-  canvas.width = image.width
-  canvas.height = image.height
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) return ''
-
-  ctx.drawImage(image, 0, 0)
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  removeWhitePixelsInPlace(imageData.data, threshold, tolerance)
-  ctx.putImageData(imageData, 0, 0)
-  return canvas.toDataURL('image/png')
+  return editImageToDataUrl(image, (data) => removeWhitePixelsInPlace(data, threshold, tolerance))
 }
 
 /**
  * Inverts colors of an image (for dark mode)
  */
 export function invertImageColors(image: HTMLImageElement): string {
-  const canvas = document.createElement('canvas')
-  canvas.width = image.width
-  canvas.height = image.height
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) return ''
-
-  ctx.drawImage(image, 0, 0)
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  invertForDarkModeInPlace(imageData.data)
-  ctx.putImageData(imageData, 0, 0)
-  return canvas.toDataURL('image/png')
+  return editImageToDataUrl(image, (data) => invertForDarkModeInPlace(data))
 }
 
 /**
@@ -232,84 +247,40 @@ export async function processPlanImage(
   imageDataUrl: string,
   invertForDarkMode: boolean = false
 ): Promise<PlanImageProcessingResult> {
-  return new Promise((resolve, reject) => {
-    const img = new window.Image()
-    img.onload = async () => {
-      try {
-        const useWorker = planImageWorkerSupported()
-        const hasWhiteBackground = useWorker
-          ? await detectWhiteBackgroundInWorker(img).catch(() => detectWhiteBackground(img))
-          : detectWhiteBackground(img)
-        let processedDataUrl = imageDataUrl
-
-        if (hasWhiteBackground) {
-          processedDataUrl = useWorker
-            ? await removeWhiteBackgroundInWorker(img).catch(() => removeWhiteBackground(img))
-            : removeWhiteBackground(img)
-
-          if (invertForDarkMode) {
-            const imgProcessed = new window.Image()
-            imgProcessed.onload = async () => {
-              try {
-                const inverted = useWorker
-                  ? await invertImageColorsInWorker(imgProcessed).catch(() =>
-                      invertImageColors(imgProcessed),
-                    )
-                  : invertImageColors(imgProcessed)
-                resolve({
-                  processedDataUrl: inverted,
-                  hasWhiteBackground: true,
-                  originalDataUrl: imageDataUrl,
-                })
-              } catch (e) {
-                reject(e)
-              }
-            }
-            imgProcessed.onerror = () => reject(new Error('Failed to process image'))
-            imgProcessed.src = processedDataUrl
-          } else {
-            resolve({
-              processedDataUrl,
-              hasWhiteBackground: true,
-              originalDataUrl: imageDataUrl,
-            })
-          }
-        } else {
-          resolve({
-            processedDataUrl: imageDataUrl,
-            hasWhiteBackground: false,
-            originalDataUrl: imageDataUrl,
-          })
-        }
-      } catch (error) {
-        reject(error)
-      }
+  const img = await loadImage(imageDataUrl)
+  try {
+    const hasWhiteBackground = detectWhiteBackground(img)
+    if (!hasWhiteBackground) {
+      return { processedDataUrl: imageDataUrl, hasWhiteBackground: false, originalDataUrl: imageDataUrl }
     }
-    img.onerror = () => reject(new Error('Failed to load image'))
-    img.src = imageDataUrl
-  })
+    const useWorker = planImageWorkerSupported()
+    // Dark-mode inversion already clears the white paper before inverting, so inverting the
+    // source in one pass equals remove-then-invert without the intermediate PNG round trip.
+    const processedDataUrl = invertForDarkMode
+      ? useWorker
+        ? await invertImageColorsInWorker(img).catch(() => invertImageColors(img))
+        : invertImageColors(img)
+      : useWorker
+        ? await removeWhiteBackgroundInWorker(img).catch(() => removeWhiteBackground(img))
+        : removeWhiteBackground(img)
+    return { processedDataUrl, hasWhiteBackground: true, originalDataUrl: imageDataUrl }
+  } finally {
+    releaseImage(img)
+  }
 }
 
 /**
  * Applies dark mode inversion to an already processed image (with transparent background)
  */
 export async function applyDarkModeInversion(imageDataUrl: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new window.Image()
-    img.onload = async () => {
-      try {
-        const useWorker = planImageWorkerSupported()
-        const inverted = useWorker
-          ? await invertImageColorsInWorker(img).catch(() => invertImageColors(img))
-          : invertImageColors(img)
-        resolve(inverted)
-      } catch (error) {
-        reject(error)
-      }
-    }
-    img.onerror = () => reject(new Error('Failed to load image'))
-    img.src = imageDataUrl
-  })
+  const img = await loadImage(imageDataUrl)
+  try {
+    return planImageWorkerSupported()
+      ? await invertImageColorsInWorker(img).catch(() => invertImageColors(img))
+      : invertImageColors(img)
+  } finally {
+    releaseImage(img)
+  }
 }
 
 function isNearWhiteColor(input: string): boolean {
@@ -576,23 +547,34 @@ export async function cropImageDataUrl(
   crop: { x: number; y: number; width: number; height: number },
   sourceSize: { width: number; height: number },
 ): Promise<string> {
-  const img = new Image()
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve()
-    img.onerror = () => reject(new Error('image load error'))
-    img.src = dataUrl
-  })
-  const scaleX = img.naturalWidth / sourceSize.width
-  const scaleY = img.naturalHeight / sourceSize.height
-  const width = Math.max(1, Math.round(crop.width * scaleX))
-  const height = Math.max(1, Math.round(crop.height * scaleY))
+  const img = await loadImage(dataUrl)
   const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('canvas unavailable')
-  ctx.drawImage(img, crop.x * scaleX, crop.y * scaleY, width, height, 0, 0, width, height)
-  return canvas.toDataURL('image/png')
+  try {
+    const scaleX = img.naturalWidth / sourceSize.width
+    const scaleY = img.naturalHeight / sourceSize.height
+    const width = Math.max(1, Math.round(crop.width * scaleX))
+    const height = Math.max(1, Math.round(crop.height * scaleY))
+    const output = fitCanvasSize(width, height)
+    canvas.width = output.width
+    canvas.height = output.height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('canvas unavailable')
+    ctx.drawImage(
+      img,
+      crop.x * scaleX,
+      crop.y * scaleY,
+      width,
+      height,
+      0,
+      0,
+      output.width,
+      output.height,
+    )
+    return canvas.toDataURL('image/png')
+  } finally {
+    releaseCanvas(canvas)
+    releaseImage(img)
+  }
 }
 
 export async function getVectorSvgThemePreviewUrl(
@@ -609,7 +591,7 @@ export async function getRasterThemePreviewUrl(
   isDarkMode: boolean,
 ): Promise<string> {
   if (!isDarkMode) return imageDataUrl
-  const processed = await processPlanImage(imageDataUrl, false)
-  const source = processed.hasWhiteBackground ? processed.processedDataUrl : imageDataUrl
-  return applyDarkModeInversion(source)
+  // Inversion clears near-white paper itself, so the source is inverted directly instead of
+  // first producing a white-removed copy.
+  return applyDarkModeInversion(imageDataUrl)
 }

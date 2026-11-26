@@ -1,7 +1,9 @@
 /** Paint-aware supply bounds, card placement, feed-stub reserves and lower label clearance. */
 import { LAYOUT_CONSTANTS, SUPPLY_INFO_DEVICE_HORIZONTAL_REACH } from './bottomUpLayoutConstants'
+import { drawsHostedFeederStubs } from '@/lib/layout/supplyFrameRole'
 import {
   estimateSupplyMetadataCalloutSize,
+  getNestedConverterLaneSpacing,
   getSupplyDcBusBranchBounds,
   getSupplyDeviceHorizontalPaintBounds,
   getSupplyDeviceTopExtent,
@@ -38,6 +40,14 @@ import { getSupplyConverterDcConnectionIndex } from '@/lib/supplyAssembly/conver
 import { isConverterGridLegPlacement } from '@/lib/supplyAssembly/changeoverGridSource'
 import { getSupplyTopLabelPlacements } from './supplyTopLabelLayout'
 import { panelHasMainBusProtection } from './supplyFrameDetachment'
+import { getSupplyDcBranchWireSpans } from './supplyDcBranchWireSpans'
+import {
+  getNestedLaneJogRows,
+  getNestedLaneOffsets,
+  getNestedLaneRowIndices,
+  NESTED_LANE_JOG_STEP,
+} from './supplyNestedConverterLanes'
+import { CIRCUIT_CONVERTER_TOP_WIRE_INSET } from './circuitConverterGeometry'
 
 import type { BottomUpPanelLayoutInput } from './bottomUpPanelLayoutInput'
 import { getCircuitLabelVisualRect } from './bottomUpCircuitGeometry'
@@ -47,7 +57,10 @@ import type { BottomUpCircuitLayoutPass } from './bottomUpCircuitLayout'
 import type { BottomUpSupplyLayoutPass } from './bottomUpSupplyLayout'
 
 type MeasurePanelSupplyMetadataInput =
-  Pick<BottomUpPanelLayoutInput, 'panel' | 'parentMcbInfo' | 'options'> &
+  Pick<
+    BottomUpPanelLayoutInput,
+    'project' | 'panel' | 'parentMcbInfo' | 'options' | 'installation' | 'rootPanels'
+  > &
   Pick<
     BottomUpCircuitLayoutPass,
     | 'supplyTrunkNotesOrientation'
@@ -86,6 +99,9 @@ type MeasurePanelSupplyMetadataInput =
 
 export function measurePanelSupplyMetadata(input: MeasurePanelSupplyMetadataInput) {
   const {
+    project,
+    installation,
+    rootPanels,
     panel,
     parentMcbInfo,
     options,
@@ -206,6 +222,32 @@ export function measurePanelSupplyMetadata(input: MeasurePanelSupplyMetadataInpu
         ? LAYOUT_CONSTANTS.SUPPLY_DC_BUS_CONNECTION_LEAD +
           LAYOUT_CONSTANTS.SUPPLY_DC_BUS_SIDE_TERMINAL_TRIM
         : 0
+    // A visible cable caption needs a longer piece than the default step. Rows are shared by
+    // every branch of the bus, so the strings stay level: each row takes the longest span.
+    const rowWireSpans: number[] = []
+    for (const group of groups) {
+      getSupplyDcBranchWireSpans({
+        project,
+        panelId: panel.id,
+        installation,
+        panels: rootPanels ?? [panel],
+        busDeviceId: busPosition.device.id,
+        devices: group.map(({ device }) => device),
+      }).forEach((span, index) => {
+        const row = getNestedLaneRowIndices(group.map(({ device }) => device))[index]!
+        rowWireSpans[row] = Math.max(rowWireSpans[row] ?? 0, span)
+      })
+      // The wire from a multi-port converter up to its strings holds one sideways jog per string
+      // that leaves its port, NESTED_LANE_JOG_STEP apart, with room below for unused stubs.
+      for (const { row, jogs } of getNestedLaneJogRows(group.map(({ device }) => device)))
+        rowWireSpans[row] = Math.max(
+          rowWireSpans[row] ?? 0,
+          (jogs + 2) * NESTED_LANE_JOG_STEP +
+            CIRCUIT_CONVERTER_TOP_WIRE_INSET +
+            LAYOUT_CONSTANTS.SYMBOL_SIZE / 2 -
+            LAYOUT_CONSTANTS.SYMBOL_SIZE
+        )
+    }
     let branchOffset = 0
     let previousBounds: SupplyDcBusBranchBounds | null = null
     groups.forEach((group, branchIndex) => {
@@ -225,17 +267,37 @@ export function measurePanelSupplyMetadata(input: MeasurePanelSupplyMetadataInpu
               // The detached supply is mirrored after this pass, while DC-bus
               // labels keep their readable side. The branch currently placed
               // to the right becomes the visual left neighbor after mirroring.
+              // Strings on a previous converter's further outputs reach outwards, towards this one.
               Math.ceil(
                 Math.max(
                   previousBounds!.right - branchBounds.left,
-                  branchBounds.right - previousBounds!.left
+                  branchBounds.right -
+                    Math.min(previousBounds!.left, -(previousBounds!.outwardLaneReach ?? 0))
                 ) + LAYOUT_CONSTANTS.SUPPLY_DC_BUS_BRANCH_LABEL_GAP
               )
             )
+      // Row `n` sits above row `n - 1` by the step its cable caption needs.
+      const rowY: number[] = []
+      const rowCount = Math.max(-1, ...getNestedLaneRowIndices(group.map(({ device }) => device))) + 1
+      for (let row = 0, y = busPosition.y; row < rowCount; row += 1) {
+        const wireSpan = rowWireSpans[row] ?? 0
+        y -=
+          row === 0
+            ? Math.max(72, wireSpan + LAYOUT_CONSTANTS.SYMBOL_SIZE / 2)
+            : Math.max(
+                LAYOUT_CONSTANTS.SUPPLY_DC_BUS_BRANCH_DEVICE_SPACING,
+                wireSpan + LAYOUT_CONSTANTS.SYMBOL_SIZE
+              )
+        rowY[row] = y
+      }
+      const groupRows = getNestedLaneRowIndices(group.map(({ device }) => device))
+      const laneOffsets = getNestedLaneOffsets(
+        group.map(({ device }) => device),
+        getNestedConverterLaneSpacing
+      )
       group.forEach((position, deviceIndex) => {
-        position.x = busPosition.x + branchOffset
-        position.y =
-          busPosition.y - 72 - deviceIndex * LAYOUT_CONSTANTS.SUPPLY_DC_BUS_BRANCH_DEVICE_SPACING
+        position.x = busPosition.x + branchOffset + laneOffsets[deviceIndex]!
+        position.y = rowY[groupRows[deviceIndex]!]!
         minY = Math.min(minY, position.y + branchBounds.top - 8)
       })
       previousBounds = branchBounds
@@ -530,9 +592,7 @@ export function measurePanelSupplyMetadata(input: MeasurePanelSupplyMetadataInpu
     ...feedStubFeederReserves
   )
   if (
-    (options.supplyEndpointKind === 'continuation' ||
-      ((options.supplyEndpointKind ?? 'mains') === 'mains' &&
-        (options.frameRole ?? 'panel') === 'panel' && panel.isMain)) &&
+    drawsHostedFeederStubs(options, panel) &&
     hasExplicitPanelBusSections(panel) &&
     (usesInlineEmptySplitRails ||
       (longestFeedStubStack > 0 && feedStubDevices.some((device) => device.type === 'protection')) ||

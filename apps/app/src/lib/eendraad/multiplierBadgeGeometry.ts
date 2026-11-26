@@ -8,10 +8,11 @@ export function getMultiplierBadgeText(count: number): string {
 }
 
 export function getMultiplierBadgeWidth(count: number): number {
-  return Math.max(
-    9,
-    Math.ceil(getMultiplierBadgeText(count).length * MULTIPLIER_BADGE_FONT_SIZE * 0.58)
-  )
+  // Bold digits are wider than the average glyph (about 0.62 em); an under-estimate wraps the
+  // trailing "x" onto a clipped second line (seen with 80x).
+  const text = getMultiplierBadgeText(count)
+  const digitCount = text.length - 1
+  return Math.max(9, Math.ceil((digitCount * 0.64 + 0.58) * MULTIPLIER_BADGE_FONT_SIZE))
 }
 
 /**

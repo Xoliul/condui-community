@@ -6,11 +6,13 @@ import { getEditableProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { selectProjectBuildingFloors } from '@/lib/projectV2/buildingFloors'
 import { getPanelBusSections } from '@/lib/panel/panelBusSections'
 import { getStandardCircuitBranches } from '@/lib/layout/endpointChains'
+import { getSupplyDevicesForDropTarget } from '@/lib/eendraad/dropWireDomain'
 import {
   getCircuitConverterDcConnectionCount,
   getCircuitConverterPrimaryBranch,
   supportsCircuitConverterDcConnections,
 } from '@/lib/layout/circuitConverterGeometry'
+import { isDropTargetAfterHorizontalDomotica, HORIZONTAL_DOMOTICA_TERMINAL_MESSAGE } from '@/lib/eendraad/horizontalDomoticaTerminal'
 import type { CommandCheck } from './types'
 
 const id = z.string().min(1)
@@ -48,6 +50,10 @@ export const electricalDropTargetSchema = z.strictObject({
   adoptForksOf: id.optional(),
   releaseForkLegsOf: id.optional(),
   branchInsertIndex: index.optional(),
+  /** With branchInsertIndex: which cable run (0 = trunk, k = riser k) a new root row joins at a stem boundary. */
+  branchStem: index.optional(),
+  /** Create the next riser (to the right of the existing ones) with the placed or moved content. */
+  newRiser: z.literal(true).optional(),
   branchDeviceInsertIndex: index.optional(),
   supplyDeviceInsertIndex: index.optional(),
   supplyFeedScope: z.enum(['shared', 'root']).optional(),
@@ -92,6 +98,12 @@ function flattenPanels(panels: readonly Panel[]): Panel[] {
   return panels.flatMap((panel) => [panel, ...flattenPanels(panel.subPanels)])
 }
 
+/** Supply taps live in a virtual board of their owner, but are drawn (and hit) on the owner's supply frame. */
+function isSameOrTapBoardOf(holder: Panel, target: Panel): boolean {
+  return holder.id === target.id ||
+    (holder.virtual?.kind === 'supply-taps' && target.subPanels.some((sub) => sub.id === holder.id))
+}
+
 /** Reject stale ids and cross-panel/cross-circuit anchors before the engine can append/fallback. */
 export function checkElectricalDropTarget(
   project: ProjectV2,
@@ -116,7 +128,7 @@ export function checkElectricalDropTarget(
   if ((target.type === 'circuit' || target.type === 'endpoint') && !target.circuitId)
     return fail('circuit_required', 'A circuit target needs a circuit id')
   if (target.circuitId && !owner) return fail('circuit_not_found', 'Circuit not found')
-  if (owner && panel && owner.panel.id !== panel.id)
+  if (owner && panel && !isSameOrTapBoardOf(owner.panel, panel))
     return fail('wrong_panel', 'Circuit does not belong to the target panel')
   const protectionOwner = panels.find((entry) =>
     entry.protections.some((item) => item.id === target.protectionId)
@@ -126,7 +138,7 @@ export function checkElectricalDropTarget(
     return fail('protection_required', 'A protection target needs a protection id')
   if (target.protectionId && !protection)
     return fail('protection_not_found', 'Protection not found')
-  if (protectionOwner && panel && protectionOwner.id !== panel.id)
+  if (protectionOwner && panel && !isSameOrTapBoardOf(protectionOwner, panel))
     return fail('wrong_panel', 'Protection does not belong to the target panel')
   if (owner && protection && !protection.circuits?.some((entry) => entry.id === owner.circuit.id))
     return fail('wrong_protection', 'Circuit does not belong to the target protection')
@@ -144,9 +156,11 @@ export function checkElectricalDropTarget(
   const connection = target.converterDcConnection
   const converterBranch = connection && owner?.circuit.branches?.find((branch) =>
     branch.branchDevices?.some((device) => device.id === connection.converterId))
+  // A converter on the supply side lives in the supply feed rather than in a circuit.
   const converter = connection && (
     owner?.circuit.trunkDevices?.find((device) => device.id === connection.converterId) ??
-    converterBranch?.branchDevices?.find((device) => device.id === connection.converterId)
+    converterBranch?.branchDevices?.find((device) => device.id === connection.converterId) ??
+    (owner ? undefined : getSupplyDevicesForDropTarget(target, project).find((device) => device.id === connection.converterId))
   )
   if (connection) {
     if (!converter || !supportsCircuitConverterDcConnections(converter))
@@ -216,7 +230,21 @@ export function checkElectricalDropTarget(
     !owner?.circuit.trunkDevices?.some((device) => device.id === target.dcBusId)
   )
     return fail('dc_bus_not_found', 'DC bus does not belong to the target circuit')
+  if (target.supplyDcBusId || target.supplyDcBusBranchId) {
+    const supplyDevices = getSupplyDevicesForDropTarget({ ...target, type: 'supplyWire', supplyFeedScope: 'root' }, project)
+    const bus = supplyDevices.find((device) => device.id === target.supplyDcBusId)
+    if (!target.supplyDcBusId || !bus || (bus.type !== 'dc_bus' && bus.symbol !== 'dc_bus'))
+      return fail('dc_bus_not_found', 'DC bus does not belong to the supply feed')
+    if (
+      target.supplyDcBusBranchId &&
+      !supplyDevices.some((device) => device.supplyDcBusId === bus.id && device.supplyDcBusBranchId === target.supplyDcBusBranchId)
+    )
+      return fail('dc_branch_not_found', 'DC-bus branch does not belong to this bus')
+  }
   if (floorId && !selectProjectBuildingFloors(project).some((floor) => floor.id === floorId))
     return fail('floor_not_found', 'Floor not found')
+  // A horizontal domotica module is terminal: nothing is placed after it on its circuit.
+  if (owner && isDropTargetAfterHorizontalDomotica(owner.circuit, target))
+    return fail('horizontal_domotica_terminal', HORIZONTAL_DOMOTICA_TERMINAL_MESSAGE)
   return { ok: true }
 }

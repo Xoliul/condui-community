@@ -1,6 +1,7 @@
 {
   "oneWireFork": {
-    "invalidConnection": "De aansluiting van de vertakking is onduidelijk."
+    "invalidConnection": "De aansluiting van de vertakking is onduidelijk.",
+    "invalidRiser": "Stijgers zijn niet mogelijk op dit circuit."
   },
   "forkLab": {
     "title": "Vertakkingen testen",
@@ -162,11 +163,9 @@
     "toggleVisibility": "Label tonen of verbergen op het schema"
   },
   "terminalStrip": {
-    "pin": "Kringnummer",
-    "incomingPin": "In",
-    "outgoingPin": "Uit",
+    "pin": "Klemnummer",
     "circuitConflict": "{{label}} is aan verschillende kringen toegewezen.",
-    "circuitConflictRemediation": "Gebruik voor elke kring een apart klemgroepnummer."
+    "circuitConflictRemediation": "Gebruik voor elke kring een apart klemnummer."
   },
   "appUpdate": {
     "banner": "Er is een nieuwe versie van de app beschikbaar.",
@@ -186,7 +185,9 @@
     "offlineIndicatorTitle": "Je bent offline",
     "cloudSyncPendingTitle": "Niet gesynchroniseerd met de cloud",
     "cloudSyncPendingMessage": "Je wijzigingen zijn op dit apparaat opgeslagen. De cloudsynchronisatie blijft het opnieuw proberen.",
-    "cloudSyncConflictTitle": "Niet gesynchroniseerd: kies een versie"
+    "cloudSyncConflictTitle": "Niet gesynchroniseerd: kies een versie",
+    "browserStorageFullTitle": "Schijf vol",
+    "browserStorageFullMessage": "De schijf van deze computer is vol. Je wijzigingen worden alleen in de cloud opgeslagen."
   },
   "diagnostics": {
     "anonymousProjectName": "Diagnosticsproject ({{idShort}})",
@@ -257,6 +258,13 @@
       "browserOnly": "Projecten enkel in deze browser: {{total}}",
       "moveToServer": "Naar server verplaatsen",
       "moveFailed": "Projecten verplaatsen mislukt: {{error}}"
+    },
+    "cloudUsage": {
+      "used_one": "{{used}} van {{count}} gratis cloudproject gebruikt",
+      "used_other": "{{used}} van {{count}} gratis cloudprojecten gebruikt",
+      "used_few": "{{used}} van {{count}} gratis cloudprojecten gebruikt",
+      "used_many": "{{used}} van {{count}} gratis cloudprojecten gebruikt",
+      "blocked": "Gratis cloudproject weer beschikbaar op {{date}}"
     }
   },
   "dialog": {
@@ -320,6 +328,10 @@
   "commandPalette": {
     "createFork": "Vertakking toevoegen",
     "deleteEmptyFork": "Lege vertakking verwijderen",
+    "addRiser": "Stijger toevoegen",
+    "moveToOwnRiser": "Naar eigen stijger verplaatsen",
+    "joinRisers": "Op één stam samenvoegen",
+    "deleteEmptyRiser": "Lege stijger verwijderen",
     "addPanelAtDomoticaOutput": "Bord toevoegen op uitgang",
     "addSupplyTransformer": "Voedingstransformator toevoegen",
     "placeholder": "Opdrachten zoeken",
@@ -446,8 +458,12 @@
     "setBackupFeedBoundary": "Grens noodvoeding verplaatsen",
     "movePanelSupply": "Bordvoeding verplaatsen",
     "disconnectInverterGridInput": "Netingang omvormer loskoppelen",
+    "convertSupplyDeviceToTap": "Naar aftakking omzetten",
+    "convertSupplyTapToInline": "Terug in de lijn plaatsen",
     "ejectSecondaryBusProtections": "Secundaire rail naar nieuw bord verplaatsen",
-    "ensureSecondaryPanelEarthingStem": "Bordaardingsaftakking toevoegen"
+    "ensureSecondaryPanelEarthingStem": "Bordaardingsaftakking toevoegen",
+    "addDomoticaHorizontal": "Domotica (horizontaal) toevoegen",
+    "addDomoticaHorizontalSearch": "bus knx domotica woningautomatisering slimme installatie module horizontaal"
   },
   "shortcuts": {
     "title": "Sneltoetsen",
@@ -720,19 +736,22 @@
     "workflow": {
       "title": "Werkwijze",
       "placePlanSymbolsManually": "Symbolen zelf op het plan plaatsen",
-      "placePlanSymbolsManuallyHint": "Nieuwe symbolen verschijnen pas op het situatieplan wanneer je ze plaatst, bijvoorbeeld met de SnelPlaatser.",
       "defaultLayout": "Standaardindeling"
     },
     "navigation": {
       "title": "Canvasnavigatie",
       "leftDragPansCanvas": "Links slepen om te verschuiven (desktop)",
-      "leftDragPansCanvasHint": "Op laptop en desktop: slepen met de linkermuisknop om het canvas te verschuiven (zoals op touch). Houd Shift ingedrukt en sleep voor rechthoekselectie. Verschuiven met midden- en rechtermuisknop blijft werken.",
       "wheelBehavior": "Scrollwiel",
       "wheelBehaviorZoom": "Zoomen (muis)",
       "wheelBehaviorPan": "Verschuiven (touchpad)",
       "keyboardLayout": "Toetsenbord",
       "keyboardLayoutAzerty": "AZERTY",
       "keyboardLayoutQwerty": "QWERTY"
+    },
+    "symbols": {
+      "protection": "Beveiligingssymbolen",
+      "simple": "Eenvoudig",
+      "detailed": "Gedetailleerd"
     },
     "debug": {
       "title": "Debug",
@@ -938,10 +957,10 @@
     "noProjects": "Nog geen projecten",
     "noProjectsDescription": "Begin door je eerste elektrische installatieproject aan te maken",
     "createFirst": "Creëer je eerste project",
-    "deleteConfirmTitle": "Project verwijderen?",
-    "deleteConfirmMessage": "Weet je zeker dat je {name} wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
-    "deleteConfirmShort": "Weet je zeker dat je",
-    "deleteConfirmAction": "wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
+    "deleteConfirmTitle": "{{name}} verwijderen?",
+    "deleteConfirmMessage": "Weet je zeker dat je {{name}} wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.",
+    "deleteConfirmCooldown": "Daarna kun je pas vanaf {{date}} een nieuw cloudproject maken.",
+    "deleteConfirmIrreversible": "Verwijderen kan niet ongedaan worden gemaakt.",
     "importDownloaded": "Gedownload project importeren",
     "importDownloadedInvalidFile": "Selecteer een .zip- of .pdf-projectexport.",
     "importFailedTitle": "Importeren mislukt",
@@ -951,14 +970,9 @@
     "importProjectLoadingBody": "Plattegrondafbeeldingen en projectgegevens worden verwerkt. Grote bestanden kunnen even duren.",
     "importTrikInvalidFileTitle": "Ongeldig bestand",
     "importTrikInvalidFileMessage": "Selecteer een geldig .trik-bestand.",
-    "importTrikSuccessTitle": "Import geslaagd",
-    "importTrikSuccessMessage": "TRiK-project \"{{name}}\" is geïmporteerd.",
     "importRepairedSupplyHandoffs": "{{count}} verouderde voedingskoppeling(en) verwijderd zodat het project kon worden geïmporteerd. De overige projectgegevens zijn behouden.",
-    "importTrikImportedLocallyTitle": "Lokaal geïmporteerd",
-    "importTrikImportedLocallyMessage": "TRiK-project \"{{name}}\" is lokaal geïmporteerd. Cloudsynchronisatie is mislukt, het project blijft in lokale opslag.",
     "importTrikFailedTitle": "TRiK-import mislukt",
     "importTrikFailedMessage": "TRiK-project importeren mislukt: {{error}}",
-    "importTrikImportedNameSuffix": "(Geïmporteerd)",
     "importSchematicalsArchive": "Schematicals-archief importeren (dev)…",
     "importSchematicalsFolder": "Schematicals-map importeren (dev)…",
     "devElectricalImportButton": "JSON importeren (dev)…",
@@ -985,7 +999,7 @@
     "newProjectLocalWarningShort": "Cloudlimiet bereikt. Dit wordt een lokaal project.",
     "newProjectLocalChosenWarning": "Dit wordt een lokaal project. Je kunt het later upgraden naar cloud.",
     "newProjectOfflineLocalWarning": "Je bent offline. Dit project wordt op dit toestel opgeslagen. Zodra je weer online bent, synchroniseren we het naar de cloud als je plan dat toelaat.",
-    "newProjectCooldownLocalWarning": "Je gratis cloudslot is in afkoeling tot {{date}}. Dit project wordt lokaal aangemaakt.",
+    "newProjectCooldownLocalWarning": "Je gratis cloudproject is weer beschikbaar op {{date}}. Dit project wordt lokaal aangemaakt.",
     "createFailedTitle": "Project aanmaken mislukt",
     "createFailedMessage": "Er ging iets mis. Probeer het opnieuw.",
     "registrationRequiredCreateTitle": "Registreer om een project te maken",
@@ -1001,14 +1015,34 @@
     "notFoundBody": "Ongeldige of verwijderde link.",
     "notFoundBack": "Start",
     "keptOnDeviceTitle": "Bewaard op dit apparaat",
-    "keptOnDeviceMessage": "Er is geen cloudslot vrij, dus dit project blijft op dit apparaat.",
+    "keptOnDeviceMessage": "Je gratis cloudproject is in gebruik, dus dit project blijft op dit apparaat. Koop een project om het in de cloud te bewaren.",
     "serverConflict": {
       "title": "Gewijzigd op een ander toestel",
       "message": "Dit project werd elders opgeslagen nadat je het opende. Je laatste wijzigingen hier zijn niet bewaard.",
       "reload": "Laatste versie laden",
       "overwrite": "Mijn versie behouden"
     },
-    "serverReloaded": "Bijgewerkt met elders opgeslagen wijzigingen"
+    "serverReloaded": "Bijgewerkt met elders opgeslagen wijzigingen",
+    "deleteConfirmFreeProject": "Dit is je gratis cloudproject. Ook de versies worden verwijderd. Wil je terug naar een eerdere versie? Open dan Versies.",
+    "versionsHint": "Op zoek naar een veilige back-up? Je cloudproject bewaart automatisch versies.",
+    "versionsHintDismiss": "Niet meer tonen",
+    "localBadge": "Lokaal · geen back-up",
+    "deleteFailedTitle": "Verwijderen mislukt",
+    "deleteFailedMessage": "Het project kon niet worden verwijderd. Probeer het opnieuw.",
+    "importExisting": {
+      "title": "Je hebt dit project al",
+      "cloudBody": "Cloudprojecten bewaren hun versies automatisch. Open Versies om terug te gaan.",
+      "copy": "Importeren als kopie",
+      "open": "Project openen"
+    },
+    "importedNameSuffix": "(Geïmporteerd)",
+    "importResult": {
+      "title": "Project geïmporteerd",
+      "message": "“{{name}}” is geïmporteerd.",
+      "syncedMessage": "“{{name}}” is geïmporteerd en staat in de cloud.",
+      "deviceOnlyTitle": "Alleen op dit apparaat bewaard",
+      "cloudFailedMessage": "Kon niet naar de cloud. Het project staat op dit apparaat."
+    }
   },
   "infoBlock": {
     "drawingSettings": "Projecttekening",
@@ -1063,6 +1097,10 @@
   },
   "panels": {
     "title": "Borden",
+    "supplyTapsName": "Aftakkingen",
+    "supplyTapInline": "In de lijn",
+    "supplyTapBranch": "Aftakking",
+    "supplyTapMode": "Plaatsing",
     "propertiesTitle": "Bord",
     "add": "Bord toevoegen",
     "name": "Naam",
@@ -1325,6 +1363,7 @@
       "type_heat": "Warmte"
     },
     "motionDetector": {
+      "count": "Aantal bewegingsmelders",
       "type": "Detectortype",
       "type_spread": "Spreid",
       "type_generic": "Algemeen"
@@ -1407,6 +1446,14 @@
         "other": "Ander"
       },
       "controlArea": "Sturing",
+      "layout": "Indeling",
+      "layout_vertical": "Verticaal",
+      "layout_horizontal": "Horizontaal",
+      "bodyDefault": "Domotica",
+      "labelText": "Labeltekst",
+      "layout_horizontal_blocked_last": "Moet laatste op de kring zijn",
+      "layout_horizontal_blocked_nested": "Bevat modules",
+      "layout_horizontal_blocked_supply": "Niet aan de voedingszijde",
       "control_programmed": "Program.",
       "control_wireless": "Draadloos",
       "control_detection": "Detectie",
@@ -1723,7 +1770,12 @@
         "startHelp": "Het eerste bordnummer. Letterreeksen beginnen bij A.",
         "circuitSequenceHelp": "Gebruik hoofdletters, kleine letters of cijfers voor kringen.",
         "betweenPanelAndCircuitHelp": "Voeg de bord- en kringcode samen of plaats het scheidingsteken ertussen.",
-        "betweenCircuitAndBranchHelp": "Voeg de kringcode en het aftakkingsnummer samen of plaats het scheidingsteken ertussen."
+        "betweenCircuitAndBranchHelp": "Voeg de kringcode en het aftakkingsnummer samen of plaats het scheidingsteken ertussen.",
+        "terminalStrips": "Klemmenstroken",
+        "terminalNumbering": "Nummering",
+        "terminalNumberingCircuit": "Per kring",
+        "terminalNumberingCable": "Per kabel",
+        "terminalFormat": "Notatie"
       }
     }
   },
@@ -2039,7 +2091,8 @@
       "socket_waterproof": "Waterdicht stopcontact",
       "detector_gas": "Gasdetector",
       "detector_heat": "Hittedetector",
-      "detector_flame": "Vlamdetector"
+      "detector_flame": "Vlamdetector",
+      "domotica_horizontal": "Domotica (horizontaal)"
     },
     "library": "Symbolenbibliotheek",
     "recent": "Recent",
@@ -2210,7 +2263,8 @@
       "dc_bus": "DC-rail",
       "note": "Notitie / Label",
       "light_sensor": "Schemerschakelaar",
-      "contact": "Contact"
+      "contact": "Contact",
+      "domotica_horizontal": "Domotica (horizontaal)"
     }
   },
   "earthing": {
@@ -2264,7 +2318,7 @@
       "subCircuitSelfReference": "Stroombaan staat als eigen sub-stroombaan vermeld",
       "subCircuitIdMissingCircuit": "Stroombaan verwijst naar ontbrekende sub-stroombaan",
       "endpointOnPanelCircuit": "Eindpunt op PANEL pseudo-stroombaan",
-      "endpointMultipleFloorPlacements": "Eindpunt staat op meerdere verdiepingen",
+      "endpointMultipleFloorPlacements": "Eindpunt staat meerdere keren op het plan",
       "endpointPlacementIntegrity": "Integriteitsfout in eindpunt-plaatsing",
       "endpointMissingPlanPlacement": "Ontbreekt op plan",
       "panelDistributionLabelDrift": "Paneelsymbool niet gesynchroniseerd",
@@ -2663,9 +2717,11 @@
       "subCircuitSelfReference": "Stroombaan \"{{circuitCode}}\" vermeldt eigen id in subCircuitIds (ongeldig). Mogelijk niet zichtbaar op het eendraadsschema maar wel in keuzelijsten.",
       "subCircuitIdMissingCircuit": "Stroombaan \"{{parentCircuitCode}}\" verwijst naar ontbrekende sub-stroombaan (id: {{missingCircuitId}}).",
       "endpointOnPanelCircuit": "Eindpunt \"{{endpointLabel}}\" is verbonden met de PANEL pseudo-stroombaan en verschijnt niet correct op het éénlijnschema.",
-      "endpointMultipleFloorPlacements": "Eindpunt \"{{endpointLabel}}\" staat op {{floorCount}} verdiepingen, maar dit symbool mag maar één plaatsing hebben.",
+      "endpointMultipleFloorPlacements": "Eindpunt \"{{endpointLabel}}\" staat {{placementCount}} keer op het plan, maar mag er maar één keer staan.",
       "endpointPlacementIntegrity": "Eindpunt \"{{endpointLabel}}\" heeft ongeldige plaatsingsdata ({{violation}}).",
       "planPlacementIdentityConflict": "Situatieplanplaatsing \"{{placementId}}\" wordt gedeeld door {{ownerLabels}}. Symbolen kunnen overlappen, verdwijnen of samen geselecteerd worden; maak de betrokken duplicaten opnieuw aan met unieke plaatsingen.",
+      "duplicatedBoardSymbol": "Bordsymbool \"{{label}}\" wordt gedeeld door {{boardCount}} borden. Herstel het in de Orphan Inspector.",
+      "duplicateEntityId": "{{count}} items van het type {{kind}} delen de ID \"{{id}}\". Bewerkingen kunnen het verkeerde item wijzigen.",
       "endpointMissingPlanPlacement": "{{endpointLabel}} ({{circuitCode}}) — niet op plan.",
       "panelDistributionLabelDrift": "Paneelsymbool \"{{endpointLabel}}\" komt niet overeen met bord \"{{panelName}}\" (stroombaan {{circuitCode}}).",
       "panelMissingOneWireSymbol": "Paneel \"{{panelName}}\" bestaat maar heeft geen eendraad-voedingssymbool/koppeling.",
@@ -3934,7 +3990,9 @@
   },
   "wheelBehaviorHint": {
     "question": "Gebruik je een touchpad?",
+    "questionMouse": "Gebruik je een muis?",
     "usePan": "Scrollen om te verschuiven",
+    "useZoom": "Scrollen om te zoomen",
     "dismiss": "Sluiten"
   },
   "junctionDocuments": {

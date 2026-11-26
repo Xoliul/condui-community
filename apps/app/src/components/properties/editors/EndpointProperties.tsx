@@ -491,7 +491,7 @@ export function EndpointProperties({
         )}
         {endpoint.symbol === 'terminal_strip' && (
           <div className="mt-3">
-            <label className={labelClass}>{t('terminalStrip.pin', 'Circuit number')}</label>
+            <label className={labelClass}>{t('terminalStrip.pin', 'Terminal number')}</label>
             <DebouncedTextInput
               type="number"
               min={1}
@@ -574,12 +574,40 @@ export function EndpointProperties({
         />
       )}
       {symbol === 'motion_detector' && (
-        <MotionDetectorEndpointFields
-          endpointId={endpointId}
-          endpoint={endpoint}
-          onUpdate={onUpdate}
-          t={panelStringT(t)}
-        />
+        <>
+          <div>
+            <label className={labelClass}>
+              {t('endpoints.motionDetector.count', 'Number of detectors')}
+            </label>
+            <input
+              key={`motion-detector-count-${endpointId}-${getEndpointMultiplier(endpoint)}`}
+              type="number"
+              min={1}
+              defaultValue={getEndpointMultiplier(endpoint)}
+              onBlur={(e) => {
+                const target = Math.floor(Number(e.target.value || 1))
+                if (
+                  !Number.isFinite(target) ||
+                  target < 1 ||
+                  target === getEndpointMultiplier(endpoint)
+                )
+                  return
+                editProperties({
+                  actions: [
+                    { kind: 'endpointMultiplier', endpointId, count: target, activeFloorId },
+                  ],
+                })
+              }}
+              className={selectClass}
+            />
+          </div>
+          <MotionDetectorEndpointFields
+            endpointId={endpointId}
+            endpoint={endpoint}
+            onUpdate={onUpdate}
+            t={panelStringT(t)}
+          />
+        </>
       )}
       {symbol === 'energy_meter' && (
         <EnergyMeterEndpointFields

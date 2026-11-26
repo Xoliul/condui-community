@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Group, Image } from 'react-konva'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useDetailedProtectionSymbols } from '@/hooks/useProtectionSymbolSvgPath'
+import { resolveProtectionSvgPath } from '@/lib/detailedProtectionSymbols'
 import { getSymbolById } from '@/lib/symbols'
 import { loadProcessedSymbol } from '@/lib/symbolImage'
 import type { SymbolMetadata } from '@/lib/symbols'
@@ -20,6 +22,7 @@ interface DragCursorSymbolProps {
  */
 export function DragCursorSymbol({ position, symbolData }: DragCursorSymbolProps) {
   const theme = useSettingsStore((s) => s.theme)
+  const detailedProtection = useDetailedProtectionSymbols()
   const [image, setImage] = useState<HTMLImageElement | null>(null)
   const [source, setSource] = useState({ id: symbolData.id, mode: theme?.mode })
   if (source.id !== symbolData.id || source.mode !== theme?.mode) {
@@ -32,7 +35,7 @@ export function DragCursorSymbol({ position, symbolData }: DragCursorSymbolProps
     if (!sym?.svgPath) return
     const isDark = theme?.mode === 'dark'
     let cancelled = false
-    loadProcessedSymbol(sym.svgPath, isDark)
+    loadProcessedSymbol(resolveProtectionSvgPath(sym.svgPath, detailedProtection), isDark)
       .then((img) => {
         if (!cancelled) setImage(img)
       })
@@ -42,7 +45,7 @@ export function DragCursorSymbol({ position, symbolData }: DragCursorSymbolProps
     return () => {
       cancelled = true
     }
-  }, [symbolData.id, theme?.mode])
+  }, [symbolData.id, theme?.mode, detailedProtection])
 
   if (!image) return null
 

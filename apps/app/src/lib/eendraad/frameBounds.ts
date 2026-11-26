@@ -12,6 +12,11 @@ import {
   type BottomUpPanelLayout,
 } from '@/lib/layout/bottomUpLayout'
 import { collectDomoticaRowLabelPlacements } from '@/lib/layout/domoticaRowLabelPlacement'
+import {
+  getHorizontalDomoticaGeometry,
+  getHorizontalDomoticaOutputCount,
+  isHorizontalDomotica,
+} from '@/lib/layout/domoticaHorizontalGeometry'
 import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
 import type { Endpoint, Frame, ProtectionDevice, TrunkDevice } from '@/types/schema'
 import type { ResolvedFrameItem } from '@/lib/eendraad/frameContent'
@@ -155,7 +160,13 @@ export function computeEendraadFrameBounds({
         if (labelExtents) extents.push(labelExtents)
       }
 
-      if (isDomoticaParent) {
+      if (isDomoticaParent && endpoint && isHorizontalDomotica(endpoint)) {
+        const body = getHorizontalDomoticaGeometry(
+          el.position,
+          getHorizontalDomoticaOutputCount(endpoint)
+        )
+        extents.push({ left: body.left, right: body.right, top: body.top, bottom: el.position.y })
+      } else if (isDomoticaParent) {
         const endpointCount = Math.max(
           DOMOTICA_MIN_ENDPOINT_OUTPUTS,
           Math.min(

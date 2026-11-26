@@ -1,6 +1,7 @@
 {
   "oneWireFork": {
-    "invalidConnection": "Die Verbindung des Abzweigs ist ungeklärt."
+    "invalidConnection": "Die Verbindung des Abzweigs ist ungeklärt.",
+    "invalidRiser": "Steigleitungen sind in diesem Stromkreis nicht möglich."
   },
   "forkLab": {
     "title": "Verzweigungen testen",
@@ -162,11 +163,9 @@
     "toggleVisibility": "Etikett im Schema ein- oder ausblenden"
   },
   "terminalStrip": {
-    "pin": "Stromkreisnummer",
-    "incomingPin": "Eingang",
-    "outgoingPin": "Aus",
+    "pin": "Klemmennummer",
     "circuitConflict": "{{label}} ist verschiedenen Stromkreisen zugeordnet.",
-    "circuitConflictRemediation": "Verwenden Sie für jeden Stromkreis eine eigene Klemmengruppennummer."
+    "circuitConflictRemediation": "Verwenden Sie für jeden Stromkreis eine eigene Klemmennummer."
   },
   "appUpdate": {
     "banner": "Eine neue Version der App ist verfügbar.",
@@ -186,7 +185,9 @@
     "offlineIndicatorTitle": "Sie sind offline",
     "cloudSyncPendingTitle": "Nicht mit der Cloud synchronisiert",
     "cloudSyncPendingMessage": "Ihre Änderungen sind auf diesem Gerät gespeichert. Die Cloud-Synchronisierung wird weiter versucht.",
-    "cloudSyncConflictTitle": "Nicht synchronisiert: Version wählen"
+    "cloudSyncConflictTitle": "Nicht synchronisiert: Version wählen",
+    "browserStorageFullTitle": "Festplatte voll",
+    "browserStorageFullMessage": "Die Festplatte dieses Computers ist voll. Ihre Änderungen werden nur in der Cloud gespeichert."
   },
   "diagnostics": {
     "anonymousProjectName": "Diagnoseprojekt ({{idShort}})",
@@ -257,6 +258,13 @@
       "browserOnly": "Projekte nur in diesem Browser: {{total}}",
       "moveToServer": "Auf den Server verschieben",
       "moveFailed": "Verschieben der Projekte fehlgeschlagen: {{error}}"
+    },
+    "cloudUsage": {
+      "used_one": "{{used}} von {{count}} kostenlosem Cloud-Projekt belegt",
+      "used_other": "{{used}} von {{count}} kostenlosen Cloud-Projekten belegt",
+      "used_few": "{{used}} von {{count}} kostenlosen Cloud-Projekten belegt",
+      "used_many": "{{used}} von {{count}} kostenlosen Cloud-Projekten belegt",
+      "blocked": "Kostenloses Cloud-Projekt ab {{date}} wieder verfügbar"
     }
   },
   "dialog": {
@@ -320,6 +328,10 @@
   "commandPalette": {
     "createFork": "Abzweig hinzufügen",
     "deleteEmptyFork": "Leeren Abzweig entfernen",
+    "addRiser": "Steigleitung hinzufügen",
+    "moveToOwnRiser": "Auf eigene Steigleitung verschieben",
+    "joinRisers": "Auf einem Strang zusammenführen",
+    "deleteEmptyRiser": "Leere Steigleitung entfernen",
     "addPanelAtDomoticaOutput": "Verteiler am Ausgang hinzufügen",
     "addSupplyTransformer": "Speisetransformator hinzufügen",
     "placeholder": "Befehle suchen",
@@ -446,8 +458,12 @@
     "setBackupFeedBoundary": "Grenze der Ersatzversorgung verschieben",
     "movePanelSupply": "Verteilereinspeisung verschieben",
     "disconnectInverterGridInput": "Netzeingang des Wechselrichters trennen",
+    "convertSupplyDeviceToTap": "In Abzweig umwandeln",
+    "convertSupplyTapToInline": "Abzweig wieder in die Leitung setzen",
     "ejectSecondaryBusProtections": "Sekundäre Sammelschiene in neuen Verteiler verschieben",
-    "ensureSecondaryPanelEarthingStem": "Erdungsabzweig am Verteiler hinzufügen"
+    "ensureSecondaryPanelEarthingStem": "Erdungsabzweig am Verteiler hinzufügen",
+    "addDomoticaHorizontal": "Gebäudeautomation (horizontal) hinzufügen",
+    "addDomoticaHorizontalSearch": "bus knx domotik hausautomation gebäudeautomation intelligente installation modul horizontal"
   },
   "shortcuts": {
     "title": "Hotkeys",
@@ -720,19 +736,22 @@
     "workflow": {
       "title": "Methode",
       "placePlanSymbolsManually": "Platzieren Sie selbst Symbole auf dem Plan",
-      "placePlanSymbolsManuallyHint": "Neue Symbole erscheinen auf dem Lageplan erst, wenn Sie sie platzieren, beispielsweise mit dem QuickPlacer.",
       "defaultLayout": "Standardlayout"
     },
     "navigation": {
       "title": "Canvas-Navigation",
       "leftDragPansCanvas": "Ziehen nach links zum Schwenken (Desktop)",
-      "leftDragPansCanvasHint": "Auf Laptop und Desktop: Ziehen Sie mit der linken Maustaste, um die Leinwand zu verschieben (wie bei Berührung). Halten Sie die Umschalttaste gedrückt und ziehen Sie, um ein Rechteck auszuwählen. Das Verschieben mit der mittleren und rechten Maustaste funktioniert weiterhin.",
       "wheelBehavior": "Mausrad",
       "wheelBehaviorZoom": "Zoomen (Maus)",
       "wheelBehaviorPan": "Verschieben (Touchpad)",
       "keyboardLayout": "Tastatur",
       "keyboardLayoutAzerty": "AZERTY",
       "keyboardLayoutQwerty": "QWERTY"
+    },
+    "symbols": {
+      "protection": "Schutzsymbole",
+      "simple": "Einfach",
+      "detailed": "Detailliert"
     },
     "debug": {
       "title": "Debug",
@@ -938,10 +957,10 @@
     "noProjects": "Noch keine Projekte",
     "noProjectsDescription": "Beginnen Sie mit der Erstellung Ihres ersten Elektroinstallationsprojekts",
     "createFirst": "Erstellen Sie Ihr erstes Projekt",
-    "deleteConfirmTitle": "Projekt löschen?",
-    "deleteConfirmMessage": "Sind Sie sicher, dass Sie {Name} löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
-    "deleteConfirmShort": "Sind Sie sicher?",
-    "deleteConfirmAction": "löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "deleteConfirmTitle": "{{name}} löschen?",
+    "deleteConfirmMessage": "Sind Sie sicher, dass Sie {{name}} löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "deleteConfirmCooldown": "Ein neues Cloud-Projekt können Sie erst ab {{date}} erstellen.",
+    "deleteConfirmIrreversible": "Das Löschen kann nicht rückgängig gemacht werden.",
     "importDownloaded": "Heruntergeladenes Projekt importieren",
     "importDownloadedInvalidFile": "Wählen Sie einen .zip- oder .pdf-Projektexport.",
     "importFailedTitle": "Import fehlgeschlagen",
@@ -951,14 +970,9 @@
     "importProjectLoadingBody": "Grundrissbilder und Projektdaten werden verarbeitet. Bei großen Dateien kann es eine Weile dauern.",
     "importTrikInvalidFileTitle": "Ungültige Datei",
     "importTrikInvalidFileMessage": "Wählen Sie eine gültige .trik-Datei aus.",
-    "importTrikSuccessTitle": "Import erfolgreich",
-    "importTrikSuccessMessage": "TRiK-Projekt „{{name}}“ wurde importiert.",
     "importRepairedSupplyHandoffs": "{{count}} Veraltete Stromverbindung(en) entfernt, damit das Projekt importiert werden konnte. Die übrigen Projektdaten bleiben erhalten.",
-    "importTrikImportedLocallyTitle": "Lokal importiert",
-    "importTrikImportedLocallyMessage": "TRiK-Projekt „{{name}}“ wurde lokal importiert. Die Cloud-Synchronisierung ist fehlgeschlagen, das Projekt verbleibt im lokalen Speicher.",
     "importTrikFailedTitle": "TRiK-Import fehlgeschlagen",
     "importTrikFailedMessage": "TRiK-Projektimport fehlgeschlagen: {{error}}",
-    "importTrikImportedNameSuffix": "(Importiert)",
     "importSchematicalsArchive": "Schaltplanarchiv importieren (Entwickler)…",
     "importSchematicalsFolder": "Schematics-Ordner importieren (dev)…",
     "devElectricalImportButton": "JSON (Entwickler) importieren…",
@@ -985,7 +999,7 @@
     "newProjectLocalWarningShort": "Cloud-Limit erreicht. Dies wird ein lokales Projekt sein.",
     "newProjectLocalChosenWarning": "Dies wird ein lokales Projekt sein. Sie können es später auf die Cloud upgraden.",
     "newProjectOfflineLocalWarning": "Sie sind offline. Dieses Projekt ist auf diesem Gerät gespeichert. Sobald Sie wieder online sind, synchronisieren wir es mit der Cloud, sofern Ihr Plan dies zulässt.",
-    "newProjectCooldownLocalWarning": "Ihr kostenloser Cloud-Slot ist bis {{date}} gesperrt. Dieses Projekt wird lokal erstellt.",
+    "newProjectCooldownLocalWarning": "Ihr kostenloses Cloud-Projekt ist ab {{date}} wieder verfügbar. Dieses Projekt wird lokal erstellt.",
     "createFailedTitle": "Projekterstellung fehlgeschlagen",
     "createFailedMessage": "Etwas ist schief gelaufen. Bitte versuchen Sie es erneut.",
     "registrationRequiredCreateTitle": "Registrieren Sie sich, um ein Projekt zu erstellen",
@@ -1001,14 +1015,34 @@
     "notFoundBody": "Ungültiger oder gelöschter Link.",
     "notFoundBack": "Start",
     "keptOnDeviceTitle": "Auf diesem Gerät gespeichert",
-    "keptOnDeviceMessage": "Kein Cloud-Slot frei, daher bleibt dieses Projekt auf diesem Gerät.",
+    "keptOnDeviceMessage": "Ihr kostenloses Cloud-Projekt ist belegt, daher bleibt dieses Projekt auf diesem Gerät. Kaufen Sie ein Projekt, um es in der Cloud zu speichern.",
     "serverConflict": {
       "title": "Auf einem anderen Gerät geändert",
       "message": "Dieses Projekt wurde nach dem Öffnen anderswo gespeichert. Ihre letzten Änderungen hier sind nicht gespeichert.",
       "reload": "Neueste Version laden",
       "overwrite": "Meine Version behalten"
     },
-    "serverReloaded": "Mit anderswo gespeicherten Änderungen aktualisiert"
+    "serverReloaded": "Mit anderswo gespeicherten Änderungen aktualisiert",
+    "deleteConfirmFreeProject": "Dies ist Ihr kostenloses Cloud-Projekt. Seine Versionen werden ebenfalls gelöscht. Möchten Sie eine frühere Version zurück? Öffnen Sie stattdessen Versionen.",
+    "versionsHint": "Suchen Sie eine sichere Sicherung? Ihr Cloud-Projekt speichert Versionen automatisch.",
+    "versionsHintDismiss": "Nicht mehr anzeigen",
+    "localBadge": "Lokal · kein Backup",
+    "deleteFailedTitle": "Löschen fehlgeschlagen",
+    "deleteFailedMessage": "Das Projekt konnte nicht gelöscht werden. Versuchen Sie es erneut.",
+    "importExisting": {
+      "title": "Sie haben dieses Projekt bereits",
+      "cloudBody": "Cloud-Projekte speichern ihre Versionen automatisch. Öffnen Sie Versionen, um zurückzugehen.",
+      "copy": "Als Kopie importieren",
+      "open": "Projekt öffnen"
+    },
+    "importedNameSuffix": "(Importiert)",
+    "importResult": {
+      "title": "Projekt importiert",
+      "message": "„{{name}}“ wurde importiert.",
+      "syncedMessage": "„{{name}}“ wurde importiert und liegt in der Cloud.",
+      "deviceOnlyTitle": "Nur auf diesem Gerät gespeichert",
+      "cloudFailedMessage": "Cloud nicht erreichbar. Das Projekt liegt auf diesem Gerät."
+    }
   },
   "infoBlock": {
     "drawingSettings": "Projektzeichnung",
@@ -1063,6 +1097,10 @@
   },
   "panels": {
     "title": "Schilder",
+    "supplyTapsName": "Abzweige",
+    "supplyTapInline": "In der Leitung",
+    "supplyTapBranch": "Abzweig",
+    "supplyTapMode": "Platzierung",
     "propertiesTitle": "Verteiler",
     "add": "Verteiler hinzufügen",
     "name": "Name",
@@ -1325,6 +1363,7 @@
       "type_heat": "Wärme"
     },
     "motionDetector": {
+      "count": "Anzahl der Bewegungsmelder",
       "type": "Detektortyp",
       "type_spread": "Verbreitung",
       "type_generic": "Allgemein"
@@ -1407,6 +1446,14 @@
         "other": "Andere"
       },
       "controlArea": "Steuerung",
+      "layout": "Anordnung",
+      "layout_vertical": "Vertikal",
+      "layout_horizontal": "Horizontal",
+      "bodyDefault": "Domotica",
+      "labelText": "Etikettentext",
+      "layout_horizontal_blocked_last": "Muss letztes Gerät im Stromkreis sein",
+      "layout_horizontal_blocked_nested": "Enthält Module",
+      "layout_horizontal_blocked_supply": "Nicht auf der Versorgungsseite",
       "control_programmed": "Programm.",
       "control_wireless": "Kabellos",
       "control_detection": "Erkennung",
@@ -1723,7 +1770,12 @@
         "startHelp": "Die erste Verteilernummer. Buchstabenfolgen beginnen bei A.",
         "circuitSequenceHelp": "Großbuchstaben, Kleinbuchstaben oder Zahlen für Stromkreise verwenden.",
         "betweenPanelAndCircuitHelp": "Verteiler- und Stromkreiscode verbinden oder das Trennzeichen dazwischen setzen.",
-        "betweenCircuitAndBranchHelp": "Stromkreiscode und Abzweignummer verbinden oder das Trennzeichen dazwischen setzen."
+        "betweenCircuitAndBranchHelp": "Stromkreiscode und Abzweignummer verbinden oder das Trennzeichen dazwischen setzen.",
+        "terminalStrips": "Klemmenleisten",
+        "terminalNumbering": "Nummerierung",
+        "terminalNumberingCircuit": "Pro Stromkreis",
+        "terminalNumberingCable": "Pro Kabel",
+        "terminalFormat": "Format"
       }
     }
   },
@@ -2039,7 +2091,8 @@
       "socket_waterproof": "Wasserdichte Steckdose",
       "detector_gas": "Gasmelder",
       "detector_heat": "Wärmemelder",
-      "detector_flame": "Flammenmelder"
+      "detector_flame": "Flammenmelder",
+      "domotica_horizontal": "Gebäudeautomation (horizontal)"
     },
     "library": "Symbolbibliothek",
     "recent": "Neu",
@@ -2210,7 +2263,8 @@
       "dc_bus": "DC-Sammelschiene",
       "note": "Notiz / Beschriftung",
       "light_sensor": "Dämmerungsschalter",
-      "contact": "Kontakt"
+      "contact": "Kontakt",
+      "domotica_horizontal": "Gebäudeautomation (horizontal)"
     }
   },
   "earthing": {
@@ -2264,7 +2318,7 @@
       "subCircuitSelfReference": "Stromkreis wird als eigene Unternummer Stromkreis aufgeführt",
       "subCircuitIdMissingCircuit": "Stromkreis bezieht sich auf fehlendes Sub-Stromkreis",
       "endpointOnPanelCircuit": "Endpunkt auf PANEL Pseudo-Stromkreis",
-      "endpointMultipleFloorPlacements": "Der Endpunkt liegt auf mehreren Etagen",
+      "endpointMultipleFloorPlacements": "Der Endpunkt ist mehrfach im Plan platziert",
       "endpointPlacementIntegrity": "Integritätsfehler bei der Endpunktplatzierung",
       "endpointMissingPlanPlacement": "Fehlt im Plan",
       "panelDistributionLabelDrift": "Panel-Symbol nicht synchronisiert",
@@ -2663,9 +2717,11 @@
       "subCircuitSelfReference": "Stromkreis „{{circuitCode}}“ führt seine eigene ID in subCircuitIds auf (ungültig). Möglicherweise ist er im Stromlaufplan nicht sichtbar, erscheint aber in Auswahllisten.",
       "subCircuitIdMissingCircuit": "Stromkreis „{{parentCircuitCode}}“ verweist auf einen fehlenden Unterstromkreis (ID: {{missingCircuitId}}).",
       "endpointOnPanelCircuit": "Endpunkt „{{endpointLabel}}“ ist mit dem Pseudo-Stromkreis PANEL verbunden und wird im Stromlaufplan nicht korrekt angezeigt.",
-      "endpointMultipleFloorPlacements": "Endpunkt „{{endpointLabel}}“ ist auf {{floorCount}} Stockwerken platziert, obwohl das Symbol nur einmal platziert werden darf.",
+      "endpointMultipleFloorPlacements": "Endpunkt „{{endpointLabel}}“ ist {{placementCount}} Mal im Plan platziert, darf aber nur einmal vorkommen.",
       "endpointPlacementIntegrity": "Endpunkt „{{endpointLabel}}“ hat ungültige Platzierungsdaten ({{violation}}).",
       "planPlacementIdentityConflict": "Die Lageplanplatzierung „{{placementId}}“ wird von {{ownerLabels}} gemeinsam genutzt. Symbole können dadurch überlappen, verschwinden oder gemeinsam ausgewählt werden. Erstellen Sie die betroffenen Platzierungen mit eindeutigen IDs neu.",
+      "duplicatedBoardSymbol": "Das Verteilersymbol „{{label}}“ wird von {{boardCount}} Verteilern geteilt. Beheben Sie es im Waiseninspektor.",
+      "duplicateEntityId": "{{count}} Elemente vom Typ {{kind}} haben dieselbe ID „{{id}}“. Änderungen können das falsche Element treffen.",
       "endpointMissingPlanPlacement": "{{endpointLabel}} ({{circuitCode}}) – außerhalb des Plans.",
       "panelDistributionLabelDrift": "Verteilersymbol „{{endpointLabel}}“ stimmt nicht mit Verteiler „{{panelName}}“ überein (Stromkreis {{circuitCode}}).",
       "panelMissingOneWireSymbol": "Für Verteiler „{{panelName}}“ fehlt das Einspeisesymbol oder die Verknüpfung im Stromlaufplan.",
@@ -3934,7 +3990,9 @@
   },
   "wheelBehaviorHint": {
     "question": "Nutzen Sie ein Touchpad?",
+    "questionMouse": "Verwenden Sie eine Maus?",
     "usePan": "Zum Verschieben scrollen",
+    "useZoom": "Zum Zoomen scrollen",
     "dismiss": "Schließen"
   },
   "junctionDocuments": {

@@ -1,4 +1,5 @@
 import type { Circuit } from '@/types/schema'
+import { hasOneWireRisers } from '@/lib/eendraad/oneWireRisers'
 import { DEFAULT_ELECTRICAL_DOMAIN } from '@/types/schema'
 import type { DropTarget } from './findDropTarget'
 import { getCircuitBranches } from './endpointChains'
@@ -17,6 +18,7 @@ import {
  * Compute trunk position similarly to existing getCircuitTrunkPositionForDrop, but purely on Circuit.
  */
 export function getCircuitTrunkPositionForDropSim(target: DropTarget, circuit: Circuit): number {
+  if (hasOneWireRisers(circuit)) return 0 // shared part under the split, as the commit
   if (target.insertAfterCircuitContent) {
     return Math.max(getCircuitBranches(circuit).length, ...(circuit.trunkDevices ?? []).map((device) => device.trunkPosition ?? 0))
   }

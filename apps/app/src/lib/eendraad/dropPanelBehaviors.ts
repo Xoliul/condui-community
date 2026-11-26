@@ -40,17 +40,21 @@ export const panelBehavior: DropBehavior = {
   execute: (target, project, _symbol, t, callbacks) => {
     const panels = projectPanels(project)
     const totalPanelCount = countPanels(panels)
-    const panelNumber = totalPanelCount + 1
+    const secondaryPanelName = (number: number) =>
+      t('panels.secondaryPanel', { number, defaultValue: `Panel ${number}` })
+    // After a deletion the count can point at a name still in use; boards are found by name.
+    const takenNames = new Set<string>()
+    const collectNames = (list: Panel[]) => list.forEach((panel) => { takenNames.add(panel.name); collectNames(panel.subPanels ?? []) })
+    collectNames(panels)
+    let panelNumber = totalPanelCount + 1
+    while (takenNames.has(secondaryPanelName(panelNumber))) panelNumber += 1
 
     const createPanel = (isMain: boolean): Panel => ({
       id: callbacks.newId?.() ?? generateId(),
       name:
         totalPanelCount === 0
           ? t('panels.mainPanel', { defaultValue: 'Main Panel' })
-          : t('panels.secondaryPanel', {
-              number: panelNumber,
-              defaultValue: `Panel ${panelNumber}`,
-            }),
+          : secondaryPanelName(panelNumber),
       symbol: 'panel_distribution',
       isMain,
       protections: [],

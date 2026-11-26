@@ -336,7 +336,7 @@ const PlanPlacementLabelEntryWithSource = React.memo(function PlanPlacementLabel
   const endpoint = usePlacementEndpoint(placement)
   const trunkDevice = usePlacementTrunkDevice(placement)
   const labelText =
-    endpoint?.label ?? trunkDevice?.label ?? placement.junctionPanelLabel ?? placement.planLabel
+    endpoint?.label ?? placement.junctionPanelLabel ?? placement.planLabel ?? trunkDevice?.label
   if (!labelText) return null
   return (
     <PlanPlacementLabelEntry
@@ -376,9 +376,9 @@ export const PlanPlacementLabelsLayer = React.memo(function PlanPlacementLabelsL
           : null
         const text =
           endpoint?.label ??
-          trunk?.label ??
           placement.junctionPanelLabel ??
           placement.planLabel ??
+          trunk?.label ??
           ''
         // Two em per UTF-16 unit is deliberately wider than our supported fonts;
         // use the label anchor, including large manual offsets, rather than the symbol center.

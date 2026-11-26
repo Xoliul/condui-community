@@ -50,6 +50,11 @@ import {
   getChangeoverGridSourceAvailability,
   setChangeoverGridSourceInProject,
 } from '@/lib/supplyAssembly/changeoverGridSourceEdit'
+import {
+  convertSupplyDeviceToTapInProject,
+  convertSupplyTapToInlineInProject,
+  getSupplyTapToggleState,
+} from '@/lib/supplyTaps/convertSupplyTap'
 import { editWireRunAtAnchor } from '@/lib/wires/editWireRun'
 import { findWireRunForAnchor, selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import { buildElectricalStructureSnapshot } from '@/lib/electricalStructure/builder'
@@ -118,6 +123,16 @@ export function checkExtraElectricalAction(
       getBusbarPhaseOrder(panel!, action.ownerId, action.busSectionId).length === 3
       ? { ok: true }
       : { ok: false, code: 'invalid_busbar', message: 'Busbar not found' }
+  }
+  if (action.kind === 'supplyTapMode') {
+    const state = getSupplyTapToggleState(project, action.entityId)
+    return state
+      ? { ok: true }
+      : {
+          ok: false,
+          code: 'supply_tap_not_convertible',
+          message: 'This device or tap cannot be switched between in the supply wire and a tap',
+        }
   }
   if (action.kind === 'changeoverGridSource') {
     if (!findPanelById(getProjectElectricalPanels(project), action.panelId))
@@ -343,6 +358,17 @@ export function applyExtraElectricalAction(
     return setAuxiliaryEnclosureShownOnPlan(project, action.enclosureId, action.visible)
       ? [{ kind: 'element', id: action.enclosureId }]
       : []
+  }
+  if (action.kind === 'supplyTapMode') {
+    const state = getSupplyTapToggleState(project, action.entityId)
+    if (!state || state.mode === action.mode) return []
+    const result =
+      state.mode === 'inline'
+        ? convertSupplyDeviceToTapInProject(project, action.entityId, env)
+        : convertSupplyTapToInlineInProject(project, action.entityId, env)
+    if (!result.ok)
+      throw new CommandError('check_failed', result.message, { reason: result.code })
+    return [{ kind: 'panel', id: state.ownerPanelId }]
   }
   if (action.kind === 'changeoverGridSource') {
     const availability = getChangeoverGridSourceAvailability(project, action.panelId)

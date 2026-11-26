@@ -511,8 +511,11 @@ function mainRcdCompliance(
     if (protection.dcBusId != null || protection.directDcBusFeeder) continue
     // Leaves stored under their own MCB are still downstream of an RCD container.
     if (protection.circuits?.length && protection.circuits.every((circuit) => nestedIds.has(circuit.id))) continue
-    checkOriginPath(protection.busSectionId ?? primarySectionId,
-      { kind: 'protection', id: protection.id, viewHint: 'eendraad' }, protection)
+    // A directly wired meter's owner has no symbol to select; point at its circuit instead.
+    const meterCircuitId = protection.directTrunkFeeder ? protection.circuits?.[0]?.id : undefined
+    checkOriginPath(protection.busSectionId ?? primarySectionId, meterCircuitId
+      ? { kind: 'circuit', id: meterCircuitId, viewHint: 'eendraad' }
+      : { kind: 'protection', id: protection.id, viewHint: 'eendraad' }, protection)
   }
   for (const circuit of circuits) {
     if (ownedIds.has(circuit.id) || nestedIds.has(circuit.id) || circuit.dcBusSource ||

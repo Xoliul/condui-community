@@ -1,12 +1,26 @@
 import { z } from 'zod'
 import { checkForkSymbolPlacement } from '@/lib/eendraad/forkSymbolPlacement'
-import { PROJECT_V2_FORK_SCHEMA_VERSION } from '@/types/projectV2'
+import { getRiserTargetFields } from '@/lib/eendraad/oneWireRisers'
+import { checkRiserDropTarget, checkRiserProtectionDrop } from '../riserTargetCheck'
+import { PROJECT_V2_FORK_SCHEMA_VERSION, PROJECT_V2_RISER_SCHEMA_VERSION } from '@/types/projectV2'
+import { raiseSchemaVersion } from '@/lib/projectV2/projectSchemaVersion'
 import { getSearchPreset } from '@/lib/library/searchPresets'
-import { placeElectricalSymbolInProject } from '@/lib/eendraad/electricalSymbolDrop'
+import { isHorizontalDomoticaPreset, resolveLibraryPresetInput } from '@/lib/library/libraryPresets'
+import { normalizeElectricalDropTarget, placeElectricalSymbolInProject } from '@/lib/eendraad/electricalSymbolDrop'
 import { findPanelById } from '@/lib/panel/panelTree'
+import { persistAutomaticPanelSlotsInProject } from '@/lib/panel/panelAutomaticSlots'
 import { getEditableProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { getSymbolById } from '@/lib/symbols'
 import { DOMOTICA_MAX_ENDPOINT_OUTPUTS } from '@/lib/domoticaLayout'
+import {
+  HORIZONTAL_DOMOTICA_NO_NESTING_MESSAGE,
+  HORIZONTAL_DOMOTICA_NO_SUPPLY_MESSAGE,
+  HORIZONTAL_DOMOTICA_TERMINAL_MESSAGE,
+  HORIZONTAL_DOMOTICA_TOP_LEVEL_MESSAGE,
+  isDomoticaNestingUnderHorizontalModule,
+  circuitHasHorizontalDomotica,
+  isDropTargetIntoSupplyAssembly,
+} from '@/lib/eendraad/horizontalDomoticaTerminal'
 import { PROTECTION_SYMBOL_IDS } from '@/lib/protectionKind'
 import {
   isModularSocketLibraryId,
@@ -25,6 +39,7 @@ import { findCircuitOwner } from '@/lib/eendraad/projectElectricalDomain'
 import { selectProjectBuildingFloors } from '@/lib/projectV2/buildingFloors'
 import { canSymbolAppearOnSituationPlan } from '@/lib/plan/situationPlanSymbolEligibility'
 import type { ProjectV2 } from '@/types/projectV2'
+import type { DropTarget } from '@/lib/layout/findDropTarget'
 import { CommandError, defineProjectCommand, type EntityKind, type EntityRef } from '../types'
 import { checkElectricalDropTarget, electricalDropTargetSchema } from '../electricalDropTarget'
 import { applyPanelDropPlacement, panelDropPlacementSchema } from '../panelDropPlacement'
@@ -37,6 +52,25 @@ import {
 const point = z.object({ x: z.number().finite(), y: z.number().finite() })
 
 const SELECTION_KINDS = new Set<string>(['endpoint', 'note', 'panel', 'protection', 'trunkDevice'])
+
+/**
+ * A new horizontal module is a top-level, terminal, non-supply module. The same pure rules as the
+ * Layout field and the commit invariant; whether something would follow it in a branch is
+ * left to the invariant, which also covers every other command.
+ */
+function checkNewHorizontalDomoticaPlacement(project: ProjectV2, target: DropTarget) {
+  const owner = target.circuitId
+    ? findCircuitOwner(getEditableProjectElectricalPanels(project), target.circuitId)
+    : null
+  if (isDropTargetIntoSupplyAssembly(target, owner?.circuit, owner ?? undefined))
+    return { ok: false as const, code: 'horizontal_domotica_no_supply', message: HORIZONTAL_DOMOTICA_NO_SUPPLY_MESSAGE }
+  if (target.domoticaOutput || target.domoticaChildDropIntent)
+    return { ok: false as const, code: 'horizontal_domotica_top_level', message: HORIZONTAL_DOMOTICA_TOP_LEVEL_MESSAGE }
+  // Every position on a circuit with a horizontal module is before or after it, and it is the last device.
+  if (owner && circuitHasHorizontalDomotica(owner.circuit))
+    return { ok: false as const, code: 'horizontal_domotica_terminal', message: HORIZONTAL_DOMOTICA_TERMINAL_MESSAGE }
+  return null
+}
 
 /**
  * Drops a library symbol on a one-wire / panel position: protections on a bus or panel, devices
@@ -79,14 +113,16 @@ export const electricalPlaceSymbol = defineProjectCommand({
           path: ['destination'],
         })
     }),
-  check(project, input) {
+  check(project, rawInput) {
+    // A library preset entry ID (agents, palette) is checked as its base symbol plus the preset.
+    const input = resolveLibraryPresetInput(rawInput)
     if ('searchPreset' in input && input.searchPreset && !getSearchPreset(input.symbolId, input.searchPreset))
       return { ok: false, code: 'invalid_preset', message: 'Unknown preset for this symbol' }
     if (!getSymbolById(input.symbolId)) {
       return { ok: false, code: 'unknown_symbol', message: 'Unknown symbol' }
     }
     if (input.planPlacement) {
-      if (!canSymbolAppearOnSituationPlan(input.symbolId))
+      if (!canSymbolAppearOnSituationPlan(input.symbolId) || getSearchPreset(input.symbolId, input.searchPreset)?.libraryEntry)
         return { ok: false, code: 'unsupported_plan_symbol', message: 'This symbol cannot be placed on the plan' }
       const floor = selectProjectBuildingFloors(project).find((entry) => entry.id === input.planPlacement!.floorId)
       if (!floor) return { ok: false, code: 'floor_not_found', message: 'Floor not found' }
@@ -105,10 +141,30 @@ export const electricalPlaceSymbol = defineProjectCommand({
     const target = resolved.target
     const targetCheck = checkElectricalDropTarget(project, target, input.planPlacement?.floorId ?? input.sitplan?.activeFloorId)
     if (!targetCheck.ok) return targetCheck
+    if (isHorizontalDomoticaPreset(input.symbolId, input.searchPreset)) {
+      const refusal = checkNewHorizontalDomoticaPlacement(project, normalizeElectricalDropTarget(input.symbolId, target, project))
+      if (refusal) return refusal
+    }
+    if (input.symbolId === 'domotica' && target.circuitId) {
+      const nestOwner = findCircuitOwner(getEditableProjectElectricalPanels(project), target.circuitId)
+      if (nestOwner && isDomoticaNestingUnderHorizontalModule(nestOwner.circuit, target, input.symbolId))
+        return { ok: false, code: 'horizontal_domotica_no_nesting', message: HORIZONTAL_DOMOTICA_NO_NESTING_MESSAGE }
+    }
     if (target.forkAfterEndpointId || target.forkBranchId) {
       const owner = findCircuitOwner(getEditableProjectElectricalPanels(project), target.circuitId ?? '')
       if (!owner || !checkForkSymbolPlacement(owner.circuit, target, input.symbolId))
         return { ok: false, code: 'unsupported_fork', message: 'This symbol cannot be placed on that fork' }
+    }
+    const riserCircuit = findCircuitOwner(getEditableProjectElectricalPanels(project), target.circuitId ?? '')?.circuit
+    const riserCheck = checkRiserDropTarget(riserCircuit, target)
+    if (!riserCheck.ok) return riserCheck
+    const protectionCheck = checkRiserProtectionDrop(riserCircuit, input.symbolId, target)
+    if (!protectionCheck.ok) return protectionCheck
+    if (input.panelGrid?.parentCircuitId) {
+      // Panel and hierarchy views: a protection dropped as a child of a circuit nests into it as well.
+      const parent = findCircuitOwner(getEditableProjectElectricalPanels(project), input.panelGrid.parentCircuitId)?.circuit
+      const parentCheck = checkRiserProtectionDrop(parent, input.symbolId, { type: 'circuit' })
+      if (!parentCheck.ok) return parentCheck
     }
     if (input.symbolId === 'panel_distribution' && target.domoticaOutput) {
       const owner = findCircuitOwner(getEditableProjectElectricalPanels(project), target.circuitId ?? '')
@@ -248,7 +304,8 @@ export const electricalPlaceSymbol = defineProjectCommand({
     if (!outcome.mutated) {
       throw new CommandError('check_failed', 'Nothing was placed', { reason: 'nothing_placed' })
     }
-    if (target.forkAfterEndpointId || target.forkBranchId) project.schemaVersion = PROJECT_V2_FORK_SCHEMA_VERSION
+    if (Object.keys(getRiserTargetFields(target)).length) raiseSchemaVersion(project, PROJECT_V2_RISER_SCHEMA_VERSION)
+    else if (target.forkAfterEndpointId || target.forkBranchId) raiseSchemaVersion(project, PROJECT_V2_FORK_SCHEMA_VERSION)
     const created: EntityRef[] = [
       ...additionalCreated,
       ...outcome.created.map((entry) => ({
@@ -257,9 +314,13 @@ export const electricalPlaceSymbol = defineProjectCommand({
       })),
     ]
     const { selection } = outcome
-    const gridChanged = input.panelGrid
+    const gridChanged: EntityRef[] = input.panelGrid
       ? applyPanelDropPlacement(draft as ProjectV2, target.panelId!, input.panelGrid, created)
       : []
+    // A device dropped on a panel wire (for example in series on the supply) needs its grid slot in
+    // this undo step; otherwise the canvas repairs it afterwards as a separate step.
+    if (target.panelId && persistAutomaticPanelSlotsInProject(project, target.panelId))
+      gridChanged.push({ kind: 'panel', id: target.panelId })
     // Callbacks report the requested symbol; shared follow-ups can also create board
     // occurrences, circuits and plan placements. Return those IDs for immediate reuse.
     const diff = diffTopologyRefs(before, collectTopologyRefs(project))

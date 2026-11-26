@@ -30,19 +30,31 @@ export function placeElectricalSymbol(options: {
   ownerDocument?: Document
 }): PlaceElectricalSymbolResult {
   try {
+    const tapAnchor = options.target.supplyTapAnchor
     const outcome = liveProjectSession.execute(
       [
-        {
-          id: 'electrical.placeSymbol',
-          input: {
-            symbolId: options.symbolId,
-            searchPreset: options.searchPreset,
-            target: options.target,
-            dropCanvasPosition: options.dropCanvasPosition,
-            panelGrid: options.panelGrid,
-            sitplan: createUiDropBehaviorHooks(options.ownerDocument).getSitplanTarget(),
-          },
-        },
+        tapAnchor && options.target.panelId
+          ? {
+              // A drop on a tap handle above the supply wire starts a tap instead of a device in series.
+              id: 'supply.createTap',
+              input: {
+                ownerPanelId: options.target.panelId,
+                anchor: tapAnchor,
+                symbolId: options.symbolId,
+                searchPreset: options.searchPreset,
+              },
+            }
+          : {
+              id: 'electrical.placeSymbol',
+              input: {
+                symbolId: options.symbolId,
+                searchPreset: options.searchPreset,
+                target: options.target,
+                dropCanvasPosition: options.dropCanvasPosition,
+                panelGrid: options.panelGrid,
+                sitplan: createUiDropBehaviorHooks(options.ownerDocument).getSitplanTarget(),
+              },
+            },
       ],
       { label: options.label ?? 'drop symbol from library' }
     )

@@ -1,7 +1,9 @@
-import { memo, useRef, useState, useCallback, useEffect, useId, type ReactNode } from 'react'
+import { memo, useMemo, useRef, useState, useCallback, useEffect, useId, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Star } from 'lucide-react'
 import { getSymbolIconPath, type SymbolMetadata } from '@/lib/symbols'
+import { toPlaceableSymbol } from '@/lib/library/libraryPresets'
+import { getLibraryEntryKey } from '@/lib/library/searchPresets'
 import { logger } from '@/lib/logger'
 import {
   getCachedThemedSymbolBlobUrl,
@@ -15,6 +17,7 @@ import {
 import { useUIStore } from '@/stores/uiStore'
 import { getCenteredTouchDragPreviewStyle } from '@/lib/canvas/touchDragPreview'
 import { setLibrarySymbolDragImage } from '@/lib/ui/libraryDragImage'
+import { useProtectionSymbolSvgPath } from '@/hooks/useProtectionSymbolSvgPath'
 import { SearchPresetPreview } from './SearchPresetPreview'
 import { SymbolHoverCard } from './SymbolHoverCard'
 
@@ -95,7 +98,9 @@ function SymbolItem({
   listName,
 }: SymbolItemProps) {
   const setLibraryDragSymbol = useUIStore((state) => state.setLibraryDragSymbol)
-  const isArmed = useUIStore((state) => state.armedLibrarySymbol?.id === symbol.id && state.armedLibrarySymbol?.searchPreset === symbol.searchPreset)
+  // A preset entry places its base symbol with the preset; every other symbol places itself.
+  const placeable = useMemo(() => toPlaceableSymbol(symbol), [symbol])
+  const isArmed = useUIStore((state) => state.armedLibrarySymbol?.id === placeable.id && state.armedLibrarySymbol?.searchPreset === placeable.searchPreset)
   const setArmedLibrarySymbol = useUIStore((state) => state.setArmedLibrarySymbol)
   // Touch keeps drag-only placement; arming needs a hovering pointer to preview under.
   const lastPointerTypeRef = useRef<string>('mouse')
@@ -211,7 +216,7 @@ function SymbolItem({
     // drag regardless of whether the user grabs the glyph or the label.
     e.dataTransfer.clearData()
     e.dataTransfer.effectAllowed = 'copy'
-    const symbolJson = JSON.stringify(symbol)
+    const symbolJson = JSON.stringify(placeable)
     e.dataTransfer.setData('application/json', symbolJson)
     // Also set as text/plain as fallback
     e.dataTransfer.setData('text/plain', symbolJson)
@@ -226,10 +231,10 @@ function SymbolItem({
     }
 
     logger.info('SymbolItem: Drag started for symbol:', symbol.id)
-    setLibraryDragSymbol(symbol)
+    setLibraryDragSymbol(placeable)
 
     if (onDragStart) {
-      onDragStart(symbol)
+      onDragStart(placeable)
     }
   }
 
@@ -246,7 +251,7 @@ function SymbolItem({
   // After each armed placement, bring the armed tile back if the library was scrolled away
   // from it entirely; a partly visible tile stays put.
   const armedPlacementCount = useUIStore((state) =>
-    state.armedLibrarySymbol?.id === symbol.id && state.armedLibrarySymbol?.searchPreset === symbol.searchPreset ? state.armedPlacementCount : 0
+    state.armedLibrarySymbol?.id === placeable.id && state.armedLibrarySymbol?.searchPreset === placeable.searchPreset ? state.armedPlacementCount : 0
   )
   useEffect(() => {
     if (!isArmed || armedPlacementCount === 0) return
@@ -271,8 +276,8 @@ function SymbolItem({
   }, [armedPlacementCount, isArmed])
 
   const toggleArmed = useCallback(() => {
-    setArmedLibrarySymbol(isArmed ? null : symbol)
-  }, [isArmed, setArmedLibrarySymbol, symbol])
+    setArmedLibrarySymbol(isArmed ? null : placeable)
+  }, [isArmed, setArmedLibrarySymbol, placeable])
 
   const handleClick = useCallback(() => {
     if (lastPointerTypeRef.current === 'touch') return
@@ -301,7 +306,7 @@ function SymbolItem({
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onToggleFavorite(symbol.id)
+    onToggleFavorite(getLibraryEntryKey(symbol))
   }
 
   // Touch handlers for drag and drop (iPad) using global native listeners
@@ -376,8 +381,8 @@ function SymbolItem({
           }
 
           setTouchDragActive(true)
-          setLibraryDragSymbol(symbol)
-          onDragStart?.(symbol)
+          setLibraryDragSymbol(placeable)
+          onDragStart?.(placeable)
         }
 
         ev.preventDefault()
@@ -442,7 +447,7 @@ function SymbolItem({
         capture: true,
       })
     },
-    [cleanupGesture, compact, onDragStart, setLibraryDragSymbol, symbol],
+    [cleanupGesture, compact, onDragStart, placeable, setLibraryDragSymbol, symbol],
   )
 
   const armedClass = isArmed
@@ -453,7 +458,7 @@ function SymbolItem({
     <>
       <div
         ref={itemRef}
-        data-testid={`library-symbol-${symbol.id}`}
+        data-testid={`library-symbol-${getLibraryEntryKey(symbol)}`}
         role="button"
         tabIndex={0}
         aria-pressed={isArmed}
@@ -731,7 +736,8 @@ export function SymbolPreview({ svgPath, symbolId, searchPreset }: SymbolPreview
   return <ThemedSymbolPreviewImg svgPath={normalizedSvgPath} />
 }
 
-function ThemedSymbolPreviewImg({ svgPath }: { svgPath: string }) {
+function ThemedSymbolPreviewImg({ svgPath: catalogSvgPath }: { svgPath: string }) {
+  const svgPath = useProtectionSymbolSvgPath(catalogSvgPath)
   const isDark = useSettingsStore((state) => state.theme.mode === 'dark')
   const [src, setSrc] = useState<string | null>(
     () => getCachedThemedSymbolBlobUrl(svgPath, isDark) ?? null,

@@ -63,6 +63,7 @@ type UsePanelLibraryDropOptions = {
 
 function getLibraryDropWidthCols(symbol: SymbolMetadata, project: Project | null): number {
   if (isModularSocketLibraryId(symbol.id)) return MODULAR_SOCKET_SINGLE_MODULE_WIDTH
+  if (symbol.id === 'terminal_strip' || symbol.id === 'transformer' || symbol.id === 'inverter') return 1
   if (symbol.id === 'energy_meter')
     return Math.max(1, polesFromConfig(getVoltagePolesConfig(project)))
   if (symbol.id === ROTATING_SWITCH_SYMBOL_ID) return 1
@@ -109,9 +110,11 @@ export function usePanelLibraryDrop({
       const isProtectionDevice = (PROTECTION_SYMBOL_IDS as readonly string[]).includes(symbol.id)
       const isEnergyMeter = symbol.id === 'energy_meter'
       const isModularSocket = isModularSocketLibraryId(symbol.id)
+      const isTerminalStrip = symbol.id === 'terminal_strip'
+      const isSupplyConverter = symbol.id === 'transformer' || symbol.id === 'inverter'
       const previewWidthCols = getLibraryDropWidthCols(symbol, currentProject)
 
-      if (!isProtectionDevice && !isEnergyMeter && !isModularSocket) {
+      if (!isProtectionDevice && !isEnergyMeter && !isModularSocket && !isTerminalStrip && !isSupplyConverter) {
         setDragPreview(null)
         return
       }
@@ -245,6 +248,10 @@ export function usePanelLibraryDrop({
         }
       } else if (isModularSocket && (inMainFrame || inSupplyFrame)) {
         previewRef = { kind: 'domotica', endpointId: 'preview', circuitId: 'preview' }
+      } else if (isTerminalStrip && (inMainFrame || inSupplyFrame)) {
+        previewRef = { kind: 'trunkDevice', id: 'preview', scope: 'circuit' }
+      } else if (isSupplyConverter && (inSupplyFrame || inMainFrame) && panel.isMain) {
+        previewRef = { kind: 'trunkDevice', id: 'preview', scope: 'supply' }
       }
 
       if (previewRef) {
@@ -255,7 +262,11 @@ export function usePanelLibraryDrop({
           previewWidthCols,
           invalid: isModularSocket
             ? inSupplyFrame || !canDropModularSocketOnPanel(panel)
-            : undefined,
+            : isSupplyConverter
+              ? !(inSupplyFrame || inMainFrame) || !panel.isMain
+              : isTerminalStrip
+                ? inSupplyFrame && !panel.isMain
+                : undefined,
           ...(autoParent != null ? { autoParent } : {}),
         }
         setDragPreview(next)
@@ -368,14 +379,16 @@ export function usePanelLibraryDrop({
       // Check if symbol is an energy meter
       const isEnergyMeter = symbol.id === 'energy_meter'
       const isModularSocket = isModularSocketLibraryId(symbol.id)
+      const isTerminalStrip = symbol.id === 'terminal_strip'
+      const isSupplyConverter = symbol.id === 'transformer' || symbol.id === 'inverter'
       const droppedModuleWidthCols = getLibraryDropWidthCols(symbol, currentProject)
 
       // Drop to supply chain only when actually dropped inside supply frame.
       const addToSupply =
         panel.isMain &&
         inSupplyFrame &&
-        (isProtectionDevice || isEnergyMeter) &&
-        !isLastSupplyHitOnDrop
+        (isProtectionDevice || isEnergyMeter || isTerminalStrip) &&
+        (!isLastSupplyHitOnDrop || isTerminalStrip)
       if (addToSupply) {
         // Get existing supply trunk devices and optional hit for targeted drop
         const existingDevices = getSharedSupplyRefsForPanel(currentProject, panel)
@@ -471,6 +484,43 @@ export function usePanelLibraryDrop({
           placementMethod: 'library_drop',
           targetType: 'supply_panel',
         })
+        return
+      }
+
+      if (isTerminalStrip) {
+        if (inMainFrame) {
+          const circuit = getLastAssignableCircuit(panel)
+          if (!circuit) return
+          placeElectricalSymbol({
+            symbolId: symbol.id,
+            searchPreset: symbol.searchPreset,
+            target: {
+              type: 'circuit',
+              panelId: panel.id,
+              circuitId: circuit.id,
+              circuitTrunkSegmentIndex: 0,
+            },
+            label: 'drop symbol from library onto panel',
+          })
+          return
+        }
+      }
+
+      if (isSupplyConverter && (inSupplyFrame || inMainFrame) && panel.isMain) {
+        const placed = placeElectricalSymbol({
+          symbolId: symbol.id,
+          searchPreset: symbol.searchPreset,
+          target: { type: 'supplyWire', panelId: panel.id, supplyFeedScope: 'root' },
+          label: 'drop symbol from library onto panel',
+        })
+        if (placed.status === 'placed' && placed.changed) {
+          trackSymbolPlace({
+            canvas: 'panel',
+            symbol,
+            placementMethod: 'library_drop',
+            targetType: 'supply_panel',
+          })
+        }
         return
       }
 

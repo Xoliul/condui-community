@@ -62,6 +62,7 @@ export const symbolTooltipsDE = {
   "horn": "Hupe oder lautes akustisches Warnsignal.",
   "siren": "Sirene für Alarm oder Notsignal.",
   "domotica": "Hausautomationsmodul oder intelligente Steuerung im Diagramm.",
+  "domotica_horizontal": "Hausautomationsmodul horizontal gezeichnet, mit der Speisung unten und den Ausgängen oben.",
   "energy_meter": "Energiezähler oder kWh-Zähler.",
   "transformer": "Transformator, der Spannung umwandelt.",
   "rectifier": "Gleichrichter von Wechsel- auf Gleichspannung.",

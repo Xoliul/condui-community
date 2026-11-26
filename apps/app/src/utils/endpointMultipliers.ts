@@ -5,7 +5,9 @@ export function endpointSupportsMultiplier(endpoint: Endpoint): boolean {
   if (endpoint.type === 'light_point') return true
   if (
     endpoint.type === 'switch' &&
-    (endpoint.symbol === 'switch_impulse' || endpoint.symbol === 'smoke_detector')
+    (endpoint.symbol === 'switch_impulse' ||
+      endpoint.symbol === 'smoke_detector' ||
+      endpoint.symbol === 'motion_detector')
   ) {
     return true
   }

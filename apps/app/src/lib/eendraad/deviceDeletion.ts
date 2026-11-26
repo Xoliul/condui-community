@@ -34,6 +34,7 @@ import {
 } from '@/lib/supplyAssembly/editorIntegration'
 import type { Panel, PanelGridModuleRef } from '@/types/schema'
 import { getEarthingSeparatorPairIds } from '@/lib/eendraad/earthingSeparatorPairs'
+import { retargetSupplyTapAnchors } from '@/lib/supplyTaps/healSupplyTaps'
 function removeConverterBackupDependents(panels: Panel[], converterId: string): string[] {
   const removedIds: string[] = []
   const linkedPanelIds = new Set<string>()
@@ -357,6 +358,10 @@ export function deleteSupplyTrunkDeviceInProject(project: ProjectV2, deviceId: s
           const dependentIds = removeConverterBackupDependents(panels, target.id)
           dependentIds.forEach((id) => removedIds.add(id))
         }
+        // Taps that leave the wire after a removed device move to the nearest device before it.
+        if (owningPanel)
+          for (let pass = 0; pass < removedIds.size; pass++)
+            if (![...removedIds].some((id) => retargetSupplyTapAnchors(owningPanel, devices, id))) break
         const removedDevices = devices.filter((device) => removedIds.has(device.id))
         for (let deviceIndex = devices.length - 1; deviceIndex >= 0; deviceIndex--) {
           if (removedIds.has(devices[deviceIndex]!.id)) {

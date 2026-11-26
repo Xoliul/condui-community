@@ -82,6 +82,7 @@ export const symbolTooltipsEn = {
 
   // Domotica / metering / conversion / notes
   domotica: 'Smart home module or control in the diagram.',
+  domotica_horizontal: 'Smart home module drawn horizontally, with the feed below and the outputs on top.',
   energy_meter: 'Energy meter or kWh meter.',
   transformer: 'Transformer that changes voltage.',
   rectifier: 'Rectifier from AC to DC.',

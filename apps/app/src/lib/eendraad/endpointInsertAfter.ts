@@ -1,6 +1,7 @@
 import { isHvacDeviceSymbol, type SymbolMetadata } from '@/lib/symbols'
 import type { Circuit, Endpoint } from '@/types/schema'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
+import { getRiserTargetFields } from './oneWireRisers'
 import {
   getEndpointTypeFromSymbol,
   isActualEndpoint,
@@ -96,7 +97,7 @@ export function computeEndpointInsertAfter(
   const inBetween = isInBetweenDevice(symbol) || lightingConverter
   const actualEndpoint = isActualEndpointSymbol(symbol)
 
-  if (target.type === 'circuit' && typeof target.branchInsertIndex === 'number') {
+  if (target.type === 'circuit' && (typeof target.branchInsertIndex === 'number' || getRiserTargetFields(target).newRiser)) {
     return { insertAfterEndpointId: undefined, createNewBranch: true }
   }
 

@@ -82,6 +82,7 @@ export const symbolTooltipsNlBE = {
 
   // Domotica / metering / conversion / notes
   domotica: 'Domoticamodule of slimme sturing in het schema.',
+  domotica_horizontal: 'Domoticamodule horizontaal getekend, met de voeding onderaan en de uitgangen bovenaan.',
   energy_meter: 'Energiemeter of kWh-teller.',
   transformer: 'Transformator die spanning omzet.',
   rectifier: 'Gelijkrichter van wissel- naar gelijkspanning.',

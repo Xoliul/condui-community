@@ -257,7 +257,7 @@ export function createFuzzyMatcher(query: string): (texts: readonly string[]) =>
     texts.some((text) => matchesSearchTerms(text, searchTerms, exactTokensOnly))
 }
 
-function createLiteralMatcher(query: string): (texts: readonly string[]) => boolean {
+export function createLiteralMatcher(query: string): (texts: readonly string[]) => boolean {
   const normalizedQuery = normalizeQuery(query)
   if (!normalizedQuery) return () => true
   const exactTokensOnly = isShortExactQuery(normalizedQuery)

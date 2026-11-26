@@ -53,6 +53,8 @@ import {
 } from '@/lib/junctionPanel/grid'
 import { getJunctionPanelModulesInProject } from '@/lib/panel/panelGridModules'
 import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
+import { isPlacementOutsideFrame } from '@/lib/panel/overflowWireRoute'
+import { isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 import {
   findConverterBackupPanelFeed,
   findConverterBackupPanelFeedsFromSource,
@@ -457,10 +459,20 @@ export function buildFullPanelScene(params: BuildPanelSceneParams): BuiltPanelSc
     const supplyPanelVisible = supplyPlacementsRaw.length > 0
     const mainPanelY = supplyPanelVisible && feedFromTop ? supplyFrameHeight + GAP : 0
     const supplyPanelY = supplyPanelVisible && !feedFromTop ? panelFrameHeight + GAP : 0
-    const mainPlacementsWithOffset = mainPlacements.map((placement) => ({
-      ...placement,
-      y: placement.y + mainPanelY + M,
-    }))
+    const frameWidth = Math.max(contentWidth, supplyLayout.contentWidth) + M * 2
+    // A module outside the board frame hangs in the overflow zone, whether auto-placed there or
+    // stored on a slot beyond the grid; its wires do not follow the board's corridors.
+    const mainPlacementsWithOffset = mainPlacements.map((placement) => {
+      const outside = isPlacementOutsideFrame(
+        { ...placement, y: placement.y + M },
+        { width: frameWidth, height: panelFrameHeight }
+      )
+      return {
+        ...placement,
+        y: placement.y + mainPanelY + M,
+        ...(outside ? { isOverflow: true } : {}),
+      }
+    })
     const supplyPlacements = supplyPlacementsRaw.map((placement) => ({
       ...placement,
       x: placement.x + M,
@@ -472,7 +484,7 @@ export function buildFullPanelScene(params: BuildPanelSceneParams): BuiltPanelSc
       id: panel.id,
       panel,
       kind: 'panel',
-      width: Math.max(contentWidth, supplyLayout.contentWidth) + M * 2,
+      width: frameWidth,
       height: panelFrameHeight + (supplyPanelVisible ? supplyFrameHeight + GAP : 0),
       mainPanelY,
       supplyPanelY,
@@ -798,7 +810,9 @@ export function buildFullPanelScene(params: BuildPanelSceneParams): BuiltPanelSc
 
   function measureNode(panel: Panel): PanelTreeNode {
     const subPanels = includeDescendants
-      ? (panel.subPanels ?? []).filter((child) => !junctionFedPanelIds.has(child.id))
+      ? (panel.subPanels ?? []).filter(
+          (child) => !junctionFedPanelIds.has(child.id) && !isVirtualPanel(child)
+        )
       : []
     const children: TreeNode[] = [
       ...subPanels.map((child) => measureNode(child)),

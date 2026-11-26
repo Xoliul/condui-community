@@ -10,6 +10,10 @@ import {
 import { isPanelPlacementCarrierCircuit } from './core/primitives/common'
 import { getCircuitBranches } from '@/lib/layout/endpointChains'
 import { isDomoticaPanelFeedEndpoint } from '@/lib/eendraad/panelSupplyLink'
+import { findVirtualPanelOwner, isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
+import { findSupplyTapAnchorOfCircuit } from '@/lib/supplyTaps/upstreamTrunkDevices'
+import { getSupplyTapUpstreamDevicesForOwner } from '@/lib/supplyTaps/tapFeedDevice'
+import { isStructuralCarrierProtection } from '@/lib/eendraad/structuralCarrier'
 
 export type UpstreamProtection = {
   id: string
@@ -84,7 +88,7 @@ export function circuitUpstreamProtections(
           if (isContainer || device.trunkPosition <= lastUpstreamBranch) addTrunk(device)
         }
         for (const device of directProtections.get(id) ?? []) {
-          if (!device.directPanelFeeder && !device.directDcBusFeeder) {
+          if (!isStructuralCarrierProtection(device)) {
             devices.set(device.id, { ...device, offenderKind: 'protection' })
           }
         }
@@ -93,6 +97,16 @@ export function circuitUpstreamProtections(
         if (parentIds.length > 0) return
         const panel = owner.get(id)
         if (!panel) return
+        if (isVirtualPanel(panel)) {
+          // Supply taps leave the owner's grid-side supply wire: the owner's trunk devices from
+          // the grid source up to the anchor protect them. Nothing downstream of the anchor does.
+          const tapOwner = findVirtualPanelOwner(panels, panel.id)
+          const anchor = findSupplyTapAnchorOfCircuit(panel, id)
+          if (!tapOwner || !anchor || !installation) return
+          const upstream = getSupplyTapUpstreamDevicesForOwner(installation, tapOwner.id, anchor)
+          for (const device of [...upstream].reverse()) addTrunk(device, true)
+          return
+        }
         if (panel.isMain && installation) {
           const protection = query.getProtectionForCircuit(id)
           const section =

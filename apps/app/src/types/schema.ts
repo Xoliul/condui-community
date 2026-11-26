@@ -1,5 +1,6 @@
 import type { SwitchDeviceProps } from './switchDeviceProps'
 export type { SwitchDeviceProps } from './switchDeviceProps'
+import type { CircuitDcBusSource, CircuitSupplySource, SupplyTapAnchor, VirtualPanelMarker } from './supplySources'
 import type { ProtectionCalculationInputs } from './protectionCalculation'
 import type { ViewportLayout } from './ui'
 import type { WireSegmentDerivedFields } from './wireSegmentDerived'
@@ -142,6 +143,7 @@ export interface PanelLabelConfig {
 
 export interface Panel {
   id: string
+  virtual?: VirtualPanelMarker
   /**
    * Canonical panel name (backwards compatible). Kept for existing projects and
    * internal references (e.g. legacy endpoints that still use a label match).
@@ -232,9 +234,11 @@ export interface ProtectionDevice extends ProtectionCalculationInputs {
   selective?: boolean
   /** Super-immunized residual-current protection (SI). */
   superImmunized?: boolean
+  supplyTap?: SupplyTapAnchor
+  /** Supply tap breaker hung outside its supply's owner board; physical only, like an endpoint's. */
+  panelMounting?: Endpoint['panelMounting']
   breakingCapacityKa?: number // For MCB/RCBO - breaking capacity in kA
-  /** Unique breaking-capacity dropdown value (`3000` vs `3`, etc.). */
-  breakingCapacityOption?: string
+  breakingCapacityOption?: string // Unique breaking-capacity dropdown value (`3000` vs `3`, etc.).
   /** SPD type. Missing values use the one-arrow lightning-protection symbol. */
   surgeProtectionKind?: SurgeProtectionKind
   polesConfig?: PolesConfig // Human-readable poles config (e.g. '2P', '1P+N', '4P')
@@ -250,8 +254,9 @@ export interface ProtectionDevice extends ProtectionCalculationInputs {
   directPanelFeeder?: boolean
   /** Structural carrier for an unprotected branch connected directly to a DC bus; no protection symbol is rendered. */
   directDcBusFeeder?: boolean
-  /** DC bus that owns this outgoing branch. Present on both structural and real protections. */
-  dcBusId?: string
+  /** Structural carrier for a kWh meter wired directly to a busbar: no protection symbol; only protected sub-circuits may follow. */
+  directTrunkFeeder?: boolean
+  dcBusId?: string // DC bus that owns this outgoing branch (structural and real protections).
   /** ISO installation date. Preferred over the legacy year override. */
   installationDate?: string
   /** Explicitly keeps automatic/version-derived installation dates off this entity. */
@@ -309,15 +314,13 @@ export interface Branch {
   endpointIds: string[] // Endpoint IDs in series order along the branch (authoritative)
   /** Cable fan-out at this endpoint's downstream connection, within this circuit. */
   forkFrom?: { afterEndpointId: string }
+  /** Root branches only: cable run leaving the protection (omitted/0 trunk, 1..k manual risers); legs follow their root. */
+  stem?: number
   /** An explicitly created empty branch must survive normalization and reopen. */
   keepEmpty?: true
   /** Ordinary-panel DC rail that renders this endpoint branch as a vertical rail tap. */
   dcBusId?: string
-  /**
-   * Optional serial devices on an ordinary DC-rail tap, ordered from the bus toward the
-   * endpoint chain. These remain owned by the parent circuit; they are not child circuits
-   * and must not make the DC bus a serial structure node.
-   */
+  /** Optional serial devices on an ordinary DC-rail tap, ordered from the bus toward the endpoint chain. Owned by the parent circuit, not child circuits; never a serial structure node. */
   branchDevices?: TrunkDevice[]
 }
 
@@ -326,15 +329,9 @@ export interface Circuit {
   scanReview?: { scanId: string; roomName: string }
   id: string
   code: string
-  /** Optional non-bus origin for a circuit fed by a standalone supply converter backup port. */
-  supplySource?: {
-    kind: 'converter-backup'
-    converterId: string
-  }
-  /** An outgoing circuit supplied by a selectable DC bus. */
-  dcBusSource?: {
-    busId: string
-  }
+  supplySource?: CircuitSupplySource
+  supplyTap?: SupplyTapAnchor
+  dcBusSource?: CircuitDcBusSource
   /** Bus section for an unprotected top-level circuit; protected circuits inherit their protection. */
   busSectionId?: string
   /** Preserve this code during automatic main-bus naming, used for plan-created circuits with chosen labels. */
@@ -396,6 +393,7 @@ export interface Circuit {
     fromElementId?: string
     toElementType?: 'protection' | 'endpoint'
     toElementId?: string
+    riserStem?: number // manual riser (Branch.stem) this section belongs to; absent/0 = trunk
     domain?: ElectricalDomain
     cable?: CableSpec
     phaseAssignment?: CircuitPhaseAssignment
@@ -768,14 +766,14 @@ export interface DomoticaOutputWireProps {
  * The parent domotica endpoint owns and orchestrates child endpoints via IDs.
  */
 export interface DomoticaDeviceProps extends ControlDeviceFields {
+  /** Top-level circuit module drawn feed-below, outputs-on-top; missing = vertical. */
+  oneWireLayout?: 'horizontal'
   /** Enable optional control output wire on top of the domotica module. */
   switchControlEnabled?: boolean
   /** Switch type rendered on control output (only relevant when switchControlEnabled=true). */
   switchType?: DomoticaSwitchType
-  /** Number of control switches (1-20). */
-  switchCount?: number
-  /** Number of endpoint outputs (1-20). */
-  endpointCount?: number
+  switchCount?: number // Number of control switches (1-20).
+  endpointCount?: number // Number of endpoint outputs (1-20).
   /** Child endpoint IDs that belong to control outputs (order = output index). */
   controlChildEndpointIds?: string[]
   /** Child endpoint IDs that belong to endpoint outputs (order = output index). */
@@ -1690,10 +1688,7 @@ export type LabelSequenceStyle = 'upper' | 'lower' | 'number' | 'number2'
 export type PanelNumberStyle = 'number' | 'number2' | 'upper'
 export type LabelSeparator = '.' | '-' | '/'
 
-/**
- * Formatting rules for automatic labels. Wherever two numbers meet, the separator is always
- * inserted, whatever the `join*` flags say, so `1` + `1` never becomes `11`.
- */
+/** Formatting rules for automatic labels; wherever two numbers meet the separator is always inserted (`1` + `1` is never `11`). */
 export interface LabelScheme {
   version: 1
   separator: LabelSeparator
@@ -1717,6 +1712,8 @@ export interface LabelScheme {
     /** Write circuit and branch number together (A1) rather than separated (A.1). */
     join: boolean
   }
+  /** Terminal strip numbering and format; missing means per circuit, X5-1. */
+  terminalStrip?: import('./junction').TerminalStripLabelScheme
 }
 
 export interface FeedConnectorNode {
@@ -1958,7 +1955,7 @@ export type OrphanStatus =
 
 /** Reason an item was moved to quarantine (for recovery/debugging) */
 export type OrphanReason =
-  | 'circuitMissingProtection'
+  | 'circuitMissingProtection' | 'duplicatedBoardSymbol' | 'duplicateEntityId'
   | 'circuitRefMismatch'
   /** Circuit is referenced by multiple protections instead of being owned by exactly one. */
   | 'protectionReferenceConflict'

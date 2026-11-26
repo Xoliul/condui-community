@@ -19,7 +19,8 @@ import { finalizePlanDropCircuitPickerUndoGroup } from '@/lib/plan/planDropCircu
 import { requestEendraadCircuitFitThenRestoreSelection } from '@/lib/eendraad/focusCircuit'
 import { getEndpointTypeFromSymbol } from '@/utils'
 import { usePlanContextMenu } from '@/hooks/plan'
-import { collectCircuits, flattenPanels } from '@/utils/eendraad/panelHelpers'
+import { collectCircuits } from '@/utils/eendraad/panelHelpers'
+import { flattenBoardPanels } from '@/lib/panel/panelTree'
 import { createPlanGraphicElementDraft } from '@/lib/plan/graphicElements'
 import { selectProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { isSupportedPlanImportFile } from '@/components/plan/planImportFiles'
@@ -336,7 +337,7 @@ export function usePlanLibraryDropController({
         assignedPanelId = info.panel.id
         assignedCircuitId = info.circuit.id
       } else {
-        const panelsFlat = flattenPanels(selectProjectElectricalPanels(project))
+        const panelsFlat = flattenBoardPanels(selectProjectElectricalPanels(project))
         const panel = panelsFlat[0]
         if (!panel) return
         const circuits = collectCircuits(panel).filter((c) => c.code !== 'PANEL')

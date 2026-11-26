@@ -7,7 +7,12 @@ import {
   cleanupPanelGridSlotsForDevice,
   rewriteRelocatedCircuitTrunkDeviceGridRef,
 } from '@/lib/eendraad/projectElectricalDomain'
-import { getEditableProjectElectricalPanels } from '@/lib/projectV2/electrical'
+import { findPanelById } from '@/lib/panel/panelTree'
+import {
+  getEditableProjectElectricalPanels,
+  getProjectElectricalInstallation,
+} from '@/lib/projectV2/electrical'
+import { retargetSupplyTapAnchors } from '@/lib/supplyTaps/healSupplyTaps'
 import {
   reconcileDirectConverterDcDevices,
   reconcileSupplyAssemblyBranchProtections,
@@ -49,6 +54,14 @@ function runSupplyMove(
   input: z.output<typeof supplyMoveInput>,
   newId: () => string
 ): { panels: string[]; deviceId: string; changed: boolean } | null {
+  // Taps that leave the wire after the moved device follow the device before it.
+  const sourceFeed = getProjectElectricalInstallation(project)?.feedTopology?.rootFeeds?.find((feed) =>
+    (feed.trunkDevices ?? []).some((device) => device.id === input.deviceId)
+  )
+  const sourceOwner = sourceFeed
+    ? findPanelById(getEditableProjectElectricalPanels(project), sourceFeed.panelId)
+    : undefined
+  const devicesBefore = [...(sourceFeed?.trunkDevices ?? [])]
   const result = moveSupplyTrunkDeviceAtDropTarget(
     project,
     input.deviceId,
@@ -57,6 +70,8 @@ function runSupplyMove(
     newId
   )
   if (!result) return null
+  if (result.changed !== false && sourceOwner)
+    retargetSupplyTapAnchors(sourceOwner, devicesBefore, input.deviceId)
   const panelIds = [
     ...new Set([result.sourcePanelId, result.targetPanelId].filter((id): id is string => !!id)),
   ]

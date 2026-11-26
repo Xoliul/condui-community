@@ -25,6 +25,7 @@ import { isCableRoutesEnabled } from '@/lib/cableRouting/availability'
 import { PlanWireStyleButtons } from '@/components/cableRouting/PlanWireStyleButtons'
 import { planCategoryColor } from '@/lib/plan/planColors'
 import { PLAN_WIRE_CATEGORIES } from '@/lib/cableRouting/planWireCategoryVisibility'
+import { isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 
 import {
   getSymbolCategory,
@@ -337,6 +338,7 @@ export default function SitplanVisibilityPanel({
     ): Array<{ id: string; name: string }> {
       const out: Array<{ id: string; name: string }> = []
       for (const p of localPanels) {
+        if (isVirtualPanel(p)) continue
         const display = getPanelDisplayName(p, currentProject)
         const name = prefix ? `${prefix} / ${display}` : display
         out.push({ id: p.id, name })

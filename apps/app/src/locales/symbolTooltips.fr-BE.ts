@@ -83,6 +83,7 @@ export const symbolTooltipsFrBE = {
 
   // Domotica / metering / conversion / notes
   domotica: 'Module domotique ou commande intelligente dans le schéma.',
+  domotica_horizontal: 'Module domotique dessiné à l’horizontale, avec l’alimentation en bas et les sorties en haut.',
   energy_meter: "Compteur d'énergie ou compteur kWh.",
   transformer: 'Transformateur qui convertit la tension.',
   rectifier: 'Redresseur de courant alternatif vers continu.',

@@ -19,8 +19,13 @@ import {
 const bindings = [
   ['electrical.createFork', 'createFork'],
   ['electrical.deleteEmptyFork', 'deleteEmptyFork'],
+  ['electrical.createRiser', 'addRiser'],
+  ['electrical.moveToOwnRiser', 'moveToOwnRiser'],
+  ['electrical.joinRisers', 'joinRisers'],
+  ['electrical.deleteEmptyRiser', 'deleteEmptyRiser'],
   ['electrical.addSupplyTransformer', 'addSupplyTransformer'],
   ['electrical.addPanelAtDomoticaOutput', 'addPanelAtDomoticaOutput'],
+  ['electrical.addDomoticaHorizontal', 'addDomoticaHorizontal'],
   ['electrical.assignEndpoints', 'moveToCircuit'],
   ['electrical.reorderBranch', 'reorderBranch'],
   ['electrical.moveProtectionOnBus', 'moveOnBus'],
@@ -68,6 +73,8 @@ const bindings = [
   ['panel.ensureEarthingStem', 'ensureSecondaryPanelEarthingStem'],
   ['panel.ejectSecondaryBusProtections', 'ejectSecondaryBusProtections'],
   ['supply.disconnectInverterGridInput', 'disconnectInverterGridInput'],
+  ['supply.convertToTap', 'convertSupplyDeviceToTap'],
+  ['supply.convertToInline', 'convertSupplyTapToInline'],
 ] as const
 
 let cached:
@@ -161,10 +168,15 @@ export function createProjectPaletteCommands(): CommandDefinition[] {
         ({
           id,
           labelKey: `commandPalette.${label}`,
-          searchKey: id === 'panel.rewire' ? 'commandPalette.rewire' : undefined,
+          searchKey:
+            id === 'panel.rewire'
+              ? 'commandPalette.rewire'
+              : id === 'electrical.addDomoticaHorizontal'
+                ? 'commandPalette.addDomoticaHorizontalSearch'
+                : undefined,
           isEnabled: (ctx) =>
             ctx.capabilities.canEditProject &&
-            (!['electrical.addSupplyTransformer', 'electrical.addPanelAtDomoticaOutput'].includes(id) || ctx.capabilities.canPlaceSymbols) &&
+            (!['electrical.addSupplyTransformer', 'electrical.addPanelAtDomoticaOutput', 'electrical.addDomoticaHorizontal'].includes(id) || ctx.capabilities.canPlaceSymbols) &&
             actions().some((action) => action.id === id),
           run: () => {
             const action = actions().find((action) => action.id === id)

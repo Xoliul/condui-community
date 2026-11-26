@@ -4,6 +4,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { runProjectCommand } from '@/stores/liveProjectCommandSession'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { collectCircuits, walkPanels } from '@/lib/panel/panelTree'
+import { isBoardPanel } from '@/lib/supplyTaps/virtualPanel'
 import { projectCommands } from '@/lib/commands/project'
 import { endpointTypeToPlanDropKind } from '@/lib/plan/planDropPicker'
 
@@ -46,7 +47,7 @@ export function ScanPlacementCircuitPicker({ endpointIds, circuitId, scanId, dis
       {existing.map(({ panel, circuit }) => <option key={circuit.id} value={`circuit:${circuit.id}`}>
         {panel.name} · {circuit.code}{circuit.notes ? ` — ${circuit.notes.split(' · ')[0]}` : ''}
       </option>)}
-      {panels.map((panel) => <option key={`new:${panel.id}`} value={`new:${panel.id}`}>+ {t('nativeRoomScan.newCircuit')} · {panel.name}</option>)}
+      {panels.filter(isBoardPanel).map((panel) => <option key={`new:${panel.id}`} value={`new:${panel.id}`}>+ {t('nativeRoomScan.newCircuit')} · {panel.name}</option>)}
     </select>
     {failed && <p role="alert" className="mt-1 text-xs text-rose-600 dark:text-rose-400">{t('nativeRoomScan.assignmentFailed')}</p>}
   </div>

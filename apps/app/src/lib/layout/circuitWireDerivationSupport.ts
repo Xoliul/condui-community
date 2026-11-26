@@ -1,5 +1,6 @@
 /** Shared node connections and circuit wire-property resolution for wire derivation. */
 import type { LayoutNode } from './layoutTree'
+import { isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 import type {
   WireSegment,
   Circuit,
@@ -13,6 +14,7 @@ import { resolveShowFireClassLabel, resolveShowWireLengthLabel } from '@/lib/wir
 import { findSectionWireOverride, type CircuitSectionRef } from '@/lib/wires/sectionWireOverrides'
 import { applyRotatedWireInset } from './rotatedWireInsets'
 import { DOMOTICA_BOX_WIDTH } from '@/lib/domoticaLayout'
+import { isHorizontalDomotica } from './domoticaHorizontalGeometry'
 import {
   CIRCUIT_CONVERTER_BLOCK_SIZE,
   CIRCUIT_CONVERTER_TOP_WIRE_INSET,
@@ -83,6 +85,8 @@ export function applyNodeWireInset(
   node: LayoutNode
 ): { x: number; y: number } {
   if (node.type === 'endpoint' && getNodeSymbolId(node) === 'domotica') {
+    // A horizontal module is fed at its anchor column; the wire is not trimmed to a box edge.
+    if (isHorizontalDomotica(node.domainRef as Endpoint | undefined)) return point
     const dx = otherEnd.x - point.x
     const dy = otherEnd.y - point.y
     if (Math.abs(dx) >= Math.abs(dy)) {
@@ -320,6 +324,12 @@ export function findCircuitByIdInPanel(panel: Panel, circuitId?: string): Circui
     for (const circuit of protection.circuits ?? []) {
       if (circuit.id === circuitId) return circuit
     }
+  }
+  // Supply taps live on the owner's virtual board but are drawn with the owner's supply frame.
+  for (const board of panel.subPanels ?? []) {
+    if (!isVirtualPanel(board)) continue
+    const circuit = findCircuitByIdInPanel(board, circuitId)
+    if (circuit) return circuit
   }
   return null
 }

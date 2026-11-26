@@ -137,6 +137,36 @@ function duplicateEndpointDeps(project: ProjectV2): DuplicateEndpointDeps {
   }
 }
 
+/** Paste the transformed placement, using the same electrical duplication rules as the plan. */
+export function pastePlanEndpointPlacementInProject(
+  project: ProjectV2,
+  endpointId: string,
+  placement: Placement
+): { circuitId: string; createdEndpointId?: string } | null {
+  const endpoint = getEndpoint(project, endpointId)
+  if (!endpoint || !endpointSymbolCanBeDuplicated(endpoint)) return null
+  if (endpointSupportsMultiplier(endpoint)) {
+    const circuitId = addPlacementToProject(project, endpointId, placement)
+    return circuitId ? { circuitId } : null
+  }
+
+  const owner = findCircuitForEndpoint(project, endpointId)
+  if (!owner || owner.circuit.code === 'PANEL') return null
+  const circuitId = owner.circuit.id
+  const deps = duplicateEndpointDeps(project)
+  const result = duplicateEndpointOnCircuit(
+    project,
+    { circuitId, sourceEndpointId: endpointId, context: 'plan', selectNew: false },
+    {
+      ...deps,
+      addEndpoint: (id, copy, after) => deps.addEndpoint(id, { ...copy, placements: [placement] }, after),
+    }
+  )
+  return result.ok && result.newEndpointId
+    ? { circuitId, createdEndpointId: result.newEndpointId }
+    : null
+}
+
 function duplicateMultiplierPlacements(
   project: ProjectV2,
   endpointId: string,

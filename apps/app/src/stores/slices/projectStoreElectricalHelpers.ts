@@ -55,6 +55,7 @@ import {
   linkSupplyAssemblyDeviceReferences,
 } from '@/lib/supplyAssembly/deviceReferences'
 import { healSupplyBranchPanelInputFlags } from '@/lib/supplyAssembly/electricalTopology'
+import { healSupplyTaps } from '@/lib/supplyTaps'
 import { repairDanglingSupplyAssemblyReferences } from '@/lib/supplyAssembly/repairDanglingReferences'
 import { type Project, type ProjectInput, type ProjectState } from './projectStoreTypes'
 import { findPanelById, findPanelByName } from '@/lib/panel/panelTree'
@@ -96,6 +97,7 @@ export function hydrateProjectForEditor(project: ProjectInput): {
     ensureInstallationFeedTopology(installation, panels)
   }
   const healedSupplyBranchPanelInputs = healSupplyBranchPanelInputFlags(runtimeProject)
+  const healedSupplyTaps = healSupplyTaps(runtimeProject)
   const healedSourceChangeoverFeedScope = healSourceChangeoverFeedScope(runtimeProject)
   const linkedSupplyAssemblyDeviceReferences = linkSupplyAssemblyDeviceReferences(runtimeProject)
   const healedMissingBackupBranch = healMissingChangeoverBackupBranch(runtimeProject)
@@ -173,6 +175,7 @@ export function hydrateProjectForEditor(project: ProjectInput): {
       repairedDanglingSupplyHandoffs.repairedHandoffCount > 0 ||
       healedSourceChangeoverFeedScope ||
       healedSupplyBranchPanelInputs ||
+      healedSupplyTaps ||
       healedMissingBackupBranch ||
       linkedSupplyAssemblyDeviceReferences ||
       reconciledDirectSupplyOutputs ||

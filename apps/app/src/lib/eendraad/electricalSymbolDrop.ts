@@ -20,8 +20,13 @@ import type { DropTarget } from '@/lib/layout/findDropTarget'
 import { getEditableProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { PROTECTION_SYMBOL_IDS } from '@/lib/protectionKind'
 import { withSearchPreset } from '@/lib/library/searchPresets'
+import { resolveLibraryPresetInput } from '@/lib/library/libraryPresets'
 import { getSymbolById } from '@/lib/symbols'
-import { findPanelOwnDistributionEndpoint } from '@/lib/eendraad/panelSupplyLink'
+import {
+  findPanelOwnDistributionEndpoint,
+  panelSupplyLinkHasRenderableSymbol,
+  resolvePanelSupplyLinkForPanelInPanels,
+} from '@/lib/eendraad/panelSupplyLink'
 import { findPanelById } from '@/lib/panel/panelTree'
 import { findTrunkDeviceInProject } from '@/lib/eendraad/findTrunkDeviceInProject'
 import { getEditableProjectElectricalInstallation } from '@/lib/projectV2/electrical'
@@ -58,7 +63,10 @@ export type ElectricalSymbolDropOutcome =
       mutated: boolean
     }
   | { status: 'rejected'; message: string }
-  | { status: 'blocked'; reason: 'protection_after_junction_panel' | 'unknown_symbol' | 'conflicting_endpoint_preset' }
+  | {
+      status: 'blocked'
+      reason: 'protection_after_junction_panel' | 'unknown_symbol' | 'conflicting_endpoint_preset' | 'panel_feeder_missing'
+    }
 
 function findCircuit(project: ProjectV2, circuitId: string) {
   for (const panel of getEditableProjectElectricalPanels(project)) {
@@ -128,13 +136,15 @@ function markMutatingCallbacks<T extends object>(callbacks: T, onMutate: () => v
 
 export function placeElectricalSymbolInProject(
   project: ProjectV2,
-  input: ElectricalSymbolDropInput,
+  rawInput: ElectricalSymbolDropInput,
   sitplanTarget: SitplanPlacementTarget,
   language?: string,
   t: TFunction = language
     ? (getDomainTranslator(language) as TFunction)
     : (domainI18n.t.bind(domainI18n) as TFunction)
 ): ElectricalSymbolDropOutcome {
+  // A library preset entry ID places its base symbol with the preset's defaults.
+  const input = resolveLibraryPresetInput(rawInput)
   const catalogSymbol = getSymbolById(input.symbolId)
   const symbol = catalogSymbol ? withSearchPreset(catalogSymbol, input.searchPreset) : null
   if (!symbol) return { status: 'blocked', reason: 'unknown_symbol' }
@@ -230,9 +240,16 @@ export function placeElectricalSymbolInProject(
     false
   )
   if (rejection) return { status: 'rejected', message: rejection }
+  const panelId = created.find((ref) => ref.kind === 'panel')?.id
+  const panels = panelId ? getEditableProjectElectricalPanels(project) : []
+  const board = panelId ? findPanelById(panels, panelId) : undefined
+  if (board?.isMain === false) {
+    // A panel drop creates its board and feeder in the same command draft.
+    const feeder = resolvePanelSupplyLinkForPanelInPanels(panels, board.id)
+    if (!feeder?.feederCircuit || !panelSupplyLinkHasRenderableSymbol(feeder))
+      return { status: 'blocked', reason: 'panel_feeder_missing' }
+  }
   if (planPlacement && !placementId) {
-    const panelId = created.find((ref) => ref.kind === 'panel')?.id
-    const board = panelId ? findPanelById(getEditableProjectElectricalPanels(project), panelId) : null
     const boardPlacement = board ? findPanelOwnDistributionEndpoint(board)?.placements[0] : undefined
     const device = created.filter((ref) => ref.kind === 'trunkDevice')
       .map((ref) => findTrunkDeviceInProject(project, ref.id))

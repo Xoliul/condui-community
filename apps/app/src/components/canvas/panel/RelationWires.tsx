@@ -36,15 +36,15 @@ import { panelPreviewFrame, routePanelFramePreview } from '@/lib/panel/panelFram
 import { ensureInstallationFeedTopology, getPanelFeedProjection } from '@/lib/feedTopology'
 import { getPanelIncomingMainBusFeedDevice } from '@/lib/panel/subPanelFeed'
 import { findPanelById } from '@/lib/panel/panelTree'
+import { routeOverflowModuleWire } from '@/lib/panel/overflowWireRoute'
 import {
   getProjectElectricalInstallation,
   getProjectElectricalPanels,
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import {
-  collectTerminalStripOccurrences,
   getEffectiveTerminalStripOutgoingPin,
-  getTerminalStripId,
+  getTerminalStripOccurrencesForEntity,
   getTerminalStripPin,
 } from '@/lib/terminalStrip/labels'
 import { findTrunkDeviceInProject } from '@/utils/project'
@@ -58,6 +58,7 @@ import {
 } from './panelWireRouter'
 
 export type { PanelHierarchyRoute } from '@/lib/panel/relationWireGeometry'
+import { shouldSuppressPanelRelationWires } from './relationWireVisibility'
 export { getDownstreamWirePoints } from '@/lib/panel/relationWireGeometry'
 
 interface RelationWiresProps {
@@ -124,13 +125,6 @@ interface RoutedWire {
 interface RenderedWireSegment {
   points: number[]
   kind: WireRouteKind
-}
-
-export function shouldSuppressPanelRelationWires(
-  isMarqueeSelecting: boolean,
-  selectedItemCount: number
-): boolean {
-  return isMarqueeSelecting || selectedItemCount > 1
 }
 
 interface RoutedWireLabel {
@@ -973,7 +967,6 @@ function computeWires(
   const effective = dragOverride
     ? placements.map((p) => applyDragOverride(p, dragOverride, preserveRowForRefKeys))
     : placements
-  const terminalOccurrences = collectTerminalStripOccurrences(project)
   const getTerminalPinLead = (
     placement: ModulePlacement,
     connectionSide: 'incoming' | 'outgoing'
@@ -1000,31 +993,34 @@ function computeWires(
     if (!device || (device.symbol !== 'terminal_strip' && device.type !== 'terminal_strip')) {
       return null
     }
-    const stripId = getTerminalStripId(device)
     const pin =
       connectionSide === 'outgoing'
         ? getEffectiveTerminalStripOutgoingPin(project, device)
         : (getTerminalStripPin(device) ?? 1)
-    const maxPin = Math.max(
-      2,
-      ...terminalOccurrences
-        .filter((occurrence) => occurrence.stripId.toUpperCase() === stripId.toUpperCase())
-        .map((occurrence) => occurrence.pin)
-    )
+    const connectedPins = [...new Set(
+      getTerminalStripOccurrencesForEntity(project, device).map((occurrence) => occurrence.pin)
+    )].sort((left, right) => left - right)
+    const maxPin = Math.max(2, ...connectedPins)
     const reservedTop = placement.width < CELL_W * 0.55 ? 13 : 4
-    const horizontal = placement.terminalStripRail != null && placement.width > CELL_W * 2
+    const horizontal = placement.width > CELL_W * 0.55
     const pinIndex = Math.min(maxPin, Math.max(1, pin))
+    const dotRadius = Math.min(3.2, Math.max(1.5, placement.width * 0.18))
     const pinY = horizontal
-      ? placement.y + placement.height / 2
+      ? placement.y + placement.height - Math.max(4, dotRadius + 2)
       : placement.y + reservedTop + ((placement.height - reservedTop - 4) * pinIndex) / (maxPin + 1)
     const side = pin <= maxPin / 2 ? 'top' : 'bottom'
+    const connectedPinIndex = connectedPins.indexOf(pin)
     return {
       x: horizontal
-        ? placement.x + (placement.width * pinIndex) / (maxPin + 1)
+        ? placement.x +
+          (placement.width * (connectedPinIndex >= 0 ? connectedPinIndex + 1 : pinIndex)) /
+            (connectedPins.length + 1)
         : placement.x + placement.width / 2,
       pinY,
       side,
-      boundaryY: side === 'top' ? placement.y : placement.y + placement.height,
+      // Horizontal clamp dots sit on the lower edge of the strip graphic. End the wire at
+      // that exact dot instead of extending it to the module edge and back.
+      boundaryY: horizontal ? pinY : side === 'top' ? placement.y : placement.y + placement.height,
       horizontal,
     }
   }
@@ -1212,6 +1208,7 @@ function computeWires(
 
   const incomingStartIndex = result.length
   for (const pl of parentPls) {
+    if (pl.isOverflow || targetPlacement.isOverflow) { result.push({ points: routeOverflowModuleWire(pl, targetPlacement, inOff), kind: 'internal', remotePlacement: pl }); continue }
     const wireStartIndex = result.length
     const sourcePanel = findPanelContainingModuleRef(pl.ref, project) ?? panelForContext
     const sourceHr = getHierarchyRoute?.(sourcePanel) ?? hierarchyRoute ?? null
@@ -1388,9 +1385,7 @@ function computeWires(
         kind: 'internal',
       }) // WINT
     }
-    for (let index = wireStartIndex; index < result.length; index += 1) {
-      result[index]!.remotePlacement = pl
-    }
+    for (let index = wireStartIndex; index < result.length; index += 1) result[index]!.remotePlacement = pl
   }
   for (let index = incomingStartIndex; index < result.length; index += 1) {
     result[index]!.selectedEndpoint = 'target'
@@ -1410,6 +1405,7 @@ function computeWires(
 
   const outgoingStartIndex = result.length
   for (const pl of childPls) {
+    if (pl.isOverflow || targetPlacement.isOverflow) { result.push({ points: routeOverflowModuleWire(targetPlacement, pl, outOff), kind: 'internal', remotePlacement: pl }); continue }
     const wireStartIndex = result.length
     const sourcePanel =
       findPanelContainingModuleRef(targetPlacement.ref, project) ?? panelForContext
@@ -1573,9 +1569,7 @@ function computeWires(
         kind: 'internal',
       }) // WINT
     }
-    for (let index = wireStartIndex; index < result.length; index += 1) {
-      result[index]!.remotePlacement = pl
-    }
+    for (let index = wireStartIndex; index < result.length; index += 1) result[index]!.remotePlacement = pl
   }
   for (let index = outgoingStartIndex; index < result.length; index += 1) {
     result[index]!.selectedEndpoint = 'source'

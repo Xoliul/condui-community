@@ -1,5 +1,10 @@
 import type { Issue } from '@/lib/validation/core/types'
-import { collectTerminalStripOccurrences, type TerminalStripOccurrence } from './labels'
+import {
+  collectTerminalStripOccurrences,
+  formatTerminalNumber,
+  getProjectTerminalNumberFormat,
+  type TerminalStripOccurrence,
+} from './labels'
 
 type Translate = (key: string, options?: Record<string, unknown>) => string
 
@@ -23,7 +28,9 @@ export function collectTerminalStripGroupConflicts(
 /** Group labels never connect separate circuits, even before detailed rewiring is configured. */
 export function collectTerminalStripValidationIssues(project: unknown, t: Translate): Issue[] {
   const issues: Issue[] = []
+  const format = getProjectTerminalNumberFormat(project)
   for (const { label, members } of collectTerminalStripGroupConflicts(project)) {
+    const shownLabel = formatTerminalNumber(members[0]!.stripId, members[0]!.pin, format)
     const ids = [...new Set(members.map((member) => member.entityId))].sort()
     issues.push({
       id: `terminal-strip.circuit-conflict:${label}:${ids.join(',')}`,
@@ -33,7 +40,7 @@ export function collectTerminalStripValidationIssues(project: unknown, t: Transl
       rulesetVersion: '',
       scope: { type: 'device', id: ids[0]! },
       offenders: ids.map((id) => ({ kind: 'device', id, viewHint: 'eendraad' })),
-      message: t('terminalStrip.circuitConflict', { label }),
+      message: t('terminalStrip.circuitConflict', { label: shownLabel }),
       remediation: t('terminalStrip.circuitConflictRemediation'),
       citations: [],
       tags: ['terminal-strip'],

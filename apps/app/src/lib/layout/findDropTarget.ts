@@ -26,9 +26,19 @@ import {
 } from '@/lib/domoticaLayout'
 import { isVerticalSupplyDevice } from './supplyDeviceOrientation'
 import { findCircuitTrunkBranchSlot, type CircuitTrunkBranchSlot } from './circuitTrunkBranchSlots'
+import { isCircuitTrunkWireNode, parseCircuitTrunkWire } from './layoutTreeCircuitColumns'
+import {
+  isMovingHorizontalDomotica,
+  withoutDropAfterHorizontalDomotica,
+  withoutSupplyDropForHorizontalDomotica,
+} from './horizontalDomoticaDropGuard'
 
 /** Options for findDropTarget / findDropTargetWithDebug (all optional). */
 export interface FindDropTargetOptions {
+  /** Endpoints being dragged: a horizontal domotica module among them is never offered the supply side. */
+  movingEndpointIds?: readonly string[]
+  /** A horizontal domotica module is being created from the library: it is never offered the supply side either. */
+  placingHorizontalDomotica?: boolean
   /** Board placement consumes an output even when its marker overlaps an existing load. */
   preferDomoticaEndpointOutput?: boolean
   /** Reuse a trunk-only slot index during a synchronous batch of hit tests. */
@@ -102,14 +112,14 @@ export interface DropTarget {
   forkAfterEndpointId?: string
   forkBranchId?: string; adoptForksOf?: string; releaseForkLegsOf?: string // tap sides, see savedForkDropTargets.ts
   /** Explicit branch slot on a circuit trunk: moved branches are inserted before this branch index. */
-  branchInsertIndex?: number
+  branchInsertIndex?: number; branchStem?: number; newRiser?: true // manual risers: the cable run of a slot, and the new-riser zone
   /** Insertion point for a branch-local DC device, measured from the bus. */
   branchDeviceInsertIndex?: number
   /** Insert index for supply trunk devices (used when type === 'supplyWire') */
   supplyDeviceInsertIndex?: number
   /** Which feed path a supply-wire drop should target on a main panel. */
   supplyFeedScope?: 'shared' | 'root'
-  supplyPanelInput?: boolean
+  supplyPanelInput?: boolean; supplyTapAnchor?: import('@/types/supplySources').SupplyTapAnchor // tap handle above a supply grid wire: the drop creates a tap of panelId's supply
   /** Which physical DC branch of a hybrid supply converter is targeted. */
   supplyConverterDcBranch?: 'right' | 'top'
   supplyConverterDcConnectionIndex?: number
@@ -669,6 +679,17 @@ export function findDropTarget(
   position: Point,
   options?: FindDropTargetOptions
 ): DropTarget {
+  const target = withoutDropAfterHorizontalDomotica(tree, findDropTargetUnguarded(tree, position, options))
+  return options?.placingHorizontalDomotica || isMovingHorizontalDomotica(tree, options?.movingEndpointIds)
+    ? withoutSupplyDropForHorizontalDomotica(tree, target)
+    : target
+}
+
+function findDropTargetUnguarded(
+  tree: LayoutTree,
+  position: Point,
+  options?: FindDropTargetOptions
+): DropTarget {
   if (options?.preferDomoticaEndpointOutput) {
     const output = findDomoticaOutputDropTarget(tree, position)
     if (output?.domoticaOutput?.group === 'endpoint') return output
@@ -1086,23 +1107,14 @@ export function findCircuitTrunkSegmentIndexUnderPoint(
   position: Point,
   circuitId: string
 ): number | undefined {
-  const prefix = `circuit-trunk-${circuitId}-segment-`
   // Holder so nested `visit` assignments are visible to control flow (plain `let best` + closure can infer `never` at return).
   const acc: { best: { index: number; score: number } | null } = { best: null }
 
   const visit = (node: LayoutNode) => {
-    if (
-      node.type === 'wire' &&
-      typeof node.id === 'string' &&
-      node.id.startsWith(prefix) &&
-      node.hitZone?.type === 'circuit'
-    ) {
-      const tail = node.id.slice(prefix.length)
-      const segIdx = Number.parseInt(tail, 10)
-      if (!Number.isFinite(segIdx)) {
-        for (const c of node.children) visit(c)
-        return
-      }
+    // The crossbar and risers of a circuit in columns continue the last trunk segment.
+    const wire = node.type === 'wire' && node.hitZone?.type === 'circuit' ? parseCircuitTrunkWire(node) : null
+    if (wire?.circuitId === circuitId) {
+      const segIdx = wire.segmentIndex
       const b = getHitZoneBounds(node, 'core')
       const p = TRUNK_WIRE_SEGMENT_PAD
       const hit =
@@ -1409,11 +1421,7 @@ function getHitTestChildren(
   ) {
     return [...node.children].sort((a, b) => {
       const priority = (child: LayoutNode) => {
-        if (
-          options?.preferCircuitTrunkWire &&
-          child.type === 'wire' &&
-          child.id?.startsWith('circuit-trunk-')
-        ) {
+        if (options?.preferCircuitTrunkWire && child.type === 'wire' && isCircuitTrunkWireNode(child)) {
           return -2
         }
         return child.type === 'mcb' ? -1 : 0
@@ -1425,11 +1433,7 @@ function getHitTestChildren(
   if (mode !== 'core') return node.children
   return [...node.children].sort((a, b) => {
     const priority = (child: LayoutNode): number => {
-      if (
-        options?.preferCircuitTrunkWire &&
-        child.type === 'wire' &&
-        child.id?.startsWith('circuit-trunk-')
-      ) {
+      if (options?.preferCircuitTrunkWire && child.type === 'wire' && isCircuitTrunkWireNode(child)) {
         return -6
       }
       if (child.type === 'mcb') return -5
@@ -1677,7 +1681,7 @@ function buildDropTarget(node: LayoutNode, ctx: WalkContext, position?: Point): 
       if (
         target.type === 'circuit' &&
         ctx.currentCircuitNode &&
-        (node.id?.startsWith('circuit-trunk-') || node.id?.startsWith('circuit-nest-'))
+        (isCircuitTrunkWireNode(node) || node.id?.startsWith('circuit-nest-'))
       ) {
         const directNestedCircuitIds = ctx.currentCircuitNode.children
           .filter((child) => child.type === 'mcb' && !!child.circuitIdForWires)
@@ -1713,14 +1717,9 @@ function buildDropTarget(node: LayoutNode, ctx: WalkContext, position?: Point): 
       if (node.hitZone?.outputGroup && node.domainId) {
         target.endpointId = node.domainId
       }
-      // Circuit trunk wire segments carry insertion/domain context in their node id:
-      // `circuit-trunk-<circuitId>-segment-<index>`
-      if (target.type === 'circuit' && node.id?.includes('-segment-')) {
-        const match = node.id.match(/-segment-(\d+)$/)
-        if (match) {
-          target.circuitTrunkSegmentIndex = Number.parseInt(match[1]!, 10)
-        }
-      }
+      // Trunk wires carry the segment in their node id (`circuit-trunk-<circuitId>-segment-<index>`); the
+      // crossbar and risers of a circuit in columns carry the last one in their hit zone.
+      if (target.type === 'circuit' && parseCircuitTrunkWire(node)) { target.circuitTrunkSegmentIndex = parseCircuitTrunkWire(node)!.segmentIndex; if (node.hitZone?.branchStem) target.branchStem = node.hitZone.branchStem }
 
       // For per-segment main bus hit zones modeled as wire nodes with hitZone.type === 'mainBus',
       // use the segment index from the node id so the insert position matches the segment the user

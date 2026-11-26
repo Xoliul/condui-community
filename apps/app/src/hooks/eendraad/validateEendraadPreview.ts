@@ -1,4 +1,5 @@
 import type { ProjectV2 } from '@/types/projectV2'
+import { isSupplyDiagramId } from '@/lib/layout/supplyFrameRole'
 import type { DragPreviewState } from './useEendraadDragPreview'
 import type { SitplanPlacementTarget } from '@/lib/eendraad/duplicateSitplanHelpers'
 import { canPreviewElectricalCommand, canPreviewElectricalPlacement, canPreviewPanelAttachmentMove } from '@/lib/eendraad/previewDropValidation'
@@ -27,7 +28,12 @@ export function validateEendraadPreview(project: ProjectV2 | null, preview: Drag
   }
   const target = preview.dropTarget!
   let accepted: boolean
-  if (duplicate) {
+  if (target.supplyTapAnchor && target.panelId) {
+    accepted = canPreviewElectricalCommand(project, { id: 'supply.createTap', input: {
+      ownerPanelId: target.panelId, anchor: target.supplyTapAnchor, symbolId: preview.symbolData.id,
+      ...(preview.symbolData.searchPreset ? { searchPreset: preview.symbolData.searchPreset } : {}),
+    } })
+  } else if (duplicate) {
     accepted = canPreviewElectricalCommand(project, duplicate.kind === 'protection'
       ? { id: 'electrical.duplicateProtection', input: { protectionId: duplicate.id, dropTarget: target,
         sitplanTarget: { activeFloorId: sitplan.activeFloorId, viewportCenter: sitplan.viewportCenter } } }
@@ -58,7 +64,7 @@ export function validateEendraadPreview(project: ProjectV2 | null, preview: Drag
   } else if (getSymbolById(preview.symbolData.id)?.busFeedKind) {
     const panel = target.panelId ? findPanelById(getProjectElectricalPanels(project), target.panelId) : null
     if (!panel) return null
-    const supplyFrame = target.diagramId?.endsWith('--supply')
+    const supplyFrame = isSupplyDiagramId(target.diagramId)
     const order = getMainBusOrder(panel)
     const referencedIndex = order.findIndex((entry) => entry.id === (target.protectionId ?? target.circuitId))
     const index = target.type === 'mainBus' && typeof target.mainBusInsertIndex === 'number'
@@ -70,7 +76,7 @@ export function validateEendraadPreview(project: ProjectV2 | null, preview: Drag
         : { kind: 'panelBusFeedBoundary', panelId: panel.id, feed: preview.symbolData.busFeedKind, mainBusInsertIndex: index },
     ] } })
   } else {
-    accepted = canPreviewElectricalPlacement(project, preview.symbolData.id, target, { position: preview.position, sitplan })
+    accepted = canPreviewElectricalPlacement(project, preview.symbolData.id, target, { position: preview.position, sitplan, searchPreset: preview.symbolData.searchPreset })
   }
   return accepted ? preview : null
 }

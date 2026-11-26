@@ -4,6 +4,7 @@ import { getControlButtonLabelLayout } from './controlButtonLabels'
 import { getVisibleEndpointNoteText } from '@/lib/conversionLabels'
 import { countSymbolLabelVisualLines } from '@/lib/symbolLabelMetrics'
 import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
+import { getHorizontalDomoticaNoteOffset, isHorizontalDomotica } from '@/lib/layout/domoticaHorizontalGeometry'
 import { getEndpointNoteMinimumLeftX, getCollisionSafeCenteredLabelLeftX } from './endpointNoteLabelCollision'
 
 export const DOMOTICA_NOTE_FONT_SIZE = 8
@@ -24,6 +25,13 @@ export function getDomoticaNoteBounds(endpoint: Endpoint, inputX: number, inputY
   if (!text) return undefined
   const width = measureSymbolLabelTextWidth(text, 'Figtree', DOMOTICA_NOTE_FONT_SIZE)
   const height = countSymbolLabelVisualLines(text) * DOMOTICA_NOTE_LINE_HEIGHT
+  if (isHorizontalDomotica(endpoint)) {
+    // Horizontal module: right of the feed wire, just below the body (input = the feed anchor).
+    const offset = getHorizontalDomoticaNoteOffset()
+    const left = inputX + offset.x
+    const top = inputY + offset.y
+    return { left, right: left + width, top, bottom: top + height }
+  }
   const left = inputX + getCollisionSafeCenteredLabelLeftX(width, getEndpointNoteMinimumLeftX(inputX, trunkX))
   const top = inputY + DOMOTICA_BASE_HEIGHT / 2 + getDomoticaNoteOffsetFromSymbol(endpoint)
   return { left, right: left + width, top, bottom: top + height }

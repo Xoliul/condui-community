@@ -41,9 +41,25 @@ export function ensurePanelDistributionPlacementInProject(
     endpointCandidate?: Endpoint
   } = {}
 ): PanelDistributionPlacementMutation {
+  const { endpoint, ...mutation } = ensurePanelDistributionEndpointInProject(panel, options)
+  const placementAdded = !endpoint.placements.some((entry) => entry.id === placement.id)
+  if (placementAdded) endpoint.placements.push(placement)
+  return { ...mutation, endpointId: endpoint.id, placementId: placement.id, placementAdded }
+}
+
+export function ensurePanelDistributionEndpointInProject(
+  panel: Panel,
+  options: { newId?: () => string; endpointCandidate?: Endpoint } = {}
+) {
   const newId = options.newId ?? generateId
   const existingPanelEndpoint = findPanelOwnDistributionEndpoint(panel)
-  let endpoint = existingPanelEndpoint ?? options.endpointCandidate
+  // A candidate that names another board is that board's symbol; reusing it would give two
+  // boards one endpoint and placement ID.
+  const candidate =
+    options.endpointCandidate?.panelId && options.endpointCandidate.panelId !== panel.id
+      ? undefined
+      : options.endpointCandidate
+  let endpoint = existingPanelEndpoint ?? candidate
   let circuit = endpoint
     ? panel.circuits.find((candidate) => candidate.endpoints.includes(endpoint!))
     : undefined
@@ -81,15 +97,10 @@ export function ensurePanelDistributionPlacementInProject(
   if (!circuit.endpoints.some((entry) => entry.id === endpointId))
     circuit.endpoints.push(endpoint)
 
-  const placementAdded = !endpoint.placements.some((entry) => entry.id === placement.id)
-  if (placementAdded) endpoint.placements.push(placement)
-
   return {
     circuitId: circuit.id,
-    endpointId: endpoint.id,
-    placementId: placement.id,
+    endpoint,
     ...(createdCircuitId ? { createdCircuitId } : {}),
     ...(createdEndpointId ? { createdEndpointId } : {}),
-    placementAdded,
   }
 }

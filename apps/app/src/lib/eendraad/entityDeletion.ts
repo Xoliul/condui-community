@@ -7,6 +7,7 @@ import { withProjectMutationTime } from '@/lib/projectMutations/mutationTime'
 import { deleteProtectionInProject } from '@/lib/projectMutations/storeActions'
 import { deleteEndpointsFromProject } from './endpointDeletion'
 import { deleteCircuitFromProject } from './circuitMutations'
+import { downgradeMeterBreakerToDirectTrunkFeeder } from './directTrunkFeeder'
 import {
   deleteGroundTrunkDeviceInProject,
   deleteSupplyTrunkDeviceInProject,
@@ -48,6 +49,7 @@ import { healPlanWiring } from '@/lib/plan/planWiring'
 import { pruneEendraadFrames } from './frameContent'
 import { persistAutomaticPanelSlotsInProject } from '@/lib/panel/panelAutomaticSlots'
 import { collectDomainEvents } from '@/lib/domainEvents'
+import { removeEmptySupplyTapsPanels } from '@/lib/supplyTaps/pruneSupplyTaps'
 
 export type DeleteEntityRef =
   | { kind: 'placement'; id: string; retainOwner?: boolean }
@@ -242,10 +244,12 @@ export function deleteEntitiesInProject(project: ProjectV2, input: EntityDeletio
     }
   }
   for (const ref of input.refs) {
-    if (ref.kind === 'protection')
-      deleteProtectionInProject(project, ref.id, {
-        preserveLinkedPanels: input.preserveLinkedPanels,
-      })
+    if (ref.kind === 'protection') {
+      // The breaker in front of a meter that feeds a secondary bus leaves the meter on the busbar.
+      if (downgradeMeterBreakerToDirectTrunkFeeder(getProjectElectricalPanels(project), ref.id))
+        cleanupPanelGridSlotsForDevice(getProjectElectricalPanels(project), { kind: 'protection', id: ref.id })
+      else deleteProtectionInProject(project, ref.id, { preserveLinkedPanels: input.preserveLinkedPanels })
+    }
     else if (ref.kind === 'circuit') deleteCircuitFromProject(project, ref.id)
     else if (ref.kind === 'panel') deletePanelFromProject(project, ref.id)
     else if (ref.kind === 'note') {
@@ -278,7 +282,13 @@ export function deleteEntitiesInProject(project: ProjectV2, input: EntityDeletio
     )
       deleteBuildingEntitiesInProject(project, ref.kind, [ref.id])
   }
+  // A directly wired kWh meter's hidden owner leaves with its meter; what followed it returns to the bus.
+  const emptyMeterOwners = [...walkPanels(getProjectElectricalPanels(project))].flatMap((panel) =>
+    panel.protections.filter((protection) => protection.directTrunkFeeder &&
+      (protection.circuits ?? []).every((circuit) => !circuit.trunkDevices?.length && !circuit.endpoints.length)))
+  for (const owner of emptyMeterOwners) deleteProtectionInProject(project, owner.id)
   pruneStaleElectricalEndpointRecords(project)
+  removeEmptySupplyTapsPanels(project)
   pruneOrphanJunctionPanelPlacements(project)
   healPlanWiring(project)
   const surviving = deletionInventory(project)

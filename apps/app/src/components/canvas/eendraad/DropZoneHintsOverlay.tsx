@@ -9,6 +9,11 @@ import {
 } from '@/lib/layout/collectDropZoneHints'
 import { SECONDARY_BUS_PREVIEW_STUB_LENGTH, type DropTarget } from '@/lib/layout/findDropTarget'
 import type { LayoutTree } from '@/lib/layout/layoutTree'
+import { withoutRiserIneligibleHints } from '@/lib/layout/riserDropHintGuard'
+import {
+  withoutHintsAfterHorizontalDomotica,
+  withoutSupplyHintsForHorizontalDomotica,
+} from '@/lib/layout/horizontalDomoticaDropGuard'
 import {
   declutterDropZoneHints,
   getDropZoneHintProximityForDistance,
@@ -17,6 +22,7 @@ import {
 import { useEffectiveCanvasZoom } from '@/hooks/useEffectiveCanvasZoom'
 import { ZOOM_100 } from '@/constants/canvasConstants'
 import type { SymbolMetadata } from '@/lib/symbols'
+import { isHorizontalDomoticaPreset } from '@/lib/library/libraryPresets'
 import type { ProjectWithOptionalV2Electrical } from '@/lib/projectV2/electrical'
 import type { Point } from '@/types/ui'
 
@@ -71,7 +77,12 @@ export function DropZoneHintsOverlay({
 }: DropZoneHintsOverlayProps) {
   const hints = useMemo(() => {
     if (!layoutTree || !project || !symbol) return []
-    return collectDropZoneHints(symbol, layoutTree, project, { movingPanelAttachmentId, suppressSameSymbolTargets: !!relocation })
+    return withoutSupplyHintsForHorizontalDomotica(
+      layoutTree,
+      withoutRiserIneligibleHints(withoutHintsAfterHorizontalDomotica(layoutTree, collectDropZoneHints(symbol, layoutTree, project, { movingPanelAttachmentId, suppressSameSymbolTargets: !!relocation })), symbol, project),
+      relocation?.elementId,
+      isHorizontalDomoticaPreset(symbol.id, symbol.searchPreset)
+    )
   }, [layoutTree, project, symbol, movingPanelAttachmentId, relocation])
 
   const activeHintNodeId = useMemo(

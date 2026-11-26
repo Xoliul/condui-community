@@ -9,6 +9,7 @@ import {
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import { orderPanelsByNumber } from '@/lib/panel/panelNumberOrder'
+import { isBoardPanel, isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 import { collectPlacementsOnFloor } from '@/utils/project'
 import type { Endpoint, Floor, Panel } from '@/types/schema'
 import type { FloorV2 } from '@/types/projectV2'
@@ -71,9 +72,12 @@ interface SitplanPlacementRecord {
 function findPanelForEndpointInPanel(
   panel: Panel,
   endpointId: string,
+  owner?: Panel,
 ): Panel | undefined {
+  // A virtual board is not a board of its own: its circuits belong to the owner board here.
+  const boardPanel = isVirtualPanel(panel) && owner ? owner : panel
   if (panel.circuits.some((circuit) => circuit.endpoints.some((endpoint) => endpoint.id === endpointId))) {
-    return panel
+    return boardPanel
   }
   if (
     panel.protections.some((protection) =>
@@ -82,10 +86,10 @@ function findPanelForEndpointInPanel(
       ),
     )
   ) {
-    return panel
+    return boardPanel
   }
   for (const subPanel of panel.subPanels) {
-    const found = findPanelForEndpointInPanel(subPanel, endpointId)
+    const found = findPanelForEndpointInPanel(subPanel, endpointId, boardPanel)
     if (found) return found
   }
   return undefined
@@ -130,21 +134,22 @@ function collectSitplanPlacements(project: SitplanExportProject): SitplanPlaceme
       })
     }
   }
-  const visitPanel = (panel: Panel) => {
+  const visitPanel = (panel: Panel, ownerId?: string) => {
+    const boardId = isVirtualPanel(panel) && ownerId ? ownerId : panel.id
     for (const circuit of panel.circuits) {
       for (const endpoint of circuit.endpoints) {
-        addEndpointPlacements(endpoint, panel.id)
+        addEndpointPlacements(endpoint, boardId)
       }
     }
     for (const protection of panel.protections) {
       for (const circuit of protection.circuits ?? []) {
         for (const endpoint of circuit.endpoints) {
-          addEndpointPlacements(endpoint, panel.id)
+          addEndpointPlacements(endpoint, boardId)
         }
       }
     }
     for (const subPanel of panel.subPanels) {
-      visitPanel(subPanel)
+      visitPanel(subPanel, boardId)
     }
   }
 
@@ -170,24 +175,25 @@ export function hasDuplicateSitplanEndpointLabels(project: SitplanExportProject)
     return panelsForLabel.size > 1
   }
 
-  const visitPanel = (panel: Panel): boolean => {
+  const visitPanel = (panel: Panel, ownerId?: string): boolean => {
+    const boardId = isVirtualPanel(panel) && ownerId ? ownerId : panel.id
     for (const circuit of panel.circuits) {
-      if (addLabel(circuit.code, panel.id)) return true
+      if (addLabel(circuit.code, boardId)) return true
       for (const endpoint of circuit.endpoints) {
         if (!shouldCountEndpointForDuplicateLabels(endpoint)) continue
-        if (addLabel(endpoint.label, panel.id)) return true
+        if (addLabel(endpoint.label, boardId)) return true
       }
     }
     for (const protection of panel.protections) {
       for (const circuit of protection.circuits ?? []) {
-        if (addLabel(circuit.code, panel.id)) return true
+        if (addLabel(circuit.code, boardId)) return true
         for (const endpoint of circuit.endpoints) {
           if (!shouldCountEndpointForDuplicateLabels(endpoint)) continue
-          if (addLabel(endpoint.label, panel.id)) return true
+          if (addLabel(endpoint.label, boardId)) return true
         }
       }
     }
-    return panel.subPanels.some((subPanel) => visitPanel(subPanel))
+    return panel.subPanels.some((subPanel) => visitPanel(subPanel, boardId))
   }
 
   return selectProjectElectricalPanels(project).some((panel) => visitPanel(panel))
@@ -237,7 +243,7 @@ export function buildSitplanExportTargets(
   const panels = orderPanelsByNumber(
     selectProjectElectricalPanels(project),
     selectProjectElectricalInstallation(project),
-  )
+  ).filter(isBoardPanel)
   const targets: SitplanExportTarget[] = []
 
   for (const floor of floors) {

@@ -8,6 +8,7 @@ import type {
   Panel,
   PanelNumberStyle,
 } from '@/types/schema'
+import type { TerminalNumberFormat, TerminalNumbering } from '@/types/junction'
 import {
   BUILT_IN_LABEL_STYLE_IDS,
   MAX_PANEL_PREFIX_LENGTH,
@@ -25,10 +26,12 @@ import {
   matchSavedLabelStyle,
   panelPartForCircuitLabels,
   resolveLabelScheme,
+  resolveTerminalStripScheme,
   type BuiltInLabelStyleId,
   type SavedLabelStyle,
 } from '@/lib/eendraad/labelScheme'
 import { countLabelChangesForScheme } from '@/lib/eendraad/labelSchemeChanges'
+import { formatTerminalNumber } from '@/lib/terminalStrip/labels'
 import { getProjectElectricalInstallation } from '@/lib/projectV2/electrical'
 import { applyLabelScheme } from '@/handlers/properties/applyLabelScheme'
 import { useProjectStore } from '@/stores/projectStore'
@@ -340,6 +343,7 @@ export function LabelSchemeDialogContent() {
     () => matchSavedLabelStyle(savedStyles, draft)?.id ?? null
   )
 
+  const terminalStrip = resolveTerminalStripScheme(draft)
   const styleKey = styleKeyFor(draft, savedStyles)
   const lastSaved = savedStyles.find((style) => style.id === lastSavedId) ?? null
   const panelPartOn = numbering && labelSchemeUsesPanelPart(draft)
@@ -817,6 +821,46 @@ export function LabelSchemeDialogContent() {
                   { value: false, label: sample(branchExamples.separated), title: separated },
                 ]}
                 onChange={(join) => update((scheme) => ({ ...scheme, branch: { join } }))}
+              />
+            </Section>
+
+            <Section
+              section="terminals"
+              title={t('canvas.eendraadNaming.scheme.terminalStrips', 'Terminal strips')}
+            >
+              <Segmented<TerminalNumbering>
+                label={t('canvas.eendraadNaming.scheme.terminalNumbering', 'Numbering')}
+                value={terminalStrip.numbering}
+                options={[
+                  {
+                    value: 'circuit',
+                    label: t('canvas.eendraadNaming.scheme.terminalNumberingCircuit', 'Per circuit'),
+                  },
+                  {
+                    value: 'cable',
+                    label: t('canvas.eendraadNaming.scheme.terminalNumberingCable', 'Per cable'),
+                  },
+                ]}
+                onChange={(numbering) =>
+                  update((scheme) => ({
+                    ...scheme,
+                    terminalStrip: { ...resolveTerminalStripScheme(scheme), numbering },
+                  }))
+                }
+              />
+              <Segmented<TerminalNumberFormat>
+                label={t('canvas.eendraadNaming.scheme.terminalFormat', 'Format')}
+                value={terminalStrip.format}
+                options={(['X5-1', 'X5.1', 'X5.01'] as const).map((value) => ({
+                  value,
+                  label: sample(formatTerminalNumber('1', 1, value)),
+                }))}
+                onChange={(format) =>
+                  update((scheme) => ({
+                    ...scheme,
+                    terminalStrip: { ...resolveTerminalStripScheme(scheme), format },
+                  }))
+                }
               />
             </Section>
           </div>

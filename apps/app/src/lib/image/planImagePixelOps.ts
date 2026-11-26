@@ -2,6 +2,8 @@
  * Pure RGBA pixel routines shared by main-thread canvas code and the plan image worker.
  */
 
+import type { PixelSampler } from '@/utils/canvasPixelOps'
+
 function buildWhiteDetectSamplePoints(width: number, height: number): Array<{ x: number; y: number }> {
   const samplePoints: Array<{ x: number; y: number }> = []
   samplePoints.push({ x: 0, y: 0 })
@@ -18,9 +20,16 @@ function buildWhiteDetectSamplePoints(width: number, height: number): Array<{ x:
   return samplePoints
 }
 
+function rgbaSampler(data: Uint8ClampedArray, width: number): PixelSampler {
+  return (x, y) => {
+    const index = (y * width + x) * 4
+    return [data[index] ?? 0, data[index + 1] ?? 0, data[index + 2] ?? 0, data[index + 3] ?? 0]
+  }
+}
+
 /** Same semantics as detectWhiteBackground() in planImageProcessing (edge + center samples). */
-export function detectWhiteFromRgba(
-  data: Uint8ClampedArray,
+export function detectWhiteFromSampler(
+  sample: PixelSampler,
   width: number,
   height: number,
   threshold: number,
@@ -30,21 +39,26 @@ export function detectWhiteFromRgba(
   let totalSamples = 0
 
   for (const point of samplePoints) {
-    const index = (point.y * width + point.x) * 4
-    const r = data[index]
-    const g = data[index + 1]
-    const b = data[index + 2]
-    const a = data[index + 3]
-    if (a == null || a < 128) continue
+    const [r, g, b, a] = sample(point.x, point.y)
+    if (a < 128) continue
 
     totalSamples++
-    const brightness = ((r ?? 0) + (g ?? 0) + (b ?? 0)) / 3
+    const brightness = (r + g + b) / 3
     if (brightness >= threshold) {
       whiteCount++
     }
   }
 
   return totalSamples > 0 && whiteCount / totalSamples > 0.7
+}
+
+export function detectWhiteFromRgba(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  threshold: number,
+): boolean {
+  return detectWhiteFromSampler(rgbaSampler(data, width), width, height, threshold)
 }
 
 export function removeWhitePixelsInPlace(data: Uint8ClampedArray, threshold: number, tolerance: number): void {
@@ -60,33 +74,29 @@ export function removeWhitePixelsInPlace(data: Uint8ClampedArray, threshold: num
 }
 
 function isOpaqueNearWhite(
-  data: Uint8ClampedArray,
-  pixelIndex: number,
+  [r, g, b, alpha]: readonly [number, number, number, number],
   threshold: number,
   tolerance: number,
 ): boolean {
-  const alpha = data[pixelIndex + 3]
-  if (alpha == null || alpha < 128) return false
-  const brightness =
-    ((data[pixelIndex] ?? 0) + (data[pixelIndex + 1] ?? 0) + (data[pixelIndex + 2] ?? 0)) / 3
-  return brightness >= threshold - tolerance
+  if (alpha < 128) return false
+  return (r + g + b) / 3 >= threshold - tolerance
 }
 
 /** Detects a painted white page background, rather than a transparent PDF canvas. */
-export function detectWhitePageBackgroundFromRgba(
-  data: Uint8ClampedArray,
+export function detectWhitePageBackgroundFromSampler(
+  sample: PixelSampler,
   width: number,
   height: number,
   threshold: number = 240,
   tolerance: number = 20,
 ): boolean {
-  if (width < 2 || height < 2 || data.length < width * height * 4) return false
+  if (width < 2 || height < 2) return false
 
   const samplesPerSide = Math.min(32, Math.max(8, Math.floor(Math.min(width, height) / 16)))
   const sideIsWhite = (side: 'top' | 'right' | 'bottom' | 'left'): boolean => {
     let whiteSamples = 0
-    for (let sample = 0; sample < samplesPerSide; sample += 1) {
-      const ratio = (sample + 0.5) / samplesPerSide
+    for (let step = 0; step < samplesPerSide; step += 1) {
+      const ratio = (step + 0.5) / samplesPerSide
       const x =
         side === 'left'
           ? 0
@@ -99,12 +109,24 @@ export function detectWhitePageBackgroundFromRgba(
           : side === 'bottom'
             ? height - 1
             : Math.min(height - 1, Math.floor(ratio * height))
-      if (isOpaqueNearWhite(data, (y * width + x) * 4, threshold, tolerance)) whiteSamples += 1
+      if (isOpaqueNearWhite(sample(x, y), threshold, tolerance)) whiteSamples += 1
     }
     return whiteSamples / samplesPerSide >= 0.8
   }
 
   return sideIsWhite('top') && sideIsWhite('right') && sideIsWhite('bottom') && sideIsWhite('left')
+}
+
+/** Detects a painted white page background, rather than a transparent PDF canvas. */
+export function detectWhitePageBackgroundFromRgba(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  threshold: number = 240,
+  tolerance: number = 20,
+): boolean {
+  if (data.length < width * height * 4) return false
+  return detectWhitePageBackgroundFromSampler(rgbaSampler(data, width), width, height, threshold, tolerance)
 }
 
 /**

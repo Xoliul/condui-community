@@ -8,6 +8,7 @@ import { getEndpointLayoutOffsets } from './bottomUpBranchWidths'
 
 import {
   getTrunkDeviceVerticalPaintHeight,
+  getTrunkDeviceMcbGap,
 } from './trunkDeviceSpacing'
 import {
   getCircuitConverterDcConnectionCount,
@@ -551,7 +552,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
             : -1
           const precedingDevicePosition = precedingDevice
             ? mcbYForDevices -
-              LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP -
+              getTrunkDeviceMcbGap(cl.circuit, LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP) -
               precedingDevices
                 .slice(0, precedingDeviceIndex)
                 .filter((candidate) => candidate.trunkPosition === precedingDevice.trunkPosition)
@@ -562,7 +563,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
             precedingDevicePosition != null
               ? precedingDevicePosition - LAYOUT_CONSTANTS.BRANCH_START_OFFSET
               : (terminalDcBusBranch?.branchY ??
-                mcbYForDevices - LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP)
+                mcbYForDevices - getTrunkDeviceMcbGap(cl.circuit, LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP))
         } else if (terminalDcBusBranch) {
           deviceY = terminalDcBusBranch.branchY
         } else if (device.trunkPosition === 0) {
@@ -573,7 +574,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
             .indexOf(device)
           deviceY =
             mcbYForDevices -
-            LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP -
+            getTrunkDeviceMcbGap(cl.circuit, LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP) -
             devicesAtPos0Before *
               (LAYOUT_CONSTANTS.TRUNK_DEVICE_SPACING + LAYOUT_CONSTANTS.SYMBOL_SIZE)
         } else {
@@ -600,7 +601,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
             // Fallback
             deviceY =
               mcbYForDevices -
-              LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
+              getTrunkDeviceMcbGap(cl.circuit, LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP)
           }
         }
 
@@ -827,6 +828,7 @@ export function buildPanelCircuitElements(input: BuildPanelCircuitElementsInput)
           if (!descendantIds.has(branch.circuitId)) continue
           branch.branchY += dy
           branch.trunkY += dy
+          if (branch.column) branch.column.crossbarY += dy
         }
         for (const note of circuitNotesLocal) {
           if (descendantIds.has(note.circuitId)) note.y += dy

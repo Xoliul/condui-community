@@ -46,6 +46,7 @@ import { InstallerProperties } from '@/components/properties/editors/InstallerPr
 import { ProjectProperties } from './editors/ProjectProperties'
 import { PanelProperties } from './editors/PanelProperties'
 import { ProtectionProperties } from './editors/ProtectionProperties'
+import { SupplyTapModeToggle } from './shared/SupplyTapModeToggle'
 import { CircuitProperties } from './editors/CircuitProperties'
 import { EndpointProperties } from './editors/EndpointProperties'
 import { WirePropertiesWithLayout } from './editors/WireProperties'
@@ -261,6 +262,11 @@ export default function PropertiesPanel({
         )}
         {selection.type === 'panel' && (
           <PanelProperties key={id} panelId={id} panel={panel} onUpdate={updatePanelProperties} />
+        )}
+        {(selection.type === 'protection' ||
+          selection.type === 'circuit' ||
+          selection.type === 'trunkDevice') && (
+          <SupplyTapModeToggle key={`tap-${id}`} entityId={id} readOnly={readOnly} />
         )}
         {selection.type === 'protection' && (
           <ProtectionProperties

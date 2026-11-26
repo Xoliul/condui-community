@@ -21,6 +21,7 @@ import {
   selectProjectAuxiliaryElectricalEnclosures,
 } from '@/lib/projectV2/electrical'
 import { orderPanelsByNumber } from '@/lib/panel/panelNumberOrder'
+import { isBoardPanel } from '@/lib/supplyTaps/virtualPanel'
 import { getPanelGridPlacements, resolveModuleWidthCols } from '@/lib/panel/panelGridLayout'
 import { getSharedSupplyFrameDevices } from '@/lib/panel/sharedSupplyFrame'
 import { DEFAULT_PANEL_GRID_COLUMNS } from '@/lib/panel/panelGridDefaults'
@@ -66,8 +67,7 @@ export type BrotherPrinter =
   | 'ql-820nwb'
 export type BrotherLbxMode = 'sheets' | 'single-strip'
 export type BrotherTapeWidthMm =
-  | (typeof BROTHER_TAPE_WIDTHS_MM)[number]
-  | (typeof BROTHER_QL_TAPE_WIDTHS_MM)[number]
+  (typeof BROTHER_TAPE_WIDTHS_MM)[number] | (typeof BROTHER_QL_TAPE_WIDTHS_MM)[number]
 
 export function getBrotherTapeWidthsMm(printer: BrotherPrinter): readonly BrotherTapeWidthMm[] {
   if (printer === 'ql-810w' || printer === 'ql-820nwb') return BROTHER_QL_TAPE_WIDTHS_MM
@@ -143,6 +143,7 @@ interface LabelStripContentPart {
 }
 
 export interface LabelStrip {
+  panelId?: string
   sourceLabel: string
   row: number
   segments: LabelStripSegment[]
@@ -165,6 +166,7 @@ interface EntityIndex {
 }
 
 interface SourceRow {
+  panelId?: string
   sourceLabel: string
   row: number
   modules: LabelStripModule[]
@@ -172,6 +174,7 @@ interface SourceRow {
 }
 
 interface LayoutItem {
+  panelId?: string
   sourceLabel: string
   row: number
   continuationIndex: number
@@ -283,7 +286,10 @@ function segmentForModule(
     const found = index.endpoints.get(primary.endpointId)
     if (!found) return null
     identifier = cleanText(found.endpoint.label) || primary.endpointId
-    technical = [found.endpoint.type, found.endpoint.symbol].map(cleanText).filter(Boolean).join(' · ')
+    technical = [found.endpoint.type, found.endpoint.symbol]
+      .map(cleanText)
+      .filter(Boolean)
+      .join(' · ')
   } else {
     const device = index.trunks.get(primary.id) ?? findTrunkDeviceInProject(project, primary.id)
     if (!device) return null
@@ -319,8 +325,7 @@ function segmentForModule(
     const sources = getPanelLabelSources(values.config, side, values)
     const double = include.stripMode === 'double'
     const cellHeight = double && side === 'bottom' ? secondHeight : firstHeight
-    const bandHeight =
-      mainRole && (!double || mainSide === side) ? mainBandHeightMm(cellHeight) : 0
+    const bandHeight = mainRole && (!double || mainSide === side) ? mainBandHeightMm(cellHeight) : 0
     const otherLines = sources.filter((source) => source !== 'feeds' && values[source]).length
     // Downstream circuits print as a list when the whole list fits, otherwise as ranges.
     const feedsText = () =>
@@ -453,15 +458,11 @@ function buildSourceRows(
   const panels = orderPanelsByNumber(
     getProjectElectricalPanels(project),
     getProjectElectricalInstallation(project)
-  )
+  ).filter(isBoardPanel)
   for (const panel of panels) {
     if (!selected.has(sourceKey('panel', panel.id))) continue
     const providedModules = canvasModules(panel, project, provider)
-    const overflowModuleKeys = getPanelCanvasOverflowModuleKeys(
-      panel,
-      project,
-      providedModules
-    )
+    const overflowModuleKeys = getPanelCanvasOverflowModuleKeys(panel, project, providedModules)
     const exportableModules = providedModules.filter((module) =>
       moduleIsIncluded(module, project, index, options)
     )
@@ -536,9 +537,9 @@ function buildSourceRows(
     // Every field of a multi-field board has its own strip per row.
     const fieldLayout = getPanelGridFieldLayout(panel.gridView)
     const fieldRanges = panelGridFieldRangesUnits(fieldLayout)
-    const mainEntries = (fieldLayout.fields < 2 ? [null] : fieldRanges.map((_, field) => field)).flatMap(
-      (field) => areaGroups(false).map((group) => ({ group, field }))
-    )
+    const mainEntries = (
+      fieldLayout.fields < 2 ? [null] : fieldRanges.map((_, field) => field)
+    ).flatMap((field) => areaGroups(false).map((group) => ({ group, field })))
     const supplyEntries = areaGroups(true).map((group) => ({ group, field: null }))
     const entries = supplyFirst
       ? [...supplyEntries, ...mainEntries]
@@ -562,6 +563,7 @@ function buildSourceRows(
               }))
       if (fieldModules.length > 0 || !options.skipEmptyRows) {
         rows.push({
+          panelId: panel.id,
           sourceLabel: group.inSupplyPanel
             ? supplyLabel
             : field == null
@@ -652,9 +654,7 @@ function rowSegments(
     if (startCols > cursorCols)
       segments.push(blankSegment((startCols - cursorCols) * MODULE_WIDTH_MM))
     segments.push(
-      widthCols === rawWidthCols
-        ? segment
-        : { ...segment, widthMm: widthCols * MODULE_WIDTH_MM }
+      widthCols === rawWidthCols ? segment : { ...segment, widthMm: widthCols * MODULE_WIDTH_MM }
     )
     cursorCols = startCols + widthCols
   }
@@ -673,6 +673,7 @@ export function buildLabelStripModel(
   const sourceRows = buildSourceRows(project, options, provider, index)
   const model = sourceRows
     .map((row) => ({
+      panelId: row.panelId,
       sourceLabel: row.sourceLabel,
       row: row.row,
       segments: rowSegments(row, project, index, options),
@@ -750,22 +751,16 @@ function textSvg(
       // svg2pdf applies a small, font-dependent offset to middle-anchored text.
       // Correct it here so identifiers and descriptions land on the same cell center.
       const textX =
-        alignment === 'left'
-          ? x - width / 2 + 1
-          : alignment === 'right'
-            ? x + width / 2 - 1
-            : x
+        alignment === 'left' ? x - width / 2 + 1 : alignment === 'right' ? x + width / 2 - 1 : x
       const anchor = alignment === 'left' ? 'start' : alignment === 'right' ? 'end' : 'middle'
       return lines
-        .map(
-          (line, index) => {
-            const spread =
-              alignment === 'justify' && line.length > 1
-                ? ` textLength="${Math.max(1, width - 2).toFixed(2)}" lengthAdjust="spacing"`
-                : ''
-            return `<text x="${textX.toFixed(2)}" y="${(startY + index * lineHeight).toFixed(2)}" text-anchor="${anchor}"${spread} font-family="Arial, sans-serif" font-size="${size}" font-weight="${bold ? '700' : '400'}" fill="#111827">${escapeXml(line)}</text>`
-          }
-        )
+        .map((line, index) => {
+          const spread =
+            alignment === 'justify' && line.length > 1
+              ? ` textLength="${Math.max(1, width - 2).toFixed(2)}" lengthAdjust="spacing"`
+              : ''
+          return `<text x="${textX.toFixed(2)}" y="${(startY + index * lineHeight).toFixed(2)}" text-anchor="${anchor}"${spread} font-family="Arial, sans-serif" font-size="${size}" font-weight="${bold ? '700' : '400'}" fill="#111827">${escapeXml(line)}</text>`
+        })
         .join('')
     }
   }
@@ -789,12 +784,12 @@ function renderCellText(
     height,
     bold ? 1 : 3,
     bold,
-    bold ? [6.8, 5.8, 5, 4.2] : [3.2, 2.8, 2.5, 2.2],
+    bold ? [7.2, 6.4, 5.6, 4.8] : [3.8, 3.4, 3, 2.6],
     alignment
   )
 }
 
-const FITTED_TEXT_SIZES_MM = [3.2, 2.8, 2.5, 2.2]
+const FITTED_TEXT_SIZES_MM = [3.8, 3.4, 3, 2.6]
 
 function wrappedLineCount(value: string, width: number, size: number): number {
   return wrapText(value, Math.max(3, Math.floor(width / (size * 0.62))), Number.MAX_SAFE_INTEGER)
@@ -814,12 +809,15 @@ function renderFittedText(
   y: number,
   width: number,
   height: number,
-  alignment: 'left' | 'center' | 'right' | 'justify'
+  alignment: 'left' | 'center' | 'right' | 'justify',
+  preferredSize?: number
 ): string {
   const size =
+    preferredSize ??
     FITTED_TEXT_SIZES_MM.find(
       (candidate) => wrappedLineCount(value, width, candidate) * candidate * 1.2 <= height - 2
-    ) ?? FITTED_TEXT_SIZES_MM.at(-1)!
+    ) ??
+    FITTED_TEXT_SIZES_MM.at(-1)!
   const maxLines = Math.max(1, Math.floor((height - 2) / (size * 1.2)))
   return textSvg(value, cellX + width / 2, y, width, height, maxLines, false, [size], alignment)
 }
@@ -831,9 +829,11 @@ function renderCellParts(
   y: number,
   cellWidth: number,
   height: number,
-  alignment: 'left' | 'center' | 'right' | 'justify' = 'center'
+  alignment: 'left' | 'center' | 'right' | 'justify' = 'center',
+  notesFontSize?: number
 ): string {
-  const technicalPart = parts?.length === 1 && parts[0]?.source === 'technical' ? parts[0] : undefined
+  const technicalPart =
+    parts?.length === 1 && parts[0]?.source === 'technical' ? parts[0] : undefined
   if (technicalPart?.technicalParts?.length) {
     return technicalPartsSvg(technicalPart.technicalParts, cellX, y, cellWidth, height, alignment)
   }
@@ -843,22 +843,97 @@ function renderCellParts(
     .map((part) => part.text)
     .filter(Boolean)
     .join('\n')
+  const onlyNotes =
+    secondary.length > 0 &&
+    (parts ?? []).filter((part) => part.source !== 'label').every((part) => part.source === 'notes')
   if (!label && parts?.some((part) => part.source === 'feeds')) {
     return renderFittedText(secondary, cellX, y, cellWidth, height, alignment)
   }
-  if (!label) return renderCellText(secondary || fallback, cellX, y, cellWidth, height, false, alignment)
+  if (!label)
+    return onlyNotes && notesFontSize
+      ? renderFittedText(secondary, cellX, y, cellWidth, height, alignment, notesFontSize)
+      : renderCellText(secondary || fallback, cellX, y, cellWidth, height, false, alignment)
   if (!secondary) return renderCellText(label, cellX, y, cellWidth, height, true, alignment)
 
   const labelHeight = Math.min(height * 0.5, 13)
-  return `${renderCellText(label, cellX, y, cellWidth, labelHeight, true, alignment)}${renderCellText(
-    secondary,
-    cellX,
-    y + labelHeight,
-    cellWidth,
-    Math.max(5, height - labelHeight),
-    false,
-    alignment
-  )}`
+  const secondaryHeight = Math.max(5, height - labelHeight)
+  const secondaryText =
+    onlyNotes && notesFontSize
+      ? renderFittedText(
+          secondary,
+          cellX,
+          y + labelHeight,
+          cellWidth,
+          secondaryHeight,
+          alignment,
+          notesFontSize
+        )
+      : renderCellText(
+          secondary,
+          cellX,
+          y + labelHeight,
+          cellWidth,
+          secondaryHeight,
+          false,
+          alignment
+        )
+  return `${renderCellText(label, cellX, y, cellWidth, labelHeight, true, alignment)}${secondaryText}`
+}
+
+function panelNotesFontSizes(
+  strips: LabelStrip[],
+  options: LabelStripExportOptions
+): Map<string, number> {
+  const sizes = [4.2, 3.8, 3.4, 3]
+  const [firstHeight, secondHeight] = heightPair(options)
+  const panels = new Map<string, Array<{ text: string; width: number; height: number }>>()
+  for (const strip of strips) {
+    const key = strip.panelId ?? strip.sourceLabel.split(' · ')[0] ?? strip.sourceLabel
+    const entries = panels.get(key) ?? []
+    for (const segment of strip.segments) {
+      const width = segment.widthMm - 2
+      const cells =
+        options.stripMode === 'double'
+          ? ([
+              ['top', segment.topParts, firstHeight],
+              ['bottom', segment.bottomParts, secondHeight],
+            ] as const)
+          : ([['bottom', segment.bottomParts, firstHeight]] as const)
+      for (const [side, parts, height] of cells) {
+        const label = parts?.some((part) => part.source === 'label')
+        const note = parts
+          ?.filter((part) => part.source === 'notes')
+          .map((part) => part.text)
+          .filter(Boolean)
+          .join('\n')
+        const hasBand =
+          segment.mainRole &&
+          (options.stripMode !== 'double' || (segment.mainSide ?? 'bottom') === side)
+        const contentHeight = hasBand ? height - mainBandHeightMm(height) : height
+        if (note)
+          entries.push({
+            text: note,
+            width,
+            height: label
+              ? Math.max(5, contentHeight - Math.min(contentHeight * 0.5, 13))
+              : contentHeight,
+          })
+      }
+    }
+    panels.set(key, entries)
+  }
+  const result = new Map<string, number>()
+  for (const [panelId, entries] of panels) {
+    const size =
+      sizes.find((candidate) =>
+        entries.every(
+          ({ text, width, height }) =>
+            wrappedLineCount(text, width, candidate) * candidate * 1.2 <= height - 2
+        )
+      ) ?? sizes.at(-1)!
+    result.set(panelId, size)
+  }
+  return result
 }
 
 function technicalPartsSvg(
@@ -1029,7 +1104,8 @@ function renderStrip(
   y: number,
   height: number,
   doubleMode: boolean,
-  secondHeight: number
+  secondHeight: number,
+  notesFontSize?: number
 ): string {
   const totalWidth = segments.reduce((sum, segment) => sum + segment.widthMm, 0)
   let cursor = x
@@ -1081,7 +1157,8 @@ function renderStrip(
           top,
           segment.widthMm - 2,
           cellHeight,
-          doubleMode ? segment.topAlignment : segment.bottomAlignment
+          doubleMode ? segment.topAlignment : segment.bottomAlignment,
+          notesFontSize
         )
       ),
     `${totalWidth} mm`
@@ -1100,7 +1177,8 @@ function renderStrip(
           top,
           segment.widthMm - 2,
           cellHeight,
-          segment.bottomAlignment
+          segment.bottomAlignment,
+          notesFontSize
         )
       ),
     `${totalWidth} mm`,
@@ -1145,6 +1223,7 @@ function splitStripForWidth(strip: LabelStrip, maxWidth: number): LayoutItem[] {
   for (const segment of printableSegments) {
     if (current.length > 0 && currentWidth + segment.widthMm > maxWidth) {
       items.push({
+        panelId: strip.panelId,
         sourceLabel: strip.sourceLabel,
         row: strip.row,
         continuationIndex,
@@ -1159,6 +1238,7 @@ function splitStripForWidth(strip: LabelStrip, maxWidth: number): LayoutItem[] {
   }
   if (current.length > 0)
     items.push({
+      panelId: strip.panelId,
       sourceLabel: strip.sourceLabel,
       row: strip.row,
       continuationIndex,
@@ -1244,7 +1324,16 @@ function boardLabelSvg(board: BoardLabel, x: number, y: number): string {
   let svg = `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${BOARD_LABEL_WIDTH_MM}" height="${BOARD_LABEL_HEIGHT_MM}" fill="#ffffff" stroke="#111827" stroke-width="0.4"/>`
   const heroWidth = board.code ? 30 : 0
   if (board.code) {
-    svg += textSvg(board.code, x + heroWidth / 2, y, heroWidth, BOARD_LABEL_HEIGHT_MM, 1, true, [16, 13, 11, 9, 7])
+    svg += textSvg(
+      board.code,
+      x + heroWidth / 2,
+      y,
+      heroWidth,
+      BOARD_LABEL_HEIGHT_MM,
+      1,
+      true,
+      [16, 13, 11, 9, 7]
+    )
     svg += `<line x1="${(x + heroWidth).toFixed(2)}" y1="${(y + 5).toFixed(2)}" x2="${(x + heroWidth).toFixed(2)}" y2="${(y + BOARD_LABEL_HEIGHT_MM - 5).toFixed(2)}" stroke="#111827" stroke-width="0.3"/>`
   }
   const columnX = x + heroWidth + 2
@@ -1266,7 +1355,17 @@ function boardLabelSvg(board: BoardLabel, x: number, y: number): string {
   )
   cursor += titleHeight
   for (const line of board.lines) {
-    svg += textSvg(line, columnX + columnWidth / 2, cursor, columnWidth, lineHeight, 1, false, [3.2, 2.9, 2.6, 2.3], 'left')
+    svg += textSvg(
+      line,
+      columnX + columnWidth / 2,
+      cursor,
+      columnWidth,
+      lineHeight,
+      1,
+      false,
+      [3.2, 2.9, 2.6, 2.3],
+      'left'
+    )
     cursor += lineHeight
   }
   return svg
@@ -1300,14 +1399,17 @@ function qrCodeToSvg(size: number, data: ArrayLike<number>): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewSize} ${viewSize}" shape-rendering="crispEdges"><rect width="${viewSize}" height="${viewSize}" fill="#ffffff"/><g fill="#111827">${modules}</g></svg>`
 }
 
-function renderPage(page: PackedPage, options: LabelStripExportOptions, qrSvg: string): string {
+function renderPage(
+  page: PackedPage,
+  options: LabelStripExportOptions,
+  qrSvg: string,
+  noteSizes: Map<string, number>
+): string {
   const { spec } = page
   const [firstHeight, secondHeight] = heightPair(options)
   let body = ''
   const stripHeight = firstHeight + (options.stripMode === 'double' ? 5 + secondHeight : 0)
-  const pageFirstTop = Math.min(
-    ...page.items.map((placement) => placement.y + CAPTION_HEIGHT_MM)
-  )
+  const pageFirstTop = Math.min(...page.items.map((placement) => placement.y + CAPTION_HEIGHT_MM))
   const pageLastBottom = Math.max(
     ...page.items.map((placement) => placement.y + CAPTION_HEIGHT_MM + stripHeight)
   )
@@ -1335,7 +1437,8 @@ function renderPage(page: PackedPage, options: LabelStripExportOptions, qrSvg: s
       y + CAPTION_HEIGHT_MM,
       firstHeight,
       options.stripMode === 'double',
-      secondHeight
+      secondHeight,
+      noteSizes.get(item.panelId ?? item.sourceLabel.split(' · ')[0] ?? item.sourceLabel)
     )
   }
   const boardCaption = i18n.t('labelStripExport.boardLabel', { defaultValue: 'Board label' })
@@ -1390,6 +1493,7 @@ export async function exportLabelStripsToPdf(
   const qrCode = QRCode.create(buildConduiLink(), { errorCorrectionLevel: 'M' })
   const qrSvg = qrCodeToSvg(qrCode.modules.size, qrCode.modules.data)
   const strips = buildLabelStripModel(project, options, provider)
+  const noteSizes = panelNotesFontSizes(strips, options)
   const boards = selectedBoardLabels(project, options)
   if (strips.length === 0 && boards.length === 0)
     throw new Error('No label strips can be generated from the selected modules.')
@@ -1414,7 +1518,7 @@ export async function exportLabelStripsToPdf(
       pdf.addPage([selected.spec.width, selected.spec.height], selected.spec.orientation)
     const parser = new DOMParser()
     const document = parser.parseFromString(
-      renderPage(selected.pages[index]!, options, qrSvg),
+      renderPage(selected.pages[index]!, options, qrSvg, noteSizes),
       'image/svg+xml'
     )
     const mount = globalThis.document?.createElement('div')
@@ -1423,7 +1527,7 @@ export async function exportLabelStripsToPdf(
       mount.style.position = 'fixed'
       mount.style.left = '-10000px'
       mount.style.top = '0'
-      mount.innerHTML = renderPage(selected.pages[index]!, options, qrSvg)
+      mount.innerHTML = renderPage(selected.pages[index]!, options, qrSvg, noteSizes)
       svgElement = mount.querySelector('svg') as SVGSVGElement
       globalThis.document.body.appendChild(mount)
     }

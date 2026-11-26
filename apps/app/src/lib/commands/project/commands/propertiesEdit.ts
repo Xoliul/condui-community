@@ -25,6 +25,7 @@ import {
   updateGroundTrunkPropertiesInProject,
 } from '@/lib/properties/electricalPropertyMutations'
 import { normalizePatch, patchChanges } from '@/lib/properties/propertyPatch'
+import { defaultVoltagesForSystem } from '@/constants/nominalVoltage'
 import { propertyPatchPreservesPanelSlots } from '@/lib/properties/propertyPanelSlots'
 import { getInstallationSupplyTransformer, getInstallationSupplyTransformers, isSupplyTransformer } from '@/lib/electrical/supplyTransformer'
 import { normalizeProtectionCapacityUpdates } from '@/lib/protectionDefaults'
@@ -46,6 +47,15 @@ import {
 } from '@/lib/eendraad/projectElectricalDomain'
 import { updateCircuitInProject } from '@/lib/eendraad/circuitMutations'
 import { findTrunkDeviceInProject } from '@/lib/eendraad/findTrunkDeviceInProject'
+import {
+  getHorizontalDomoticaSwitchBlock,
+  HORIZONTAL_DOMOTICA_NO_NESTING_MESSAGE,
+  HORIZONTAL_DOMOTICA_NO_SUPPLY_MESSAGE,
+  HORIZONTAL_DOMOTICA_TERMINAL_MESSAGE,
+  HORIZONTAL_DOMOTICA_TOP_LEVEL_MESSAGE,
+  isEndpointInSupplyAssembly,
+} from '@/lib/eendraad/horizontalDomoticaTerminal'
+import { isHorizontalDomotica } from '@/lib/layout/domoticaHorizontalGeometry'
 import { getPanelSupplyTrunkDevices, queryAllSupplyTrunkDevices } from '@/lib/feedTopology'
 import { assignEndpointsToCircuitInProject } from '@/lib/eendraad/endpointMutations'
 import { deleteEndpointsFromProject } from '@/lib/eendraad/endpointDeletion'
@@ -66,6 +76,7 @@ import {
 } from '@/lib/wires/sectionWireOverrides'
 import {
   collectTerminalStripOccurrences,
+  getTerminalStripPinPatch,
   planTerminalStripPinAssignment,
 } from '@/lib/terminalStrip/labels'
 import { findPanelById } from '@/lib/panel/panelTree'
@@ -248,6 +259,20 @@ export const propertiesEditInputSchema = z
     }
   )
 
+/**
+ * Changing only the supply system also changes its line voltages, as the editor's system picker
+ * does (3N~ is 230 V line-neutral and 400 V line-line). Voltages named in the patch win, and an
+ * unchanged system keeps the stored voltages.
+ */
+function installationPatchWithSystemVoltages(
+  current: { nominalVoltage: { system: string } } | null | undefined,
+  patch: NonNullable<z.output<typeof propertiesEditInputSchema>['installation']>
+) {
+  const system = patch.nominalVoltage?.system
+  if (!system || system === 'DC' || system === current?.nominalVoltage.system) return patch
+  return { ...patch, nominalVoltage: { ...defaultVoltagesForSystem(system), ...patch.nominalVoltage } }
+}
+
 export type PropertyEdit = z.input<typeof propertyEditSchema>
 export type PropertiesEditInput = z.input<typeof propertiesEditInputSchema>
 export type ProtectionPropertyPatch = z.input<typeof protectionPatchSchema>
@@ -318,6 +343,58 @@ function findTrunkDevice(project: ProjectV2, id: string) {
   return findTrunkDeviceInProject(project, id)
 }
 
+/** Switching a supply trunk device, or a module that sits in a supply assembly, to horizontal. */
+function switchesSupplyModuleToHorizontal(
+  project: ProjectV2,
+  edit: z.output<typeof electricalPropertyEditSchema>
+): boolean {
+  const layout = (edit.set as { domoticaProps?: { oneWireLayout?: string | null } | null }).domoticaProps
+    ?.oneWireLayout
+  if (layout !== 'horizontal') return false
+  if (edit.kind === 'trunkDevice')
+    return edit.ids.some((id) => queryAllSupplyTrunkDevices(project).some((device) => device.id === id))
+  if (edit.kind !== 'endpoint') return false
+  const panels = getEditableProjectElectricalPanels(project)
+  return edit.ids.some((id) => {
+    const found = findEndpoint(project, id)
+    if (!found || isHorizontalDomotica(found.endpoint)) return false
+    return isEndpointInSupplyAssembly(found.circuit, id, findCircuitOwner(panels, found.circuit.id) ?? undefined)
+  })
+}
+
+/**
+ * The plain refusal for switching an endpoint module to the horizontal layout when the module
+ * cannot be horizontal (the same meaning the Layout field shows as its disabled reason), or null.
+ * Modules that are already horizontal and switches to vertical are never refused here.
+ */
+function horizontalSwitchRefusal(
+  project: ProjectV2,
+  edit: z.output<typeof electricalPropertyEditSchema>
+): { ok: false; code: string; message: string } | null {
+  if (edit.kind !== 'endpoint') return null
+  const layout = (edit.set as { domoticaProps?: { oneWireLayout?: string | null } | null }).domoticaProps
+    ?.oneWireLayout
+  if (layout !== 'horizontal') return null
+  for (const id of edit.ids) {
+    const found = findEndpoint(project, id)
+    if (!found || isHorizontalDomotica(found.endpoint)) continue
+    const block = getHorizontalDomoticaSwitchBlock(
+      found.circuit,
+      id,
+      findCircuitOwner(getEditableProjectElectricalPanels(project), found.circuit.id) ?? undefined
+    )
+    if (block === 'nested')
+      return { ok: false, code: 'horizontal_domotica_top_level', message: HORIZONTAL_DOMOTICA_TOP_LEVEL_MESSAGE }
+    if (block === 'has_nested_modules')
+      return { ok: false, code: 'horizontal_domotica_no_nesting', message: HORIZONTAL_DOMOTICA_NO_NESTING_MESSAGE }
+    if (block === 'continuation')
+      return { ok: false, code: 'horizontal_domotica_terminal', message: HORIZONTAL_DOMOTICA_TERMINAL_MESSAGE }
+    if (block === 'dc_bus' || block === 'supply_assembly')
+      return { ok: false, code: 'horizontal_domotica_no_supply', message: HORIZONTAL_DOMOTICA_NO_SUPPLY_MESSAGE }
+  }
+  return null
+}
+
 function validateEntity(
   project: ProjectV2,
   edit: z.output<typeof electricalPropertyEditSchema>
@@ -363,6 +440,22 @@ function validateEntity(
       if (has('relayProps') && symbol !== 'relay') return false
       if (has('energyMeterProps') && symbol !== 'energy_meter') return false
       if (has('domoticaProps') && symbol !== 'domotica') return false
+      // A horizontal layout needs a top-level circuit module with nothing after it and no nested
+      // modules (shared rule with the Layout field). Only the switch is checked: edits to a module
+      // that is already horizontal stay possible, and switching back to vertical is always allowed.
+      const requestedLayout = (
+        set.domoticaProps as { oneWireLayout?: string | null } | null | undefined
+      )?.oneWireLayout
+      if (
+        requestedLayout != null &&
+        !isHorizontalDomotica(owner.endpoint) &&
+        getHorizontalDomoticaSwitchBlock(
+          owner.circuit,
+          id,
+          findCircuitOwner(getEditableProjectElectricalPanels(project), owner.circuit.id) ?? undefined
+        ) != null
+      )
+        return false
       const childParentId =
         (set.domoticaChildProps as { parentEndpointId?: string | null } | null | undefined)
           ?.parentEndpointId ?? owner.endpoint.domoticaChildProps?.parentEndpointId
@@ -425,6 +518,12 @@ function validateEntity(
       changeoverProps: ['source_changeover'],
     }))
       if (set[key] != null && !expected.includes(symbol)) return false
+    // The horizontal one-wire layout is only drawn for circuit endpoint modules.
+    if (
+      (set.domoticaProps as { oneWireLayout?: string | null } | null | undefined)?.oneWireLayout !=
+      null
+    )
+      return false
     return nestedValuesValid(
       normalizePatch(device as unknown as Record<string, unknown>, set),
       Object.keys(set)
@@ -717,6 +816,7 @@ function applyAction(
       'auxiliaryPlanVisibility',
       'panelFeedOrganization',
       'panelBusFeedBoundary',
+      'supplyTapMode',
     ].includes(action.kind)
     const before = tracksRefs ? collectElectricalPropertyRefs(project) : []
     for (const ref of applyExtraElectricalAction(project, action, env))
@@ -800,19 +900,17 @@ function applyAction(
         reason: 'stale_terminal_strip',
       })
     for (const update of planned) {
-      const outgoing = update.id.endsWith(':outgoing')
+      const side = update.id.endsWith(':outgoing') ? 'outgoing' : 'incoming'
       const entityId = update.id.slice(0, -9)
-      const patch = {
-        junctionIdentity: update.stripId,
-        ...(outgoing ? { terminalStripOutgoingPin: update.pin } : { terminalStripPin: update.pin }),
-      }
-      if (findEndpoint(project, entityId)) {
-        updateEndpointInProject(project, entityId, patch)
+      const endpoint = findEndpoint(project, entityId)?.endpoint
+      if (endpoint) {
+        updateEndpointInProject(project, entityId, getTerminalStripPinPatch(endpoint, side, update.stripId, update.pin))
         changed.add(`endpoint:${entityId}`)
         continue
       }
       const device = findTrunkDevice(project, entityId)
       if (!device) continue
+      const patch = getTerminalStripPinPatch(device, side, update.stripId, update.pin)
       if (queryAllSupplyTrunkDevices(project).some((candidate) => candidate.id === entityId)) {
         updateSupplyTrunkDeviceInProject(project, entityId, patch)
       } else {
@@ -926,6 +1024,10 @@ export const propertiesEdit = defineProjectCommand({
         if (!result.ok) return result
         continue
       }
+      if (switchesSupplyModuleToHorizontal(project, edit))
+        return { ok: false, code: 'horizontal_domotica_no_supply', message: HORIZONTAL_DOMOTICA_NO_SUPPLY_MESSAGE }
+      const horizontalRefusal = horizontalSwitchRefusal(project, edit)
+      if (horizontalRefusal) return horizontalRefusal
       if (!validateEntity(project, edit)) {
         return { ok: false, code: 'stale_target', message: 'A property target no longer exists' }
       }
@@ -940,7 +1042,7 @@ export const propertiesEdit = defineProjectCommand({
             return { ok: false, code: 'invalid_transformer_owner', message: 'The supply transformer must be on the common incoming wire' }
           if (props.transformerPrimaryVoltageV != null && props.transformerPrimaryVoltageV <= 1000)
             return { ok: false, code: 'invalid_primary_voltage', message: 'The supply transformer primary voltage must exceed 1000 V' }
-          const output = input.installation?.nominalVoltage?.uLineToLine ?? installation.nominalVoltage.uLineToLine
+          const output = (input.installation && installationPatchWithSystemVoltages(installation, input.installation).nominalVoltage?.uLineToLine) ?? installation.nominalVoltage.uLineToLine
           const explicitlySetsOutput = edit.set.conversionProps != null &&
             Object.hasOwn(edit.set.conversionProps, 'transformerSecondaryVoltageV')
           if ((explicitlySetsOutput || device.conversionProps?.transformerRole !== 'supply') && props.transformerSecondaryVoltageV !== output)
@@ -1094,7 +1196,7 @@ export const propertiesEdit = defineProjectCommand({
         return { ok: false, code: 'ac_supply_required', message: 'A supply transformer requires an AC installation' }
       const patch = normalizePatch(
         current as unknown as Record<string, unknown>,
-        input.installation as Record<string, unknown>
+        installationPatchWithSystemVoltages(current, input.installation) as Record<string, unknown>
       )
       if (
         ('groundCable' in patch && !nestedValuesValid({ cable: patch.groundCable }, ['cable'])) ||
@@ -1143,13 +1245,16 @@ export const propertiesEdit = defineProjectCommand({
       if (action.kind !== 'lockCircuitRowForCode')
         applyAction(project, action, env, changed, created, removed)
     }
+    const installationPatch = input.installation
+      ? installationPatchWithSystemVoltages(getEditableProjectElectricalInstallation(project), input.installation)
+      : undefined
     if (
-      input.installation &&
+      installationPatch &&
       patchChanges(
         getEditableProjectElectricalInstallation(project) as unknown as Record<string, unknown>,
         normalizePatch(
           getEditableProjectElectricalInstallation(project) as unknown as Record<string, unknown>,
-          input.installation as Record<string, unknown>
+          installationPatch as Record<string, unknown>
         )
       )
     ) {
@@ -1157,7 +1262,7 @@ export const propertiesEdit = defineProjectCommand({
         project,
         normalizePatch(
           getEditableProjectElectricalInstallation(project) as unknown as Record<string, unknown>,
-          input.installation as Record<string, unknown>
+          installationPatch as Record<string, unknown>
         ) as never
       )
       if (result.changed) changed.add('installation:electrical')

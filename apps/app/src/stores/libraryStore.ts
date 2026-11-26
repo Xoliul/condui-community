@@ -1,14 +1,8 @@
-import { getLocalizedSymbolName } from '@/lib/symbolNames'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { symbols, type SymbolMetadata } from '@/lib/symbols'
-import {
-  searchPresets,
-  matchSearchPreset,
-  withSearchPreset,
-  normalizePresetQuery,
-} from '@/lib/library/searchPresets'
-import { filterBySearchRelevance } from '@/utils/search'
+import { getSearchPreset, parseLibraryEntryKey, withSearchPreset } from '@/lib/library/searchPresets'
+import { searchLibrarySymbols } from '@/lib/library/librarySearch'
 import { canSymbolAppearOnSituationPlan } from '@/lib/plan/situationPlanSymbolEligibility'
 import { isSymbolAvailableInLibrary } from '@/lib/supplyTopologyFeature'
 
@@ -64,63 +58,23 @@ export const useLibraryStore = create<LibraryState>()(
 
       setSelectedCategory: (category) => set({ selectedCategory: category }),
 
-      getSymbolById: (id) =>
-        get().symbols.find((s) => s.id === id && isSymbolAvailableInLibrary(s)),
+      // A key is a symbol ID, or `symbolId#presetId` for a search-preset result (see getLibraryEntryKey).
+      getSymbolById: (key) => {
+        const { symbolId, presetId } = parseLibraryEntryKey(key)
+        const symbol = get().symbols.find((s) => s.id === symbolId && isSymbolAvailableInLibrary(s))
+        if (!symbol || !presetId) return symbol
+        const preset = getSearchPreset(symbolId, presetId)
+        return preset && !preset.libraryEntry ? withSearchPreset(symbol, presetId) : undefined
+      },
 
       getFilteredSymbols: (locale = 'en') => {
         const { symbols, searchQuery, selectedCategory } = get()
-        let filtered = symbols.filter(
-          (symbol) =>
-            isSymbolAvailableInLibrary(symbol) ||
-            Boolean(searchQuery && matchSearchPreset(symbol.id, searchQuery))
-        )
-
-        // Filter by category
-        if (selectedCategory) {
-          filtered = filtered.filter((s) => s.category === selectedCategory)
-        }
-
-        // Filter by search query with fuzzy matching and synonyms
-        if (searchQuery) {
-          filtered = filtered.map((symbol) =>
-            withSearchPreset(symbol, matchSearchPreset(symbol.id, searchQuery)?.id)
-          )
-          const normalizedQuery = normalizeLibrarySearchText(searchQuery)
-          const isShortPrefixQuery =
-            normalizedQuery.length > 0 &&
-            normalizedQuery.length <= 2 &&
-            !normalizedQuery.includes(' ')
-
-          if (isShortPrefixQuery) {
-            return filtered.filter(
-              (symbol) =>
-                normalizeLibrarySearchText(getLocalizedSymbolName(symbol, locale)).startsWith(
-                  normalizedQuery
-                ) ||
-                searchPresets.some(
-                  (preset) =>
-                    preset.symbolId === symbol.id &&
-                    preset.aliases.some((alias) => normalizePresetQuery(alias) === normalizedQuery)
-                )
-            )
-          }
-
-          filtered = filterBySearchRelevance(filtered, searchQuery, (s) => {
-            // Check all name variations and tags, preferring literal matches.
-            return [
-              s.name,
-              getLocalizedSymbolName(s, locale),
-              s.nameNL,
-              s.nameFR,
-              ...s.tags,
-              ...searchPresets
-                .filter((preset) => preset.symbolId === s.id)
-                .flatMap((preset) => preset.aliases),
-            ]
-          })
-        }
-
-        return filtered
+        const inCategory = selectedCategory
+          ? symbols.filter((symbol) => symbol.category === selectedCategory)
+          : symbols
+        return searchQuery
+          ? searchLibrarySymbols(inCategory, searchQuery, locale)
+          : inCategory.filter(isSymbolAvailableInLibrary)
       },
 
       getSymbolsByCategory: (category) => {
@@ -145,13 +99,3 @@ export const useLibraryStore = create<LibraryState>()(
     }
   )
 )
-
-function normalizeLibrarySearchText(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .replace(/\s+/g, ' ')
-}

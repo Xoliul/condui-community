@@ -228,7 +228,7 @@ export function inspectProjectEntities(project: ProjectV2): ProjectEntity[] {
       panel.id,
       panel.name,
       {
-        ...pick(panel, ['name', 'isMain', 'location', 'earthingSystem', 'gridView', 'busSections']),
+        ...pick(panel, ['name', 'isMain', 'location', 'earthingSystem', 'gridView', 'busSections', 'virtual']),
         circuitIds: [
           ...panel.circuits,
           ...panel.protections.flatMap((protection) => protection.circuits ?? []),
@@ -506,6 +506,8 @@ const AGENT_SYMBOL_HINTS: Readonly<Record<string, string>> = {
   socket: 'Socket without protective earth or child protection. Only for an explicitly ungrounded socket.',
   socket_gnd: 'Socket with protective earth but without child protection.',
   socket_child: 'Socket with child protection but without protective earth.',
+  domotica_horizontal:
+    'Library preset: a domotica module in the horizontal one-wire layout, stored as symbol domotica with oneWireLayout horizontal. One-wire only; never on the supply side or an output of another module, and nothing can follow it on its circuit.',
 }
 
 export function findProjectSymbols(

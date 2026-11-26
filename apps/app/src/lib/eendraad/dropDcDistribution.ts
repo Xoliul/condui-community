@@ -14,6 +14,7 @@ import { generateId } from '@/utils'
 import {
   getVoltagePolesConfig,
   getDefaultTrunkDeviceProtectionProps,
+  withDcSideProtectionDefaults,
 } from '@/lib/protectionDefaults'
 import { PROTECTION_SYMBOL_ID_TO_TYPE } from '@/lib/protectionKind'
 import { getSymbolById } from '@/lib/symbols'
@@ -31,6 +32,7 @@ import { getSupplyConverterDcConnectionIndex } from '@/lib/supplyAssembly/conver
 
 import { selectProjectSupplyAssemblies } from '@/lib/projectV2/electrical'
 import { clamp } from '@/lib/geometry'
+import { insertConverterOutputDevice } from './converterOutputDevices'
 
 import { buildDirectConverterSupplyAssembly } from '@/lib/supplyAssembly/editorIntegration'
 
@@ -137,7 +139,17 @@ export function addCircuitDcPassiveDevice(
     )
     if (placement) device.placements = [placement]
   }
-  if (target.converterDcConnection) callbacks.addTrunkDevice(circuit.id, device)
+  if (target.converterDcConnection && type === 'dc_bus') callbacks.addTrunkDevice(circuit.id, device)
+  else if (target.converterDcConnection)
+    // A device on a converter output sits at its place among that output's devices, before its
+    // endpoints, and starts as a DC device (two poles, no AC breaking capacity).
+    callbacks.updateCircuit(circuit.id, {
+      trunkDevices: insertConverterOutputDevice(
+        circuit.trunkDevices ?? [],
+        withDcSideProtectionDefaults(device),
+        target.branchDeviceInsertIndex
+      ),
+    })
   else addCircuitTrunkDeviceAtDrop(target, circuit, device, callbacks)
   callbacks.setSelection({ type: 'trunkDevice', ids: [device.id] })
   return device

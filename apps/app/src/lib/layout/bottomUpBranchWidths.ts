@@ -19,6 +19,14 @@ import { getDomoticaNoteBounds } from '@/lib/eendraad/domoticaNotes'
 import { getControlButtonAnnotationBounds } from '@/lib/eendraad/controlButtonLabels'
 import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
 import type { Endpoint } from '@/types/schema'
+import {
+  getHorizontalDomoticaBodyWidth,
+  getHorizontalDomoticaChildOffset,
+  getHorizontalDomoticaOutputCount,
+  isChildOfHorizontalDomotica,
+  isHorizontalDomotica,
+  DOMOTICA_HORIZONTAL_COLUMN_WIDTH,
+} from './domoticaHorizontalGeometry'
 
 /** Keeps consecutive inverter/solar labels readable when they are rendered below the branch. */
 export const SOLAR_SEQUENCE_ENDPOINT_SPACING = 50
@@ -272,7 +280,23 @@ export function getEndpointLayoutOffsets(
       rows.set(row, rowChildren)
     }
 
-    for (const [row, rowChildren] of rows) {
+    if (isHorizontalDomotica(module)) {
+      // Outputs run along the top edge: a child stands above its output column and a chain
+      // continues upward, so no row shifting or label clearance applies.
+      for (const [row, rowChildren] of rows) {
+        rowChildren.forEach((child, chainIndex) => {
+          const childIndex = indexById.get(child.id)
+          if (childIndex == null) return
+          const offset = getHorizontalDomoticaChildOffset(row, chainIndex)
+          result[childIndex] = { x: moduleX + offset.x, y: inputY + offset.y }
+          if (child.symbol !== 'domotica') {
+            addPaintedRect(child, moduleX + offset.x, inputY + offset.y, false)
+          }
+        })
+      }
+    }
+
+    for (const [row, rowChildren] of isHorizontalDomotica(module) ? [] : rows) {
       let rowShiftX = 0
       rowChildren.forEach((child, chainIndex) => {
         const childIndex = indexById.get(child.id)
@@ -381,8 +405,15 @@ export function calculateBranchWidth(
           ? Math.max(0, (endpoint.socketProps?.socketCount ?? 1) - 1) * MULTI_SOCKET_OFFSET
           : 0
       const symbolRight =
-        offset + (endpoint.symbol === 'domotica' ? DOMOTICA_BOX_WIDTH / 2 : 15 + socketExtra)
-      const labelRight = endpoint.domoticaChildProps && endpoint.label?.trim()
+        offset +
+        (isHorizontalDomotica(endpoint)
+          ? getHorizontalDomoticaBodyWidth(getHorizontalDomoticaOutputCount(endpoint)) -
+            DOMOTICA_HORIZONTAL_COLUMN_WIDTH / 2
+          : endpoint.symbol === 'domotica'
+            ? DOMOTICA_BOX_WIDTH / 2
+            : 15 + socketExtra)
+      const labelRight = endpoint.domoticaChildProps && endpoint.label?.trim() &&
+        !isChildOfHorizontalDomotica(endpoint, branchEndpoints)
         ? endpoint.symbol === 'domotica'
           ? offset -
             DOMOTICA_BOX_WIDTH / 2 +

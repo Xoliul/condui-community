@@ -7,11 +7,12 @@ import { ProjectCommandRegistry } from '@/lib/commands/project/registry'
 import { applyCommandBatch } from '@/lib/commands/project/transaction'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { walkPanels, collectCircuits } from '@/lib/panel/panelTree'
+import { getRiserTargetFields } from '@/lib/eendraad/oneWireRisers'
 import { hasOneWireForks } from '@/lib/eendraad/oneWireForkProject'
 
 /** Moves that target or touch fork-bearing circuits preview the real move command. */
 export function isSavedForkMove(project: ProjectV2, sourceCircuitId: string, target: DropTarget): boolean {
-  if (target.forkAfterEndpointId || target.forkBranchId) return true
+  if (target.forkAfterEndpointId || target.forkBranchId || Object.keys(getRiserTargetFields(target)).length) return true
   const ids = new Set([sourceCircuitId, target.circuitId])
   return [...walkPanels(getProjectElectricalPanels(project))].flatMap(collectCircuits).some((circuit) => ids.has(circuit.id) && hasOneWireForks(circuit))
 }

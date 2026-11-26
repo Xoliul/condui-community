@@ -12,6 +12,8 @@ import { electricalMoveSupplyTrunkDevice, electricalMoveCircuitTrunkDevice } fro
 import { propertiesEdit } from '@/lib/commands/project/commands/propertiesEdit'
 import { electricalDuplicateElements } from '@/lib/commands/project/commands/electricalDuplicateElements'
 import { electricalDuplicateProtection } from '@/lib/commands/project/commands/electricalDuplicateProtection'
+import { supplyCreateTap } from '@/lib/commands/project/commands/supplyCreateTap'
+import { supplyMoveTap } from '@/lib/commands/project/commands/supplyMoveTap'
 import { simulatePanelAttachmentMoveOnProject } from '@/lib/layout/eendraadPreviewSimulation'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 
@@ -19,6 +21,7 @@ const registry = new ProjectCommandRegistry().register(electricalPlaceSymbol)
   .register(eendraadMoveEndpoints).register(electricalMoveProtectionOnBus)
   .register(electricalMoveSupplyTrunkDevice).register(electricalMoveCircuitTrunkDevice)
   .register(propertiesEdit).register(electricalDuplicateElements).register(electricalDuplicateProtection)
+  .register(supplyCreateTap).register(supplyMoveTap)
 const acceptance = new WeakMap<ProjectV2, Map<string, boolean>>()
 
 export function canPreviewPanelAttachmentMove(project: ProjectV2, panelId: string, target: DropTarget): boolean {
@@ -59,9 +62,9 @@ export function canPreviewElectricalCommand(project: ProjectV2, invocation: Comm
 }
 
 export function canPreviewElectricalPlacement(project: ProjectV2, symbolId: string, target: DropTarget,
-  context?: { position?: Point; sitplan?: SitplanPlacementTarget }): boolean {
+  context?: { position?: Point; sitplan?: SitplanPlacementTarget; searchPreset?: string }): boolean {
   return canPreviewElectricalCommand(project, { id: 'electrical.placeSymbol', input: {
-    symbolId, target, ...(symbolId === 'note' ? { dropCanvasPosition: context?.position } : {}),
+    symbolId, target, ...(context?.searchPreset ? { searchPreset: context.searchPreset } : {}), ...(symbolId === 'note' ? { dropCanvasPosition: context?.position } : {}),
     ...(context?.sitplan ? { sitplan: context.sitplan } : {}),
   } })
 }

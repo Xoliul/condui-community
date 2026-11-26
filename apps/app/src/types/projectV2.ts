@@ -20,7 +20,13 @@ export const PROJECT_V2_SCHEMA_VERSION = '2.3.0' as const
 /** Fork-bearing projects require readers that understand endpoint attachments. */
 export const PROJECT_V2_FORK_SCHEMA_VERSION = '2.4.0' as const
 
-export type ProjectV2SchemaVersion = typeof PROJECT_V2_SCHEMA_VERSION | typeof PROJECT_V2_FORK_SCHEMA_VERSION
+/** Manual risers and supply taps: readers of 2.4.0 know forks only and would silently flatten them. */
+export const PROJECT_V2_RISER_SCHEMA_VERSION = '2.5.0' as const
+
+export type ProjectV2SchemaVersion =
+  | typeof PROJECT_V2_SCHEMA_VERSION
+  | typeof PROJECT_V2_FORK_SCHEMA_VERSION
+  | typeof PROJECT_V2_RISER_SCHEMA_VERSION
 
 export const PROJECT_SCOPE_IDS = {
   sharedBuilding: 'shared-building',

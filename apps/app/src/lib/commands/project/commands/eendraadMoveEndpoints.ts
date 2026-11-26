@@ -1,7 +1,10 @@
 import { z } from 'zod'
+import { checkRiserDropTarget } from '../riserTargetCheck'
 import { checkForkRunMove, moveSavedForkRun, usesForkRunMove } from '@/lib/eendraad/forkRunMove'
 import { PROJECT_V2_FORK_SCHEMA_VERSION } from '@/types/projectV2'
+import { raiseSchemaVersion } from '@/lib/projectV2/projectSchemaVersion'
 import { electricalDropTargetSchema, checkElectricalDropTarget } from '../electricalDropTarget'
+import { checkHorizontalDomoticaNotIntoSupply } from '../horizontalDomoticaIntegrity'
 import { electricalSemanticDestinationSchema, resolveElectricalSemanticTarget } from '../electricalSemanticTarget'
 import type { ElectricalSemanticDestination, SemanticTargetResult } from '../electricalSemanticTarget'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
@@ -85,7 +88,7 @@ function resolveMoveTarget(project: ProjectV2, input: {
   if (input.destination) return resolveElectricalSemanticTarget(project, input.destination)
   const target = input.target
   if (!target) return { ok: false, code: 'target_required', message: 'A move destination is required' }
-  if (target.type !== 'endpoint' || !target.endpointId) return { ok: true, target }
+  if (target.type !== 'endpoint' || !target.endpointId || target.forkAfterEndpointId || target.forkBranchId) return { ok: true, target }
   if (target.circuitId && (target.branchEndpoints !== undefined || target.domoticaOutput ||
       target.domoticaChildDropIntent || target.converterDcConnection || target.dcBusId))
     return { ok: true, target }
@@ -154,6 +157,8 @@ export const eendraadMoveEndpoints = defineProjectCommand({
       }
     }
     const sourceCircuit = source.circuit
+    const supplyCheck = checkHorizontalDomoticaNotIntoSupply(project, selected, { target, circuitId: target.circuitId })
+    if (!supplyCheck.ok) return supplyCheck
     const targetCheck = checkElectricalDropTarget(
       project,
       target,
@@ -163,6 +168,8 @@ export const eendraadMoveEndpoints = defineProjectCommand({
     const targetCircuit = target.circuitId
       ? circuitForProject(project, target.circuitId)
       : undefined
+    const riserCheck = checkRiserDropTarget(targetCircuit, target)
+    if (!riserCheck.ok) return riserCheck
     if (usesForkRunMove(sourceCircuit, targetCircuit, target))
       return checkForkRunMove(sourceCircuit, targetCircuit, input.draggedEndpointId, selected, target)
     const expandedSelection = new Set(selected)
@@ -260,7 +267,7 @@ export const eendraadMoveEndpoints = defineProjectCommand({
     const forkDestination = target.circuitId ? circuitForProject(project, target.circuitId) : undefined
     if (usesForkRunMove(sourceCircuit, forkDestination, target)) {
       const moved = moveSavedForkRun(sourceCircuit, forkDestination!, input.draggedEndpointId, input.selectedEndpointIds ?? [input.draggedEndpointId], target, env.newId)
-      if (moved.length) project.schemaVersion = PROJECT_V2_FORK_SCHEMA_VERSION
+      if (moved.length) raiseSchemaVersion(project, PROJECT_V2_FORK_SCHEMA_VERSION)
       return { created: [], changed: moved.length ? [...new Set([sourceCircuit.id, forkDestination!.id])].map((id) => ({ kind: 'circuit' as const, id })) : [], removed: [], select: moved.map((id) => ({ kind: 'endpoint' as const, id })) }
     }
     const selected = input.selectedEndpointIds ?? [input.draggedEndpointId]

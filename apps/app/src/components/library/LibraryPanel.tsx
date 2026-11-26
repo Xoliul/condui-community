@@ -20,6 +20,8 @@ import type { SymbolMetadata } from '@/lib/symbols'
 import { canSymbolAppearOnSituationPlan } from '@/lib/plan/situationPlanSymbolEligibility'
 import { getSymbolLibraryTooltip } from '@/lib/symbolTooltips'
 import { MODULAR_SOCKET_LIBRARY_ID } from '@/lib/socket/modularSocket'
+import { isLibraryPresetEntryId } from '@/lib/library/libraryPresets'
+import { getLibraryEntryKey } from '@/lib/library/searchPresets'
 import LibraryCategoryRail from './LibraryCategoryRail'
 import { useLibraryRailHotkeys } from './useLibraryRailHotkeys'
 import {
@@ -43,6 +45,7 @@ const PANEL_VIEW_CATEGORIES = [
   'outlets',
   'domotica',
   'metering',
+  'energyConversion',
   'notes',
   'grid',
 ] as const
@@ -174,13 +177,19 @@ function LibraryPanel({
       return symbols.filter((s) => canSymbolAppearOnSituationPlan(s.id))
     }
     if (viewMode === 'panel') {
+      // Presets with their own entry (horizontal domotica) are one-wire only.
       return symbols.filter(
         (s) =>
-          s.id === MODULAR_SOCKET_LIBRARY_ID ||
+          !isLibraryPresetEntryId(s.id) &&
+          (s.id === MODULAR_SOCKET_LIBRARY_ID ||
           (PANEL_VIEW_CATEGORIES.includes(s.category as (typeof PANEL_VIEW_CATEGORIES)[number]) &&
             s.category !== 'outlets' &&
-            (s.category !== 'grid' || s.id === 'panel_distribution')) ||
-          s.id === 'panel_distribution'
+            (s.category === 'grid'
+              ? s.id === 'panel_distribution' || s.id === 'terminal_strip'
+              : s.category !== 'energyConversion' ||
+                s.id === 'transformer' ||
+                s.id === 'inverter')) ||
+          s.id === 'panel_distribution')
       )
     }
     return symbols
@@ -199,12 +208,12 @@ function LibraryPanel({
 
   const renderSymbol = (symbol: SymbolMetadata) => (
     <SymbolItem
-      key={symbol.id}
+      key={getLibraryEntryKey(symbol)}
       symbol={symbol}
       onDragStart={onDragStart}
       localizedName={getLocalizedName(symbol)}
       tooltip={getSymbolLibraryTooltip(symbol.id, i18n.language)}
-      isFavorite={favoriteSymbols.includes(symbol.id)}
+      isFavorite={favoriteSymbols.includes(getLibraryEntryKey(symbol))}
       onToggleFavorite={toggleFavorite}
       compact={compact}
       dense={!compact}

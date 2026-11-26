@@ -394,7 +394,7 @@ export async function importProjectFromTrikLocal(
     })
   }
   const validation = validateProjectStructure(
-    structuredClone(normalized) as unknown as Project,
+    cloneValue(normalized) as unknown as Project,
   )
   if (!validation.valid) {
     throw new Error(`TRiK import produced invalid project: ${validation.errors.join('; ')}`)

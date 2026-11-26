@@ -1381,7 +1381,19 @@ export function useHierarchyModuleDrag({
         col,
         targetTerminalRail
       )
-      updatePanelGridSlots(panel.id, nextMainSlots)
+      const terminalStripForDrop = currentProject
+        ? resolveTerminalStripModule(currentProject, placement.ref)
+        : undefined
+      if (targetTerminalRail && terminalStripForDrop) {
+        const targetSlot = nextMainSlots.find(
+          (slot) => panelGridModuleRefKey(slot.module) === key
+        )
+        if (targetSlot) {
+          moveTerminalStripToPanel(terminalStripForDrop.id, panel.id, targetSlot)
+        }
+      } else {
+        updatePanelGridSlots(panel.id, nextMainSlots)
+      }
       logger.warn('[PanelCanvas hierarchy drag] commit:main-single', {
         afterCount: nextMainSlots.length,
       })

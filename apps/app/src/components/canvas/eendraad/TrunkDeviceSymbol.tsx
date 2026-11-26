@@ -2,7 +2,7 @@ import {
   hasSupplyInlineLabels,
   getSupplyInlineLabelLines,
 } from '@/lib/layout/supplyInlineDeviceLabels'
-import { useOneWireProjectSelector } from './oneWireRenderProject'
+import { useOneWireProjectSelector, useOneWireTerminalNumberFormat } from './oneWireRenderProject'
 import { useState, useCallback, useContext, useMemo, useRef } from 'react'
 import { useTrunkDeviceArtwork } from './useTrunkDeviceArtwork'
 import { useTranslation } from 'react-i18next'
@@ -27,6 +27,7 @@ import {
   DOMOTICA_CONTROL_OVERLAY_PATHS,
 } from '@/lib/symbols'
 import { SYMBOL_EXPORT_ATTR_SVG_PATH } from '@/lib/symbolImage'
+import { useProtectionSymbolSvgPath } from '@/hooks/useProtectionSymbolSvgPath'
 import {
   getSurgeProtectionBodyBounds,
   getSurgeProtectionSymbolPath,
@@ -45,7 +46,9 @@ import {
 } from '@/editions/community/communityHooks'
 import { useIsPreviewSelected } from '@/contexts/SelectionPreviewContext'
 import { useCanvasFontFamily, useEffectiveCanvasZoom, useTouchPrimaryDevice } from '@/editions/community/communityHooks'
+import { DcBusLabels } from './DcBusLabels'
 import { SymbolTextLabels } from './SymbolTextLabels'
+import { getTrunkDeviceLeftLabelItems, TRUNK_DEVICE_LEFT_LABEL_STYLE } from '@/lib/eendraad/trunkDeviceLeftLabels'
 import {
   getJunctionIdentity,
   getJunctionIdentityDisplay,
@@ -53,7 +56,6 @@ import {
   isJunctionIdentityVisibleByDefault,
   isSharedJunctionSymbol,
 } from '@/lib/junctionIdentity'
-import { getEffectiveTerminalStripOutgoingPin } from '@/lib/terminalStrip/labels'
 import {
   TERMINAL_STRIP_IDENTITY_LABEL_FONT_SIZE,
   getTerminalStripIdentityLabelOffset,
@@ -355,13 +357,12 @@ export function TrunkDeviceSymbol({
         twoPole: device.symbol === 'switch_2p_twoway',
       })
     : undefined
-  const renderedSymbolPath = isRelay
-    ? getSwitchSymbolPaths('relay').basePath
-    : isSurgeProtection
-    ? getSurgeProtectionSymbolPath(device.surgeProtectionKind)
-    : isDirectionalConverter
-      ? CONVERTER_ARTWORK_PATHS.base
-      : (switchSymbolPaths?.basePath ?? symbol?.svgPath)
+  const renderedSymbolPath = useProtectionSymbolSvgPath(
+    isRelay ? getSwitchSymbolPaths('relay').basePath
+    : isSurgeProtection ? getSurgeProtectionSymbolPath(device.surgeProtectionKind)
+    : isDirectionalConverter ? CONVERTER_ARTWORK_PATHS.base
+    : (switchSymbolPaths?.basePath ?? symbol?.svgPath)
+  )
   const nameLabelText = (device.label ?? '').trim()
   const junctionIdentityText = getJunctionIdentity(device)
   // The canvas passes the positioned orientation: in an inverter-leg-fed changeover, port-1
@@ -380,11 +381,7 @@ export function TrunkDeviceSymbol({
   const wireSegments = useEendraadWireSegments(
     isDirectionalConverter || isConversionSymbol || needsSupplyMetadataGeometry
   )
-  const terminalStripOutgoingPin = useOneWireProjectSelector((state) =>
-    (device.symbol === 'terminal_strip' || device.type === 'terminal_strip') && state.currentProject
-      ? getEffectiveTerminalStripOutgoingPin(state.currentProject, device)
-      : undefined
-  )
+  const terminalNumberFormat = useOneWireTerminalNumberFormat()
   const converterConnectionDomains = isDirectionalConverter
     ? getConverterConnectionDomains(
         wireSegments,
@@ -483,13 +480,7 @@ export function TrunkDeviceSymbol({
       showNotesLabel,
     ]
   )
-  const leftStackLabelItems = useMemo(
-    () => [
-      ...(nameLabelText.length > 0 ? [{ key: 'trunkDeviceNameLabel', text: nameLabelText }] : []),
-      ...(showNotesLabel ? [{ key: 'trunkDeviceNotes', text: notesText }] : []),
-    ],
-    [nameLabelText, notesText, showNotesLabel]
-  )
+  const leftStackLabelItems = useMemo(() => getTrunkDeviceLeftLabelItems(device), [device])
   const topStackLabelItems = useMemo(
     () => [
       ...(placeConversionLabelsOnTop
@@ -1291,16 +1282,13 @@ export function TrunkDeviceSymbol({
           y={0}
           color={getSecondaryTextColor(theme?.mode === 'dark')}
         />
-        {!!device.label?.trim() && (
-          <Text
-            x={busStartX + 7}
-            y={4}
-            text={device.label}
-            fontFamily={fontFamily}
-            fontSize={10}
-            fill={getTextColor(theme?.mode === 'dark')}
-          />
-        )}
+        <DcBusLabels
+          x={busStartX}
+          label={device.label}
+          notes={showNotesLabel ? notesText : undefined}
+          fontFamily={fontFamily}
+          isDark={theme?.mode === 'dark'}
+        />
       </Group>
     )
   }
@@ -1459,7 +1447,7 @@ export function TrunkDeviceSymbol({
             sideLabelBlockAlign="center"
             textColor={getSecondaryTextColor(isDark ?? false)}
             fontFamily={fontFamily}
-            fontSize={8}
+            {...TRUNK_DEVICE_LEFT_LABEL_STYLE}
             symbolWidth={DOMOTICA_BOX_WIDTH}
             symbolHeight={domoticaHeight}
           />
@@ -2090,8 +2078,9 @@ export function TrunkDeviceSymbol({
               : getSecondaryTextColor(isDark ?? false)
           }
           fontFamily={fontFamily}
-          fontSize={isVerticalSupplyProtection ? 11 : 8}
-          symbolWidth={renderedSymbolSize.width}
+          {...TRUNK_DEVICE_LEFT_LABEL_STYLE}
+          fontSize={isVerticalSupplyProtection ? 11 : TRUNK_DEVICE_LEFT_LABEL_STYLE.fontSize}
+          symbolWidth={isSurgeProtection && !isHorizontal ? -surgeBodyBounds.x * 2 : renderedSymbolSize.width}
           symbolHeight={renderedSymbolSize.height}
         />
       )}
@@ -2110,9 +2099,7 @@ export function TrunkDeviceSymbol({
                   device.symbol,
                   junctionIdentityText,
                   device.terminalStripPin,
-                  device.symbol === 'terminal_strip'
-                    ? terminalStripOutgoingPin
-                    : device.terminalStripOutgoingPin
+                  terminalNumberFormat
                 ),
               },
             ]}

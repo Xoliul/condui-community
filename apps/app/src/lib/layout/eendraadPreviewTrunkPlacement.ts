@@ -15,7 +15,11 @@ import { syncSequentialEndpointBranchLabelsToCircuit } from '@/lib/eendraad/auto
 import { findPanelById } from '@/lib/panel/panelTree'
 import { ensureRootFeedForBusSection, getSupplyFeedDevicesForPanel } from '@/lib/feedTopology'
 import { getPanelFeedOrganization } from '@/lib/panel/panelFeedOrganization'
-import { getDefaultTrunkDeviceProtectionProps, getVoltagePolesConfig } from '@/lib/protectionDefaults'
+import {
+  getDefaultTrunkDeviceProtectionProps,
+  getVoltagePolesConfig,
+  withDcSideProtectionDefaults,
+} from '@/lib/protectionDefaults'
 import { PROTECTION_SYMBOL_ID_TO_TYPE, PROTECTION_SYMBOL_IDS } from '@/lib/protectionKind'
 import {
   directConverterBackupInlineDevicesToTrunkDevices,
@@ -57,7 +61,7 @@ export function simulateTrunkDeviceOnCircuit(
 
   const segmentPosition = getCircuitTrunkPositionForDropSim(target, circuit)
   const trunkPosition = isCircuitTrunkSwitchSymbol(symbol.id)
-    ? getCircuitTrunkSwitchPositionForDrop(target, segmentPosition)
+    ? getCircuitTrunkSwitchPositionForDrop(target, segmentPosition, circuit)
     : segmentPosition
   const deviceId = generateId()
   const trunkDevice: TrunkDevice = isCircuitTrunkSwitchSymbol(symbol.id)
@@ -319,7 +323,7 @@ export function simulateSupplyTrunkDevice(
       ? getDefaultTrunkDeviceProtectionProps(protectionType ?? 'OTHER', voltagePoles)
       : {}
 
-  const trunkDevice: TrunkDevice = {
+  const trunkDevice: TrunkDevice = withDcSideProtectionDefaults({
     id: deviceId,
     type: deviceType,
     symbol: symbol.id as TrunkDevice['symbol'],
@@ -388,7 +392,7 @@ export function simulateSupplyTrunkDevice(
       : deviceType === 'protection'
         ? protectionDefaults
         : {}),
-  }
+  })
 
   if (target.supplyPanelInput && !isSupplyBranchDevice(trunkDevice)) trunkDevice.supplyPanelInput = true
   if (insertIndex >= 0 && insertIndex <= supplyDevices.length) {

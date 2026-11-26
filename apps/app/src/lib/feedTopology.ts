@@ -14,6 +14,7 @@ import {
   type ProjectWithOptionalV2Electrical,
 } from '@/lib/projectV2/electrical'
 import { getPrimaryPanelBusSectionId } from '@/lib/panel/panelBusSections'
+import { isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 
 export type SupplyFeedScope = 'shared' | 'root'
 
@@ -173,7 +174,7 @@ function rememberFeedTopology(
 }
 
 export function collectRootPanels(panels: Panel[]): Panel[] {
-  return panels.filter((panel) => panel.isMain !== false)
+  return panels.filter((panel) => panel.isMain !== false && !isVirtualPanel(panel))
 }
 
 function normalizeTrunkDevicePositions(devices: TrunkDevice[] | undefined): TrunkDevice[] {

@@ -63,7 +63,10 @@ import { getModuleWidthInCols } from '@/lib/panel/panelGridLayout'
 import { findPanelById } from '@/lib/panel/panelTree'
 import { setSupplyDevicePanelVisibility } from '@/lib/panel/supplyPanelVisibility'
 import { ensureElectricalLayerOnFloor } from '@/lib/plan/floorLayers'
-import { ensurePanelDistributionPlacementInProject } from '@/lib/plan/panelPlacementMutations'
+import {
+  ensurePanelDistributionEndpointInProject,
+  ensurePanelDistributionPlacementInProject,
+} from '@/lib/plan/panelPlacementMutations'
 import { transformPlanBackgroundFloorView } from '@/lib/plan/floorSetupMutations'
 import {
   isMainPanelDistributionEndpoint,
@@ -873,15 +876,33 @@ export function deleteProtectionInProject(
       ...(protectionToDelete.circuits ?? []).flatMap((circuit) =>
         circuit.endpoints.filter(isDomoticaPanelFeedEndpoint).map((endpoint) => endpoint.panelId)),
     ])
+    const protectionCircuits = protectionToDelete.circuits ?? []
+    const hasSurvivingUpstreamProtection =
+      protectionCircuits.length > 0 &&
+      protectionCircuits.every((circuit) => {
+        const parentProtection = findParentCircuitInfo(circuit.id, panels)?.parentProtection
+        return parentProtection != null && parentProtection.id !== id
+      })
 
     if (linkedPanelIds.size && options?.preserveLinkedPanels) {
       // A preserved secondary-panel feeder is intentionally reattached to the
       // surviving parent protection, including its panel link.
-      migrateSubCircuitContentToParent(protectionToDelete, panels)
+      migrateSubCircuitContentToParent(
+        protectionToDelete,
+        panels,
+        project.disciplines.electrical?.devices
+      )
+    } else if (linkedPanelIds.size === 0 && hasSurvivingUpstreamProtection) {
+      // Removing an inline protection should keep its circuit content under the
+      // upstream protection. A root protection has no protected parent to inherit it.
+      migrateSubCircuitContentToParent(
+        protectionToDelete,
+        panels,
+        project.disciplines.electrical?.devices
+      )
     } else {
-      // Ordinary chained protections are removed surgically: only the chain
-      // reference is replaced; endpoints and other content leave with the
-      // deleted protection.
+      // Without a surviving upstream protection, keep the existing cascade behavior
+      // and promote any protected children into the deleted protection's position.
       promoteDeletedProtectionSubcircuits(protectionToDelete, panels)
     }
     const linkedSubPanelId = protectionToDelete.subPanelId
@@ -1120,6 +1141,8 @@ export function addPanelInProject(
     ensurePanelDistributionPlacementInProject(panel, panelPlacement.placement, {
       endpointCandidate: panelPlacement.endpoint,
     })
+  } else {
+    ensurePanelDistributionEndpointInProject(panel)
   }
 
   const installation = getEditableProjectElectricalInstallation(project)

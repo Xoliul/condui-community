@@ -16,6 +16,7 @@ import { getApplicableRulesetDate } from '../date-resolver'
 import { hasLegacyRcdGroupingDate } from '../../rcdGroupingDate'
 import { getCircuitSegmentsForValidation } from '../../circuitCableSection'
 import { circuitCableSpecificationSegments, missingCableSpecificationSegments } from '../../cableSpecifications'
+import { isStructuralCarrierProtection } from '@/lib/eendraad/structuralCarrier'
 
 function finding(key: string, offenders: Offender[], missingFacts?: string[]): CheckResult {
   return {
@@ -40,7 +41,7 @@ function boardDevices(context: CheckContext): BoardDevice[] {
   if (!panel) return []
   const devices: BoardDevice[] = panel.protections
     .filter(
-      (device) => !device.directPanelFeeder && !device.directDcBusFeeder && device.dcBusId == null
+      (device) => !isStructuralCarrierProtection(device) && device.dcBusId == null
     )
     .map((device) => ({ device, kind: 'protection' }))
   for (const circuit of context.query.getCircuits(panel.id)) {

@@ -396,3 +396,30 @@ export function getDefaultTrunkDeviceProtectionProps(
       return { polesConfig: effectivePolesConfig, poles }
   }
 }
+
+/** A supply device on the DC side of a converter: its DC wire, a DC-bus branch or a converter output. */
+function isSupplyDcSideDevice(device: TrunkDevice): boolean {
+  return (
+    device.supplyPath === 'converter-dc' ||
+    device.supplyPath === 'converter-dc-top' ||
+    device.supplyDcBusId != null ||
+    device.converterDcConnection != null
+  )
+}
+
+/**
+ * Creation defaults of a protection on the DC side are DC devices: two poles (+ and -), and no
+ * breaking capacity, since the AC household default (3000) says nothing about a DC breaker.
+ * Fuses, residual-current devices and devices off the DC side keep their AC defaults.
+ */
+export function withDcSideProtectionDefaults(device: TrunkDevice): TrunkDevice {
+  if (device.type !== 'protection' || !isSupplyDcSideDevice(device)) return device
+  const kind = device.protectionType
+  if (kind === 'FUSE' || kind === 'RCD' || kind === 'RCBO') return device
+  const next: TrunkDevice = { ...device, polesConfig: '2P', poles: 2 }
+  if (kind === 'MCB') {
+    delete next.breakingCapacityKa
+    delete next.breakingCapacityOption
+  }
+  return next
+}

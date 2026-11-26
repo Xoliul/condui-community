@@ -22,6 +22,7 @@ import { findCircuitOwner } from '@/lib/eendraad/projectElectricalDomain'
 import { resolvePanelSupplyLinkForPanelInPanels } from '@/lib/eendraad/panelSupplyLink'
 import { resolveSecondaryBusEjectSelection } from '@/lib/eendraad/secondaryBusEjectEligibility'
 import { queryAllSupplyTrunkDevices } from '@/lib/feedTopology'
+import { getSupplyTapToggleState } from '@/lib/supplyTaps/convertSupplyTap'
 import { selectProjectBuildingFloors } from '@/lib/projectV2/buildingFloors'
 import type { ProjectCommandDefinition } from '@/lib/commands/project/types'
 
@@ -298,6 +299,28 @@ export function getElectricalTopologyPaletteActions(
               },
             ],
           },
+        }),
+      })
+    }
+  }
+  if (
+    (selection.type === 'trunkDevice' || selection.type === 'protection' || selection.type === 'circuit') &&
+    selection.ids.length === 1
+  ) {
+    const entityId = selection.ids[0]!
+    const toggle = getSupplyTapToggleState(project, entityId)
+    if (toggle) {
+      const mode = toggle.mode === 'inline' ? ('tap' as const) : ('inline' as const)
+      actions.push({
+        id: mode === 'tap' ? 'supply.convertToTap' : 'supply.convertToInline',
+        labelKey:
+          mode === 'tap'
+            ? 'commandPalette.convertSupplyDeviceToTap'
+            : 'commandPalette.convertSupplyTapToInline',
+        fields: [],
+        invocation: () => ({
+          id: 'properties.edit',
+          input: { edits: [], actions: [{ kind: 'supplyTapMode' as const, entityId, mode }] },
         }),
       })
     }

@@ -5,14 +5,19 @@ import { canEditOneWireForks, hasOneWireForks } from './oneWireForkProject'
 import { isEndpointInOneWireConverterTree, isOneWireConverterBranch } from './oneWireConverterBranches'
 import { initializeBranchesIfNeeded } from '@/lib/layout/endpointChains'
 import { syncSequentialEndpointBranchLabelsToCircuit } from './automaticEndpointBranchNaming'
+import { canEditOneWireRisers, getMaxStem, getRiserTargetFields, insertRootBranch } from './oneWireRisers'
 
 export function usesForkRunMove(source: Circuit, destination: Circuit | undefined, target: DropTarget): boolean {
-  return hasOneWireForks(source) || !!destination && hasOneWireForks(destination) || !!target.forkAfterEndpointId || !!target.forkBranchId
+  return hasOneWireForks(source) || !!destination && hasOneWireForks(destination) || !!target.forkAfterEndpointId || !!target.forkBranchId ||
+    getRiserTargetFields(target).newRiser === true || getRiserTargetFields(target).stem !== undefined
 }
 
 function plan(source: Circuit, destination: Circuit | undefined, draggedId: string, selected: readonly string[], target: DropTarget) {
   if (!destination || !canEditOneWireForks(source) || !canEditOneWireForks(destination) || target.domoticaOutput || target.dcBusId || target.converterDcConnection)
     return null
+  const riser = getRiserTargetFields(target)
+  if ((riser.newRiser || riser.stem !== undefined) && (!canEditOneWireRisers(destination) || riser.newRiser && riser.stem !== undefined ||
+    riser.stem !== undefined && (riser.stem < 0 || riser.stem > getMaxStem(destination)) || target.forkAfterEndpointId || target.forkBranchId)) return null
   let branches: Branch[] = initializeBranchesIfNeeded(source)
   if (target.releaseForkLegsOf) {
     // The dragged anchor stays put past its own tap: its legs heal onto the symbol before it.
@@ -33,7 +38,7 @@ function plan(source: Circuit, destination: Circuit | undefined, draggedId: stri
   if (carried.length > 1 && carried.length !== run.endpointIds.length) return null
   const targetBranches: Branch[] = source === destination ? branches : initializeBranchesIfNeeded(destination)
   let branch = target.forkBranchId ? targetBranches.find((item) => item.id === target.forkBranchId) : undefined
-  if (!target.forkAfterEndpointId && !branch && target.branchInsertIndex === undefined) {
+  if (!target.forkAfterEndpointId && !branch && target.branchInsertIndex === undefined && !riser.newRiser) {
     branch = targetBranches.find((item, index) => item.id === target.branchId || `branch-${destination.id}-${index}` === target.branchId)
       ?? targetBranches.find((item) => target.branchEndpoints?.some((id) => item.endpointIds.includes(id)))
   }
@@ -83,7 +88,8 @@ export function moveSavedForkRun(source: Circuit, destination: Circuit, draggedI
     if (target.adoptForksOf) for (const leg of targetBranches)
       if (leg.forkFrom?.afterEndpointId === target.adoptForksOf) leg.forkFrom = { afterEndpointId: tail.at(-1)! }
   } else {
-    targetBranches.splice(Math.min(target.branchInsertIndex ?? targetBranches.length, targetBranches.length), 0, { id: newId(), label: '', endpointIds: tail })
+    targetBranches.splice(0, targetBranches.length, ...insertRootBranch(targetBranches, { id: newId(), label: '', endpointIds: tail },
+      Math.min(target.branchInsertIndex ?? targetBranches.length, targetBranches.length), getRiserTargetFields(target)))
   }
   targetBranches.push(...descendants)
   if (source === destination) remaining = targetBranches

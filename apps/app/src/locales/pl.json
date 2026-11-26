@@ -1,6 +1,7 @@
 {
   "oneWireFork": {
-    "invalidConnection": "Połączenie gałęzi jest nierozstrzygnięte."
+    "invalidConnection": "Połączenie gałęzi jest nierozstrzygnięte.",
+    "invalidRiser": "Piony nie są możliwe w tym obwodzie."
   },
   "forkLab": {
     "title": "Testowanie rozgałęzień",
@@ -162,11 +163,9 @@
     "toggleVisibility": "Pokaż lub ukryj etykietę na schemacie"
   },
   "terminalStrip": {
-    "pin": "Numer obwodu",
-    "incomingPin": "Wejście",
-    "outgoingPin": "Wyłączone",
+    "pin": "Numer zacisku",
     "circuitConflict": "{{label}} jest przypisany do różnych obwodów.",
-    "circuitConflictRemediation": "Użyj osobnego numeru grupy zacisków dla każdego obwodu."
+    "circuitConflictRemediation": "Użyj osobnego numeru zacisku dla każdego obwodu."
   },
   "appUpdate": {
     "banner": "Dostępna jest nowa wersja aplikacji.",
@@ -186,7 +185,9 @@
     "offlineIndicatorTitle": "Jesteś offline",
     "cloudSyncPendingTitle": "Brak synchronizacji z chmurą",
     "cloudSyncPendingMessage": "Twoje zmiany są zapisane na tym urządzeniu. Synchronizacja z chmurą jest ponawiana.",
-    "cloudSyncConflictTitle": "Brak synchronizacji: wybierz wersję"
+    "cloudSyncConflictTitle": "Brak synchronizacji: wybierz wersję",
+    "browserStorageFullTitle": "Dysk pełny",
+    "browserStorageFullMessage": "Dysk tego komputera jest pełny. Zmiany są zapisywane tylko w chmurze."
   },
   "diagnostics": {
     "anonymousProjectName": "({{idShort}})",
@@ -257,6 +258,13 @@
       "browserOnly": "Projekty tylko w tej przeglądarce: {{total}}",
       "moveToServer": "Przenieś na serwer",
       "moveFailed": "Przenoszenie projektów nie powiodło się: {{error}}"
+    },
+    "cloudUsage": {
+      "used_one": "Wykorzystano {{used}} z {{count}} bezpłatnego projektu w chmurze",
+      "used_other": "Wykorzystano {{used}} z {{count}} bezpłatnych projektów w chmurze",
+      "used_few": "Wykorzystano {{used}} z {{count}} bezpłatnych projektów w chmurze",
+      "used_many": "Wykorzystano {{used}} z {{count}} bezpłatnych projektów w chmurze",
+      "blocked": "Bezpłatny projekt w chmurze znów dostępny {{date}}"
     }
   },
   "dialog": {
@@ -320,6 +328,10 @@
   "commandPalette": {
     "createFork": "Dodaj gałąź",
     "deleteEmptyFork": "Usuń pustą gałąź",
+    "addRiser": "Dodaj pion",
+    "moveToOwnRiser": "Przenieś na własny pion",
+    "joinRisers": "Połącz na jednym pniu",
+    "deleteEmptyRiser": "Usuń pusty pion",
     "addPanelAtDomoticaOutput": "Dodaj rozdzielnicę na wyjściu",
     "addSupplyTransformer": "Dodaj transformator zasilający",
     "placeholder": "Szukaj poleceń",
@@ -446,8 +458,12 @@
     "setBackupFeedBoundary": "Przesuń granicę zasilania rezerwowego",
     "movePanelSupply": "Przenieś zasilanie rozdzielnicy",
     "disconnectInverterGridInput": "Odłącz wejście sieciowe falownika",
+    "convertSupplyDeviceToTap": "Zamień na odgałęzienie",
+    "convertSupplyTapToInline": "Przywróć odgałęzienie do linii",
     "ejectSecondaryBusProtections": "Przenieś szynę wtórną do nowej rozdzielnicy",
-    "ensureSecondaryPanelEarthingStem": "Dodaj odgałęzienie uziemienia rozdzielnicy"
+    "ensureSecondaryPanelEarthingStem": "Dodaj odgałęzienie uziemienia rozdzielnicy",
+    "addDomoticaHorizontal": "Dodaj automatykę budynkową (poziomy)",
+    "addDomoticaHorizontalSearch": "bus magistrala knx domotyka automatyka domowa budynkowa dom inteligentny moduł poziomy"
   },
   "shortcuts": {
     "title": "Skróty",
@@ -720,19 +736,22 @@
     "workflow": {
       "title": "Metoda",
       "placePlanSymbolsManually": "Umieść symbole na planie samodzielnie",
-      "placePlanSymbolsManuallyHint": "Nowe symbole pojawiają się na plan rozmieszczenia tylko wtedy, gdy je umieścisz, na przykład za pomocą QuickPlacer.",
       "defaultLayout": "Domyślny układ"
     },
     "navigation": {
       "title": "Nawigacja na płótnie",
       "leftDragPansCanvas": "Przeciągnięcie lewym przyciskiem myszy, aby przesuwać (pulpit)",
-      "leftDragPansCanvasHint": "Na laptopie i komputerze stacjonarnym: przeciągnij lewym przyciskiem myszy, aby przesunąć obszar roboczy (jak przy dotyku). Przytrzymaj klawisz Shift i przeciągnij, aby wybrać prostokąt. Przesuwanie środkowym i prawym przyciskiem myszy nadal działa.",
       "wheelBehavior": "Kółko myszy",
       "wheelBehaviorZoom": "Powiększanie (mysz)",
       "wheelBehaviorPan": "Przesuwanie (touchpad)",
       "keyboardLayout": "Klawiatura",
       "keyboardLayoutAzerty": "AZERTY",
       "keyboardLayoutQwerty": "QWERTY"
+    },
+    "symbols": {
+      "protection": "Symbole zabezpieczeń",
+      "simple": "Proste",
+      "detailed": "Szczegółowe"
     },
     "debug": {
       "title": "Odpluskwić",
@@ -938,10 +957,10 @@
     "noProjects": "Nie ma jeszcze żadnych projektów",
     "noProjectsDescription": "Zacznij od stworzenia pierwszego projektu instalacji elektrycznej",
     "createFirst": "Stwórz swój pierwszy projekt",
-    "deleteConfirmTitle": "Usunąć projekt?",
-    "deleteConfirmMessage": "Czy na pewno chcesz usunąć {name}? Tej akcji nie można cofnąć.",
-    "deleteConfirmShort": "Czy na pewno",
-    "deleteConfirmAction": "? Tej akcji nie można cofnąć.",
+    "deleteConfirmTitle": "Usunąć {{name}}?",
+    "deleteConfirmMessage": "Czy na pewno chcesz usunąć {{name}}? Tej akcji nie można cofnąć.",
+    "deleteConfirmCooldown": "Nowy projekt w chmurze utworzysz dopiero od {{date}}.",
+    "deleteConfirmIrreversible": "Usunięcia nie można cofnąć.",
     "importDownloaded": "Importuj pobrany projekt",
     "importDownloadedInvalidFile": "Wybierz eksport projektu .zip lub .pdf.",
     "importFailedTitle": "Import nie powiódł się",
@@ -951,14 +970,9 @@
     "importProjectLoadingBody": "Trwa przetwarzanie obrazów planów pięter i danych projektu. Duże pliki mogą zająć trochę czasu.",
     "importTrikInvalidFileTitle": "Nieprawidłowy plik",
     "importTrikInvalidFileMessage": "Wybierz prawidłowy plik .trik.",
-    "importTrikSuccessTitle": "Import powiódł się",
-    "importTrikSuccessMessage": "Projekt TRiK \"{{name}}\" został zaimportowany.",
     "importRepairedSupplyHandoffs": "{{count}} Usunięto nieaktualne łącza zasilania, aby można było zaimportować projekt. Pozostałe dane projektu zostały zachowane.",
-    "importTrikImportedLocallyTitle": "Zaimportowano lokalnie",
-    "importTrikImportedLocallyMessage": "TRiK „{{name}}” został zaimportowany lokalnie. Synchronizacja z chmurą nie powiodła się, projekt pozostaje w pamięci lokalnej.",
     "importTrikFailedTitle": "TRiK nie powiódł się",
     "importTrikFailedMessage": "TRiK nie powiódł się: {{error}}",
-    "importTrikImportedNameSuffix": "(importowany)",
     "importSchematicalsArchive": "Archiwum schematów importu (dev)…",
     "importSchematicalsFolder": "Importuj folder schematów (dev)…",
     "devElectricalImportButton": "Importuj JSON (dev)…",
@@ -985,7 +999,7 @@
     "newProjectLocalWarningShort": "Osiągnięto limit chmury. Będzie to projekt lokalny.",
     "newProjectLocalChosenWarning": "Będzie to projekt lokalny. Możesz później uaktualnić go do chmury.",
     "newProjectOfflineLocalWarning": "Jesteś offline. Ten projekt jest zapisany na tym urządzeniu. Gdy wrócisz do trybu online, zsynchronizujemy go z chmurą, jeśli pozwala na to Twój plan.",
-    "newProjectCooldownLocalWarning": "Twoje wolne miejsce w chmurze schładza się do {{date}}. Ten projekt jest tworzony lokalnie.",
+    "newProjectCooldownLocalWarning": "Twój bezpłatny projekt w chmurze będzie ponownie dostępny {{date}}. Ten projekt zostanie utworzony lokalnie.",
     "createFailedTitle": "Tworzenie projektu nie powiodło się",
     "createFailedMessage": "Coś poszło nie tak. Spróbuj ponownie.",
     "registrationRequiredCreateTitle": "Zarejestruj się, aby utworzyć projekt",
@@ -1001,14 +1015,34 @@
     "notFoundBody": "Nieprawidłowy lub usunięty link.",
     "notFoundBack": "Uruchom",
     "keptOnDeviceTitle": "Zapisano na tym urządzeniu",
-    "keptOnDeviceMessage": "Brak wolnego miejsca w chmurze, więc ten projekt zostaje na tym urządzeniu.",
+    "keptOnDeviceMessage": "Twój bezpłatny projekt w chmurze jest zajęty, więc ten projekt pozostaje na tym urządzeniu. Kup projekt, aby przechowywać go w chmurze.",
     "serverConflict": {
       "title": "Zmieniono na innym urządzeniu",
       "message": "Ten projekt został zapisany gdzie indziej po jego otwarciu. Ostatnie zmiany tutaj nie zostały zapisane.",
       "reload": "Wczytaj najnowszą wersję",
       "overwrite": "Zachowaj moją wersję"
     },
-    "serverReloaded": "Zaktualizowano o zmiany zapisane gdzie indziej"
+    "serverReloaded": "Zaktualizowano o zmiany zapisane gdzie indziej",
+    "deleteConfirmFreeProject": "To Twój darmowy projekt w chmurze. Jego wersje również zostaną usunięte. Chcesz wrócić do wcześniejszej wersji? Otwórz zamiast tego Wersje.",
+    "versionsHint": "Szukasz bezpiecznej kopii zapasowej? Twój projekt w chmurze automatycznie zapisuje wersje.",
+    "versionsHintDismiss": "Nie pokazuj ponownie",
+    "localBadge": "Lokalny · bez kopii",
+    "deleteFailedTitle": "Usuwanie nie powiodło się",
+    "deleteFailedMessage": "Nie udało się usunąć projektu. Spróbuj ponownie.",
+    "importExisting": {
+      "title": "Masz już ten projekt",
+      "cloudBody": "Projekty w chmurze automatycznie zachowują swoje wersje. Otwórz Wersje, aby wrócić.",
+      "copy": "Importuj jako kopię",
+      "open": "Otwórz projekt"
+    },
+    "importedNameSuffix": "(Zaimportowany)",
+    "importResult": {
+      "title": "Projekt zaimportowany",
+      "message": "Zaimportowano „{{name}}”.",
+      "syncedMessage": "Zaimportowano „{{name}}” i jest w chmurze.",
+      "deviceOnlyTitle": "Zachowano tylko na tym urządzeniu",
+      "cloudFailedMessage": "Nie udało się połączyć z chmurą. Projekt jest na tym urządzeniu."
+    }
   },
   "infoBlock": {
     "drawingSettings": "Rysunek projektu",
@@ -1063,6 +1097,10 @@
   },
   "panels": {
     "title": "Płyta",
+    "supplyTapsName": "Odgałęzienia",
+    "supplyTapInline": "W linii",
+    "supplyTapBranch": "Odgałęzienie",
+    "supplyTapMode": "Umieszczenie",
     "propertiesTitle": "Tablica",
     "add": "Dodaj płytkę",
     "name": "Nazwa",
@@ -1325,6 +1363,7 @@
       "type_heat": "Ciepło"
     },
     "motionDetector": {
+      "count": "Liczba czujników ruchu",
       "type": "Typ czujki",
       "type_spread": "Rozpiętość",
       "type_generic": "Ogólne"
@@ -1407,6 +1446,14 @@
         "other": "Inny"
       },
       "controlArea": "Sterowniczy",
+      "layout": "Układ",
+      "layout_vertical": "Pionowy",
+      "layout_horizontal": "Poziomy",
+      "bodyDefault": "Domotica",
+      "labelText": "Tekst etykiety",
+      "layout_horizontal_blocked_last": "Musi być ostatni w obwodzie",
+      "layout_horizontal_blocked_nested": "Zawiera moduły",
+      "layout_horizontal_blocked_supply": "Niedostępne po stronie zasilania",
       "control_programmed": ".",
       "control_wireless": "Bezprzewodowe",
       "control_detection": "Wykrywanie",
@@ -1723,7 +1770,12 @@
         "startHelp": "Pierwszy numer rozdzielnicy. Ciągi liter zaczynają się od A.",
         "circuitSequenceHelp": "Używa wielkich liter, małych liter lub liczb dla obwodów.",
         "betweenPanelAndCircuitHelp": "Łączy kod rozdzielnicy i obwodu lub umieszcza między nimi separator.",
-        "betweenCircuitAndBranchHelp": "Łączy kod obwodu i numer odgałęzienia lub umieszcza między nimi separator."
+        "betweenCircuitAndBranchHelp": "Łączy kod obwodu i numer odgałęzienia lub umieszcza między nimi separator.",
+        "terminalStrips": "Listwy zaciskowe",
+        "terminalNumbering": "Numeracja",
+        "terminalNumberingCircuit": "Na obwód",
+        "terminalNumberingCable": "Na kabel",
+        "terminalFormat": "Format"
       }
     }
   },
@@ -2039,7 +2091,8 @@
       "socket_waterproof": "Gniazdo hermetyczne",
       "detector_gas": "Czujnik gazu",
       "detector_heat": "Czujnik ciepła",
-      "detector_flame": "Czujnik płomienia"
+      "detector_flame": "Czujnik płomienia",
+      "domotica_horizontal": "Automatyka budynkowa (poziomy)"
     },
     "library": "Biblioteka symboli",
     "recent": "Najnowsze",
@@ -2210,7 +2263,8 @@
       "dc_bus": "Szyna DC",
       "note": "Notatka / Etykieta",
       "light_sensor": "Wyłącznik zmierzchowy",
-      "contact": "Styk"
+      "contact": "Styk",
+      "domotica_horizontal": "Automatyka budynkowa (poziomy)"
     }
   },
   "earthing": {
@@ -2264,7 +2318,7 @@
       "subCircuitSelfReference": "Obwód jest wymieniony jako własny sub-obwód",
       "subCircuitIdMissingCircuit": "Obwód odnosi się do brakującego sub-obwód",
       "endpointOnPanelCircuit": "Punkt końcowy na PANEL pseudo-obwód",
-      "endpointMultipleFloorPlacements": "Punkt końcowy znajduje się na wielu piętrach",
+      "endpointMultipleFloorPlacements": "Punkt końcowy jest wielokrotnie umieszczony na planie",
       "endpointPlacementIntegrity": "Błąd integralności w umieszczeniu punktu końcowego",
       "endpointMissingPlanPlacement": "Brak w planie",
       "panelDistributionLabelDrift": "Symbol panelu nie jest zsynchronizowany",
@@ -2663,9 +2717,11 @@
       "subCircuitSelfReference": "Obwód \"{{circuitCode}}\" wyświetla własny identyfikator w subCircuitIds (nieprawidłowy). Być może niewidoczne na schemacie jednoprzewodowym, ale widoczne na listach wyboru.",
       "subCircuitIdMissingCircuit": "Obwód „{{parentCircuitCode}}” odnosi się do brakującego sub-obwód (id: {{missingCircuitId}}).",
       "endpointOnPanelCircuit": "Punkt końcowy „{{endpointLabel}}” jest podłączony do PANEL pseudo-obwód i nie pojawia się poprawnie na schemacie jednokreskowym.",
-      "endpointMultipleFloorPlacements": "Punkt końcowy „{{endpointLabel}}” znajduje się na piętrach {{floorCount}}, ale ten symbol może mieć tylko jedno miejsce docelowe.",
+      "endpointMultipleFloorPlacements": "Punkt końcowy „{{endpointLabel}}” jest umieszczony na planie {{placementCount}} razy, choć może wystąpić tylko raz.",
       "endpointPlacementIntegrity": "Punkt końcowy „{{endpointLabel}}” ma nieprawidłowe dane dotyczące miejsca docelowego ({{violation}}).",
       "planPlacementIdentityConflict": "Publikacja planu sytuacyjnego „{{placementId}}” jest udostępniana przez {{ownerLabels}}. Symbole mogą nakładać się na siebie, znikać lub być zaznaczane razem; odtwórz dotknięte duplikaty z unikalnymi miejscami docelowymi.",
+      "duplicatedBoardSymbol": "Symbol rozdzielnicy „{{label}}” jest współdzielony przez {{boardCount}} rozdzielnice. Napraw to w Inspektorze ds. sierot.",
+      "duplicateEntityId": "{{count}} elementy typu {{kind}} mają ten sam identyfikator „{{id}}”. Zmiany mogą dotyczyć niewłaściwego elementu.",
       "endpointMissingPlanPlacement": "{{endpointLabel}} ({{circuitCode}}) — poza planem.",
       "panelDistributionLabelDrift": "Symbol panelu „{{endpointLabel}}” nie pasuje do płytki „{{panelName}}” (obwód {{circuitCode}}).",
       "panelMissingOneWireSymbol": "„{{panelName}}” istnieje, ale nie ma symbolu/łącza zasilania jednoprzewodowego.",
@@ -3934,7 +3990,9 @@
   },
   "wheelBehaviorHint": {
     "question": "Używasz touchpada?",
+    "questionMouse": "Używasz myszy?",
     "usePan": "Przewijaj, aby przesuwać",
+    "useZoom": "Przewijaj, aby powiększać",
     "dismiss": "Zamknij"
   },
   "junctionDocuments": {

@@ -1,9 +1,11 @@
 /** Circuit columns, grouping trunks, endpoint branches and the initial vertical envelope. */
 import { LAYOUT_CONSTANTS } from './bottomUpLayoutConstants'
+import { drawsHostedFeederStubs } from '@/lib/layout/supplyFrameRole'
 
 import { getProtectionAnchorOffset } from './bottomUpPanelTransforms'
 
 import type { Circuit, ProtectionDevice } from '@/types/schema'
+import { getSupplyTapCircuitIds } from './supplyTapLayout'
 
 import {
   DOMOTICA_BASE_HEIGHT,
@@ -39,6 +41,11 @@ import { getTrunkDeviceBranchGapY } from './bottomUpBranchPass'
 import { selectProjectWireRuns } from '@/lib/projectV2/wireRuns'
 import { getCircuitWireLabelSpan } from './circuitWireLabelSpacing'
 import { getEndpointLayoutOffsets } from './bottomUpBranchWidths'
+import {
+  getHorizontalDomoticaGeometry,
+  getHorizontalDomoticaOutputCount,
+  isHorizontalDomotica,
+} from './domoticaHorizontalGeometry'
 import type { CircuitEnvelopeConfig, CircuitLayoutEnvelope } from './circuitLayoutEnvelope'
 
 import {
@@ -104,10 +111,11 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
     spdProtectionLabelOffset: SPD_PROTECTION_LABEL_X_OFFSET_FROM_TRUNK,
     protectionTechnicalLabelOffset: PROTECTION_TECHNICAL_LABEL_OFFSET_FROM_SYMBOL,
     secondaryBusPanelColumnWidth: LAYOUT_CONSTANTS.SECONDARY_BUS_PANEL_COLUMN_WIDTH,
-    secondaryBusPanelLabelWidth: (protection) => {
-      const targetPanel = protection?.subPanelId
-        ? findPanelById(rootPanels ?? [panel], protection.subPanelId)
-        : undefined
+    secondaryBusPanelLabelWidth: (protection, circuit) => {
+      const panelId =
+        protection?.subPanelId ??
+        circuit?.endpoints.find((endpoint) => endpoint.symbol === 'panel_distribution')?.panelId
+      const targetPanel = panelId ? findPanelById(rootPanels ?? [panel], panelId) : undefined
       if (!targetPanel) return 0
 
       // Layout runs in a worker without edition context. Reserve the larger
@@ -131,6 +139,10 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
   // Build circuit layouts
   const circuitLayouts: BottomUpCircuitLayout[] = []
   let currentX = LAYOUT_CONSTANTS.LEFT_MARGIN
+  // Supply taps pack in their own column run: they are moved onto the supply lane afterwards
+  // and must not widen the board's bus.
+  const tapCircuitIds = getSupplyTapCircuitIds(panel)
+  let tapX = LAYOUT_CONSTANTS.LEFT_MARGIN
   const feedStubLabelReach = new Map<string, { left: number; right: number }>()
   if (panel.isMain && options.frameRole !== 'supply' && hasExplicitPanelBusSections(panel)) {
     for (const section of panel.busSections ?? []) {
@@ -163,10 +175,7 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
       ? assignHostedFeedStubFeeders(
           panel, collectHostedFeedStubFeeders(project, installation, rootPanels, panel))
       : new Map<string, FeedStubFeeder[]>()
-  const reservesHostedFeederGaps =
-    options.supplyEndpointKind === 'continuation' ||
-    ((options.supplyEndpointKind ?? 'mains') === 'mains' &&
-      (options.frameRole ?? 'panel') === 'panel' && panel.isMain)
+  const reservesHostedFeederGaps = drawsHostedFeederStubs(options, panel)
   const enteredMainBusSectionIds = new Set<string>()
 
   for (const circuit of panelCircuits) {
@@ -234,6 +243,7 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
           x: nestedX, // Positioned at parent's X for single, or horizontally on secondary bus for multiple
           width: circuitWidth,
           leftReserve: circuitLeftReserve,
+          ...(circuitEnvelope.columnAnchorOffsets ? { columnAnchorOffsets: circuitEnvelope.columnAnchorOffsets } : {}),
           protectionY: LAYOUT_CONSTANTS.PROTECTION_Y,
           trunkY: undefined,
           branch: null,
@@ -260,7 +270,8 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
 
     // Check for manual override
     const override = manualOverrides?.get(`circuit-${circuit.id}`)
-    if (circuit.supplySource?.kind !== 'converter-backup') {
+    const isTapCircuit = tapCircuitIds.has(circuit.id)
+    if (circuit.supplySource?.kind !== 'converter-backup' && !isTapCircuit) {
       const sectionId = protection?.busSectionId ?? circuit.busSectionId ??
         getPrimaryPanelBusSectionId(panel)
       if (!override && previousMainBusSectionId && sectionId !== previousMainBusSectionId) {
@@ -277,7 +288,7 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
       if (!override) enteredMainBusSectionIds.add(sectionId)
       previousMainBusSectionId = sectionId
     }
-    const x = override ? override.x : currentX
+    const x = override ? override.x : isTapCircuit ? tapX : currentX
 
     circuitLayouts.push({
       circuit,
@@ -287,6 +298,7 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
       x,
       width: circuitWidth,
       leftReserve: getCircuitLeftReserve(circuitEnvelope),
+      ...(circuitEnvelope.columnAnchorOffsets ? { columnAnchorOffsets: circuitEnvelope.columnAnchorOffsets } : {}),
       protectionY: LAYOUT_CONSTANTS.PROTECTION_Y,
       trunkY: undefined, // Will be calculated from trunk if parentRcd exists
       branch: null, // Will be calculated later
@@ -319,7 +331,8 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
     }
 
     if (!override) {
-      currentX += circuitWidth + LAYOUT_CONSTANTS.CIRCUIT_ENVELOPE_GUTTER
+      if (isTapCircuit) tapX += circuitWidth + LAYOUT_CONSTANTS.CIRCUIT_ENVELOPE_GUTTER
+      else currentX += circuitWidth + LAYOUT_CONSTANTS.CIRCUIT_ENVELOPE_GUTTER
     }
   }
 
@@ -400,6 +413,7 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
     // Measuring that provisional Y here creates a large empty band above the
     // detached supply content as soon as its first protection is added.
     if (branchCircuit?.supplySource?.kind === 'converter-backup') return
+    if (tapCircuitIds.has(branch.circuitId)) return
     const endpointOffsets = getEndpointLayoutOffsets(
       branch.endpoints,
       LAYOUT_CONSTANTS.BRANCH_LEAD_IN,
@@ -414,7 +428,13 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
     }
     branch.endpoints.forEach((endpoint, index) => {
       const endpointY = branch.branchY + (endpointOffsets[index]?.y ?? 0)
-      if (endpoint.symbol === 'domotica') {
+      if (isHorizontalDomotica(endpoint)) {
+        const body = getHorizontalDomoticaGeometry(
+          { x: 0, y: endpointY },
+          getHorizontalDomoticaOutputCount(endpoint)
+        )
+        minY = Math.min(minY, body.top - 8)
+      } else if (endpoint.symbol === 'domotica') {
         const endpointCount = Math.max(
           DOMOTICA_MIN_ENDPOINT_OUTPUTS,
           Math.min(
@@ -436,6 +456,7 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
   // Extra converter DC rows are synthetic layout-tree branches, so reserve their
   // vertical paint here before the frame offset is solved.
   circuitLayouts.forEach((cl) => {
+    if (tapCircuitIds.has(cl.circuit.id)) return
     const trunkDevices = (cl.circuit.trunkDevices ?? []).filter(
       (device) => !device.converterDcConnection
     )
@@ -484,11 +505,13 @@ export function calculatePanelCircuitLayout(input: CalculatePanelCircuitLayoutIn
 
   // Also check RCD trunks (they're above main bus, so lower Y = higher on screen)
   trunks.forEach((trunk) => {
+    if (trunk.circuits.some((circuit) => tapCircuitIds.has(circuit.id))) return
     minY = Math.min(minY, trunk.y - LAYOUT_CONSTANTS.SYMBOL_SIZE)
   })
 
   // Also check nested protection positions (they might extend above branches)
   circuitLayouts.forEach((cl) => {
+    if (tapCircuitIds.has(cl.circuit.id)) return
     if (cl.parentCircuit && cl.protection) {
       // Find parent layout to get nested MCB position
       const parentLayout = circuitLayouts.find((pcl) => pcl.circuit.id === cl.parentCircuit!.id)

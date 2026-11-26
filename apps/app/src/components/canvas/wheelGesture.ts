@@ -1,13 +1,15 @@
 import { clamp } from '@/lib/geometry'
-import type { WheelBehavior } from '@/types/ui'
+import type { WheelBehavior, WheelInputDevice } from '@/types/ui'
 
 export const WHEEL_GESTURE_RESET_MS = 120
 /** Wheel events further apart than this are discrete mouse notches and zoom a full step. */
 export const WHEEL_DISCRETE_GAP_MS = 80
 export const WHEEL_ZOOM_STEP = 1.1
 const WHEEL_LINE_PX = 16
-/** Consecutive diagonal scroll events that prove a trackpad is in use. */
-export const TRACKPAD_EVIDENCE_EVENTS = 3
+/** Consecutive scroll events needed before suggesting a wheel behavior. */
+export const WHEEL_DEVICE_EVIDENCE_EVENTS = 3
+/** Keep evidence within one short burst so separate touchpad gestures do not accumulate. */
+export const WHEEL_DEVICE_EVIDENCE_MAX_GAP_MS = 600
 
 export type WheelAction =
   | { kind: 'zoom'; factor: number }
@@ -25,6 +27,18 @@ export type WheelInput = {
   msSincePreviousWheel: number
   /** Height used for page-mode deltas (deltaMode 2). */
   pageHeightPx: number
+}
+
+export type WheelBehaviorEvidenceState = {
+  behavior: WheelBehavior
+  evidenceInput: WheelInputDevice | null
+  eventCount: number
+}
+
+export type WheelBehaviorEvidenceUpdate = {
+  state: WheelBehaviorEvidenceState
+  clearDismissal: boolean
+  suggestedBehavior: WheelBehavior | null
 }
 
 export function wheelDeltaToPixels(delta: number, deltaMode: number, pageHeightPx: number): number {
@@ -86,4 +100,55 @@ export function isDiagonalPixelScroll(
 ): boolean {
   if (input.deltaMode !== 0 || input.ctrlKey || input.metaKey || input.shiftKey) return false
   return input.deltaX !== 0 && input.deltaY !== 0
+}
+
+/** Line-mode or spaced vertical pixel events are evidence of a mouse wheel. */
+export function isDiscreteMouseWheel(
+  input: Pick<
+    WheelInput,
+    'deltaMode' | 'deltaX' | 'deltaY' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'msSincePreviousWheel'
+  >
+): boolean {
+  if (input.ctrlKey || input.metaKey || input.shiftKey || input.deltaX !== 0 || input.deltaY === 0) {
+    return false
+  }
+  return input.deltaMode !== 0 || input.msSincePreviousWheel > WHEEL_DISCRETE_GAP_MS
+}
+
+/** Tracks repeated evidence that the selected scroll behavior does not match the input device. */
+export function updateWheelBehaviorEvidence(
+  state: WheelBehaviorEvidenceState,
+  behavior: WheelBehavior,
+  input: WheelInput,
+  dismissedInput: WheelInputDevice | null
+): WheelBehaviorEvidenceUpdate {
+  const sameBehavior = state.behavior === behavior
+  const previousInput = sameBehavior ? state.evidenceInput : null
+  const previousCount = sameBehavior ? state.eventCount : 0
+  const trackpadEvidence = isDiagonalPixelScroll(input)
+  const mouseEvidence = isDiscreteMouseWheel(input)
+  const detectedInput: WheelInputDevice | null = trackpadEvidence
+    ? 'trackpad'
+    : mouseEvidence
+      ? 'mouse'
+      : null
+  const continuesEvidence =
+    detectedInput !== null &&
+    detectedInput === previousInput &&
+    input.msSincePreviousWheel <= WHEEL_DEVICE_EVIDENCE_MAX_GAP_MS
+  const evidenceInput = detectedInput
+  const eventCount = detectedInput ? (continuesEvidence ? previousCount + 1 : 1) : 0
+  const confirmedInput = eventCount >= WHEEL_DEVICE_EVIDENCE_EVENTS ? evidenceInput : null
+  const clearDismissal = Boolean(
+    confirmedInput && dismissedInput && confirmedInput !== dismissedInput
+  )
+  const expectedInput = behavior === 'zoom' ? 'trackpad' : 'mouse'
+  const shouldSuggest = confirmedInput === expectedInput && dismissedInput !== expectedInput
+  const suggestedBehavior = shouldSuggest ? (behavior === 'zoom' ? 'pan' : 'zoom') : null
+
+  return {
+    state: { behavior, evidenceInput, eventCount },
+    clearDismissal,
+    suggestedBehavior,
+  }
 }

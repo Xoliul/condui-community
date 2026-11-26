@@ -32,6 +32,7 @@ import {
   supportsExplicitPhaseSelection,
 } from '@/lib/wires/phaseAssignment'
 import type { CircuitPhaseAssignment } from '@/types/schema'
+import { isStructuralCarrierProtection } from '@/lib/eendraad/structuralCarrier'
 
 function activeConductorsForSystem(system: string | undefined): number {
   switch (system) {
@@ -348,9 +349,7 @@ function findUpstreamFeederProtectionForPanel(
   panelId: string
 ): ProtectionDevice | undefined {
   const protection = resolvePanelSupplyLinkForPanelInPanels(rootPanels, panelId)?.protection
-  return protection?.directPanelFeeder || protection?.directDcBusFeeder
-    ? undefined
-    : protection
+  return isStructuralCarrierProtection(protection) ? undefined : protection
 }
 
 function hasPanelLocalIsolation(
@@ -800,8 +799,8 @@ function checkEendraadOrphans(context: CheckContext, _params?: Record<string, un
       endpointMultipleFloorPlacements: (opts) =>
         i18n.t('validation.orphanDetection.endpointMultipleFloorPlacements', {
           endpointLabel: opts.endpointLabel,
-          floorCount: opts.floorCount,
-          defaultValue: `Endpoint "{{endpointLabel}}" has placements on {{floorCount}} floors, but this symbol should only exist once in the plan.`,
+          placementCount: opts.placementCount,
+          defaultValue: `Endpoint "{{endpointLabel}}" has {{placementCount}} plan placements but supports only one.`,
         }),
       endpointPlacementIntegrity: (opts) =>
         i18n.t('validation.orphanDetection.endpointPlacementIntegrity', {
@@ -819,6 +818,19 @@ function checkEendraadOrphans(context: CheckContext, _params?: Record<string, un
           placementId: opts.placementId,
           ownerLabels: opts.ownerLabels,
           defaultValue: `Situation-plan placement "{{placementId}}" is shared by {{ownerLabels}}. Symbols may overlap, disappear, or select together; recreate the affected duplicates with unique placements.`,
+        }),
+      duplicatedBoardSymbol: (opts) =>
+        i18n.t('validation.orphanDetection.duplicatedBoardSymbol', {
+          label: opts.label,
+          boardCount: opts.boardCount,
+          defaultValue: `Board symbol "{{label}}" is shared by {{boardCount}} boards. Fix it in the Orphan Inspector.`,
+        }),
+      duplicateEntityId: (opts) =>
+        i18n.t('validation.orphanDetection.duplicateEntityId', {
+          kind: opts.kind,
+          id: opts.id,
+          count: opts.count,
+          defaultValue: `{{count}} items of type {{kind}} share the ID "{{id}}". Edits may change the wrong one.`,
         }),
       domoticaChildLinkMismatch: (opts) =>
         i18n.t('validation.orphanDetection.domoticaChildLinkMismatch', {

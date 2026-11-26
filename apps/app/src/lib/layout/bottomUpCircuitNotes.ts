@@ -6,6 +6,7 @@ import { getProtectionAnchorOffset } from './bottomUpPanelTransforms'
 import type { TrunkDevice } from '@/types/schema'
 
 import { getTrunkDeviceBranchGapY } from './bottomUpBranchPass'
+import { getTrunkOwnBranches } from './circuitColumns'
 
 import {
   CIRCUIT_NOTES_HORIZONTAL_SLICE_CLEARANCE,
@@ -18,6 +19,7 @@ import {
 
 import {
   getTrunkDeviceVerticalPaintHeight,
+  getTrunkDeviceMcbGap,
 } from './trunkDeviceSpacing'
 import {
   getCircuitConverterDcConnectionCount,
@@ -108,7 +110,8 @@ export function placePanelCircuitNotes(input: PlacePanelCircuitNotesInput) {
     const columnKeyByCircuitId = new Map<string, number>()
 
     const computeTrunkX = (cl: (typeof circuitLayouts)[number]): number => {
-      const circuitBranches = branches.filter((b) => b.circuitId === cl.circuit.id)
+      // Notes sit on the trunk's own riser (column 0 of a circuit drawn in columns).
+      const circuitBranches = getTrunkOwnBranches(branches.filter((b) => b.circuitId === cl.circuit.id))
       const topmostBranch =
         circuitBranches.length > 0
           ? circuitBranches.reduce((top, branch) => (branch.branchY < top.branchY ? branch : top))
@@ -186,7 +189,7 @@ export function placePanelCircuitNotes(input: PlacePanelCircuitNotesInput) {
           : -1
         const precedingDevicePosition = precedingDevice
           ? mcbYForDevices -
-            LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP -
+            getTrunkDeviceMcbGap(cl.circuit, LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP) -
             precedingDevices
               .slice(0, precedingDeviceIndex)
               .filter((candidate) => candidate.trunkPosition === precedingDevice.trunkPosition)
@@ -195,7 +198,7 @@ export function placePanelCircuitNotes(input: PlacePanelCircuitNotesInput) {
           : undefined
         return precedingDevicePosition != null
           ? precedingDevicePosition - LAYOUT_CONSTANTS.BRANCH_START_OFFSET
-          : (terminalDcBusBranch?.branchY ?? mcbYForDevices - LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP)
+          : (terminalDcBusBranch?.branchY ?? mcbYForDevices - getTrunkDeviceMcbGap(cl.circuit, LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP))
       }
 
       if (terminalDcBusBranch) return terminalDcBusBranch.branchY
@@ -205,7 +208,7 @@ export function placePanelCircuitNotes(input: PlacePanelCircuitNotesInput) {
           .indexOf(device)
         return (
           mcbYForDevices -
-          LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP -
+          getTrunkDeviceMcbGap(cl.circuit, LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP) -
           devicesAtPositionBefore *
             (LAYOUT_CONSTANTS.TRUNK_DEVICE_SPACING + LAYOUT_CONSTANTS.SYMBOL_SIZE)
         )
@@ -227,7 +230,7 @@ export function placePanelCircuitNotes(input: PlacePanelCircuitNotesInput) {
       }
       return (
         mcbYForDevices -
-        LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP
+        getTrunkDeviceMcbGap(cl.circuit, LAYOUT_CONSTANTS.TRUNK_DEVICE_MCB_GAP)
       )
     }
 

@@ -3,6 +3,12 @@ import { useTranslation } from 'react-i18next'
 interface DeleteConfirmDialogProps {
   isOpen: boolean
   projectName: string
+  /** When the free cloud project is available again after this delete; shown once known. */
+  slotAvailableAtLabel?: string | null
+  purchasedProject?: boolean
+  /** The account's free cloud project: warn, and offer Versions instead. */
+  freeCloudProject?: boolean
+  onOpenVersions?: () => void
   onConfirm: () => void
   onCancel: () => void
 }
@@ -10,6 +16,10 @@ interface DeleteConfirmDialogProps {
 function DeleteConfirmDialog({
   isOpen,
   projectName,
+  slotAvailableAtLabel,
+  purchasedProject = false,
+  freeCloudProject = false,
+  onOpenVersions,
   onConfirm,
   onCancel,
 }: DeleteConfirmDialogProps) {
@@ -40,11 +50,22 @@ function DeleteConfirmDialog({
 
           {/* Content */}
           <h3 className="text-xl font-bold text-gray-900 dark:text-white text-center mb-2">
-            {t('project.deleteConfirmTitle')}
+            {t('project.deleteConfirmTitle', { name: projectName })}
           </h3>
+          {freeCloudProject && (
+            <p
+              data-testid="delete-confirm-free-project"
+              className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100"
+            >
+              {t('project.deleteConfirmFreeProject')}
+            </p>
+          )}
           <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
-            {t('project.deleteConfirmShort')} <strong className="text-gray-900 dark:text-white">{projectName}</strong>
-            {t('project.deleteConfirmAction')}
+            {purchasedProject && <>{t('project.deleteConfirmPurchased')} </>}
+            {t('project.deleteConfirmIrreversible')}
+            {slotAvailableAtLabel && (
+              <> {t('project.deleteConfirmCooldown', { date: slotAvailableAtLabel })}</>
+            )}
           </p>
 
           {/* Actions */}
@@ -56,6 +77,15 @@ function DeleteConfirmDialog({
             >
               {t('common.cancel')}
             </button>
+            {freeCloudProject && onOpenVersions && (
+              <button
+                data-testid="delete-confirm-versions"
+                onClick={onOpenVersions}
+                className="flex-1 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-medium rounded-md transition-colors"
+              >
+                {t('menu.versions')}
+              </button>
+            )}
             <button
               data-testid="delete-confirm-submit"
               onClick={onConfirm}

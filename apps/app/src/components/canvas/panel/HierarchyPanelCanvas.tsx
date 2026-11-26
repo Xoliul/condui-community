@@ -1881,7 +1881,6 @@ export function HierarchyPanelCanvas({
                           key={`${surface.id}-${panelGridModuleRefKey(placement.ref)}`}
                           moduleRef={placement.ref}
                           terminalStripMemberRefs={placement.terminalStripMemberRefs}
-                          terminalStripRail={placement.terminalStripRail}
                           selectionOverride={
                             placement.junctionPanelTerminal
                               ? {
@@ -2062,7 +2061,6 @@ export function HierarchyPanelCanvas({
                             key={`alt-duplicate-ghost-${surface.id}-${panelGridModuleRefKey(placement.ref)}`}
                             moduleRef={placement.ref}
                             terminalStripMemberRefs={placement.terminalStripMemberRefs}
-                            terminalStripRail={placement.terminalStripRail}
                             x={previewItem.x - surface.x}
                             y={previewItem.y - surface.y}
                             width={placement.width}

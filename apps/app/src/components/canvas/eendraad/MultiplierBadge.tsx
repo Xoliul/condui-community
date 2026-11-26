@@ -59,6 +59,7 @@ export function MultiplierBadge({
         height={height}
         fontSize={MULTIPLIER_BADGE_FONT_SIZE}
         fontStyle="bold"
+        wrap="none"
         fontFamily={fontFamily}
         fill={fill}
         listening={false}

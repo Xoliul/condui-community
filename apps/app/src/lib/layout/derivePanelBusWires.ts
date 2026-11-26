@@ -4,6 +4,7 @@ import { applyNodeWireInset, findCircuitByIdInPanel } from './circuitWireDerivat
 
 import { generateId } from '@/utils'
 import type { LayoutNode } from './layoutTree'
+import { isSupplyTapNode } from './layoutTreeSupplyTaps'
 import type { WireSegment, ProtectionDevice, TrunkDevice } from '@/types/schema'
 import { DEFAULT_ELECTRICAL_DOMAIN } from '@/lib/symbols'
 import { applyHostedFeederSectionCut, FEED_STUB_FEEDER_GEOMETRY } from './feedStubFeeders'
@@ -87,6 +88,7 @@ export function derivePanelBusWires(input: DerivePanelBusWiresInput) {
   const connectionEntries = mainBusNode.children
     .filter((child) => {
       if (child.type !== 'rcd' && child.type !== 'mcb') return false
+      if (isSupplyTapNode(child)) return false
       const circuit = child.circuitIdForWires
         ? findCircuitByIdInPanel(panel, child.circuitIdForWires)
         : null

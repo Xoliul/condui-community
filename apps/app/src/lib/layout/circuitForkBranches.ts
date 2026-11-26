@@ -3,6 +3,7 @@ import type { BranchLayout } from './wireSegments'
 import { resolveOneWireBranchTopology } from '@/lib/eendraad/oneWireBranchTopology'
 import { getBranchLabelOwners } from '@/lib/eendraad/circuitPointNumbering'
 import { getEndpointLayoutXOffsets, calculateBranchWidth } from './bottomUpBranchWidths'
+import type { CircuitRunPlan } from './circuitRunPlan'
 
 /** Extra space after a symbol that legs fork from, leaving room either side of the tap. */
 export const FORK_TAP_EXTRA_GAP = 30
@@ -16,14 +17,28 @@ export interface ForkBranchMetrics {
   bottomHeight?: (endpoints: Circuit['endpoints']) => number
   /** Clear height a row needs above itself (a converter's detached metadata card), as in rows without forks. */
   topReserve?: (endpoints: Circuit['endpoints']) => number
+  /** Paint below a row's wire; sizes the lift of a stem's first rows above its crossbar. */
+  columnBottomExtent?: (endpoints: Circuit['endpoints']) => number
 }
+
+/** Runs of a circuit drawn in columns: each starts at `firstY` (or above its stem's crossbar) at its own riser x. */
+export interface ForkRunLayout {
+  plan: CircuitRunPlan
+  /** Riser x offset from the trunk, one per run. */
+  offsets: readonly number[]
+  /** Split height above the breaker row when trunk devices sit under it; see `circuitRiserSplit.ts`. */
+  splitRise?: number
+}
+
+/** Gap kept between a crossbar and the lowest note of a stem's first row (as in `circuitColumnRows`). */
+const CROSSBAR_NOTE_CLEARANCE = 10
 
 /** Production branch geometry, using the same symbol/label offsets as ordinary
  * rows. Iterative subtree reservations keep arbitrary-depth legs above their
  * parent; rightmost attachments sit lowest so stems cannot cross other legs.
  */
 export function layoutCircuitForkBranches(
-  circuit: Circuit, startX: number, startY: number, firstY: number, metrics: ForkBranchMetrics
+  circuit: Circuit, startX: number, startY: number, firstY: number, metrics: ForkBranchMetrics, runLayout?: ForkRunLayout
 ): BranchLayout[] {
   const topology = resolveOneWireBranchTopology({ ...circuit, branches: circuit.branches ?? [] })
   const byEndpoint = new Map(circuit.endpoints.map((endpoint) => [endpoint.id, endpoint]))
@@ -43,6 +58,10 @@ export function layoutCircuitForkBranches(
       list.push(item.branch.id); children.set(item.parentBranchId, list)
     } else roots.push(item.branch.id)
   }
+  if (runLayout) {
+    const position = new Map(runLayout.plan.rootIds.map((id, index) => [id, index]))
+    roots.sort((a, b) => (position.get(a) ?? 0) - (position.get(b) ?? 0))
+  }
   const order = [...roots]
   for (let index = 0; index < order.length; index++) order.push(...children.get(order[index]!) ?? [])
   // Numbered legs (after a changeover switch, or off an unswitched run) show a label; other legs share theirs and stay unlabelled.
@@ -56,12 +75,32 @@ export function layoutCircuitForkBranches(
     rowSpacing.set(id, spacing)
     heights.set(id, spacing + (children.get(id) ?? []).reduce((sum, child) => sum + heights.get(child)!, 0))
   }
+  // Per stem with several runs, the first rows of all its runs share one y above the stem's crossbar (at `firstY`).
+  const liftByStem = new Map<number, number>()
+  if (runLayout) {
+    for (const stem of runLayout.plan.stems) {
+      const runs = runLayout.plan.runs.filter((run) => run.stem === stem)
+      if (runs.length < 2) continue
+      liftByStem.set(stem, Math.max(metrics.rowSpacing, ...runs.map((run) => {
+        const first = topology.byBranchId.get(roots[run.firstRoot]!)?.branch
+        const endpoints = first?.endpointIds.flatMap((id) => byEndpoint.has(id) ? [byEndpoint.get(id)!] : []) ?? []
+        return (metrics.columnBottomExtent?.(endpoints) ?? 0) + CROSSBAR_NOTE_CLEARANCE
+      })))
+    }
+  }
+  const runOfRoot = new Map<string, NonNullable<ForkRunLayout>['plan']['runs'][number]>()
+  runLayout?.plan.runs.forEach((run) => {
+    for (let index = run.firstRoot; index < run.firstRoot + run.rootCount; index++) runOfRoot.set(roots[index]!, run)
+  })
   let rootY = firstY
   const pending = roots.map((id, index) => {
+    const run = runOfRoot.get(id)
+    if (run && index === run.firstRoot) rootY = firstY - (liftByStem.get(run.stem) ?? 0)
     const y = rootY
     rootY -= heights.get(id)!
     rootY -= (circuit.trunkDevices ?? []).filter((device) => device.trunkPosition === index + 1).length * metrics.trunkDeviceSpacing
-    return { id, x: startX, stemX: startX, y, sourceY: startY }
+    const x = startX + (run ? runLayout!.offsets[run.column] ?? 0 : 0)
+    return { id, x, stemX: x, y, sourceY: startY, run }
   })
   const result: BranchLayout[] = []
   for (let index = 0; index < pending.length; index++) {
@@ -85,7 +124,8 @@ export function layoutCircuitForkBranches(
       branchWidth: width, endpoints, isStraight: false, forkFrom: source.forkFrom,
       forkUnresolved: topology.byBranchId.get(item.id)!.feed.kind === 'unresolved',
       // Numbered legs line their label up with the root labels at the circuit trunk.
-      ...(source.forkFrom ? { labelX: startX } : {}),
+      ...(source.forkFrom ? { labelX: item.run ? startX + (runLayout!.offsets[item.run.column] ?? 0) : startX } : {}),
+      ...(item.run ? { column: { index: item.run.column, startRow: item.run.startRow, count: item.run.rowCount, crossbarY: firstY, kind: item.run.kind, stem: item.run.stem, ...(runLayout?.splitRise ? { splitRise: runLayout.splitRise } : {}) } } : {}),
       ...(anchors.size ? { endpointXOffsets: offsets } : {}),
     })
     let nextY = item.y - rowSpacing.get(item.id)!
@@ -97,7 +137,7 @@ export function layoutCircuitForkBranches(
       const stemX = item.x + (fromX + nextX) / 2
       const legEndpoints = topology.byBranchId.get(leg.id)!.branch.endpointIds.flatMap((id) => byEndpoint.has(id) ? [byEndpoint.get(id)!] : [])
       const firstOffset = getEndpointLayoutXOffsets(legEndpoints, metrics.branchLeadIn, metrics.endpointSpacing, metrics.applianceAfterSocketGap)[0]
-      pending.push({ id: leg.id, x: firstOffset == null ? stemX : item.x + nextX - firstOffset, stemX, y: nextY, sourceY: item.y })
+      pending.push({ id: leg.id, x: firstOffset == null ? stemX : item.x + nextX - firstOffset, stemX, y: nextY, sourceY: item.y, run: item.run })
       nextY -= heights.get(leg.id)!
     }
   }

@@ -26,6 +26,7 @@ import type { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjectStore, type ProjectState } from '@/stores/projectStore'
 import { runProjectCommand } from '@/stores/liveProjectCommandSession'
+import { getRiserContextSelection, withRiserContextMenuItems } from './riserContextMenu'
 import { useDialogStore } from '@/stores/dialogStore'
 
 
@@ -1303,9 +1304,11 @@ export function useEendraadContextMenu({
         }
       }
       /* @vision-scan-strip-end */
-      const items = withJunctionEditorItem(handleGetContextMenuItems(position, elementId), [
+      const baseItems = withJunctionEditorItem(handleGetContextMenuItems(position, elementId), [
         elementId ?? viewportUI.getState().selection.ids[0],
       ])
+      const items = canEditProject
+        ? withRiserContextMenuItems(baseItems, currentProject, getRiserContextSelection(currentProject, elementId, viewportUI.getState().selection, wireSegments), t) : baseItems
       if (!canEditProject || !canDragItems) return items
       // Dragged metadata cards can return to automatic placement. Card owners are
       // part of the card's selection, so check the selection and the hit element.
@@ -1338,6 +1341,8 @@ export function useEendraadContextMenu({
     [
       canDragItems,
       canEditProject,
+      currentProject,
+      wireSegments,
       eendraadDateMarkingMode,
       exitDateMarkingMode,
       handleGetContextMenuItems,

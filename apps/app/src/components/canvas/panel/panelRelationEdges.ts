@@ -29,6 +29,11 @@ import {
 } from '@/lib/supplyAssembly/electricalTopology'
 import { selectProjectSupplyAssemblies } from '@/lib/projectV2/electrical'
 import { getProtectionBusSectionId } from '@/lib/panel/panelBusSections'
+import {
+  getSupplyTapModuleFeedDevice,
+  getSupplyTapModulesFedByDevice,
+  getSupplyTapProtectionFeedDevice,
+} from '@/lib/supplyTaps/tapFeedDevice'
 
 /** Trunk chain order on a circuit (matches eendraad trunkPosition). */
 function orderedTrunkDevices(circuit: Circuit | null | undefined): TrunkDevice[] {
@@ -329,6 +334,34 @@ export interface RelationEdges {
  * Only returns refs that correspond to modules (protections, trunk devices, domotica).
  */
 export function getRelationEdges(
+  ref: PanelGridModuleRef,
+  panel: Panel,
+  project: ProjectWithOptionalV2Electrical | null
+): RelationEdges {
+  const edges = getBoardRelationEdges(ref, panel, project)
+  if (!project) return edges
+  const installation = projectInstallation(project)
+  if (!installation) return edges
+  // Supply taps hang off the grid wire, outside any board bus: a tap breaker is wired from the
+  // nearest supply device upstream of its tap point, wherever either module hangs.
+  if (ref.kind === 'trunkDevice' && ref.scope === 'supply') {
+    const known = new Set(edges.childRefs.map(panelGridModuleRefKey))
+    for (const child of getSupplyTapModulesFedByDevice(installation, projectPanels(project), ref.id))
+      if (!known.has(panelGridModuleRefKey(child))) edges.childRefs.push(child)
+  }
+  if (ref.kind === 'protection') {
+    const protection = findProtectionOwningPanel(project, ref.id)?.pr
+    const feed = protection
+      ? getSupplyTapProtectionFeedDevice(installation, projectPanels(project), protection)
+      : undefined
+    if (feed) edges.parentRefs.push({ kind: 'trunkDevice', id: feed.id, scope: 'supply' })
+  }
+  const moduleFeed = getSupplyTapModuleFeedDevice(installation, projectPanels(project), ref)
+  if (moduleFeed) edges.parentRefs.push({ kind: 'trunkDevice', id: moduleFeed.id, scope: 'supply' })
+  return edges
+}
+
+function getBoardRelationEdges(
   ref: PanelGridModuleRef,
   panel: Panel,
   project: ProjectWithOptionalV2Electrical | null

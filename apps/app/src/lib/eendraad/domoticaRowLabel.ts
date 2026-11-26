@@ -5,6 +5,7 @@ import type {
   SymbolLabelDisplayConfig,
 } from '@/types/schema'
 import { isSymbolLabelVisible } from '@/lib/symbolLabels'
+import { isHorizontalDomotica } from '@/lib/layout/domoticaHorizontalGeometry'
 import { formatBranchLabel, formatDomoticaOutputLabel } from '@/lib/eendraad/labelScheme'
 import { getActiveLabelScheme } from '@/lib/eendraad/labelSchemeContext'
 import { getScopedBusRowLabel } from '@/lib/controlLink/controlLinkNoteContext'
@@ -110,6 +111,8 @@ export function isDomoticaRowLabelShown(endpoints: Endpoint[], endpoint: Endpoin
   const ref = endpoint.domoticaChildProps
   if (!ref) return true
   const parent = endpoints.find((e) => e.id === ref.parentEndpointId)
+  // Outputs of a horizontal module stand 20 units apart, so they carry no row label yet.
+  if (isHorizontalDomotica(parent)) return false
   const rootId = parent?.domoticaProps?.endpointChildEndpointIds?.[ref.outputIndex]
   const root = rootId ? endpoints.find((e) => e.id === rootId) : undefined
   return isDomoticaRowLabelVisible(root ?? endpoint)

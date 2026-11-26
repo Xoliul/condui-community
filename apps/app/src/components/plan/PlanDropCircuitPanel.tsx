@@ -10,7 +10,8 @@ import { GripVertical, X } from 'lucide-react'
 import { getSymbolIconPath, type SymbolMetadata } from '@/lib/symbols'
 import { useProjectStore, type ProjectState } from '@/stores/projectStore'
 import { useUIStore, type UIState } from '@/stores/uiStore'
-import { collectCircuits, flattenPanels } from '@/utils/eendraad/panelHelpers'
+import { collectCircuits } from '@/utils/eendraad/panelHelpers'
+import { flattenBoardPanels } from '@/lib/panel/panelTree'
 import {
   buildPlanDropAvailableCircuitCodeOptions,
   comparePlanDropCircuitCodes,
@@ -19,6 +20,7 @@ import {
   orderPlanDropCircuitsForDisplay,
   pickDefaultPlanDropCircuitId,
   planDropCircuitIssues,
+  resolvePickableBoardPanelId,
   type PlanDropKind,
 } from '@/lib/plan/planDropPicker'
 import { getEndpointTypeFromSymbol } from '@/utils'
@@ -251,13 +253,15 @@ function PlanDropCircuitPanelInner({
     : dropKind
 
   const panelsFlat = useMemo(
-    () => (currentProject ? flattenPanels(selectProjectElectricalPanels(currentProject)) : []),
+    () => (currentProject ? flattenBoardPanels(selectProjectElectricalPanels(currentProject)) : []),
     [currentProject]
   )
 
   const showPanelPicker = panelsFlat.length > 1
 
-  const [selectedPanelId, setSelectedPanelId] = useState(assignedPanelId)
+  const [selectedPanelId, setSelectedPanelId] = useState(() =>
+    currentProject ? resolvePickableBoardPanelId(currentProject, assignedPanelId) : assignedPanelId
+  )
   const [selectedCircuitId, setSelectedCircuitId] = useState<string>(assignedCircuitId)
   const sessionCreatedCircuitIdsRef = useRef(new Set(provisionalCircuitIds))
   const [sessionCreatedCircuitIds, setSessionCreatedCircuitIds] = useState(() => new Set(provisionalCircuitIds))

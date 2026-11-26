@@ -69,6 +69,7 @@ import { queryOneWireNotes } from '@/lib/projectV2/annotations'
 import { selectProjectBuildingFloors } from '@/lib/projectV2/buildingFloors'
 import { getProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { shouldRasterizePdf } from '@/lib/editionPdfRenderingPolicy'
+import { numberPdfPages } from './numberPdfPages'
 /* @project-documents-strip-start */
 import { isCableRoutesEnabled } from '@/lib/cableRouting/availability'
 import { buildCableSchedule } from '@/lib/cableRouting/cableSchedule'
@@ -369,14 +370,13 @@ export async function exportToPDF(
           )
           if (!panelLayout) continue
           const baseOverlays = collectEendraadTextOverlays(panelLayout, exportTheme, context.eendraadLayout.controlLinkNotes)
-          const noteOverlays =
-            panelLayout.frameRole === 'supply'
-              ? []
-              : collectEendraadFreeNoteOverlays(
-                  queryOneWireNotes(context.project),
-                  panelLayout.panel.id,
-                  exportTheme
-                )
+          // Supply frames share the main panel's id, so notes are matched by panel and then
+          // kept per page by anchor position (getTextOverlaysForSlice), as on the canvas.
+          const noteOverlays = collectEendraadFreeNoteOverlays(
+            queryOneWireNotes(context.project),
+            panelLayout.panel.id,
+            exportTheme
+          )
           const wireLabelOverlays = collectEendraadWireLabelOverlays(
             context.eendraadWireSegments ?? [],
             panelLayout.panel.id,
@@ -746,7 +746,10 @@ export async function exportToPDF(
 
       // Optional legend page for panel circuits: only when panel pages are included.
       if (options.includePanel && pdf) {
-        const legendRows = buildPanelCircuitLegendRows(context.project)
+        const legendRows = buildPanelCircuitLegendRows(
+          context.project,
+          i18n.t('canvas.supplyFrame.title', 'Supply')
+        )
         if (legendRows.length > 0) {
           const orientation = 'portrait' as const
           const pageSize: [number, number] = [A4_PORTRAIT.width, A4_PORTRAIT.height]
@@ -945,6 +948,9 @@ export async function exportToPDF(
         }
       }
       /* @project-documents-strip-end */
+
+      // Number the final assembled PDF so attached document pages are included too.
+      blob = new Blob([await numberPdfPages(await blob.arrayBuffer())], { type: 'application/pdf' })
 
       // Final progress update
       progressCallbacks?.onProgress?.(1)

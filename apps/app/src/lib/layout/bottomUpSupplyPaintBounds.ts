@@ -23,6 +23,7 @@ import {
   supportsCircuitConverterDcConnections,
 } from './circuitConverterGeometry'
 import { isVerticalSupplyDevice } from './supplyDeviceOrientation'
+import { getNestedLaneMaxSlot } from './supplyNestedConverterLanes'
 import {
   LAYOUT_CONSTANTS,
   SUPPLY_TOP_LABEL_FONT_SIZE,
@@ -56,6 +57,13 @@ export interface SupplyDcBusBranchBounds {
   right: number
   top: number
   bottom: number
+  /**
+   * Distance from the branch centre to the far edge of the strings on the further outputs of a
+   * multi-port converter, away from the bus (the supply is always drawn mirrored, so that is the
+   * visual left). Only the next branch outwards has to clear it; the strings' own positions
+   * size the frame.
+   */
+  outwardLaneReach?: number
 }
 
 function getSupplyDcBusBranchTextWidth(text: string, fontSize: number): number {
@@ -85,6 +93,7 @@ export function getSupplyDcBusBranchBounds(devices: TrunkDevice[]): SupplyDcBusB
 
   const extend = (next: Partial<SupplyDcBusBranchBounds>) => {
     bounds = {
+      ...bounds,
       left: Math.min(bounds.left, next.left ?? bounds.left),
       right: Math.max(bounds.right, next.right ?? bounds.right),
       top: Math.min(bounds.top, next.top ?? bounds.top),
@@ -99,6 +108,18 @@ export function getSupplyDcBusBranchBounds(devices: TrunkDevice[]): SupplyDcBusB
       getCircuitConverterDcConnectionCount(device) > 1
     ) {
       const connectionCount = getCircuitConverterDcConnectionCount(device)
+      // The strings fed by the outputs stack upright like any other branch; side by side they
+      // are spaced so their captions fit (see getNestedConverterLaneSpacing).
+      const lanes = devices.filter(
+        (candidate) => candidate.converterDcConnection?.converterId === device.id
+      )
+      const outermostSlot = getNestedLaneMaxSlot(lanes, device.id)
+      const laneReach =
+        outermostSlot > 0
+          ? outermostSlot * getNestedConverterLaneSpacing(lanes) -
+            getSupplyDcBusBranchBounds(lanes).left
+          : 0
+      bounds.outwardLaneReach = Math.max(bounds.outwardLaneReach ?? 0, laneReach)
       extend({
         right: halfSymbol + (connectionCount - 1) * CIRCUIT_CONVERTER_BLOCK_SIZE,
         top:
@@ -364,4 +385,13 @@ export function getSupplyDeviceHorizontalPaintBounds(device: TrunkDevice, x: num
     right: x + LAYOUT_CONSTANTS.SYMBOL_SIZE / 2,
     center: { x, y },
   }
+}
+
+/** Distance between two strings fed by neighbouring outputs of one converter, wide enough for the captions of both. */
+export function getNestedConverterLaneSpacing(laneDevices: TrunkDevice[]): number {
+  const bounds = getSupplyDcBusBranchBounds(laneDevices)
+  return Math.max(
+    CIRCUIT_CONVERTER_BLOCK_SIZE,
+    Math.ceil(bounds.right - bounds.left + LAYOUT_CONSTANTS.SUPPLY_DC_BUS_BRANCH_LABEL_GAP)
+  )
 }

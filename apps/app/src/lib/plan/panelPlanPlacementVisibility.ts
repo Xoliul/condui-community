@@ -8,6 +8,7 @@ import {
   panelGridModuleRefKey,
 } from '@/lib/eendraad/projectElectricalDomain'
 import { findPanelById, walkPanels } from '@/lib/panel/panelTree'
+import { isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 import {
   readLegacyCompatibilityFloors,
   mutateBuildingFloorViews,
@@ -146,6 +147,7 @@ function collectPanelModuleOccurrences(
   const gridContext = createPanelGridModuleRefsContext(rootPanels)
 
   for (const panel of walkPanels(rootPanels)) {
+    if (isVirtualPanel(panel)) continue
     const hiddenKeys = new Set(panel.gridView?.hiddenModuleKeys ?? [])
     const shownKeys = new Set(panel.gridView?.shownModuleKeys ?? [])
     for (const ref of getDefaultPanelGridModuleRefs(panel, installation, rootPanels, undefined, gridContext)) {
@@ -428,6 +430,7 @@ function collectPanelPlanPlacementOwners(
 
   const owners = new Map<string, PlacementOwner>()
   for (const panel of walkPanels(rootPanels)) {
+    if (isVirtualPanel(panel)) continue
     const hiddenKeys = new Set(panel.gridView?.hiddenModuleKeys ?? [])
     const shownKeys = new Set(panel.gridView?.shownModuleKeys ?? [])
     const storedSupply = installation ? queryPanelSupplyTrunkDevices(installation, panel) : []
@@ -478,6 +481,8 @@ function collectPanelPlanPlacementOwners(
   // plan placement while physically mounted in that enclosure.
   const enclosures = selectProjectAuxiliaryElectricalEnclosures(project)
   for (const occurrence of gridContext.remountable) {
+    // Supply tap breakers have no situation-plan placement.
+    if (occurrence.form === 'protection') continue
     const mounting = occurrence.entity.panelMounting
     if (mounting?.kind !== 'auxiliary' || !occurrence.entity.placements?.length) continue
     const enclosure = enclosures.find((candidate) => candidate.id === mounting.enclosureId)

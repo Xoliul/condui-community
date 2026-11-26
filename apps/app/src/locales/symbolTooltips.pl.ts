@@ -62,6 +62,7 @@ export const symbolTooltipsPL = {
   "horn": "Syrena lub głośny sygnał ostrzegawczy.",
   "siren": "Syrena alarmowa.",
   "domotica": "Moduł automatyki domowej lub inteligentne sterowanie na schemacie.",
+  "domotica_horizontal": "Moduł automatyki domowej narysowany poziomo, z zasilaniem u dołu i wyjściami u góry.",
   "energy_meter": "Licznik energii lub licznik kWh.",
   "transformer": "Transformator zmieniający napięcie.",
   "rectifier": "Prostownik przekształcający prąd przemienny na stały.",

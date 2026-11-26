@@ -1,9 +1,17 @@
 import { useMemo } from 'react'
-import { Group, Rect } from 'react-konva'
+import { Group, Line, Rect } from 'react-konva'
 import type { LayoutTree, LayoutNode } from '@/lib/layout/layoutTree'
 import { findDropTargetWithDebug, getHitZoneBounds, type HitBounds } from '@/lib/layout/findDropTarget'
 import type { DragPreviewState } from '@/hooks/eendraad'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useProjectStore } from '@/stores/projectStore'
+import { useEendraadLayout } from '@/hooks/eendraad/useEendraadLayout'
+import { getEendraadRenderProjectRevision } from '@/lib/layout/eendraadDerivedLayout'
+import { getSupplyTapLaneZone } from '@/lib/layout/supplyTapDropTargets'
+import { getSupplyTapDropLanes } from '@/lib/supplyTaps/tapDropLanes'
+
+/** A tap zone takes the colour of the wire section below it; this one only when none is found. */
+const SUPPLY_TAP_ZONE_FALLBACK_COLOR = '#d946ef'
 
 interface HitZoneDebugOverlayProps {
   layoutTree: LayoutTree | null
@@ -109,12 +117,59 @@ export function HitZoneDebugOverlay({ layoutTree, dragPreview }: HitZoneDebugOve
     return matched?.nodeId ?? null
   }, [layoutTree, dragPreview, enabled])
 
+  const layout = useEendraadLayout(enabled)
+  const project = useProjectStore((state) =>
+    enabled && state.currentProject ? getEendraadRenderProjectRevision(state.currentProject) : null
+  )
+  const tapLanes = useMemo(
+    () => (project && layout ? getSupplyTapDropLanes(project, layout) : []),
+    [project, layout]
+  )
+  const activeTapId = dragPreview?.branchIntent?.lockPoint ? dragPreview.branchIntent.id : null
+
   if (!import.meta.env.DEV || !enabled || !layoutTree || debugNodes.length === 0) {
     return null
   }
 
   return (
     <Group listening={false}>
+      {tapLanes.map((lane) => {
+        const zone = getSupplyTapLaneZone(lane)
+        const active = lane.slots.some((slot) => slot.id === activeTapId)
+        // Dashed in the colour of the wire section the zone sits on: a drop here taps that wire.
+        const centreX = (zone.left + zone.right) / 2
+        const wire = debugNodes.find(
+          (node) =>
+            node.boundsCore.right - node.boundsCore.left > node.boundsCore.bottom - node.boundsCore.top &&
+            node.boundsCore.top <= lane.y && node.boundsCore.bottom >= lane.y &&
+            node.boundsCore.left <= centreX && node.boundsCore.right >= centreX
+        )
+        const zoneColor = (wire && HITZONE_COLORS[wire.hitZoneType]) ?? SUPPLY_TAP_ZONE_FALLBACK_COLOR
+        return (
+          <Group key={`supply-tap-zone-${lane.diagramId}-${lane.left}-${lane.y}`}>
+            <Rect
+              x={zone.left}
+              y={zone.top}
+              width={zone.right - zone.left}
+              height={zone.bottom - zone.top}
+              fill={active ? `${zoneColor}22` : 'transparent'}
+              stroke={zoneColor}
+              strokeWidth={active ? 2 : 1}
+              dash={[5, 4]}
+              listening={false}
+            />
+            {lane.slots.map((slot) => (
+              <Line
+                key={slot.id}
+                points={[slot.x, zone.bottom, slot.x, lane.y]}
+                stroke={zoneColor}
+                strokeWidth={1.5}
+                listening={false}
+              />
+            ))}
+          </Group>
+        )
+      })}
       {debugNodes.map((node) => {
         const isHighlighted = highlightedNodeId === node.nodeId
         const color =

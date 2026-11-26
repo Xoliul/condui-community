@@ -1,12 +1,14 @@
 import { symbolCanAppearInPanelGrid } from '@/lib/panel/panelGridSymbolEligibility'
 import { isModularSocket } from '@/lib/socket/modularSocket'
-import type { Circuit, Endpoint, Panel, TrunkDevice } from '@/types/schema'
+import { getSupplyTapsPanel, isSupplyTapsPanel } from '@/lib/supplyTaps/virtualPanel'
+import type { Circuit, Endpoint, Panel, PanelGridModuleRef, ProtectionDevice, TrunkDevice } from '@/types/schema'
 
 /**
  * Circuit modules that may hang in another panel or a virtual (auxiliary) enclosure than
  * the panel owning their circuit: relays, meters, converters and domotica modules, both as
- * circuit trunk devices and as endpoints. Protections stay in their own panel; terminal
- * strips keep their own placement model. Mounting is physical only and never changes the
+ * circuit trunk devices and as endpoints, and supply tap breakers. Other protections stay in
+ * their own panel; terminal strips keep their own placement model. Modules of a supply-taps
+ * board belong to its owner board, which is their default enclosure. Mounting is physical only and never changes the
  * electrical circuit, order or connections.
  */
 export type CircuitModuleMounting = NonNullable<Endpoint['panelMounting']>
@@ -51,19 +53,31 @@ function visitPanels(panels: readonly Panel[], visit: (panel: Panel) => void): v
   }
 }
 
-export interface CircuitModuleOccurrence {
-  form: 'device' | 'endpoint'
-  entity: TrunkDevice | Endpoint
+interface CircuitModuleOccurrenceBase {
   circuit: Circuit
   ownerPanel: Panel
 }
+
+export type CircuitModuleOccurrence = CircuitModuleOccurrenceBase &
+  (
+    | { form: 'device'; entity: TrunkDevice }
+    | { form: 'endpoint'; entity: Endpoint }
+    | { form: 'protection'; entity: ProtectionDevice }
+  )
 
 /** Every remountable circuit module with the panel that electrically owns it. */
 export function listRemountableCircuitModules(panels: readonly Panel[]): CircuitModuleOccurrence[] {
   const result: CircuitModuleOccurrence[] = []
   const seenCircuits = new Set<string>()
   visitPanels(panels, (ownerPanel) => {
-    for (const circuit of getOwnPanelCircuits(ownerPanel)) {
+    if (isSupplyTapsPanel(ownerPanel)) return
+    const taps = getSupplyTapsPanel(ownerPanel)
+    for (const protection of taps?.protections ?? []) {
+      const circuit = protection.circuits?.[0]
+      if (protection.supplyTap && circuit)
+        result.push({ form: 'protection', entity: protection, circuit, ownerPanel })
+    }
+    for (const circuit of [...getOwnPanelCircuits(ownerPanel), ...(taps ? getOwnPanelCircuits(taps) : [])]) {
       if (seenCircuits.has(circuit.id)) continue
       seenCircuits.add(circuit.id)
       for (const device of circuit.trunkDevices ?? [])
@@ -75,6 +89,13 @@ export function listRemountableCircuitModules(panels: readonly Panel[]): Circuit
     }
   })
   return result
+}
+
+export function circuitModuleRef(occurrence: CircuitModuleOccurrence): PanelGridModuleRef {
+  if (occurrence.form === 'protection') return { kind: 'protection', id: occurrence.entity.id }
+  return occurrence.form === 'device'
+    ? { kind: 'trunkDevice', id: occurrence.entity.id, scope: 'circuit', circuitId: occurrence.circuit.id }
+    : { kind: 'domotica', endpointId: occurrence.entity.id, circuitId: occurrence.circuit.id }
 }
 
 export function collectPanelIds(panels: readonly Panel[]): Set<string> {
@@ -110,6 +131,7 @@ const isJunctionPanelDevice = (device: TrunkDevice) =>
  * Without an explicit mounting such a module hangs in that junction panel.
  */
 export function isCircuitModuleBehindJunctionPanel(occurrence: CircuitModuleOccurrence): boolean {
+  if (occurrence.form === 'protection') return false
   const devices = [...(occurrence.circuit.trunkDevices ?? [])].sort(
     (left, right) => (left.trunkPosition ?? 0) - (right.trunkPosition ?? 0)
   )

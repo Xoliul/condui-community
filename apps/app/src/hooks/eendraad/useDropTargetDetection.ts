@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, type RefObject } from 'react'
 import { findDropTarget } from '@/lib/layout/findDropTarget'
 import type { DropTarget, FindDropTargetOptions } from '@/lib/layout/findDropTarget'
 import { useLayoutTree } from './useLayoutTree'
@@ -7,7 +7,10 @@ import type { Point } from '@/types/ui'
 /**
  * Hook to detect drop targets during drag operations using tree-based hit testing
  */
-export function useDropTargetDetection() {
+export function useDropTargetDetection(
+  draggedIdRef?: RefObject<string | null>,
+  dragSelectionIdsRef?: RefObject<string[] | null>
+) {
   const layoutTree = useLayoutTree()
   
   return useCallback(
@@ -15,8 +18,10 @@ export function useDropTargetDetection() {
       if (!layoutTree) {
         return { type: null }
       }
-      return findDropTarget(layoutTree, position, options)
+      const draggedId = draggedIdRef?.current
+      const movingEndpointIds = options?.movingEndpointIds ?? (draggedId ? (dragSelectionIdsRef?.current ?? [draggedId]) : undefined)
+      return findDropTarget(layoutTree, position, movingEndpointIds ? { ...options, movingEndpointIds } : options)
     },
-    [layoutTree]
+    [layoutTree, draggedIdRef, dragSelectionIdsRef]
   )
 }

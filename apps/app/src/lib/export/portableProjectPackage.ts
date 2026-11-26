@@ -1,3 +1,4 @@
+import { cloneValue } from '@/utils/cloneValue'
 import JSZip from 'jszip'
 import type { ProjectV2 } from '@/types/projectV2'
 import i18n from '@/lib/i18n/domainI18n'
@@ -274,7 +275,7 @@ export async function exportPortableProjectToZip(
   options: PortableProjectExportOptions = {},
 ): Promise<Blob> {
   const normalizedProject = projectToStoredProjectV2(project as unknown as LegacyProjectDocument)
-  const validation = validateProjectStructure(structuredClone(normalizedProject))
+  const validation = validateProjectStructure(cloneValue(normalizedProject))
   if (!validation.valid && options.allowInvalidForDiagnostics !== true) {
     throw new ProjectExportValidationError(
       `Cannot export invalid project: ${validation.errors.join('; ')}`,

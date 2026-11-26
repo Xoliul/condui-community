@@ -28,6 +28,7 @@ import i18n from '@/lib/validation/validationI18n'
 import { collectTerminalStripValidationIssues } from '@/lib/terminalStrip/validation'
 import { collectOneWireForkIssues } from '../oneWireForkIssues'
 import { withElectricalSnapshotIndex } from '@/lib/projectV2/electricalLookupIndex'
+import { isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 
 export interface ValidationOptions {
   packs?: RulePack[]
@@ -167,8 +168,8 @@ function enumerateScopes(project: ValidationProject): Scope[] {
 
   const collectScopes = (panels: Panel[]) => {
     for (const panel of panels) {
-      // Add panel as board scope
-      scopes.push({ type: 'board', id: panel.id })
+      // Add panel as board scope; a virtual board (supply taps) is not a board of its own.
+      if (!isVirtualPanel(panel)) scopes.push({ type: 'board', id: panel.id })
 
       // Add protections as device scopes
       for (const protection of panel.protections) {

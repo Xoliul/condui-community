@@ -46,7 +46,13 @@ export function usePlanImage(
   )
   const [positionSource, setPositionSource] = useState({ activeFloorId, persistedOffset })
 
-  const [planImage, setPlanImage] = useState<HTMLImageElement | null>(null)
+  // The bitmap is tagged with the floor it was loaded for. A floor switch must never keep
+  // showing (or exporting) the previous floor's plan while the new one is still loading.
+  const [loadedPlan, setLoadedPlan] = useState<{
+    image: HTMLImageElement
+    floorId: string | null
+  } | null>(null)
+  const planImage = loadedPlan && loadedPlan.floorId === activeFloorId ? loadedPlan.image : null
   const [planImagePosition, setPlanImagePosition] = useState(
     () => persistedOffset ?? savedOffset ?? { x: 0, y: 0 }
   )
@@ -77,13 +83,14 @@ export function usePlanImage(
     [rawSvgContent, cadAssetWidth, isCadAsset]
   )
   const grayscale = canonicalAsset?.grayscale === true
-  if (!planImageDataUrl && !svgContent && planImage !== null) setPlanImage(null)
+  if (!planImageDataUrl && !svgContent && loadedPlan !== null) setLoadedPlan(null)
 
   // Load image when plan asset changes
   useEffect(() => {
     if (!planImageDataUrl && !svgContent) return
 
     let cancelled = false
+    const loadFloorId = activeFloor?.id ?? null
 
     const loadImage = async () => {
       try {
@@ -115,7 +122,7 @@ export function usePlanImage(
         const img = new window.Image()
         img.onload = () => {
           if (cancelled) return
-          setPlanImage(img)
+          setLoadedPlan({ image: img, floorId: loadFloorId })
           // Check if there's already a plan image on this floor
           const floorId = activeFloorIdRef.current
           const floor = floorId ? useProjectStore.getState().getFloorById(floorId) : undefined
@@ -136,7 +143,7 @@ export function usePlanImage(
         img.onerror = () => {
           if (cancelled) return
           logger.error('Failed to load plan image')
-          setPlanImage(null)
+          setLoadedPlan(null)
         }
         img.src = imageUrlToUse
       } catch (error) {
@@ -145,7 +152,7 @@ export function usePlanImage(
         const img = new window.Image()
         img.onload = () => {
           if (cancelled) return
-          setPlanImage(img)
+          setLoadedPlan({ image: img, floorId: loadFloorId })
           const floorId = activeFloorIdRef.current
           const floor = floorId ? useProjectStore.getState().getFloorById(floorId) : undefined
           const hasExistingImage = floor?.planAsset || floor?.planImportAsset

@@ -9,6 +9,7 @@ import { findParentPanel, getPanelSymbolLabel } from '@/lib/panel/panelDiagramLa
 import { resolveEffectiveEarthingSystem } from '@/lib/panel/panelEarthingSync'
 import { walkPanels } from '@/lib/panel/panelTree'
 import { orderPanelsByNumber } from '@/lib/panel/panelNumberOrder'
+import { isBoardPanel } from '@/lib/supplyTaps/virtualPanel'
 import { getPanelDisplayName } from '@/utils/panelNames'
 import { getVoltageSummaryLabel } from '@/utils/voltageLabel'
 
@@ -53,7 +54,7 @@ export function buildBoardLabels(
   const rootPanels = getProjectElectricalPanels(project)
   const selected = new Set(panelIds)
   const labels: BoardLabel[] = []
-  for (const panel of orderPanelsByNumber(rootPanels, installation)) {
+  for (const panel of orderPanelsByNumber(rootPanels, installation).filter(isBoardPanel)) {
     if (!selected.has(panel.id)) continue
     const { code, name } = panelCodeAndName(project, panel)
     const lines: string[] = []

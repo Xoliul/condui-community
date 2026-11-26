@@ -1,4 +1,5 @@
 /** Final painted obstacles, information-block packing and positioned panel result assembly. */
+import { drawsHostedFeederStubs } from '@/lib/layout/supplyFrameRole'
 import {
   LAYOUT_CONSTANTS,
   MAIN_BUS_RENDER_STROKE_WIDTH,
@@ -24,6 +25,7 @@ import {
   EENDRAAD_PANEL_SYMBOL_HEIGHT,
   EENDRAAD_PANEL_SYMBOL_WIDTH,
 } from '@/lib/canvas/symbolGeometry'
+import { getIncomingTrunkDeviceLeftLabelReach } from '@/lib/eendraad/trunkDeviceLeftLabels'
 import {
   getInfoBlockMinFrameSize,
   getInfoBlockTotalWidth,
@@ -60,6 +62,7 @@ import { getPanelFrameTitlePadding } from '@/lib/panel/panelDiagramLabels'
 import { getSubPanelMainBusFeedDevice } from '@/lib/panel/subPanelFeed'
 
 import { arrangeBottomRightBlock, type OneWireLayoutBlock } from './oneWireBlockLayout'
+import type { SupplyTapPaintBlock } from './supplyTapLayout'
 
 import {
   CIRCUIT_CONVERTER_BLOCK_SIZE,
@@ -177,7 +180,10 @@ type BuildPanelLayoutFrameInput =
     | 'supplyConverterInputTap'
   > &
   Pick<BottomUpSupplyElements, 'elements' | 'renderedMainBusWidth'> &
-  Pick<BottomUpCircuitNotesPass, 'circuitNotesLocal'>
+  Pick<BottomUpCircuitNotesPass, 'circuitNotesLocal'> & {
+    /** Painted extent of each supply tap; replaces the bus-height band of the tap's circuits. */
+    supplyTapBlocks?: SupplyTapPaintBlock[]
+  }
 
 export function buildPanelLayoutFrame(input: BuildPanelLayoutFrameInput): BottomUpPanelLayout {
   const {
@@ -239,6 +245,7 @@ export function buildPanelLayoutFrame(input: BuildPanelLayoutFrameInput): Bottom
     elements,
     renderedMainBusWidth,
     circuitNotesLocal,
+    supplyTapBlocks,
   } = input
   let {
     minY,
@@ -351,6 +358,7 @@ export function buildPanelLayoutFrame(input: BuildPanelLayoutFrameInput): Bottom
     trunkY: b.trunkY + frameOffset.y,
     branchX: b.branchX + frameOffset.x,
     branchY: b.branchY + frameOffset.y,
+    ...(b.column ? { column: { ...b.column, crossbarY: b.column.crossbarY + frameOffset.y } } : {}),
   }))
 
   // Calculate frame
@@ -976,10 +984,7 @@ export function buildPanelLayoutFrame(input: BuildPanelLayoutFrameInput): Bottom
   // Hosted feeder legs stick out left of their stub (mirrors layoutTree), with
   // the fed panel's name above its symbol beside the main bus. Reserving them
   // grows the frame to the left.
-  const drawsFeedStubStacks =
-    options.supplyEndpointKind === 'continuation' ||
-    ((options.supplyEndpointKind ?? 'mains') === 'mains' &&
-      (options.frameRole ?? 'panel') === 'panel' && panel.isMain)
+  const drawsFeedStubStacks = drawsHostedFeederStubs(options, panel)
   for (const stack of drawsFeedStubStacks ? panelLocalFeedStubStacks ?? [] : []) {
     if (stack.feeders.length === 0) continue
     const hostColumns = circuitLayouts.filter((layout) => !layout.parentCircuit &&
@@ -1020,13 +1025,16 @@ export function buildPanelLayoutFrame(input: BuildPanelLayoutFrameInput): Bottom
         : parentMcbInfo.protection.label) + 20,
       localFeedLabelWidth + 20
     )
+    // The incoming device's name and notes are right-aligned beside its left edge.
+    const leftLabelReach = localFeedDevice ? getIncomingTrunkDeviceLeftLabelReach(localFeedDevice) : 0
+    const leftReach = Math.max(labelWidth / 2, leftLabelReach)
     layoutObstacles.push({
       id: `${options.diagramId ?? panel.id}-secondary-feed`,
       kind: 'secondary-feed',
       label: 'secondary panel feed',
-      x: supplyX - labelWidth / 2,
+      x: supplyX - leftReach,
       y: mainBusY,
-      width: labelWidth,
+      width: leftReach + labelWidth / 2,
       height: parentMcbAnchorY - mainBusY + 48,
     })
   }
@@ -1034,7 +1042,14 @@ export function buildPanelLayoutFrame(input: BuildPanelLayoutFrameInput): Bottom
   // Circuit labels and protection ink occupy a shallow band around the bus.
   // Keep it collision-only because the cyan circuit envelopes already expose
   // the exact horizontal layout in the debug overlay.
-  for (const circuitLayout of circuitLayouts.filter((layout) => !layout.parentCircuit)) {
+  const tapBandCircuitIds = new Set(supplyTapBlocks?.flatMap((block) => block.circuitIds))
+  layoutObstacles.push(...(supplyTapBlocks ?? []).map((tap): OneWireLayoutBlock => ({
+    id: `${options.diagramId ?? panel.id}-supply-tap-${tap.id}`,
+    kind: 'supply-assembly',
+    label: 'supply tap',
+    x: tap.x, y: tap.y, width: tap.width, height: tap.height,
+  })))
+  for (const circuitLayout of circuitLayouts.filter((layout) => !layout.parentCircuit && !tapBandCircuitIds.has(layout.circuit.id))) {
     layoutObstacles.push({
       id: `${options.diagramId ?? panel.id}-circuit-band-${circuitLayout.circuit.id}`,
       kind: 'main-bus',

@@ -248,6 +248,18 @@ export function hasPanelAttachmentOnSecondaryBus(
   protection: ProtectionDevice | null | undefined,
   circuit: Circuit
 ): boolean {
+  // A panel symbol can be attached directly to a circuit that carries nested
+  // protections even when its own protection has been removed. It still needs a
+  // reserved column beside the secondary bus so the panel name clears the first
+  // nested protection label. Without nested circuits there is no secondary bus
+  // (a direct main-bus feeder, or a panel feeder nested next to siblings).
+  if (
+    (circuit.subCircuitIds?.length ?? 0) > 0 &&
+    circuit.endpoints.some((endpoint) => endpoint.symbol === 'panel_distribution')
+  ) {
+    return true
+  }
+
   if (!protection?.subPanelId || (circuit.subCircuitIds?.length ?? 0) <= 1) return false
 
   const protectionCircuits = protection.circuits ?? []
@@ -553,6 +565,7 @@ export function pushNestedCircuitLayout(
     x: nestedX,
     width: nestedCircuitWidth,
     leftReserve: nestedLeftReserve,
+    ...(nestedEnvelope.columnAnchorOffsets ? { columnAnchorOffsets: nestedEnvelope.columnAnchorOffsets } : {}),
     protectionY: LAYOUT_CONSTANTS.PROTECTION_Y,
     trunkY: undefined,
     branch: null,

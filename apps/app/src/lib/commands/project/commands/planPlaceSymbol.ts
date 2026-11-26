@@ -139,6 +139,9 @@ export const planPlaceSymbol = defineProjectCommand({
   check(project, input) {
     if ('searchPreset' in input && input.searchPreset && !getSearchPreset(input.symbolId, input.searchPreset))
       return { ok: false, code: 'invalid_preset', message: 'Unknown preset for this symbol' }
+    // Presets with their own library entry exist on the one-wire canvas only.
+    if ('searchPreset' in input && getSearchPreset(input.symbolId, input.searchPreset)?.libraryEntry)
+      return { ok: false, code: 'unsupported_symbol', message: 'This symbol cannot be placed on the plan' }
     const symbol = getSymbolById(input.symbolId)
     if (!symbol || ('circuit' in input && !getEndpointTypeFromSymbol(symbol))) {
       return {

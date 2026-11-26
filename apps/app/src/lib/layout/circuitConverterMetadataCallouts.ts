@@ -30,7 +30,9 @@ import {
   getOrdinaryCircuitConverterOutputRowY,
   getCircuitConverterPrimaryBranch,
   supportsCircuitConverterDcConnections,
+  getCircuitConverterOutputChainXs,
 } from './circuitConverterGeometry'
+import { getConverterOutputDevices } from '@/lib/eendraad/converterOutputDevices'
 
 const LEADER_SYMBOL_CLEARANCE = 0.5
 /** Matches the right-aligned output row label drawn left of the converter anchor in layoutTree. */
@@ -435,12 +437,24 @@ export function getCircuitConverterMetadataCallouts({
       endpointSpacing,
       applianceAfterSocketGap
     )
+    // Endpoints stand behind the output's circuit devices, as the row draws them.
+    const outputDevices = getConverterOutputDevices(
+      [
+        ...(circuit.trunkDevices ?? []),
+        ...(circuit.branches ?? []).flatMap((branch) => branch.branchDevices ?? []),
+      ],
+      { converterId: device.id, connectionIndex: outputIndex }
+    )
+    const endpointXs = getCircuitConverterOutputChainXs({
+      portX: port.x,
+      deviceCount: outputDevices.some((candidate) => candidate.type === 'dc_bus') ? 0 : outputDevices.length,
+      endpointOffsets: endpoints.map(
+        (_, endpointIndex) => offsets[endpointIndex] ?? CIRCUIT_CONVERTER_OUTPUT_BRANCH_LEAD
+      ),
+    }).endpointXs
     const positions = endpoints.map((endpoint, endpointIndex) => ({
       endpoint,
-      x:
-        endpoints.length === 1
-          ? port.x
-          : port.x + (offsets[endpointIndex] ?? CIRCUIT_CONVERTER_OUTPUT_BRANCH_LEAD),
+      x: endpointXs[endpointIndex] ?? port.x,
       y: rowY,
       endpointIndex,
     }))

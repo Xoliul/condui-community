@@ -5,6 +5,11 @@ import { forEachCircuitOnPanel } from '@/lib/eendraad/automaticEndpointBranchNam
 import { applyAutomaticEendraadNamingAllPanelsInProject } from '@/lib/eendraad/projectElectricalDomain'
 import { labelSchemeForStorage } from '@/lib/eendraad/labelScheme'
 import {
+  collectTerminalStripOccurrences,
+  formatTerminalNumber,
+  getProjectTerminalNumberFormat,
+} from '@/lib/terminalStrip/labels'
+import {
   getEditableProjectElectricalInstallation,
   getProjectElectricalPanels,
 } from '@/lib/projectV2/electrical'
@@ -27,16 +32,27 @@ function collectLabels(panels: readonly Panel[], into = new Map<string, string>(
   return into
 }
 
+/** Terminal strip numbers as drawn, one per terminal (in and out of a through terminal are one). */
+function collectTerminalLabels(project: ProjectV2, into: Map<string, string>): Map<string, string> {
+  const format = getProjectTerminalNumberFormat(project)
+  for (const occurrence of collectTerminalStripOccurrences(project)) {
+    if (occurrence.side === 'incoming') {
+      into.set(`t:${occurrence.entityId}`, formatTerminalNumber(occurrence.stripId, occurrence.pin, format))
+    }
+  }
+  return into
+}
+
 /**
  * How many labels (circuits, branches, domotica outputs) automatic naming would
- * rewrite if the project switched to `scheme` and `panelNumberingEnabled`.
+ * rewrite, plus terminal numbers shown differently, if the project switched to `scheme` and `panelNumberingEnabled`.
  */
 export function countLabelChangesForScheme(
   project: ProjectV2,
   scheme: LabelScheme,
   panelNumberingEnabled: boolean
 ): number {
-  const before = collectLabels(getProjectElectricalPanels(project))
+  const before = collectTerminalLabels(project, collectLabels(getProjectElectricalPanels(project)))
   const after = produce(project, (draft) => {
     const installation = getEditableProjectElectricalInstallation(draft)
     if (!installation?.eendraadAutomaticNaming) return
@@ -46,7 +62,8 @@ export function countLabelChangesForScheme(
   })
   if (after === project) return 0
   let changed = 0
-  for (const [key, label] of collectLabels(getProjectElectricalPanels(after))) {
+  const afterLabels = collectTerminalLabels(after, collectLabels(getProjectElectricalPanels(after)))
+  for (const [key, label] of afterLabels) {
     if (before.get(key) !== label) changed += 1
   }
   return changed

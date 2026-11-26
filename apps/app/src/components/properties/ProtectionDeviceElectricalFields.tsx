@@ -4,7 +4,7 @@
  * and supply/circuit {@link TrunkDevice} rows (type === 'protection').
  * Keeps dropdown behaviour and option lists in one place.
  */
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useInstallationProfile } from '@/hooks/useInstallationProfile'
 import { getProtectionCurveOptions } from './protectionCurveOptions'
@@ -154,6 +154,7 @@ export function ProtectionDeviceElectricalFields({
   toggleProtectionLabel,
   tripTarget,
 }: ProtectionDeviceElectricalFieldsProps) {
+  const [customRatingSelected, setCustomRatingSelected] = useState(false)
   const installationProfile = useInstallationProfile()
   const adjustableTrip = useAdjustableTrip(tripTarget)
   const isRCD = protectionType === 'RCD'
@@ -303,22 +304,17 @@ export function ProtectionDeviceElectricalFields({
           <>
             <CustomDropdown
               value={
-                ratingA != null && ratingOptions.includes(ratingA)
+                ratingA != null && ratingOptions.includes(ratingA) && !customRatingSelected
                   ? String(ratingA)
                   : isMCB || isRCBO
                     ? OTHER_PROTECTION_RATING_OPTION
                     : ''
               }
-              onChange={(nextValue) =>
-                onPatch({
-                  ratingA:
-                    nextValue === OTHER_PROTECTION_RATING_OPTION
-                      ? undefined
-                      : nextValue
-                        ? Number(nextValue)
-                        : undefined,
-                })
-              }
+              onChange={(nextValue) => {
+                const selectingCustom = nextValue === OTHER_PROTECTION_RATING_OPTION
+                setCustomRatingSelected(selectingCustom)
+                onPatch({ ratingA: selectingCustom ? undefined : nextValue ? Number(nextValue) : undefined })
+              }}
               options={[
                 ...(isMCB || isRCBO ? [] : [{ value: '', label: '-' }]),
                 ...ratingOptions.map((r) => ({ value: String(r), label: `${r} A` })),
@@ -335,7 +331,7 @@ export function ProtectionDeviceElectricalFields({
               className={selectClass}
             />
             {(isMCB || isRCBO) &&
-              (ratingA == null || !ratingOptions.includes(ratingA)) && (
+              (customRatingSelected || ratingA == null || !ratingOptions.includes(ratingA)) && (
                 <input
                   type="number"
                   value={ratingA ?? ''}

@@ -1,3 +1,4 @@
+import { cloneValue } from '@/utils/cloneValue'
 import {
   applyProjectMetadataUpdate,
   hydrateProjectForEditor,
@@ -143,7 +144,7 @@ export const createProjectLifecycleSlice: ProjectSliceCreator = (set, get) => ({
         const { currentProjectStorageMode } = get()
         // Persistence repairs can replace nested V2 collections. The live Zustand
         // snapshot is frozen by Immer, so prepare a private copy for this save.
-        const preparedProject = structuredClone(currentProject) as Project
+        const preparedProject = cloneValue(currentProject) as Project
         prepareProjectForPersistence(preparedProject)
         const projectToSave: Project = {
           ...preparedProject,

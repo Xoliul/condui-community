@@ -39,6 +39,23 @@ export function alignCompactInlineSupplyBusWithAnchors(panelLayout: BottomUpPane
 }
 
 /**
+ * Supply taps keep their branch orientation: a tap's columns are shifted with the mirror instead of
+ * reflected, so its branches point right in the final scene like those of an ordinary board.
+ * `shift = 2 * (axis - tap.x)` moves a tap's content to its mirrored column (`axis*2 - tap.x`). The
+ * transform stays an involution because the next application reads the already moved column.
+ */
+function getSupplyTapMirrorShifts(panelLayout: BottomUpPanelLayout, axisX: number) {
+  const byCircuit = new Map<string, number>()
+  const byProtection = new Map<string, number>()
+  for (const tap of panelLayout.supplyTaps ?? []) {
+    const shift = (axisX - tap.x) * 2
+    for (const circuitId of tap.circuitIds) byCircuit.set(circuitId, shift)
+    if (tap.protectionId) byProtection.set(tap.protectionId, shift)
+  }
+  return { byCircuit, byProtection }
+}
+
+/**
  * Mirror a detached supply frame's positioned geometry without mirroring text or symbol artwork.
  *
  * The supply topology and hit-zone builders still use their established right-to-left canonical
@@ -54,7 +71,17 @@ export function mirrorDetachedSupplyPanelLayoutHorizontally(
   panelLayout.supplyFlowDirection =
     panelLayout.supplyFlowDirection === 'left-to-right' ? 'right-to-left' : 'left-to-right'
 
+  const tapShifts = getSupplyTapMirrorShifts(panelLayout, axisX)
+  const tapShiftOf = (circuitId?: string, protectionId?: string): number | undefined =>
+    (circuitId != null ? tapShifts.byCircuit.get(circuitId) : undefined) ??
+    (protectionId != null ? tapShifts.byProtection.get(protectionId) : undefined)
+
   panelLayout.elements.forEach((element) => {
+    const tapShift = tapShiftOf(element.circuitId, element.protectionId)
+    if (tapShift != null) {
+      element.position.x += tapShift
+      return
+    }
     if (
       element.width != null &&
       (element.type === 'mainBus' || element.type === 'branch' || element.type === 'trunk')
@@ -75,11 +102,22 @@ export function mirrorDetachedSupplyPanelLayoutHorizontally(
   })
 
   panelLayout.branches.forEach((branch) => {
+    const tapShift = tapShiftOf(branch.circuitId)
+    if (tapShift != null) {
+      branch.trunkX += tapShift
+      branch.branchX += tapShift
+      if (branch.labelX != null) branch.labelX += tapShift
+      return
+    }
     branch.trunkX = mirrorPointX(branch.trunkX, axisX)
     branch.branchX = mirrorRectX(branch.branchX, branch.branchWidth, axisX)
   })
   panelLayout.trunks.forEach((trunk) => {
-    trunk.x = mirrorRectX(trunk.x, trunk.width, axisX)
+    const tapShift =
+      tapShiftOf(undefined, trunk.protectionId) ??
+      trunk.circuits.map((circuit) => tapShiftOf(circuit.id)).find((shift) => shift != null)
+    if (tapShift != null) trunk.x += tapShift
+    else trunk.x = mirrorRectX(trunk.x, trunk.width, axisX)
   })
   panelLayout.mainBus.x = mirrorRectX(panelLayout.mainBus.x, panelLayout.mainBus.width, axisX)
   panelLayout.supply.x = mirrorPointX(panelLayout.supply.x, axisX)
@@ -147,12 +185,20 @@ export function mirrorDetachedSupplyPanelLayoutHorizontally(
     panelLayout.feedOutput.x = mirrorPointX(panelLayout.feedOutput.x, axisX)
   }
 
+  panelLayout.supplyTaps?.forEach((tap) => {
+    tap.x = mirrorPointX(tap.x, axisX)
+  })
   panelLayout.circuits.forEach((circuit) => {
+    const tapShift = tapShiftOf(circuit.circuit.id)
+    if (tapShift != null) {
+      circuit.x += tapShift
+      return
+    }
     const protectionAnchorOffset = getProtectionAnchorOffset(circuit.leftReserve)
     circuit.x = mirrorPointX(circuit.x + protectionAnchorOffset, axisX) - protectionAnchorOffset
   })
   panelLayout.circuitNotes?.forEach((note) => {
-    note.x = mirrorPointX(note.x, axisX)
+    note.x += tapShiftOf(note.circuitId) ?? mirrorPointX(note.x, axisX) - note.x
   })
   panelLayout.layoutBlocks?.forEach((block) => {
     // The information block is a readable document control, not electrical
@@ -379,6 +425,7 @@ export function applyShiftToPanelLayout(panelLayout: BottomUpPanelLayout, dx: nu
     branch.trunkX += dx
     branch.branchY += dy
     branch.trunkY += dy
+    if (branch.column) branch.column.crossbarY += dy
   })
 
   panelLayout.trunks.forEach((trunk) => {
@@ -386,6 +433,11 @@ export function applyShiftToPanelLayout(panelLayout: BottomUpPanelLayout, dx: nu
     trunk.y += dy
   })
 
+  panelLayout.supplyTaps?.forEach((tap) => {
+    tap.x += dx
+    tap.laneY += dy
+    tap.topY += dy
+  })
   panelLayout.mainBus.x += dx
   panelLayout.mainBus.y += dy
   panelLayout.supply.x += dx

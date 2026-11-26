@@ -1,3 +1,4 @@
+import { findVirtualPanelOwner, isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 import type { AcLinePhase, CircuitPhaseAssignment, EnergyConversionDeviceProps, TrunkDevice } from '@/types/schema'
 import { getProjectElectricalInstallation, getProjectElectricalPanels, selectProjectSupplyAssemblies } from '@/lib/projectV2/electrical'
 import { getEffectiveCircuitPhaseState } from '@/lib/wires/phaseAssignment'
@@ -50,7 +51,10 @@ export function assessRcdOverload(context: CheckContext): RcdOverloadAssessment[
     }
     for (const circuit of query.getCircuits(board.id)) {
       owner.set(circuit.id, board.id)
-      const key = `${board.id}:${query.getProtectionForCircuit(circuit.id)?.busSectionId ?? circuit.busSectionId ?? getPrimaryPanelBusSectionId(board)}`
+      // A tap circuit shares its owner's supply section, so an owner supply that stays opaque to this
+      // analysis keeps the taps' upstream devices opaque too.
+      const sectionBoard = (isVirtualPanel(board) ? findVirtualPanelOwner(panels, board.id) : undefined) ?? board
+      const key = `${sectionBoard.id}:${query.getProtectionForCircuit(circuit.id)?.busSectionId ?? circuit.busSectionId ?? getPrimaryPanelBusSectionId(sectionBoard)}`
       section.set(circuit.id, key)
       for (const device of circuit.trunkDevices ?? []) {
         owner.set(device.id, board.id)
@@ -167,7 +171,7 @@ export function assessRcdOverload(context: CheckContext): RcdOverloadAssessment[
     // Domain-changing circuit trunks need their AC-port topology, not a guessed
     // serial connection. Keep these paths diagnostic until that topology is supported.
     const unsupported = circuit.supplySource ||
-      (!board.isMain && !resolvePanelSupplyLinkForPanelInPanels(panels, board.id)) ||
+      (!board.isMain && !isVirtualPanel(board) && !resolvePanelSupplyLinkForPanelInPanels(panels, board.id)) ||
       trunk.some((device) => (device.type === 'conversion' && device.symbol !== 'inverter') || device.type === 'changeover')
     if (unsupported) {
       for (const device of upstream) if (device.type === 'RCD') unavailableDevices.add(device.id)

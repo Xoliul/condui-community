@@ -1,9 +1,9 @@
-import {
-  buildCircuitConverterDcConnectionNodes,
-  buildOrdinaryDcBusEndpointBranchNodes,
-} from './layoutTreeDcBranches'
-import { buildMainBusNode } from './layoutTreeMainBus'
+import { buildCircuitConverterDcConnectionNodes, buildOrdinaryDcBusEndpointBranchNodes } from './layoutTreeDcBranches'
+import { drawsHostedFeederStubs } from '@/lib/layout/supplyFrameRole'
+import { buildMainBusNode, resolveFeedStubGapEndY } from './layoutTreeMainBus'
 import type { BranchLayout } from './wireSegments'
+import { buildCircuitColumnWireNodes, getSharedTrunkHitZoneProps } from './layoutTreeCircuitColumns'
+import { getTrunkOwnBranches } from './circuitColumns'
 /**
  * Unified Layout Tree (Scene Graph)
  *
@@ -21,12 +21,8 @@ import type {
   TrunkDevice,
 } from '@/types/schema'
 import { getSubPanelMainBusFeedDevice } from '@/lib/panel/subPanelFeed'
-
 import { resolvePanelSupplyLinkForProtectionInPanels } from '@/lib/eendraad/panelSupplyLink'
-import {
-  getProtectionOneWireAnchorLineIndex,
-  getProtectionOneWireLabelLines,
-} from '@/lib/protectionLabels'
+import { getProtectionOneWireAnchorLineIndex, getProtectionOneWireLabelLines } from '@/lib/protectionLabels'
 import { getSymbolLabelVerticalMetrics } from '@/lib/symbolLabelMetrics'
 import { measureSymbolLabelTextWidth } from '@/lib/symbolLabelTextWidth'
 import {
@@ -57,9 +53,9 @@ import {
 } from './circuitConverterMetadataCallouts'
 import { getPanelSupplyOrientationContext, isVerticalSupplyDevice } from './supplyDeviceOrientation'
 
+import { mirrorDetachedSupplyFrameNodes } from './layoutTreeSupplyTaps'
 import {
   mirrorInlineSplitBusLayoutNodesHorizontally,
-  mirrorLayoutNodeHorizontally,
   mirrorSupplyAssemblyLayoutNodesHorizontally,
   normalizeNestedSupplyDcConverterGrowth,
   normalizeSupplyConverterGrowth,
@@ -195,6 +191,7 @@ export interface HitZone {
   converterDcConnection?: { converterId: string; connectionIndex: number }
   /** Electrical domain immediately at this wire hit zone. */
   wireDomain?: 'AC' | 'DC'
+  circuitTrunkSegmentIndex?: number; branchStem?: number // set on circuit crossbar/riser/lead zones: the last trunk segment they continue, and the manual riser they belong to
   /** Selectable DC bus that owns this distribution hit zone. */
   dcBusId?: string
   /** Explicit serial insertion point for a vertical DC-bus endpoint branch. */
@@ -303,6 +300,8 @@ export interface LayoutNode {
   horizontalMirrorScope?: 'panel' | 'supply'
   /** The empty split bus is mirrored with its inline supply risers. */
   horizontalMirrorInlineSplitBus?: boolean
+  /** Supply tap: the grid-lane y its wires start from (laid out against the lane, not the bus). */
+  supplyTapLaneY?: number
 }
 
 /** Stable semantic identity for reconciliation and React scene keys. */
@@ -443,7 +442,7 @@ function buildPanelNodeForVisualDirection(panelLayout: BottomUpPanelLayout): Lay
   mirrorPanelLayout(panelLayout)
   try {
     const panelNode = buildPanelNode(panelLayout)
-    if (scope === 'panel') mirrorLayoutNodeHorizontally(panelNode, axisX)
+    if (scope === 'panel') mirrorDetachedSupplyFrameNodes(panelNode, axisX)
     else {
       mirrorSupplyAssemblyLayoutNodesHorizontally(panelNode, axisX)
       if (panelLayout.inlineEmptySplitRails) {
@@ -654,7 +653,10 @@ function buildPanelNode(panelLayout: BottomUpPanelLayout): LayoutNode {
       const nodeBoundsY = isDomoticaSupplyDevice
         ? stdElement.position.y - domoticaHeight / 2 + DOMOTICA_BASE_HEIGHT / 2
         : nodeCenter.y
-      const isHorizontalSupplyDevice = !isVerticalSupplyDevice(supplyDevice, getPanelSupplyOrientationContext(panelLayout))
+      const isHorizontalSupplyDevice = !isVerticalSupplyDevice(
+        supplyDevice,
+        getPanelSupplyOrientationContext(panelLayout)
+      )
       const rotatesProtectionArtwork =
         isHorizontalSupplyDevice &&
         supplyDevice.type === 'protection' &&
@@ -759,7 +761,9 @@ function buildPanelNode(panelLayout: BottomUpPanelLayout): LayoutNode {
                 supplyDcBusBranchId: supplyDevice.supplyDcBusBranchId,
               }
             : {}),
-          ...(panelLayout.supplyHorizontalDcLaneDeviceIds?.has(supplyDevice.id) ? { horizontalDcLane: true } : {}),
+          ...(panelLayout.supplyHorizontalDcLaneDeviceIds?.has(supplyDevice.id)
+            ? { horizontalDcLane: true }
+            : {}),
           ...(supplyDeviceData.device.supplyPath === 'converter-grid'
             ? {
                 converterGridPlacement: supplyDeviceData.device.converterGridPlacement ?? 'inline',
@@ -1062,10 +1066,7 @@ function buildPanelNode(panelLayout: BottomUpPanelLayout): LayoutNode {
   // Each bus section has one panel-side device chain. A section can appear in
   // several runs; those runs repeat views of the same persisted devices.
   if (
-    (panelLayout.supplyEndpointKind === 'continuation' ||
-      (panelLayout.supplyEndpointKind === 'mains' &&
-        panelLayout.frameRole === 'panel' &&
-        panelLayout.panel.isMain)) &&
+    drawsHostedFeederStubs(panelLayout, panelLayout.panel) &&
     hasExplicitPanelBusSections(panelLayout.panel)
   ) {
     const bus = children.find((node) => node.type === 'busBar')
@@ -1237,7 +1238,7 @@ function buildPanelNode(panelLayout: BottomUpPanelLayout): LayoutNode {
         const centers = [busY, ...deviceCenters, endY]
         for (let gapIndex = 0; gapIndex < centers.length - 1; gapIndex++) {
           const fromY = centers[gapIndex]! + (gapIndex === 0 ? 9 : 13)
-          const toY = centers[gapIndex + 1]! - (gapIndex === centers.length - 2 ? 0 : 13)
+          const toY = resolveFeedStubGapEndY(panelLayout, stack.busSectionId, centers, gapIndex)
           if (toY <= fromY) continue
           bus.children.push({
             id: `supply-wire-feed-stub-${panelLayout.panel.id}-${runIndex}-${gapIndex}`,
@@ -1438,18 +1439,15 @@ function buildMcbNode(
 
   // Circuit trunk wire (vertical from MCB up to first branch/device top) — drop on wire = circuit target.
   // Keep this in sync with deriveWires/top-of-trunk behavior so hitboxes match rendered wire length.
-  const circuitBranchesForWire = panelLayout.branches.filter(
-    (b) => b.circuitId === circuitLayout.circuit.id && !b.forkFrom && !b.forkUnresolved
-  )
+  const circuitBranchesForWire = getTrunkOwnBranches(panelLayout.branches.filter(
+    (b) => b.circuitId === circuitLayout.circuit.id && !b.forkFrom && !b.forkUnresolved))
   const baseWidth = Math.max(LAYOUT_CONSTANTS.PROTECTION_WIDTH, LAYOUT_CONSTANTS.SYMBOL_SIZE)
   const protectionAnchorX = circuitLayout.x + circuitLayout.leftReserve + baseWidth / 2
   const wireX = circuitBranchesForWire[0]?.trunkX ?? protectionAnchorX
   // Use actual MCB element position (not circuitLayout.protectionY which is wrong for nested circuits)
   const mcbActualY = protectionElement.position.y
-  const topBranchY =
-    circuitBranchesForWire.length > 0
-      ? Math.min(...circuitBranchesForWire.map((b) => b.branchY))
-      : mcbActualY - LAYOUT_CONSTANTS.BRANCH_START_OFFSET
+  const topBranchY = circuitBranchesForWire.length > 0 ? Math.min(...circuitBranchesForWire.map((b) => b.branchY))
+    : mcbActualY - LAYOUT_CONSTANTS.BRANCH_START_OFFSET
   const sortedTrunkDeviceElements = [...trunkDeviceElements].sort(
     (a, b) => b.position.y - a.position.y
   ) // bottom -> top
@@ -1465,10 +1463,7 @@ function buildMcbNode(
     : undefined
   const topmostTerminalDcBus = topTrunkDevice?.type === 'dc_bus'
   const topCandidates = [topBranchY, topTrunkDeviceY].filter((y): y is number => y !== null)
-  const topmostContentY =
-    topCandidates.length > 0
-      ? Math.min(...topCandidates)
-      : mcbActualY - LAYOUT_CONSTANTS.BRANCH_START_OFFSET
+  const topmostContentY = topCandidates.length > 0 ? Math.min(...topCandidates) : mcbActualY - LAYOUT_CONSTANTS.BRANCH_START_OFFSET
   let topWireY =
     topTrunkDeviceY !== null && topTrunkDeviceY === topmostContentY
       ? topmostTerminalDcBus
@@ -1543,11 +1538,14 @@ function buildMcbNode(
           type: 'circuit',
           padding: 0,
           wireDomain: getCircuitTrunkSegmentDomain(circuitLayout.circuit, i),
+          ...(i === trunkWaypointsY.length - 2 ? getSharedTrunkHitZoneProps(circuitBranchesForWire, wireX, startY) : {}),
         },
         children: [],
       })
     }
 
+    children.push(...buildCircuitColumnWireNodes(circuitLayout.circuit.id, panelLayout.branches.filter((b) => b.circuitId === circuitLayout.circuit.id), {
+      wirePad, wireDomain: getCircuitTrunkSegmentDomain(circuitLayout.circuit, trunkWaypointsY.length - 2), trunkSegmentIndex: trunkWaypointsY.length - 2 }))
     // Single nest slot at the top of the trunk (nested MCB / secondary-bus insertion).
     // Trunk segment hit zones remain for trunk devices; this zone is prioritized for protection drops.
     if (!topmostTerminalDcBus) {

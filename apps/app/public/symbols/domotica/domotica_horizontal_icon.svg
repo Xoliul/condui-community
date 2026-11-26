@@ -1,0 +1,8 @@
+<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" width="48" height="48">
+  <!-- Icon for lists and pickers: the horizontal domotica module, a wide box with the feed below and the outputs on top. -->
+  <g fill="none" stroke="#000" stroke-width="2" stroke-linejoin="miter">
+    <rect x="4" y="16" width="40" height="16"/>
+    <path d="M24 32V44"/>
+    <path d="M10 16V6M24 16V6M38 16V6"/>
+  </g>
+</svg>

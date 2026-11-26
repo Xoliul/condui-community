@@ -8,6 +8,8 @@ export type CustomDropdownOption = {
   label: string
   /** Explanation shown on hover and exposed to assistive technology. */
   title?: string
+  /** Shown but not selectable; `title` carries the reason. */
+  disabled?: boolean
   icon?: React.ReactNode
   textClassName?: string
   isBold?: boolean
@@ -384,7 +386,7 @@ export default function CustomDropdown({
             </option>
           ) : null}
           {options.map((option) => (
-            <option key={option.value} value={option.value} title={option.title}>
+            <option key={option.value} value={option.value} title={option.title} disabled={option.disabled}>
               {option.label}
             </option>
           ))}
@@ -435,15 +437,19 @@ export default function CustomDropdown({
             type="button"
             role="option"
             aria-selected={isActive}
+            aria-disabled={option.disabled || undefined}
             title={option.title}
             aria-label={option.title ? `${option.label}: ${option.title}` : undefined}
             onMouseEnter={() => onOptionHover?.(option.value)}
             onClick={() => {
+              if (option.disabled) return
               if (!isActive) onChange(option.value)
               setIsOpen(false)
             }}
             className={`flex w-full items-center px-3 py-1.5 text-left text-sm transition-colors ${
-              isActive
+              option.disabled
+                ? 'cursor-not-allowed text-gray-400 dark:text-gray-500'
+                : isActive
                 ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200'
                 : 'text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700/60'
             }`}

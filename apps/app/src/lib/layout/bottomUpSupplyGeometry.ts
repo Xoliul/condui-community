@@ -233,8 +233,8 @@ export function planConverterInputTapLane(input: {
 
 /**
  * X of the inverter on the changeover's port-2 wire, which bends down at `laneStartX`. The
- * historical slot past `elbowX` stays the minimum; backup-output devices start in the middle of
- * the drawn wire and step towards the switch, so it only grows once they no longer fit.
+ * historical slot past `elbowX` stays the minimum; backup-output devices sit centred on the drawn
+ * wire, so it only grows once they no longer fit.
  */
 export function getChangeoverBackupLaneEndX(input: {
   elbowX: number
@@ -245,29 +245,26 @@ export function getChangeoverBackupLaneEndX(input: {
   const spacing = LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_BRANCH_DEVICE_SPACING
   const slotEndX =
     input.elbowX + LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_SLOT_LENGTH + input.otherLaneCount * spacing
-  // One centred device needs the historical one-device slot; each further one a spacing on
-  // both halves.
+  // One centred device needs the historical one-device slot; each further one adds one spacing.
   return input.backupOutputCount > 0
     ? Math.max(
         slotEndX,
         input.laneStartX +
           LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_SLOT_LENGTH +
-          spacing +
-          2 * (input.backupOutputCount - 1) * spacing
+          input.backupOutputCount * spacing
       )
     : slotEndX
 }
 
 /**
- * Backup-output positions on that wire, as offsets from the elbow: the last stored device in the
- * middle, the earlier ones a device spacing apart towards the switch (stored order runs from the
- * switch to the inverter).
+ * Backup-output positions on that wire, as offsets from the elbow: the devices a spacing apart,
+ * centred on the wire (stored order runs from the switch to the inverter).
  */
 export function getChangeoverBackupLaneOffsets(count: number, laneLength: number): number[] {
   const spacing = LAYOUT_CONSTANTS.SUPPLY_CHANGEOVER_BRANCH_DEVICE_SPACING
   return Array.from(
     { length: count },
-    (_, index) => laneLength / 2 - (count - 1 - index) * spacing
+    (_, index) => laneLength / 2 + (index - (count - 1) / 2) * spacing
   )
 }
 

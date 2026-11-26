@@ -46,6 +46,9 @@ import {
   parseConversionSymbol,
   resolveDubbeleWisselBranchStarts,
 } from '@/lib/import/trik/parseNodes'
+import { assignTrikAutomaticCircuitLetters, assignTrikDocumentCircuitLetters } from '@/lib/import/trik/trikCircuitLetters'
+import { resolveTrikCircuitHead } from '@/lib/import/trik/trikCircuitHead'
+import { planTrikRisers, trikStemOf } from '@/lib/import/trik/trikRisers'
 import { normalizeTrikPanelNameKey, trikNumberedPanelName } from '@/lib/import/trik/shared'
 import { CIRCUIT_CONVERTER_MAX_CONNECTIONS } from '@/lib/layout/circuitConverterGeometry'
 import {
@@ -433,12 +436,14 @@ function buildTrikCircuitFromBreaker(
   circuitsOut: TrikCircuit[],
 ): string {
   const breakerId = trikElementId(breaker)
-  const firstLeiding = breaker.querySelector(':scope > Children > Leiding')
+  const { walkRoot, cableLeiding: firstLeiding, trunkClamp } = resolveTrikCircuitHead(breaker)
+  const riserPlan = walkRoot?.tagName === 'Leiding' ? planTrikRisers(walkRoot) : undefined
   const nodes: TrikNode[] = []
   const trunkDevices: TrikCircuitTrunkDevice[] = []
   const branchDevices: TrikBranchDevice[] = []
   const controls: Array<{ switchId: string; lightId: string }> = []
   let forkVariant: TrikCircuit['forkVariant']
+  let riserCables: TrikCircuit['riserCables']
   // At most one converter per circuit sits on the trunk; its DC outputs are TRiK child leidingen.
   let trunkConverter: { element: Element; id: string } | undefined
   // A Leiding below a device with several children is a split of that cable. Pass 1 keeps each
@@ -446,8 +451,23 @@ function buildTrikCircuitFromBreaker(
   let keepForkLegs = true
   const forkLegs: TrikForkLeg[] = []
   const lastNodeIdByKey = new Map<string, string>()
+  // Drawing order and stem of every branch key (legs and empty legs included); kept in pass 1 only.
+  const branchOrder: string[] = []
+  const stemByKey = new Map<string, number>()
+  const legCountByAnchor = new Map<string, number>()
+  const legAnchorByKey = new Map<string, string>()
+  const noteBranchKey = (key: string, stem: number) => {
+    if (!keepForkLegs || stemByKey.has(key)) return
+    stemByKey.set(key, stem)
+    branchOrder.push(key)
+  }
+  // A clamp ahead of the first Leiding is the first device on the shared trunk.
+  const seedTrunkDevices = () => {
+    if (trunkClamp) trunkDevices.push({ id: trunkClamp.id, kind: 'terminal_strip' })
+  }
 
-  if (firstLeiding) {
+  if (walkRoot) {
+    seedTrunkDevices()
     const walk = (
       current: Element,
       branchKey: string,
@@ -459,12 +479,17 @@ function buildTrikCircuitFromBreaker(
       const traversalChildren = getTraversalChildren(current)
       if (traversalChildren.length === 0) return
       const splitHere = !forceLinearBranch && traversalChildren.length > 1
+      // A Leiding split below a device (also through Leidingen without a device between) forks after that device.
+      let anchorOwner: Element | null | undefined = current
+      while (anchorOwner?.parentElement?.parentElement?.tagName === 'Leiding') anchorOwner = anchorOwner.parentElement.parentElement
+      const anchorOwnerId = anchorOwner?.parentElement?.parentElement?.getAttribute('Id') ?? undefined
       const forkAnchorId = keepForkLegs && forceLinearBranch && !activeDomoticaModuleId && current.tagName === 'Leiding'
         && traversalChildren.filter((child) => child.tagName !== 'Nota').length > 1
-        && current.parentElement?.parentElement?.getAttribute('Id') === lastNodeIdByKey.get(branchKey)
-        ? lastNodeIdByKey.get(branchKey)
+        && anchorOwnerId !== undefined
+        && anchorOwnerId === (lastNodeIdByKey.get(branchKey) ?? legAnchorByKey.get(branchKey))
+        ? anchorOwnerId
         : undefined
-      let forkChildIndex = 0
+      let runContinued = false
       const converterOutputChildren =
         trunkConverter?.element === current
           ? traversalChildren.filter((child) => child.tagName !== 'Nota')
@@ -486,16 +511,28 @@ function buildTrikCircuitFromBreaker(
             node.converterDcConnection = childConverterOutput
           }
           nodes.push(node)
-          if (node.branchKey) lastNodeIdByKey.set(node.branchKey, node.id)
+          if (node.branchKey) {
+            lastNodeIdByKey.set(node.branchKey, node.id)
+            noteBranchKey(node.branchKey, trikStemOf(child, riserPlan))
+          }
         }
         const isDirectDomoticaChild = !!activeDomoticaModuleId && current.tagName === 'DomoticaModule'
         const directOutputRootNodeId = isDirectDomoticaChild
           ? (child.getAttribute('Id')?.trim() || activeDomoticaOutputRootNodeId)
           : activeDomoticaOutputRootNodeId
         let forkLegKey: string | undefined
-        if (forkAnchorId && child.tagName !== 'Nota' && forkChildIndex++ > 0) {
-          forkLegKey = `${branchKey}~${forkAnchorId}.${forkChildIndex - 1}`
-          forkLegs.push({ branchKey: forkLegKey, afterNodeId: forkAnchorId })
+        if (forkAnchorId && child.tagName !== 'Nota') {
+          // The first child with content continues the run; every other child (an open Leiding too) is a leg.
+          const isOpenLeiding = child.tagName === 'Leiding' && getTraversalChildren(child).every((grandChild) => grandChild.tagName === 'Nota')
+          if (!isOpenLeiding && !runContinued) runContinued = true
+          else {
+            const legNumber = (legCountByAnchor.get(forkAnchorId) ?? 0) + 1
+            legCountByAnchor.set(forkAnchorId, legNumber)
+            forkLegKey = `${branchKey}~${forkAnchorId}.${legNumber}`
+            forkLegs.push({ branchKey: forkLegKey, afterNodeId: forkAnchorId, ...(isOpenLeiding ? { empty: true } : {}) })
+            legAnchorByKey.set(forkLegKey, forkAnchorId)
+            noteBranchKey(forkLegKey, trikStemOf(current, riserPlan))
+          }
         }
         const structuralKey = forkLegKey ?? (splitHere ? `${branchKey}.${index + 1}` : branchKey)
         const normalizedStructuralKey = (structuralKey.replace(/^\./, '') || '1')
@@ -677,16 +714,35 @@ function buildTrikCircuitFromBreaker(
         )
       })
     }
-    walk(firstLeiding, '')
-    if (forkLegs.length > 0) {
-      forkVariant = { nodes: nodes.slice(), forkLegs: forkLegs.slice() }
+    walk(walkRoot, '')
+    const legKeys = new Set(forkLegs.map((leg) => leg.branchKey))
+    const usedStems = [...new Set(branchOrder.map((key) => stemByKey.get(key) ?? 0))].sort((a, b) => a - b)
+    if (forkLegs.length > 0 || usedStems.some((stem) => stem > 0)) {
+      // Stems are compacted to 0..k in case a riser's rows produced no symbols.
+      const rank = new Map(usedStems.map((stem, index) => [stem, index]))
+      const stems: Record<string, number> = {}
+      for (const key of branchOrder) {
+        const stem = rank.get(stemByKey.get(key) ?? 0) ?? 0
+        if (stem > 0 && !legKeys.has(key)) stems[key] = stem
+      }
+      forkVariant = {
+        nodes: nodes.slice(),
+        forkLegs: forkLegs.slice(),
+        branchOrder: [...branchOrder].sort((a, b) => (rank.get(stemByKey.get(a) ?? 0) ?? 0) - (rank.get(stemByKey.get(b) ?? 0) ?? 0)),
+        stems,
+      }
+      for (const [stem, cable] of riserPlan?.cableByStem ?? []) {
+        const compact = rank.get(stem)
+        if (compact && usedStems.includes(stem)) (riserCables ??= {})[compact] = cable
+      }
       nodes.length = 0
       trunkDevices.length = 0
       branchDevices.length = 0
       controls.length = 0
       trunkConverter = undefined
       keepForkLegs = false
-      walk(firstLeiding, '')
+      seedTrunkDevices()
+      walk(walkRoot, '')
     }
   }
 
@@ -723,8 +779,9 @@ function buildTrikCircuitFromBreaker(
     childCircuitIds: [],
     trunkDevices: trunkDevices.length > 0 ? trunkDevices : undefined,
     branchDevices: branchDevices.length > 0 ? branchDevices : undefined,
-    outboundPanelNotas: collectOutboundPanelNotasFromLeiding(firstLeiding),
+    outboundPanelNotas: collectOutboundPanelNotasFromLeiding(firstLeiding ?? null),
     ...(forkVariant ? { forkVariant } : {}),
+    ...(riserCables ? { riserCables } : {}),
   }
   circuitsOut.push(circuitRecord)
 
@@ -905,37 +962,6 @@ export function isTrikPhaseDescriptor(value: string): boolean {
   return /^\s*L[1-3](\s*[,/]\s*L[1-3])*\s*(\+\s*N)?\s*$/i.test(value)
 }
 
-/** TRiK automatic letters: A..Z, then AA, AB, ... */
-function trikAutomaticLetter(index: number): string {
-  let letters = ''
-  let rest = index
-  do {
-    letters = String.fromCharCode(65 + (rest % 26)) + letters
-    rest = Math.floor(rest / 26) - 1
-  } while (rest >= 0)
-  return letters
-}
-
-/**
- * TRiK names unlettered circuits automatically as the board number plus the next free letter,
- * in drawing order, skipping letters that are already fixed on another circuit of the board
- * (board 1: 1A, [1B fixed], 1C, ...). Only applied when the board carries a number.
- */
-export function assignTrikAutomaticCircuitLetters(circuits: TrikCircuit[], boardNumber: string): void {
-  const used = new Set(circuits.map((circuit) => circuit.fixedLetter?.trim().toUpperCase()).filter(Boolean))
-  let next = 0
-  for (const circuit of circuits) {
-    if (circuit.fixedLetter?.trim()) continue
-    let code: string
-    do {
-      code = `${boardNumber}${trikAutomaticLetter(next)}`
-      next += 1
-    } while (used.has(code.toUpperCase()))
-    used.add(code.toUpperCase())
-    circuit.fixedLetter = code
-  }
-}
-
 /**
  * The board number an unnumbered board's circuits share (`2A`, `2B`, `2AA` → `2`): files with
  * one board per file often letter by hand instead of setting the board's `Nummer`.
@@ -1023,6 +1049,7 @@ export function collectTrikPanelBoards(doc: Document): TrikPanelBoard[] {
       localSupplyDevices: localSupplyDevices.length > 0 ? localSupplyDevices : undefined,
     }
   })
+  assignTrikDocumentCircuitLetters(doc, boards.flatMap((board) => board.circuits))
   // Unnamed boards are named after the circuit feeding them from another board, or take the
   // next free `Panel N`; never a name another board already uses.
   const used = new Set(boards.map((board) => normalizeTrikPanelNameKey(board.name)).filter(Boolean))

@@ -68,6 +68,7 @@ import { moveSupplyTrunkDevice } from '@/handlers/eendraad/moveSupplyTrunkDevice
 import { moveCircuitTrunkDevice } from '@/handlers/eendraad/moveCircuitTrunkDevice'
 import { moveCircuitTrunkDevices } from '@/handlers/eendraad/moveCircuitTrunkDevices'
 import { runEendraadBusMove } from '@/handlers/eendraad/moveBusItems'
+import { findDirectTrunkFeederOwnerOfMeter } from '@/lib/eendraad/directTrunkFeeder'
 import { classifyEendraadMoveSelection, resolveEendraadMultiMoveKind } from '@/lib/eendraad/multiSelectionMove'
 import { isSupplyTrunkDeviceDropTarget } from '@/lib/eendraad/supplyTrunkDeviceMove'
 
@@ -140,6 +141,17 @@ function findProtectionDragTarget(tree: LayoutTree, position: Point): { target: 
       preferSecondaryBusForNestedProtection: true,
     }),
   }
+}
+
+const PROTECTION_SYMBOL_BY_TYPE: Record<string, string> = {
+  MCB: 'mcb', RCD: 'rcd', RCBO: 'rcbo', FUSE: 'fuse', MAIN_SWITCH: 'main_switch', SPD: 'spd',
+}
+
+/** A directly wired kWh meter drags as its whole circuit (meter and all after it) through its hidden owner. */
+function meterOwnerDrag(id: string, type: string, duplicate: boolean): [string, string] {
+  const project = type === 'trunkDevice' && !duplicate ? useProjectStore.getState().currentProject : null
+  const owner = project ? findDirectTrunkFeederOwnerOfMeter(getProjectElectricalPanels(project), id) : null
+  return owner ? [owner, 'protection'] : [id, type]
 }
 
 export function useEendraadElementDrag({
@@ -269,10 +281,19 @@ export function useEendraadElementDrag({
           MAIN_SWITCH: 'main_switch',
           SPD: 'spd',
         }
-        const symbolId = typeMap[protection.type]
+        const symbolId = protection.directTrunkFeeder ? 'energy_meter' : typeMap[protection.type]
         if (!symbolId) return
         const symbolMeta = getSymbolById(symbolId)
         if (!symbolMeta) return
+
+        // A supply tap slides along the grid wire's tap zones like a new one; the drop moves it.
+        if (protection.supplyTap) {
+          const tapIntent = resolveBranchDrop(newPos, symbolMeta).intent
+          if (tapIntent?.lockPoint) {
+            setDragPreview({ position: newPos, symbolData: symbolMeta, dropTarget: tapIntent.target, branchIntent: tapIntent })
+            return
+          }
+        }
 
         const sourcePanel = useProjectStore.getState().getPanelForProtection(elementId)
         const circuitId = sourcePanel
@@ -392,6 +413,21 @@ export function useEendraadElementDrag({
       trunkDnDLoggedStartRef,
     ]
   )
+
+  /** A supply tap dropped on a tap zone moves there; null when the drop is not a tap move. */
+  const moveSupplyTapOnDrop = useCallback((protectionId: string, position: Point): boolean | null => {
+    const protection = getProtectionById(protectionId)
+    const symbolId = protection?.supplyTap ? PROTECTION_SYMBOL_BY_TYPE[protection.type] : undefined
+    const symbol = symbolId ? getSymbolById(symbolId) : undefined
+    if (!symbol) return null
+    const target = resolveBranchDrop(position, symbol).intent
+    if (!target?.lockPoint || !target.target.panelId || !target.target.supplyTapAnchor) return null
+    return runProjectCommand('supply.moveTap', {
+      ownerPanelId: target.target.panelId,
+      itemId: protectionId,
+      anchor: target.target.supplyTapAnchor,
+    }) !== null
+  }, [getProtectionById, resolveBranchDrop])
 
   // Drag end: treat as "add new at drop target, then delete original". Return
   // a boolean so the symbol can snap back when the drop was invalid.
@@ -691,6 +727,8 @@ export function useEendraadElementDrag({
             return true
           }
 
+          const movedTap = moveSupplyTapOnDrop(elementId, position)
+          if (movedTap !== null) return movedTap
           if (!currentProject || !layoutTree) return false
           const target = resolveProtectionDropTargetForPosition(
             layoutTree, position, findProtectionDragTarget,
@@ -857,6 +895,7 @@ export function useEendraadElementDrag({
     [
       window.document,
       augmentCircuitVerticalWireDomain,
+      moveSupplyTapOnDrop,
       resolveBranchDrop,
       currentProject,
       dragPreview,
@@ -886,9 +925,11 @@ export function useEendraadElementDrag({
   )
 
   useLayoutEffect(() => {
-    handleElementDragMoveRef.current = handleElementDragMove
-    handleElementDragEndRef.current = handleElementDragEnd
-  }, [handleElementDragMove, handleElementDragEnd, handleElementDragMoveRef, handleElementDragEndRef])
+    const asMeterOwner = (id: string, type: string) =>
+      meterOwnerDrag(id, type, elementDragModeRef.current === 'duplicate')
+    handleElementDragMoveRef.current = (id, type, position) => handleElementDragMove(...asMeterOwner(id, type), position)
+    handleElementDragEndRef.current = (id, type, position) => handleElementDragEnd(...asMeterOwner(id, type), position)
+  }, [handleElementDragMove, handleElementDragEnd, handleElementDragMoveRef, handleElementDragEndRef, elementDragModeRef])
 
   const readPointerClient = useCallback(
     (ev: MouseEvent | TouchEvent): { clientX: number; clientY: number } | null => {
@@ -1019,7 +1060,9 @@ export function useEendraadElementDrag({
         const store = useProjectStore.getState()
         const protection = store.getProtectionById(elementId)
         const panel = store.getPanelForProtection(elementId)
-        const symbolId = protection ? protectionTypeToSymbolKey(protection.type) : undefined
+        const symbolId = protection?.directTrunkFeeder
+          ? 'energy_meter'
+          : protection ? protectionTypeToSymbolKey(protection.type) : undefined
         const symbol = symbolId ? getSymbolById(symbolId) : undefined
         if (protection && panel && symbol) {
           const busCircuitId = pickRepresentativeCircuitIdForMainBusMove(panel, protection)
@@ -1116,7 +1159,10 @@ export function useEendraadElementDrag({
       setInternalDragPlacement,
     ]
   )
-  useLayoutEffect(() => { handleElementDragStartRef.current = handleElementDragStart }, [handleElementDragStart, handleElementDragStartRef])
+  useLayoutEffect(() => {
+    handleElementDragStartRef.current = (id, type, altKey, nativeEvt) =>
+      handleElementDragStart(...meterOwnerDrag(id, type, altKey), altKey, nativeEvt)
+  }, [handleElementDragStart, handleElementDragStartRef])
 
   const handleLongPressDuplicateDragStart = useCallback(
     (params: {

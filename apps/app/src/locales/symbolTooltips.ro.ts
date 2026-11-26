@@ -62,6 +62,7 @@ export const symbolTooltipsRo: Record<SymbolTooltipId, string> = {
   "horn": "Claxon sau avertizare acustică puternică.",
   "siren": "Sirenă pentru alarmă sau semnal de urgență.",
   "domotica": "Modul de domotică sau comandă inteligentă în schemă.",
+  "domotica_horizontal": "Modul de domotică desenat orizontal, cu alimentarea jos și ieșirile sus.",
   "energy_meter": "Contor de energie sau contor kWh.",
   "transformer": "Transformator care convertește tensiunea.",
   "rectifier": "Redresor de la tensiune alternativă la continuă.",

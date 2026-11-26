@@ -12,6 +12,7 @@ import {
   type PreviewOutcome,
   type ProjectCommandSession,
 } from '@/lib/commands/project'
+import { reportCommandCrash } from '@/lib/crashReporting/reportCommandCrash'
 import { recordSessionAction } from '@/lib/diagnostics/sessionActionLog'
 import { publishDomainEvents } from '@/lib/domainEvents'
 import { trackGoogleAnalyticsEvent } from '@/lib/analytics/googleAnalytics'
@@ -88,11 +89,14 @@ export function createLiveProjectSession(env?: CommandEnv): ProjectCommandSessio
       }
       // A collaborative gesture previews with the ids the service will derive for it.
       const prepared = collab?.prepare(before, batch, options?.label)
-      const { project: next, results, events } = applyCommandBatch(
-        before,
-        parsed,
-        prepared?.env ?? commandEnv()
-      )
+      let applied: ReturnType<typeof applyCommandBatch>
+      try {
+        applied = applyCommandBatch(before, parsed, prepared?.env ?? commandEnv())
+      } catch (error) {
+        reportCommandCrash(error, options?.label)
+        throw error
+      }
+      const { project: next, results, events } = applied
       if (next === before) {
         return { revision: projectRevisionToken(before), changed: false, results }
       }

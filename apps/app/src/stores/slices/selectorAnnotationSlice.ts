@@ -563,12 +563,12 @@ export const createSelectorAnnotationSlice: ProjectSliceCreator = (set, get) => 
           }
         }
         if (!endpoint) return
+        const keepIndex = endpoint.placements.findIndex((p) => p.id === payload.keepPlacementId)
+        if (keepIndex < 0) return
         const removeSet = new Set(payload.removePlacementIds)
-        endpoint.placements = endpoint.placements.filter((p) => !removeSet.has(p.id))
-        // Safety: ensure the kept placement remains present.
-        if (!endpoint.placements.some((p) => p.id === payload.keepPlacementId)) {
-          return
-        }
+        endpoint.placements = endpoint.placements.filter((p, index) =>
+          p.id === payload.keepPlacementId ? index === keepIndex : !removeSet.has(p.id)
+        )
         state.isDirty = true
       } else if (payload.kind === 'repairSharedPlanPlacementIds') {
         const ownerKeys = new Set(payload.owners.map((owner) => `${owner.kind}:${owner.id}`))

@@ -24,8 +24,14 @@ The current manifest has archive format version `1`, the format label `project-w
 
 ## `project.json`
 
-The current schema version is `2.3.0`. Projects containing one-wire forks are
-written as `2.4.0` (see [One-wire forks](#one-wire-forks)); all other projects stay `2.3.0`.
+The current schema versions are `2.3.0`, `2.4.0` and `2.5.0`. A project is written at the lowest
+version whose readers understand all of its content, and never at a lower version than it was
+read with:
+
+- `2.3.0`: no forks, risers or supply taps;
+- `2.4.0`: one-wire forks or empty legs (see [One-wire forks](#one-wire-forks));
+- `2.5.0`: manual risers or supply taps (see [One-wire forks](#one-wire-forks) and
+  [Supply taps](#supply-taps-virtual-board)).
 
 `project.showConduiBranding` optionally controls the drawing title-block footer:
 missing or `true` shows the localized Condui attribution, `false` hides it.
@@ -68,8 +74,14 @@ describes how automatic labels are formatted: `version` (`1`), `separator`
 6 characters; `style` `"number"`, `"number2"` or `"upper"`; `start` `0` or `1`;
 `nested` boolean), `circuit` (`style` `"upper"`, `"lower"`, `"number"` or
 `"number2"`; `panelPart` `"none"`, `"number"`, `"full"` or `"continuous"`; `joinPanel` boolean)
-and `branch` (`join` boolean). Wherever two numbers meet, the separator is always
-written. Missing or invalid means the classic scheme (circuits `A, B, C`,
+`branch` (`join` boolean) and an optional `terminalStrip` (`numbering` `"circuit"`
+or `"cable"`; `format` `"X5-1"`, `"X5.1"` or `"X5.01"`, shown as `X1-1`, `X1.1` or `X1.01`).
+`terminalStrip` decides how new terminal strip occurrences are numbered (`"circuit"` reuses
+the circuit's number on that strip, `"cable"` takes the next free number) and how
+terminal numbers are written; it never renumbers stored pins, and missing means
+`{ numbering: "circuit", format: "X5-1" }`. A scheme whose only difference from classic is a
+non-default `terminalStrip` is still saved. An invalid `terminalStrip` is ignored on its
+own. Wherever two numbers meet, the separator is always written. Missing or invalid means the classic scheme (circuits `A, B, C`,
 branches `A1`, domotica outputs `A1.1`, panel numbers `B01`), and the classic
 scheme is saved by omitting the field. Labels themselves stay stored on circuits,
 protections, branches and endpoints; the scheme only decides how automatic naming
@@ -229,6 +241,12 @@ structural one-wire carrier for a secondary panel connected directly to a busbar
 retains the feeder circuit and `subPanelId`, but readers must not interpret it as a
 physical protection device or render a protection symbol.
 
+A protection record with `directTrunkFeeder: true` (type `OTHER`, empty label) is likewise a
+structural carrier: it connects a circuit directly to a busbar so a kWh meter on that circuit's
+trunk has no protection in front of it. Its circuit carries trunk devices and protected
+`subCircuitIds` only, never endpoints or branches. Readers must not treat it as a physical
+protection, panel module or upstream protective device. Files without the field are unaffected.
+
 A secondary panel may persist `hasGround: true` with `groundTrunkDevices` for a local
 earth-electrode stem on that board. The shared main-board electrode remains on
 `disciplines.electrical.installation.hasGround` and `groundTrunkDevices`. Missing or
@@ -262,13 +280,70 @@ the root branch holding the converter, and any legs below it, is written exactly
 without forks, and no `forkFrom` references an endpoint in it. Readers must keep such
 roots intact and may treat a `forkFrom` into one as an unresolved connection.
 
-A document containing any `forkFrom` or `keepEmpty` is written with schema version
-`2.4.0` so that readers that do not understand fork attachments reject it rather
+A document containing any `forkFrom` or `keepEmpty`, and no riser or supply tap, is written with
+schema version `2.4.0` so that readers that do not understand fork attachments reject it rather
 than silently flattening the topology. Once written as `2.4.0`, a project keeps that
 version. Readers must not invent attachments: a `forkFrom` that references a
 missing endpoint, an endpoint in another circuit, or forms a cycle is reported as an
 unresolved connection, its endpoints are retained, and no electrical feed is derived
 for that branch.
+
+**Risers.** A root `Branch` (never one with `forkFrom`) may persist `stem`, a positive integer:
+the cable run that feeds it. Omitted or `0` is the trunk; `1..k` are manual risers, each a
+separate cable leaving the protection (the one-wire shows them as their own vertical runs).
+Fork legs have no `stem`; they belong to the stem of their root. Writers keep stems
+contiguous (`1..k`, no gaps, none when only the trunk remains) and `circuit.branches` stably
+sorted by stem, so array order is drawing and numbering order; the trunk is never written as
+`stem: 0`. An empty riser is `{ "endpointIds": [], "keepEmpty": true, "stem": k }`. A riser may
+carry its own cable section: a `sectionWireOverrides` entry from the protection with
+`riserStem: k`. Risers exist only on ordinary AC final circuits without converters, inline
+protections, sub-circuits or nested protections; trunk devices are allowed when they all sit on
+the shared part above the split (energy meters, terminal strips, junction boxes and panels, trunk
+switches); a document with stems on any other circuit is read as
+one stack (stems ignored for drawing), keeps its fields unchanged and reports a validation
+issue. A document with any `stem > 0` (including an empty riser) or any `riserStem` is written as
+schema `2.5.0`, not `2.4.0`: released readers already accept `2.4.0` because of forks, and would
+silently flatten the risers into one cable run. Readers of `2.4.0` know forks only, so a `2.5.0`
+file is refused by them. Readers that load a `2.5.0` file must round-trip `stem`, `keepEmpty`
+and `riserStem` unchanged.
+
+### Supply taps (virtual board)
+
+A circuit may be tapped off the grid side of a main panel's supply frame (for example a
+kWh meter with its own protection, or an EV-charger circuit). Such circuits live in a
+*virtual board*: an ordinary `Panel` with the optional marker `virtual: { kind: "supply-taps" }`,
+stored in the `subPanels` of the owner main panel whose `feedTopology.rootFeeds[]` entry
+carries the supply frame. An owner has at most one; it has no feeder protection, and it
+exists only while it holds at least one item.
+
+Each top-level item of the virtual board (a `ProtectionDevice` in `protections`, or an
+unprotected `Circuit` in `circuits`) carries an optional `supplyTap` anchor:
+`{ leg: "grid-run" | "changeover-grid" | "converter-input", afterTrunkDeviceId?: string, order?: number }`.
+`leg` names the grid-side leg of the owner's supply the tap leaves from (the serial
+run, the changeover grid-input riser or the converter grid-input leg, matching
+`TrunkDevice.supplyPath` `serial`/omitted, `changeover-grid` and `converter-grid`).
+`afterTrunkDeviceId` is the owner root-feed trunk device the tap sits directly after
+(load side); omitted means the start of the leg. Several taps at one anchor are ordered
+by `order` (increasing along the power flow); taps without one keep their array order and
+follow ordered taps of equal value. Nested protections and circuits under a tapped protection carry no anchor.
+
+Readers must preserve unknown or unresolved anchors. The editor repairs on load: a
+missing anchor becomes `{ leg: "grid-run" }`, an `afterTrunkDeviceId` that is no longer on
+that leg is dropped (the tap moves to the start of the leg), duplicate virtual boards of
+one owner are merged and an empty virtual board is removed. Taps are not part of
+`supplyAssemblies`; they are grid-only and are derived from the anchor.
+
+A virtual board is not a physical board: it is not drawn as its own one-wire frame,
+numbered, pickable as a board, placed on the situation plan, or part of the feed
+topology. Its circuits behave like any other circuit (plan symbols, cable lists, circuit
+codes continue the owner board's sequence), and PDF exports include its circuit list
+when it has circuits.
+
+The fields are optional and additive, and nothing is silently dropped, but a project containing
+a virtual board is written as schema `2.5.0`. A reader that does not know the marker would show
+the virtual board as an ordinary sub-board without a feeder and would not understand where the
+taps leave the supply wire, so older readers must refuse the file instead. Once written as
+`2.5.0`, a project keeps that version.
 
 Branch and endpoint labels are stored values and are kept as written. The editor
 labels a leg like the branch it hangs from when a switch feeds it. A leg attached
@@ -362,6 +437,16 @@ their previous first-button addressing.
   are the module's inputs and linked endpoints and other wired children its outputs;
   inputs and outputs are numbered independently and inputs never count against
   `channelCount`.
+- `domoticaProps.oneWireLayout` is optional and, when present, is `"horizontal"`: the
+  one-wire drawing shows the module as a plain body with its feed below and its outputs
+  along the top edge (output index 0 leftmost). A missing field means the vertical module,
+  and the editor clears the field instead of writing `"vertical"`. It is presentation only:
+  counts, child ids, output order, addresses and links are unchanged, and a reader that
+  does not know the field draws the vertical module. The editor honours it only for
+  top-level circuit endpoint modules (no `domoticaChildProps`) that are not on a DC bus;
+  trunk and supply modules and nested modules ignore it. Any other value is drawn as vertical.
+  The horizontal body text is the endpoint's existing optional `labelNotes` (the extra label text)
+  when it has one, otherwise a localized default word; no new persisted field is involved.
 
 An existing domotica output row can optionally be a physical bus. Its record in
 `domoticaProps.endpointOutputWires` or `controlOutputWires` may persist
@@ -519,6 +604,12 @@ target that no longer exists falls back to the owning panel, and deleting an aux
 enclosure clears the mounting of the modules it held. Mounting never changes the circuit,
 device order or electrical connections; readers that ignore it show the module in its own
 panel.
+
+A supply tap protection (a top-level `ProtectionDevice` of a supply-taps virtual board) may
+persist the same `panelMounting` (`kind: "panel"` or `kind: "auxiliary"`). Its default
+enclosure is the owner main panel of its supply, not the virtual board, which has no
+cabinet of its own; circuit modules on tap circuits use the same default. Mounting never
+changes the tap's `supplyTap` anchor.
 
 Panel label editing is module-owned rather than slot-owned. Protection devices, endpoints,
 and trunk devices may contain an optional `labelNotes` string and optional `panelLabel`
@@ -700,14 +791,15 @@ A group can contain several conductively isolated terminals; the group label alo
 never joins its conductors. Individual conductor connections belong to the detailed
 junction wiring model.
 
-An in-line trunk occurrence may additionally store `terminalStripOutgoingPin`. It
-defaults to the incoming group number when absent; equal numbers display once as
-`X1-3`. Explicit different numbers remain accepted and display as `X1-3/4`.
-`terminalStripPin` remains the sole number for an endpoint occurrence. These fields
+A terminal has one number: `terminalStripPin`. An in-line trunk occurrence may still
+carry a legacy `terminalStripOutgoingPin`; it is accepted for compatibility, ignored for
+display and validation (the outgoing side shows and validates as `terminalStripPin`),
+and set equal to `terminalStripPin` the next time the strip is edited. It is never
+migrated on load. The terminal is written `X1-3`, `X1.3` or `X1.03` according to
+`labelScheme.terminalStrip.format`. These fields
 are owned by the canonical V2 electrical device occurrence and do not create duplicate
 physical strip identities. Manual numbers are preserved without renumbering peers.
-Using one strip/group number across different circuits produces a validation error,
-including an explicit outgoing number. Gaps are valid and existing numbers are never
+Using one strip/group number across different circuits produces a validation error. Gaps are valid and existing numbers are never
 renumbered on load. Legacy combined identities such as `1-3` remain accepted and are
 split when edited.
 
@@ -1341,8 +1433,9 @@ older versions have greyscale `svgContent` itself and cannot be switched back to
 
 The loader accepts:
 
+- `2.5.0`, the native format for projects containing manual risers or supply taps;
 - `2.4.0`, the native format for projects containing one-wire forks;
-- `2.3.0`, the current native format;
+- `2.3.0`, the native format for all other projects;
 - `2.2.0`, upgraded by repairing the routes of seeded wire runs (see below);
 - `2.1.0`, upgraded by seeding the canonical wire-run collection (see below);
 - `2.0.0`, upgraded by adding the current scope contract, then seeding wire runs;

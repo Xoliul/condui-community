@@ -1,4 +1,5 @@
 import { APP_SERVER_API_PATHS, fetchAppServerApi } from '@/lib/appServerApi'
+import { fitCanvasSize } from '@/utils/canvasSizeLimit'
 import { inlineSvgEmbeddedImages } from '@/utils/planImageProcessing'
 import { clamp } from '@/lib/geometry'
 import { logger } from '@/lib/logger'
@@ -255,15 +256,23 @@ function normalizeCropBox(crop: PdfImportCropBox, page: { width: number; height:
 }
 
 async function renderPageToDataUrl(page: PdfPageProxyLike, scale: number): Promise<string> {
-  const viewport = page.getViewport({ scale })
+  let viewport = page.getViewport({ scale })
+  // Pages past what a browser can allocate render at a reduced scale instead of failing.
+  const fit = fitCanvasSize(Math.ceil(viewport.width), Math.ceil(viewport.height))
+  if (fit.scale < 1) viewport = page.getViewport({ scale: scale * fit.scale })
   const canvas = document.createElement('canvas')
-  canvas.width = Math.ceil(viewport.width)
-  canvas.height = Math.ceil(viewport.height)
-  const context = canvas.getContext('2d')
-  if (!context) throw new Error('Failed to create canvas context')
-  context.clearRect(0, 0, canvas.width, canvas.height)
-  await page.render({ canvas, canvasContext: context, viewport, background: 'transparent' }).promise
-  return canvas.toDataURL('image/png')
+  try {
+    canvas.width = Math.min(Math.ceil(viewport.width), fit.width)
+    canvas.height = Math.min(Math.ceil(viewport.height), fit.height)
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('Failed to create canvas context')
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    await page.render({ canvas, canvasContext: context, viewport, background: 'transparent' }).promise
+    return canvas.toDataURL('image/png')
+  } finally {
+    canvas.width = 0
+    canvas.height = 0
+  }
 }
 
 async function renderPageToSvg(
@@ -583,23 +592,29 @@ async function cropDataUrl(
   })
   const imageCrop = mapPageCropToImageCrop(crop, pageSize, { width: img.width, height: img.height })
   const clamped = normalizeCropBox(imageCrop, { width: img.width, height: img.height })
+  const outputSize = fitCanvasSize(Math.round(clamped.width), Math.round(clamped.height))
   const canvas = document.createElement('canvas')
-  canvas.width = Math.round(clamped.width)
-  canvas.height = Math.round(clamped.height)
-  const context = canvas.getContext('2d')
-  if (!context) throw new Error('Failed to create crop context')
-  context.drawImage(
-    img,
-    clamped.x,
-    clamped.y,
-    clamped.width,
-    clamped.height,
-    0,
-    0,
-    clamped.width,
-    clamped.height
-  )
-  return canvas.toDataURL('image/png')
+  try {
+    canvas.width = outputSize.width
+    canvas.height = outputSize.height
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('Failed to create crop context')
+    context.drawImage(
+      img,
+      clamped.x,
+      clamped.y,
+      clamped.width,
+      clamped.height,
+      0,
+      0,
+      outputSize.width,
+      outputSize.height
+    )
+    return canvas.toDataURL('image/png')
+  } finally {
+    canvas.width = 0
+    canvas.height = 0
+  }
 }
 
 function cropSvg(svgContent: string, crop: PdfImportCropBox, page: { width: number; height: number }): string {

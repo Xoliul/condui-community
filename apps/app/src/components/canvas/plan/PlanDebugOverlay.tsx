@@ -7,9 +7,16 @@ import { usePlanDragVisualStore } from '@/stores/planDragVisualStore'
 import { useCanvasFontFamily } from '@/editions/community/communityHooks'
 import { getLabelBoxSize } from '@/utils/plan/labelPositioning'
 
+type PlanDebugPlacement = Placement & {
+  endpointId?: string
+  junctionPanelLabel?: string
+  planLabel?: string
+  isEarthing?: boolean
+}
+
 interface PlanDebugOverlayProps {
-  placements: Array<Placement & { endpointId?: string; junctionPanelLabel?: string; isEarthing?: boolean }>
-  visiblePlacements: Array<Placement & { endpointId?: string; junctionPanelLabel?: string; isEarthing?: boolean }>
+  placements: PlanDebugPlacement[]
+  visiblePlacements: PlanDebugPlacement[]
   labelPositions: Map<string, { x: number; y: number }>
   baseSymbolSizePx: number
   planLabelFontSize: number
@@ -51,7 +58,7 @@ export function PlanDebugOverlay({
   const debugItems = useMemo<DebugItem[]>(() => {
     if (!enabled) return []
 
-    const placementMap = new Map<string, Placement & { endpointId?: string; junctionPanelLabel?: string; isEarthing?: boolean }>()
+    const placementMap = new Map<string, PlanDebugPlacement>()
     placements.forEach((p) => placementMap.set(p.id, p))
 
     const items: DebugItem[] = []
@@ -63,7 +70,7 @@ export function PlanDebugOverlay({
       const posOverride = tempDragPositions.get(placement.id)
       const center = posOverride ?? placement.pos
 
-      const placementRow = placement as Placement & { endpointId?: string; junctionPanelLabel?: string; isEarthing?: boolean }
+      const placementRow = placement as PlanDebugPlacement
       const endpoint = placementRow.endpointId != null ? getEndpointById(placementRow.endpointId) : null
 
       const socketCount =
@@ -92,7 +99,8 @@ export function PlanDebugOverlay({
 
       let labelBox: DebugItem['labelBox'] = null
       if (labelPos) {
-        const labelText: string | undefined = endpoint?.label ?? placementRow.junctionPanelLabel
+        const labelText: string | undefined =
+          endpoint?.label ?? placementRow.junctionPanelLabel ?? placementRow.planLabel
         if (labelText) {
           const { width, height } = getLabelBoxSize(labelText, planLabelFontSize, fontFamily)
           labelBox = {

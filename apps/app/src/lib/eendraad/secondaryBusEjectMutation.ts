@@ -31,6 +31,7 @@ import { getEditableProjectElectricalInstallation, getEditableProjectElectricalP
 import { getDefaultProtectionProps, getVoltagePolesConfig } from '@/lib/protectionDefaults'
 import { createDefaultAcCircuitCable } from '@/lib/wires/circuitWireDefaults'
 import { getDomainTranslator } from '@/lib/i18n/domainI18n'
+import { protectionFeedsPanel } from './panelSupplyLink'
 
 export interface SecondaryBusEjectResult {
   panelId: string
@@ -173,7 +174,8 @@ export function ejectSecondaryBusProtectionsToNewPanelInProject(
       voltagePoles
     )
     const hasOwnEndpoints = (first.circuits ?? []).some((circuit) => (circuit.endpoints?.length ?? 0) > 0)
-    if (!hasOwnEndpoints) promoteMovedSubPanelRootToIncomingTrunk(newPanel, first.id, incomingDevice)
+    if (!hasOwnEndpoints && !protectionFeedsPanel(first))
+      promoteMovedSubPanelRootToIncomingTrunk(newPanel, first.id, incomingDevice)
 
     if (shouldReattachFeeder && originalParentCircuit && originalParentProtection) {
       originalParentProtection.subPanelId = newPanelId

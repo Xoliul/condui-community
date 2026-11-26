@@ -17,6 +17,7 @@ import type {
 } from '@/types/projectV2'
 import { resolvePlanPxPerMeter } from '@/lib/plan/planScale'
 import { PROJECT_SCOPE_IDS } from '@/types/projectV2'
+import { jsonEqual } from '@/utils/jsonEqual'
 
 type ProjectWithCompatibilityBuilding = {
   floors?: Floor[]
@@ -403,13 +404,12 @@ export function healSharedPlanScale(document: ProjectWithOptionalV2Building): bo
     }
   }
 
-  const signature = JSON.stringify(fallback)
   const floorViews = compatibilityFloors(document)
   const needsHealing =
     legacyPdfImport ||
-    JSON.stringify(building.planScale) !== signature ||
-    building.floors.some((floor) => JSON.stringify(floor.scale) !== signature) ||
-    floorViews.some((floor) => JSON.stringify(floor.scale) !== signature)
+    !jsonEqual(building.planScale, fallback) ||
+    building.floors.some((floor) => !jsonEqual(floor.scale, fallback)) ||
+    floorViews.some((floor) => !jsonEqual(floor.scale, fallback))
   if (!needsHealing) return false
 
   setPlanScaleForProject(document, fallback)

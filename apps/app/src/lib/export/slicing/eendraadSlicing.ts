@@ -24,6 +24,8 @@ import {
   INFO_BLOCK_GAP_MM,
 } from '../pdfPageLayout'
 import { getPageDimensions, PAGE_MARGIN, type ExportPaperSize } from '../pageSizes'
+import { isHorizontalDomotica } from '@/lib/layout/domoticaHorizontalGeometry'
+import { getHorizontalDomoticaPageCutPoints } from '@/lib/layout/horizontalDomoticaOutputLabels'
 import { getCircuitBusSectionId } from '@/lib/panel/panelBusSections'
 import { getCircuitTrunkPaintedEnvelope, getPanelPackedPaintBounds } from '@/lib/layout/trunkPaintedEnvelope'
 import { MAIN_BUS_RENDER_STROKE_WIDTH } from '@/lib/layout/bottomUpLayout'
@@ -70,6 +72,8 @@ interface MainBusBlock {
   busSectionId: string
   /** Child circuit extents used for safe internal cut points when the block is oversized. */
   nestedExtents?: Array<{ left: number; right: number }>
+  /** Cut points between the outputs of a horizontal domotica module, used when the block is oversized. */
+  internalCutPoints?: number[]
 }
 
 function getCircuitEnvelope(circuitLayout: BottomUpCircuitLayout): { left: number; right: number } {
@@ -78,6 +82,22 @@ function getCircuitEnvelope(circuitLayout: BottomUpCircuitLayout): { left: numbe
 
 function addEnvelopeSeam(points: number[], left: { right: number }): void {
   points.push(left.right)
+}
+
+/** Cut points between the outputs of every horizontal domotica module of one circuit. */
+function getHorizontalModuleCutPoints(
+  panelLayout: BottomUpPanelLayout,
+  circuitLayout: BottomUpCircuitLayout
+): number[] {
+  const endpoints = circuitLayout.circuit.endpoints ?? []
+  return endpoints.flatMap((endpoint) => {
+    if (!isHorizontalDomotica(endpoint)) return []
+    const element = panelLayout.elements.find(
+      (candidate) => candidate.type === 'endpoint' && candidate.endpointId === endpoint.id
+    )
+    if (!element) return []
+    return getHorizontalDomoticaPageCutPoints(endpoint, endpoints, element.position, circuitLayout.circuit.code)
+  })
 }
 
 /**
@@ -118,6 +138,7 @@ function getMainBusBlocks(panelLayout: BottomUpPanelLayout): MainBusBlock[] {
     const left = Math.min(...ownedExtents.map((extent) => extent.left))
     const right = Math.max(...ownedExtents.map((extent) => extent.right))
     const directChildren = childrenByParentId.get(cl.circuit.id) ?? []
+    const internalCutPoints = ownedLayouts.flatMap((layout) => getHorizontalModuleCutPoints(panelLayout, layout))
     blocks.push({
       left,
       right,
@@ -128,6 +149,7 @@ function getMainBusBlocks(panelLayout: BottomUpPanelLayout): MainBusBlock[] {
         cl.parentRcd ?? cl.protection ?? undefined
       ),
       nestedExtents: directChildren.map(getCircuitEnvelope).sort((a, b) => a.left - b.left),
+      ...(internalCutPoints.length > 0 ? { internalCutPoints } : {}),
     })
   }
 
@@ -157,6 +179,10 @@ function getCutPoints(
     for (let j = 0; j < block.nestedExtents.length - 1; j++) {
       addEnvelopeSeam(points, block.nestedExtents[j]!)
     }
+  }
+  for (const block of blocks) {
+    if (!block.internalCutPoints || block.right - block.left <= sliceWidthPx) continue
+    points.push(...block.internalCutPoints)
   }
   points.push(sceneRight)
   return [...new Set(points)].sort((a, b) => a - b)

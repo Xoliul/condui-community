@@ -15,6 +15,7 @@ import { initializeBranchesIfNeeded } from '@/lib/layout/endpointChains'
 import { isInBetweenEndpoint } from '@/utils/symbolMapping'
 import { resolvePanelSupplyLinksForSourcePanel } from '@/lib/eendraad/panelSupplyLink'
 import { clamp } from '@/lib/geometry'
+import { assignNextTerminalStripPins } from '@/lib/terminalStrip/labels'
 import { clearDuplicatedControlChannel } from '@/lib/controlLink/duplicateAddress'
 import {
   getProjectElectricalPanels,
@@ -212,6 +213,7 @@ export function duplicateBranchAboveOnCircuit(
     clones.push(clone)
   }
   if (clones.length === 0) return { ok: false, reason: 'invalid_source' }
+  assignNextTerminalStripPins(project, clones)
 
   const newEndpointIds = clones.map((c) => c.id)
   const nextBranches = copyBranches(circuit)
@@ -263,6 +265,7 @@ export function duplicateEndpointOnCircuit(
 
   const placement = placementOverride ?? resolveDefaultEndpointDuplicatePlacement(source, context)
   const clone = cloneEndpointForDuplicate(source, { newId: deps.newId })
+  assignNextTerminalStripPins(project, [clone])
 
   if (placement.mode === 'same_branch_after_anchor') {
     deps.addEndpoint(circuitId, clone, placement.anchorEndpointId)

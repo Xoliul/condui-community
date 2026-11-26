@@ -1,8 +1,10 @@
 import { logger } from '@/lib/logger'
+import { getPanelModuleItems } from '@/lib/supplyTaps/virtualPanel'
 import { removeEndpointBranchMembers } from './oneWireForkProject'
 import { isSupplyTransformer } from '@/lib/electrical/supplyTransformer'
 import { symbolCanAppearInPanelGrid } from '@/lib/panel/panelGridSymbolEligibility'
 import {
+  circuitModuleRef,
   collectPanelIds,
   getCircuitModuleMounting,
   listRemountableCircuitModules,
@@ -22,7 +24,10 @@ import type {
   ProtectionDevice,
   TrunkDevice,
 } from '@/types/schema'
+import type { ElectricalDeviceV2 } from '@/types/projectV2'
 import type { ElementModelV2, RelationshipModelV2 } from '@/types/projectV2'
+import { migrateCircuitContentToParent } from './migrateCircuitContentToParent'
+export { migrateCircuitContentToParent }
 import { clamp } from '@/lib/geometry'
 import {
   assignManualInstallYearToTarget as assignManualInstallYear,
@@ -71,6 +76,7 @@ import { findPanelGridDuplicateFindings } from '@/lib/panel/panelGridDuplicates'
 import { DEFAULT_RCBO_SENSITIVITY_MA } from '@/lib/protectionDefaults'
 import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel/panelGridDefaults'
 import { generateId } from '@/utils/project'
+import { isStructuralCarrierProtection } from '@/lib/eendraad/structuralCarrier'
 
 export type ElectricalDomainProject = ProjectWithOptionalV2Electrical &
   ProjectWithOptionalV2Building &
@@ -1103,10 +1109,8 @@ export function trunkDeviceCanAppearInPanelGrid(device: TrunkDevice): boolean {
   )
 }
 
-/** Structural direct-panel feeder carriers are topology-only, never physical DIN modules. */
-export function protectionCanAppearInPanelGrid(protection: ProtectionDevice): boolean {
-  return protection.directPanelFeeder !== true && protection.directDcBusFeeder !== true
-}
+/** Hidden structural owners (board feeders, directly wired meters) are never physical DIN modules. */
+export const protectionCanAppearInPanelGrid = (protection: ProtectionDevice): boolean => !isStructuralCarrierProtection(protection)
 
 /** Query-local indexes shared when reading several boards from one snapshot. */
 export function createPanelGridModuleRefsContext(allPanels: Panel[]) {
@@ -1166,17 +1170,17 @@ export function getDefaultPanelGridModuleRefs(
       refs.push({ kind: 'trunkDevice', id: d.id, scope: 'supply' })
     }
   }
-  const groundDevices =
-    panel.isMain === false ? panel.groundTrunkDevices : installation?.groundTrunkDevices
+  const groundDevices = panel.isMain === false ? panel.groundTrunkDevices : installation?.groundTrunkDevices
   if (groundDevices) {
     for (const d of groundDevices) {
       if (!trunkDeviceCanAppearInPanelGrid(d)) continue
       refs.push({ kind: 'trunkDevice', id: d.id, scope: 'ground' })
     }
   }
-  for (const protection of panel.protections) {
-    if (!protectionCanAppearInPanelGrid(protection)) continue
-    refs.push({ kind: 'protection', id: protection.id })
+  for (const protection of getPanelModuleItems(panel).protections) {
+    // A hidden owner has no module of its own, but a directly wired meter on its trunk does.
+    if (protectionCanAppearInPanelGrid(protection)) refs.push({ kind: 'protection', id: protection.id })
+    else if (!protection.directTrunkFeeder) continue
     if (protection.circuits) {
       for (const circuit of protection.circuits) {
         for (const d of circuit.trunkDevices ?? []) {
@@ -1191,7 +1195,7 @@ export function getDefaultPanelGridModuleRefs(
       }
     }
   }
-  for (const circuit of panel.circuits) {
+  for (const circuit of getPanelModuleItems(panel).circuits) {
     for (const d of circuit.trunkDevices ?? []) {
       if (!trunkDeviceCanAppearInPanelGrid(d)) continue
       refs.push({ kind: 'trunkDevice', id: d.id, scope: 'circuit', circuitId: circuit.id })
@@ -1217,15 +1221,12 @@ export function getDefaultPanelGridModuleRefs(
       existingKeys.add(key)
     }
   }
-  // Relays, meters and domotica modules may hang in another panel or a virtual enclosure.
+  // Relays, meters, domotica modules and supply tap breakers may hang in another panel or a virtual enclosure.
   const panelIds = context.panelIds
   const remountedKeys = new Set<string>()
   for (const occurrence of context.remountable) {
     if (!getCircuitModuleMounting(occurrence.entity)) continue
-    const ref: PanelGridModuleRef =
-      occurrence.form === 'device'
-        ? { kind: 'trunkDevice', id: occurrence.entity.id, scope: 'circuit', circuitId: occurrence.circuit.id }
-        : { kind: 'domotica', endpointId: occurrence.entity.id, circuitId: occurrence.circuit.id }
+    const ref = circuitModuleRef(occurrence)
     const key = panelGridModuleRefKey(ref)
     const enclosure = resolveCircuitModuleEnclosure(occurrence.entity, occurrence.ownerPanel.id, {
       panelIds,
@@ -1915,37 +1916,6 @@ export function collectDomoticaEndpointIdsForDeletion(
  *
  * Must be called inside an immer mutation callback so all changes are tracked.
  */
-export function migrateCircuitContentToParent(circuit: Circuit, parentCircuit: Circuit): void {
-  // Move endpoints back to parent
-  if (circuit.endpoints.length > 0) {
-    parentCircuit.endpoints.push(...circuit.endpoints)
-  }
-
-  // Move branches back to parent
-  if (circuit.branches && circuit.branches.length > 0) {
-    if (!parentCircuit.branches) parentCircuit.branches = []
-    parentCircuit.branches.push(...circuit.branches)
-  }
-
-  // Move trunk devices back to parent
-  if (circuit.trunkDevices && circuit.trunkDevices.length > 0) {
-    if (!parentCircuit.trunkDevices) parentCircuit.trunkDevices = []
-    parentCircuit.trunkDevices.push(...circuit.trunkDevices)
-  }
-
-  // Move sub-subcircuit references back to parent
-  if (circuit.subCircuitIds && circuit.subCircuitIds.length > 0) {
-    if (!parentCircuit.subCircuitIds) parentCircuit.subCircuitIds = []
-    parentCircuit.subCircuitIds.push(...circuit.subCircuitIds)
-  }
-
-  // Remove this circuit from parent's subCircuitIds list
-  if (parentCircuit.subCircuitIds) {
-    const idx = parentCircuit.subCircuitIds.indexOf(circuit.id)
-    if (idx !== -1) parentCircuit.subCircuitIds.splice(idx, 1)
-  }
-}
-
 /**
  * Remove a circuit from its parent's chain while promoting its direct children
  * into the same position. Circuit content stays with the removed circuit and
@@ -1980,14 +1950,15 @@ export function promoteCircuitSubcircuitsToParent(circuit: Circuit, parentCircui
 /**
  * When deleting a protection whose circuit is a subcircuit of another circuit,
  * move the subcircuit's content back into the parent circuit so nothing is lost.
- * Also transfers subPanelId back to the parent protection if applicable.
+ * Transfers a panel link only if the parent protection can carry it.
  *
  * Must be called BEFORE the protection is actually removed from the panel,
  * inside an immer mutation callback so all changes are tracked.
  */
 export function migrateSubCircuitContentToParent(
   protection: ProtectionDevice,
-  panels: Panel[]
+  panels: Panel[],
+  electricalDevices?: ElectricalDeviceV2[]
 ): void {
   if (!protection.circuits) return
 
@@ -1995,8 +1966,10 @@ export function migrateSubCircuitContentToParent(
     const parentInfo = findParentCircuitInfo(circuit.id, panels)
     if (!parentInfo) continue // not a subcircuit — nothing to migrate
 
-    if (protection.subPanelId && parentInfo.parentProtection) {
-      parentInfo.parentProtection.subPanelId = protection.subPanelId
+    const parentProtection = parentInfo.parentProtection
+    if (protection.subPanelId && parentProtection) {
+      if (parentProtection.subPanelId && parentProtection.subPanelId !== protection.subPanelId) continue
+      parentProtection.subPanelId = protection.subPanelId
       const targetPanel = findPanelById(panels, protection.subPanelId)
       const ownPanelEndpoint = targetPanel
         ? findPanelOwnDistributionEndpoint(targetPanel)
@@ -2011,14 +1984,12 @@ export function migrateSubCircuitContentToParent(
           placements: [],
         })
       }
-      parentInfo.parentProtection.circuits ??= []
-      if (!parentInfo.parentProtection.circuits.some((candidate) => candidate.id === circuit.id)) {
-        parentInfo.parentProtection.circuits.push(circuit)
-      }
+      const parentCircuits = (parentProtection.circuits ??= [])
+      if (!parentCircuits.some((candidate) => candidate.id === circuit.id)) parentCircuits.push(circuit)
       continue
     }
 
-    migrateCircuitContentToParent(circuit, parentInfo.parentCircuit)
+    migrateCircuitContentToParent(circuit, parentInfo.parentCircuit, electricalDevices)
   }
 }
 

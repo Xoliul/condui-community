@@ -1,3 +1,4 @@
+import { hasOneWireRisers } from '@/lib/eendraad/oneWireRisers'
 import { getCircuitBranches } from '@/lib/layout/endpointChains'
 import { getPortDomainsForSymbol, resolveSymbolPortsForWire } from '@/lib/symbols'
 import { DEFAULT_ELECTRICAL_DOMAIN } from '@/types/schema'
@@ -13,6 +14,7 @@ import type {
 import type { TFunction } from 'i18next'
 import { getSupplyFeedDevicesForPanel } from '@/lib/feedTopology'
 import { findPanelById } from '@/lib/panel/panelTree'
+import { isStructuralCarrierProtection } from '@/lib/eendraad/structuralCarrier'
 import {
   type DropBehaviorProject,
   type DropBehaviorCallbacks,
@@ -36,8 +38,7 @@ export function getOrderedTrunkDevices(circuit: Circuit): TrunkDevice[] {
 export function isEmptyProtectionCircuitForDcDrop(protection: ProtectionDevice): boolean {
   if (
     protection.subPanelId ||
-    protection.directPanelFeeder ||
-    protection.directDcBusFeeder ||
+    isStructuralCarrierProtection(protection) ||
     protection.circuits?.length !== 1
   ) {
     return false
@@ -82,6 +83,8 @@ export function getSupplyDevicesForDropTarget(
 }
 
 export function getCircuitTrunkPositionForDrop(target: DropTarget, circuit: Circuit): number {
+  // A circuit with risers keeps every trunk device on the shared part under the split.
+  if (hasOneWireRisers(circuit)) return 0
   if (target.insertAfterCircuitContent) {
     return Math.max(
       getCircuitBranches(circuit).length,

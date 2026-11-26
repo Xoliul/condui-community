@@ -33,11 +33,14 @@ export function isDomoticaPanelFeedEndpoint(
     endpoint.domoticaChildProps.outputGroup === 'endpoint'
 }
 
+export function protectionFeedsPanel(protection: ProtectionDevice): boolean {
+  return !!protection.subPanelId ||
+    (protection.circuits ?? []).some((circuit) => circuit.endpoints.some(isDomoticaPanelFeedEndpoint))
+}
+
 export function isPanelDistributionEndpointForPanel(endpoint: Endpoint, panel: Panel): boolean {
-  return (
-    endpoint?.symbol === 'panel_distribution' &&
-    (endpoint.panelId === panel.id || endpoint.label === panel.name)
-  )
+  return endpoint?.symbol === 'panel_distribution' &&
+    (endpoint.panelId ? endpoint.panelId === panel.id : endpoint.label === panel.name)
 }
 
 export function findPanelDistributionEndpointInCircuit(

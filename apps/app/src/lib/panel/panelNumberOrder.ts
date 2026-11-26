@@ -1,5 +1,6 @@
 import type { Installation, Panel } from '@/types/schema'
 import { buildPanelCodesById, resolveLabelScheme } from '@/lib/eendraad/labelScheme'
+import { isBoardPanel, isVirtualPanel } from '@/lib/supplyTaps/virtualPanel'
 
 /**
  * Board order for lists and exports. Automatic numbers follow the panel tree, but typed
@@ -55,10 +56,12 @@ export function comparePanelCodes(left: string, right: string): number {
   return a.length - b.length
 }
 
-function treeEntries(rootPanels: readonly Panel[]): OrderedPanelTreeEntry[] {
+/** Virtual boards (supply taps) are listed only for exports, which keep them after their owner. */
+function treeEntries(rootPanels: readonly Panel[], includeVirtual = false): OrderedPanelTreeEntry[] {
   const entries: OrderedPanelTreeEntry[] = []
   const visit = (panels: readonly Panel[], parent: Panel | null, depth: number) => {
     for (const panel of panels) {
+      if (!includeVirtual && isVirtualPanel(panel)) continue
       entries.push({ panel, depth, parent })
       visit(panel.subPanels ?? [], panel, depth + 1)
     }
@@ -74,7 +77,7 @@ function createPanelNumberComparator(
 ): ((left: Panel, right: Panel) => number) | null {
   if (!installation?.panelNumberingEnabled) return null
   const codes = buildPanelCodesById(rootPanels, resolveLabelScheme(installation.labelScheme))
-  const treeIndex = new Map(treeEntries(rootPanels).map(({ panel }, index) => [panel.id, index]))
+  const treeIndex = new Map(treeEntries(rootPanels, true).map(({ panel }, index) => [panel.id, index]))
   return (left, right) =>
     comparePanelCodes(codes.get(left.id)?.code ?? '', codes.get(right.id)?.code ?? '') ||
     (treeIndex.get(left.id) ?? 0) - (treeIndex.get(right.id) ?? 0)
@@ -92,7 +95,7 @@ export function orderPanelTreeByNumber(
   if (!compare) return treeEntries(rootPanels)
   const entries: OrderedPanelTreeEntry[] = []
   const visit = (panels: readonly Panel[], parent: Panel | null, depth: number) => {
-    for (const panel of [...panels].sort(compare)) {
+    for (const panel of [...panels].filter(isBoardPanel).sort(compare)) {
       entries.push({ panel, depth, parent })
       visit(panel.subPanels ?? [], panel, depth + 1)
     }
@@ -110,7 +113,7 @@ export function orderPanelsByNumber(
   installation: PanelNumberOrderInstallation
 ): Panel[] {
   const compare = createPanelNumberComparator(rootPanels, installation)
-  if (!compare) return treeEntries(rootPanels).map(({ panel }) => panel)
+  if (!compare) return treeEntries(rootPanels, true).map(({ panel }) => panel)
   const ordered: Panel[] = []
   const available = [...rootPanels]
   while (available.length > 0) {

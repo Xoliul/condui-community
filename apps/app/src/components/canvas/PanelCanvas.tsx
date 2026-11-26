@@ -26,7 +26,6 @@ import { useJunctionEditorMenu } from '@/components/junctionEditor/junctionEdito
  */
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle } from 'lucide-react'
 import { Group, Rect, Line } from 'react-konva'
 import Konva from 'konva'
 import type { BaseCanvasHandle } from './BaseCanvas'
@@ -75,7 +74,7 @@ import {
   isSharedSupplyTrunkRef,
   validatePanelRewireOperation,
 } from '@/lib/panel/panelRewire'
-import { getCachedPanelOverflowCount } from '@/lib/panel/panelCanvasReadCache'
+import { PanelOverflowNotice } from './panel/PanelOverflowNotice'
 import type { PanelGridSlot, PanelGridModuleRef, Circuit, Panel } from '@/types/schema'
 import type { ProjectState } from '@/stores/projectStore'
 import type { PanelCanvasMode, Selection as CanvasSelection } from '@/types/ui'
@@ -459,16 +458,10 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
     if (!panel || !currentProject) return []
     return getPanelGridPlacements(panel, currentProject, mainModules)
   }, [panel, currentProject, mainModules])
-  const overflowModuleCount = useMemo(() => {
-    if (!panel || !currentProject) return 0
-    const visiblePanels =
-      effectivePanelCanvasMode.kind === 'all'
-        ? panelList.map((panelOption) => panelOption.panel)
-        : [panel]
-    return visiblePanels.reduce((count, visiblePanel) => {
-      return count + getCachedPanelOverflowCount(currentProject, visiblePanel, getPanelGridModules)
-    }, 0)
-  }, [currentProject, effectivePanelCanvasMode, getPanelGridModules, panel, panelList])
+  const overflowNoticePanels = useMemo(
+    () => (effectivePanelCanvasMode.kind === 'all' ? panelList.map((option) => option.panel) : panel ? [panel] : []),
+    [effectivePanelCanvasMode, panel, panelList]
+  )
   const supplyPlacements = useMemo(() => {
     if (!panel || !currentProject) return []
     return getSupplyPanelPlacements(panel, currentProject, supplyModules)
@@ -2144,21 +2137,7 @@ export default function PanelCanvas({ onMultiFingerSwipe, capabilities }: PanelC
   return (
     <CanvasOverlayScaleProvider containerRef={containerRef}>
       <div ref={containerRef} className="relative w-full h-full" data-1p-ignore data-op-ignore>
-        {overflowModuleCount > 0 ? (
-          <div
-            role="alert"
-            data-testid="panel-canvas-overflow-warning"
-            className="pointer-events-none absolute left-1/2 top-3 z-[100] flex max-w-[min(34rem,calc(100%-7rem))] -translate-x-1/2 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md border border-amber-300 bg-amber-50/95 px-3 py-1.5 text-left text-amber-950 shadow-md dark:border-amber-700 dark:bg-amber-950/90 dark:text-amber-50"
-          >
-            <AlertTriangle
-              className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300"
-              aria-hidden
-            />
-            <span className="truncate text-xs font-semibold">
-              {t('panelCanvas.overflowWarningTitle')}
-            </span>
-          </div>
-        ) : null}
+        <PanelOverflowNotice project={currentProject} panels={overflowNoticePanels} getPanelGridModules={getPanelGridModules} />
         <HierarchyPanelCanvas
           canvasRef={canvasRef}
           currentProject={currentProject}

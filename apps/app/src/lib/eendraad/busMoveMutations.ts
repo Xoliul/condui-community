@@ -18,6 +18,7 @@ import {
 } from '@/lib/eendraad/projectElectricalDomain'
 import { getEditableProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { getMainBusInsertionSectionId } from '@/lib/panel/panelBusSections'
+import { protectionFeedsPanel } from '@/lib/eendraad/panelSupplyLink'
 import { findPanelById } from '@/lib/panel/panelTree'
 import { getVoltagePolesConfig } from '@/lib/protectionDefaults'
 import type { ProjectV2 } from '@/types/projectV2'
@@ -123,6 +124,7 @@ export function checkProtectionBusDrop(
   if (protectionDropHitsSource(protection, target)) return 'drop_hits_source'
 
   if (target.type === 'supplyWire') {
+    if (protectionFeedsPanel(protection)) return 'panel_feeder_cannot_be_promoted'
     const targetPanel = target.panelId ? findPanelById(panels, target.panelId) : undefined
     const panelCircuit = targetPanel?.circuits.find((circuit) => circuit.code === 'PANEL')
     const incoming = (panelCircuit?.trunkDevices ?? []).find(
@@ -155,8 +157,13 @@ export function checkProtectionBusDrop(
     const targetPanel = findPanelById(panels, target.panelId)
     const rcd = targetPanel?.protections.find((candidate) => candidate.id === target.protectionId)
     if (!targetPanel || !rcd || (rcd.type !== 'RCD' && rcd.type !== 'RCBO')) return 'rcd_not_found'
-    if (sourcePanel.id !== targetPanel.id) return 'wrong_panel'
+    if (sourcePanel.id !== targetPanel.id && protectionFeedsPanel(protection))
+      return 'panel_feeder_cannot_move_to_secondary_bus'
+    if (sourcePanel.id === targetPanel.id && target.protectionId === protection.id)
+      return 'drop_hits_source'
     const anchor = (rcd.circuits ?? []).find((circuit) => circuit.id !== circuitId)
+    if (!anchor) return 'rcd_has_no_secondary_bus_anchor'
+    if (anchor && isCircuitDescendant(project, circuitId, anchor.id)) return 'circuit_cycle'
     const itemCount = target.secondaryBusItemCount ?? anchor?.subCircuitIds?.length ?? 0
     if (target.secondaryBusInsertIndex > itemCount) return 'secondary_bus_index_out_of_range'
     return null
@@ -165,7 +172,8 @@ export function checkProtectionBusDrop(
   const targetPanel = target.panelId ? findPanelById(panels, target.panelId) : undefined
   const anchorCircuit = targetPanel && findCircuitOnPanel(targetPanel, target.circuitId)
   if (!targetPanel || !anchorCircuit) return 'circuit_not_in_target_panel'
-  if (sourcePanel.id !== targetPanel.id) return 'wrong_panel'
+  if (sourcePanel.id !== targetPanel.id && protectionFeedsPanel(protection))
+    return 'panel_feeder_cannot_move_to_secondary_bus'
   if (target.circuitId === circuitId && target.insertAfterCircuitContent === true) return null
   if (isCircuitDescendant(project, circuitId, target.circuitId)) return 'circuit_cycle'
   if (target.protectionId) {
@@ -256,6 +264,8 @@ export function moveProtectionToSupplyWireInProject(
   const panelCircuit = targetPanel?.circuits.find((circuit) => circuit.code === 'PANEL')
   if (!sourcePanel || !targetPanel || targetPanel.isMain || !protection || !panelCircuit)
     return false
+  // Converting the protection to a trunk device discards its structural panel links.
+  if (protectionFeedsPanel(protection)) return false
   const incoming = (panelCircuit.trunkDevices ?? []).find((device) => device.type === 'protection')
   if (incoming && incoming.id !== protectionId) return false
 
@@ -315,6 +325,26 @@ export function moveProtectionOnBusInProject(
     return { changed, circuitId }
   }
 
+  const secondaryBusPanelId =
+    target.type === 'rcd' ||
+    (target.type === 'circuit' && typeof target.secondaryBusInsertIndex === 'number')
+      ? target.panelId
+      : undefined
+  if (secondaryBusPanelId && secondaryBusPanelId !== sourcePanel.id) {
+    const targetPanel = findPanelById(panels, secondaryBusPanelId)
+    if (!targetPanel || protectionFeedsPanel(protection))
+      return { changed: false, circuitId, reason: 'panel_feeder_cannot_move_to_secondary_bus' }
+    relocateProtectionToPanelMainBus(
+      sourcePanel,
+      targetPanel,
+      protection,
+      getMainBusItemsWithIndices(targetPanel).length
+    )
+    syncLinkedSubPanelHierarchy(project)
+    dedupePanelProtectionsInPanelTree(sourcePanel)
+    dedupePanelProtectionsInPanelTree(targetPanel)
+  }
+
   if (target.type === 'rcd' && target.panelId && target.protectionId) {
     const targetPanel = findPanelById(panels, target.panelId)!
     const rcd = targetPanel.protections.find((candidate) => candidate.id === target.protectionId)
@@ -333,6 +363,8 @@ export function moveProtectionOnBusInProject(
       insertIndex
     )
     if (!moved) return { changed: false, reason: 'invalid_rcd_move' }
+    if (sourcePanel.id !== targetPanel.id)
+      maybeApplyAutomaticEendraadNamingForPanel(project, sourcePanel.id)
     maybeApplyAutomaticEendraadNamingForPanel(project, targetPanel.id)
     return { changed: true, circuitId }
   }
@@ -385,6 +417,8 @@ export function moveProtectionOnBusInProject(
         insertIndex
       )
       if (!moved) return { changed: false }
+      if (sourcePanel.id !== targetPanel.id)
+        maybeApplyAutomaticEendraadNamingForPanel(project, sourcePanel.id)
       maybeApplyAutomaticEendraadNamingForPanel(project, targetPanel.id)
       return { changed: true, circuitId }
     }
@@ -414,6 +448,8 @@ export function moveProtectionOnBusInProject(
       insertIndex,
       { insertBeforeCircuitContent }
     )
+    if (changed.changed && sourcePanel.id !== targetPanel.id)
+      maybeApplyAutomaticEendraadNamingForPanel(project, sourcePanel.id)
     return { changed: changed.changed, circuitId }
   }
 

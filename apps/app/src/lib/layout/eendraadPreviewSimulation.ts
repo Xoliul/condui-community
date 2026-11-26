@@ -1,21 +1,15 @@
 import { nanoid } from 'nanoid'
+import { getRiserTargetFields, insertRootBranch, hasOneWireRisers, isProtectionDropOnRiserCircuit, normalizeCircuitStems } from '@/lib/eendraad/oneWireRisers'
 import { isSavedForkMove, simulateSavedForkMove } from './simulateSavedForkMove'
 import { hideInlineConverterMetadataByDefault } from '@/lib/conversionLabels'
-import type {
-  Panel,
-  Circuit,
-  Endpoint,
-  TrunkDevice,
-  ProtectionDevice,
-  Branch,
-} from '@/types/schema'
+import type { Panel, Circuit, Endpoint, TrunkDevice, ProtectionDevice, Branch } from '@/types/schema'
 import {
   canDropDcBusOnTarget,
   canDropSymbolOnSupplyConverterDcWire,
   dropBehaviors,
   isEmptyProtectionCircuitForDcDrop,
 } from '@/lib/eendraad/dropBehaviors'
-import { symbolSupportsWireDomain, type SymbolMetadata } from '@/lib/symbols'
+import { resolveSymbolPortsForWire, symbolSupportsWireDomain, type SymbolMetadata } from '@/lib/symbols'
 import type { DropTarget } from '@/lib/layout/findDropTarget'
 import {
   circuitAcceptsTrunkSwitch,
@@ -30,7 +24,6 @@ import {
   normalizeDomoticaChildDropIntent,
   shouldDefaultRelayToImpulse,
 } from '@/lib/eendraad/endpointInsertAfter'
-import { resolveSymbolPortsForWire } from '@/lib/symbols'
 import { getNextAvailableCircuitCode } from '@/utils/project'
 import {
   getDefaultProtectionProps,
@@ -111,7 +104,8 @@ import { ProjectCommandRegistry } from '@/lib/commands/project/registry'
 import { applyCommandBatch } from '@/lib/commands/project/transaction'
 import { CommandError } from '@/lib/commands/project/types'
 import type { ElectricalEnclosureRef } from '@/types/supplyAssembly'
-
+import { previewsDirectTrunkFeederDropByCommand } from '@/lib/eendraad/directTrunkFeeder'
+import { placesConverterOutputDevice } from '@/lib/eendraad/converterOutputDevices'
 import {
   circuitIsTerminalPanelFeederSim,
   countPanelsSim,
@@ -125,6 +119,7 @@ import {
   type EendraadPreviewChangeSet,
   type PreviewProject,
 } from './eendraadPreviewModel'
+import { isDropAfterHorizontalDomoticaInProject } from './horizontalDomoticaDropGuard'
 import { getCircuitTrunkPositionForDropSim, getWireDomainAtDropTargetSim } from './eendraadPreviewWireDomain'
 import {
   simulateEarthingStemDrop,
@@ -458,14 +453,14 @@ function simulateEndpointDrop(
       : insertAfterEndpointId === null
         ? Math.max(0, anchorBranchIndex)
         : Math.max(0, anchorBranchIndex + 1)
-    const nextBranches = [...branchesSansNewEndpoint]
-    nextBranches.splice(clamp(insertionIndex, 0, nextBranches.length), 0, {
+    // Same insertion as the commit (dropBehaviors.ts), including the cable run of a riser slot or a new riser.
+    circuit.branches = insertRootBranch(branchesSansNewEndpoint, {
       id: generateId(),
       label: '',
       endpointIds: [endpointId],
       ...(target.dcBusId ? { dcBusId: target.dcBusId } : {}),
-    })
-    circuit.branches = nextBranches
+    }, clamp(insertionIndex, 0, branchesSansNewEndpoint.length), getRiserTargetFields(target))
+    normalizeCircuitStems(circuit)
   } else if (branchEndpointIds?.length) {
     const targetBranch = branches.find((b) =>
       b.endpointIds.some((id) => branchEndpointIds.includes(id))
@@ -906,7 +901,7 @@ export function simulateProtectionRelocationOnProject(
   moving: { protectionId: string; circuitId: string },
   target: DropTarget
 ): EendraadPreviewChangeSet | null {
-  if (target.type !== 'circuit' || !target.circuitId || !target.panelId) return null
+  if (target.type !== 'circuit' || !target.circuitId || !target.panelId || hasOneWireRisers(findCircuitInProject(project, target.circuitId) ?? {})) return null // nesting into a riser circuit is refused
   const cloned = cloneProject(project)
   const panel = findPanelById(mutableProjectPanels(cloned), target.panelId)
   if (!panel) return null
@@ -1132,7 +1127,7 @@ export function mutateTrunkDeviceRelocation(
 
   if (
     isCircuitTrunkSwitchSymbol(device.symbol) &&
-    typeof target.circuitTrunkBranchSlot === 'number' &&
+    typeof target.circuitTrunkBranchSlot === 'number' && !hasOneWireRisers(targetCircuit) &&
     afterContentPosition === undefined
   ) {
     // A trunk switch moves to the branch gap under the pointer; the other devices keep
@@ -1336,7 +1331,8 @@ export function simulateDropOnProject(
   symbol: SymbolMetadata,
   target: DropTarget
 ): EendraadPreviewChangeSet | null {
-  if (!project) return null
+  // A protection on a circuit with risers is refused by the command: no preview either.
+  if (!project || isDropAfterHorizontalDomoticaInProject(project, target) || (target.circuitId && isProtectionDropOnRiserCircuit(symbol.id, target, findCircuitInProject(project, target.circuitId)))) return null
   if (isConversionTrunkSymbolId(symbol.id) && target.circuitId) {
     const circuit = findCircuitInProject(project, target.circuitId)
     if (circuit) target = resolveDomoticaConversionDropTarget(circuit, target)
@@ -1367,8 +1363,8 @@ export function simulateDropOnProject(
     endpoint.domoticaChildProps.parentEndpointId === outputRef?.parentEndpointId &&
     endpoint.domoticaChildProps.outputIndex === outputRef.outputIndex &&
     endpoint.domoticaChildProps.outputGroup === outputRef.outputGroup)
-  if (isProjectV2(project) && (target.forkAfterEndpointId || target.forkBranchId || symbol.searchPreset || (outputRef && (symbol.id === 'panel_distribution' || rowFeedsBoard)))) {
-    // Forks and output-fed boards preview the real placement command.
+  if (isProjectV2(project) && (target.forkAfterEndpointId || target.forkBranchId || symbol.searchPreset || (outputRef && (symbol.id === 'panel_distribution' || rowFeedsBoard)) || previewsDirectTrunkFeederDropByCommand(project, symbol.id, target) || placesConverterOutputDevice(symbol.id, target))) {
+    // Forks, output-fed boards, directly wired meters and converter-output devices preview the real placement command.
     outputPlacementRegistry ??= new ProjectCommandRegistry().register(electricalPlaceSymbol)
     try {
       const placed = applyCommandBatch(project, outputPlacementRegistry.parse([

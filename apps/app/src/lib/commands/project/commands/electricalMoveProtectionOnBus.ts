@@ -12,7 +12,8 @@ import type { ProjectV2 } from '@/types/projectV2'
 import { CommandError, defineProjectCommand, type EntityRef } from '../types'
 import { getEditableProjectElectricalPanels } from '@/lib/projectV2/electrical'
 import { getAllCircuits } from '@/lib/eendraad/projectElectricalDomain'
-import { findPanelById } from '@/lib/panel/panelTree'
+import { collectCircuits, findPanelById, walkPanels } from '@/lib/panel/panelTree'
+import { checkRiserProtectionMove } from '../riserTargetCheck'
 import { getMainBusItemsWithIndices } from '@/lib/eendraad/mainBusOrder'
 import {
   findPanelOwningProtection,
@@ -142,6 +143,12 @@ export const electricalMoveProtectionOnBus = defineProjectCommand({
   input: protectionDropSchema,
   check(project, rawInput) {
     const input = withAppendPositions(project, rawInput)
+    if (input.kind === 'protectionDrop' || input.kind === 'protectionSelectionDrop' || input.kind === 'secondaryBus') {
+      const circuits = [...walkPanels(getEditableProjectElectricalPanels(project))].flatMap(collectCircuits)
+      const riser = checkRiserProtectionMove((id) => circuits.find((circuit) => circuit.id === id),
+        input.kind === 'secondaryBus' ? { parentCircuitId: input.parentCircuitId } : { target: input.target })
+      if (!riser.ok) return riser
+    }
     if (input.kind === 'promoteCircuit') {
       const panel = findPanelById(getEditableProjectElectricalPanels(project), input.panelId)
       if (!panel) return { ok: false, code: 'panel_not_found', message: 'Panel not found' }

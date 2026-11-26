@@ -3,6 +3,7 @@ import { DEFAULT_PANEL_GRID_COLUMNS, DEFAULT_PANEL_GRID_ROWS } from '@/lib/panel
 import { MIN_PANEL_GRID_MODULE_WIDTH } from '@/lib/panel/panelGridUnits'
 import { findPanelById } from '@/lib/panel/panelTree'
 import {
+  circuitModuleRef,
   collectPanelIds,
   getOwnPanelCircuits,
   isCircuitModuleBehindJunctionPanel,
@@ -30,23 +31,13 @@ import type { AuxiliaryElectricalEnclosure } from '@/types/supplyAssembly'
 const MIN_ENCLOSURE_COLUMNS = 12
 const DEFAULT_ENCLOSURE_COLUMNS = 18
 
-export function circuitModuleRef(occurrence: CircuitModuleOccurrence): PanelGridModuleRef {
-  return occurrence.form === 'device'
-    ? {
-        kind: 'trunkDevice',
-        id: occurrence.entity.id,
-        scope: 'circuit',
-        circuitId: occurrence.circuit.id,
-      }
-    : { kind: 'domotica', endpointId: occurrence.entity.id, circuitId: occurrence.circuit.id }
-}
+export { circuitModuleRef }
 
 export function findRemountableCircuitModule(
   project: ProjectWithOptionalV2Electrical,
   ref: PanelGridModuleRef
 ): CircuitModuleOccurrence | undefined {
-  if (ref.kind === 'protection' || (ref.kind === 'trunkDevice' && ref.scope !== 'circuit'))
-    return undefined
+  if (ref.kind === 'trunkDevice' && ref.scope !== 'circuit') return undefined
   const key = panelGridModuleRefKey(ref)
   return listRemountableCircuitModules(getProjectElectricalPanels(project)).find(
     (occurrence) => panelGridModuleRefKey(circuitModuleRef(occurrence)) === key

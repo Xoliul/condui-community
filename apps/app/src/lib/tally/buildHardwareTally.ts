@@ -36,6 +36,7 @@ import {
 } from '@/lib/projectV2/electrical'
 import type { Selection } from '@/types/ui'
 import { skipSupplyPanelItems } from './skipSupplyPanelItems'
+import { isStructuralCarrierProtection } from '@/lib/eendraad/structuralCarrier'
 import {
   classifyEtimProtection,
   classifyEtimEndpoint,
@@ -737,7 +738,7 @@ export function buildHardwareTally(
   }
   for (const panel of panels) {
     for (const pr of panel.protections ?? []) {
-      addProtection(pr, false, panel)
+      if (!isStructuralCarrierProtection(pr)) addProtection(pr, false, panel)
     }
   }
   for (const d of getAllSupplyTrunkDevices(project)) {
@@ -1379,7 +1380,7 @@ export function buildHardwareTally(
       segment.fromElementType === 'ground'
         ? `ground:${segment.panelId}`
         : segment.circuitId
-          ? `circuit:${circuitOwnerKey(segment.panelId, segment.circuitId)}`
+          ? `circuit:${circuitOwnerKey(segment.panelId, segment.circuitId)}${segment.riserStem ? `:riser-${segment.riserStem}` : ''}` // a manual riser is its own cable run
           : `segment:${segment.id}`
     logicalWireRuns.set(`${logicalKey}:${segment.wireMaterial ?? 'copper'}`, [...(logicalWireRuns.get(`${logicalKey}:${segment.wireMaterial ?? 'copper'}`) ?? []), segment])
   }

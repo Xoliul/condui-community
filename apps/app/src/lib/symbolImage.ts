@@ -29,6 +29,7 @@ import {
 } from '@/lib/symbols'
 import { PLAN_GRAPHIC_ELEMENT_ASSETS } from '@/lib/plan/graphicElements'
 import { getConverterArtworkCatalogPaths } from '@/lib/converterArtwork'
+import { resolveProtectionSvgPath } from '@/lib/detailedProtectionSymbols'
 
 const blobUrlCache = new Map<string, string>()
 /**
@@ -370,8 +371,13 @@ async function mapWithConcurrency<T>(
 export async function warmSymbolSvgCache(options?: {
   isDark?: boolean
   bothThemes?: boolean
+  /** Warm the detailed protection drawings instead of the simple ones. */
+  detailedProtectionSymbols?: boolean
 }): Promise<void> {
-  const paths = getAllSymbolSvgPaths()
+  const detailed = options?.detailedProtectionSymbols === true
+  const paths = Array.from(
+    new Set(getAllSymbolSvgPaths().map((path) => resolveProtectionSvgPath(path, detailed)))
+  )
   const themes = options?.bothThemes === true ? [true, false] : [options?.isDark ?? false]
 
   await mapWithConcurrency(

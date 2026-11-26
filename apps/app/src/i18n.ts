@@ -76,7 +76,16 @@ export const i18nReady = i18n
     },
   })
 
-setDomainLanguage(i18n.language)
-i18n.on('languageChanged', (language) => setDomainLanguage(language))
+function syncActiveLanguage(language: string | undefined): void {
+  const normalizedLanguage = normalizeDomainLanguage(language)
+  setDomainLanguage(normalizedLanguage)
+  if (typeof document !== 'undefined' && document.documentElement) {
+    document.documentElement.lang = normalizedLanguage
+  }
+}
+
+syncActiveLanguage(i18n.language)
+i18n.on('languageChanged', syncActiveLanguage)
+void i18nReady.then(() => syncActiveLanguage(i18n.language))
 
 export default i18n

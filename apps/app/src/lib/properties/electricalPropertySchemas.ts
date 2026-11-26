@@ -250,7 +250,8 @@ export const extraElectricalActionSchema = z.discriminatedUnion('kind', [
       entityId: z.string().min(1),
       stripId: z.string(),
       incomingPin: z.number().int().positive(),
-      outgoingPin: z.number().int().positive(),
+      /** Accepted for older callers; a terminal has one number, so it equals incomingPin. */
+      outgoingPin: z.number().int().positive().optional(),
     })
     .strict(),
   z
@@ -281,6 +282,13 @@ export const extraElectricalActionSchema = z.discriminatedUnion('kind', [
       kind: z.literal('changeoverGridSource'),
       panelId: z.string().min(1),
       source: z.enum(['grid', 'converter-input']),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('supplyTapMode'),
+      entityId: z.string().min(1),
+      mode: z.enum(['inline', 'tap']),
     })
     .strict(),
   z
@@ -320,6 +328,7 @@ export function isExtraElectricalAction(action: { kind: string }): action is Ext
     'panelFeedOrganization',
     'panelBusFeedBoundary',
     'changeoverGridSource',
+    'supplyTapMode',
     'auxiliaryPlanVisibility',
     'wireCableDefault',
     'resizeConverter',

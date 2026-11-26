@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect, useRef, type MutableRefObject, type SetStateAction } from 'react'
+import { normalizeBusFeedSupplyFrameDrop } from '@/lib/layout/supplyFrameRole'
 import { protectionDropTargetHitsSource } from '@/lib/eendraad/eendraadAltDragDuplicate'
 import { PROTECTION_SYMBOL_IDS } from '@/lib/protectionKind'
 import { getEndpointTypeFromSymbol } from '@/utils'
 import type { SymbolMetadata } from '@/lib/symbols'
+import { isHorizontalDomoticaPreset } from '@/lib/library/libraryPresets'
 import type { DropTarget, FindDropTargetOptions } from '@/lib/layout/findDropTarget'
 import type { ProtectionDevice } from '@/types/schema'
 import type { Point } from '@/types/ui'
@@ -210,6 +212,7 @@ export function useEendraadDragPreview(
               preferMainBusOverSupplyWire: prefersMainBus,
               preferSecondaryBusForNestedProtection: isProtectionPlacement,
               preferDomoticaEndpointOutput: symbol.id === 'panel_distribution',
+              ...(isHorizontalDomoticaPreset(symbol.id, symbol.searchPreset) ? { placingHorizontalDomotica: true } : {}),
               ...(symbol.id === 'dc_bus' ? { preferCircuitTrunkWire: true } : {}),
               ...(symbol.id === 'source_changeover'
                 ? { normalizeDirectConverterChangeoverDrop: true }
@@ -219,15 +222,7 @@ export function useEendraadDragPreview(
 
       // Normalize generic panel-frame hits (type:null with panelId) for protection
       // devices so they behave exactly like drops on the main bus of that panel.
-      let dropTarget: DropTarget = rawDropTarget
-      if (
-        symbol.busFeedKind &&
-        rawDropTarget.type === null &&
-        rawDropTarget.panelId &&
-        rawDropTarget.diagramId?.endsWith('--supply')
-      ) {
-        dropTarget = { ...rawDropTarget, type: 'mainBus', mainBusInsertIndex: 0 }
-      }
+      let dropTarget: DropTarget = normalizeBusFeedSupplyFrameDrop(rawDropTarget, symbol)
       if (
         rawDropTarget.type === null &&
         rawDropTarget.panelId &&
